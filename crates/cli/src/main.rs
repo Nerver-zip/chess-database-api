@@ -1,20 +1,24 @@
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
+use std::hint::black_box;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
-use codb_core::{Collection, IngestionStats, ParsedGame, PositionKey};
+use codb_core::{Collection, IngestionCompletionStatus, IngestionStats, ParsedGame, PositionKey};
 use codb_curate::dedupe::{Deduplicator, DuplicateVerdict};
 use codb_curate::policy::{EliteOnlinePolicy, MastersOtbPolicy, PolicyVerdict};
 use codb_index::position::{
     compute_position_key, extract_game_positions, DiskPositionIndex, ImmutablePositionIndex,
     SqlitePositionIndex,
 };
-use codb_ingest::reader::{IngestError, ShakmatyGameVisitor};
+use codb_ingest::reader::{
+    build_pgn_reader, is_recoverable_pgn_syntax_error, resync_after_syntax_error, IngestError,
+    ShakmatyGameVisitor,
+};
 use codb_storage::format::{export_to_pgn, GameBlock};
-use pgn_reader::Reader;
 use serde::Serialize;
 use shakmaty::uci::UciMove;
 use shakmaty::{Chess, Position};
@@ -98,6 +102,7 @@ struct BenchmarkReport {
     input_size_bytes: u64,
     total_encountered: u64,
     accepted_unique: u64,
+    retained_canonical_games: usize,
     confirmed_duplicates: u64,
     superseded_prior: u64,
     rejected_by_policy: u64,
@@ -105,21 +110,26 @@ struct BenchmarkReport {
     rejected_illegal: u64,
     rejected_malformed: u64,
     quarantined: u64,
+    completion_status: IngestionCompletionStatus,
     is_reconciled: bool,
+    retained_matches_accepted: bool,
     transpositions_distinct: u64,
     import_duration_secs: f64,
     import_throughput_games_sec: f64,
     import_throughput_mb_sec: f64,
 
-    // Storage measurements
+    // Storage measurements (physically measured vs framing overhead)
     raw_pgn_bytes: u64,
     raw_bytes_per_game: f64,
     codb_block_compressed_bytes: u64,
+    codb_block_directory_bytes: u64,
+    codb_total_container_bytes: u64,
     codb_bytes_per_game: f64,
     compression_ratio: f64,
 
-    // Index measurements across depths
+    // Index measurements across depths (including direct depth 30)
     depth_20: IndexDepthStats,
+    depth_30: IndexDepthStats,
     depth_40: IndexDepthStats,
     depth_60: IndexDepthStats,
 
@@ -132,6 +142,8 @@ struct IndexDepthStats {
     depth_plies: usize,
     unique_positions: usize,
     unique_position_move_pairs: usize,
+    cpi_block_count: u32,
+    cpi_sparse_directory_bytes: usize,
     immutable_index_size_bytes: usize,
     sqlite_index_size_bytes: usize,
     index_build_duration_secs: f64,
@@ -139,6 +151,14 @@ struct IndexDepthStats {
 
 #[derive(Serialize)]
 struct LatencyMetrics {
+    cache_regime: String,
+    query_sample_count: usize,
+    frequent_keys_sampled: usize,
+    medium_keys_sampled: usize,
+    rare_keys_sampled: usize,
+    transposition_keys_sampled: usize,
+    miss_keys_sampled: usize,
+    semantic_equivalence_verified: bool,
     sqlite_disk_p50_us: f64,
     sqlite_disk_p95_us: f64,
     sqlite_disk_p99_us: f64,
@@ -148,6 +168,157 @@ struct LatencyMetrics {
     cpi_in_memory_p50_us: f64,
     cpi_in_memory_p95_us: f64,
     cpi_in_memory_p99_us: f64,
+}
+
+pub struct CuratedIngestionOutcome {
+    pub stats: IngestionStats,
+    pub accepted_games: Vec<ParsedGame>,
+    pub transpositions_distinct: u64,
+}
+
+/// Executes policy-filtered, deduplicated ingestion over a PGN stream.
+/// Fails closed (`Err`) on fatal I/O or decompression errors, and verifies accounting invariants.
+pub fn ingest_curated_stream<R: Read>(
+    reader: R,
+    collection: Collection,
+    max_games: Option<usize>,
+    log_progress: bool,
+) -> Result<CuratedIngestionOutcome> {
+    let mut pgn_reader = build_pgn_reader(reader);
+    let mut visitor = ShakmatyGameVisitor::new(collection, 1);
+    let mut dedupe = Deduplicator::new();
+    let mut stats = IngestionStats::default();
+
+    let masters_policy = MastersOtbPolicy::default();
+    let elite_policy = EliteOnlinePolicy::default();
+
+    let mut accepted_games: Vec<ParsedGame> = Vec::new();
+    let mut transpositions_distinct = 0u64;
+    let mut consecutive_syntax_errors = 0usize;
+    let mut count = 0u64;
+
+    loop {
+        match pgn_reader.read_game(&mut visitor) {
+            Ok(Some(result)) => {
+                consecutive_syntax_errors = 0;
+                stats.total_encountered += 1;
+                match result {
+                    Ok(game) => {
+                        let passes_policy = match collection {
+                            Collection::MastersOtb => {
+                                masters_policy.evaluate(&game) == PolicyVerdict::Accepted
+                            }
+                            Collection::EliteOnline => {
+                                elite_policy.evaluate(&game) == PolicyVerdict::Accepted
+                            }
+                        };
+                        if !passes_policy {
+                            stats.rejected_by_policy += 1;
+                        } else {
+                            match dedupe.evaluate(&game) {
+                                DuplicateVerdict::Unique => {
+                                    stats.accepted_unique += 1;
+                                    accepted_games.push(game);
+                                }
+                                DuplicateVerdict::TranspositionDifferentGame => {
+                                    stats.accepted_unique += 1;
+                                    transpositions_distinct += 1;
+                                    accepted_games.push(game);
+                                }
+                                DuplicateVerdict::ConfirmedDuplicate { .. } => {
+                                    stats.confirmed_duplicates += 1;
+                                }
+                                DuplicateVerdict::SupersedesPrevious { old_id, .. } => {
+                                    stats.superseded_prior += 1;
+                                    let pos = accepted_games
+                                        .iter()
+                                        .position(|g| g.metadata.id == old_id)
+                                        .with_context(|| {
+                                            format!(
+                                                "Superseded game ID {} not found in retained canonical games",
+                                                old_id
+                                            )
+                                        })?;
+                                    accepted_games[pos] = game;
+                                }
+                            }
+                        }
+                    }
+                    Err(IngestError::UnsupportedVariant(_))
+                    | Err(IngestError::NonStandardStartingPosition(_)) => {
+                        stats.rejected_variant += 1;
+                    }
+                    Err(IngestError::IllegalMove { .. }) => {
+                        stats.rejected_illegal += 1;
+                    }
+                    Err(IngestError::MalformedPgn(_)) => {
+                        stats.rejected_malformed += 1;
+                    }
+                    Err(other_err) => {
+                        return Err(anyhow::Error::from(other_err)
+                            .context("Fatal error during game ingestion"));
+                    }
+                }
+            }
+            Ok(None) => {
+                stats.completion_status = IngestionCompletionStatus::CompleteEof;
+                break;
+            }
+            Err(io_err) => {
+                if is_recoverable_pgn_syntax_error(&io_err) {
+                    stats.total_encountered += 1;
+                    stats.rejected_malformed += 1;
+                    if !resync_after_syntax_error(&mut pgn_reader, &mut consecutive_syntax_errors)
+                        .context("Failed to resynchronize PGN stream after syntax error")?
+                    {
+                        stats.completion_status = IngestionCompletionStatus::CompleteEof;
+                        break;
+                    }
+                } else {
+                    return Err(anyhow::Error::from(IngestError::Io(io_err))
+                        .context("Fatal I/O or decompression error while reading PGN stream"));
+                }
+            }
+        }
+
+        count += 1;
+        if let Some(max) = max_games {
+            if stats.accepted_unique as usize >= max {
+                stats.completion_status = IngestionCompletionStatus::PartialLimitReached;
+                break;
+            }
+        }
+
+        if log_progress && count.is_multiple_of(20000) {
+            println!(
+                "Encountered: {}, Accepted: {}, Policy Rejected: {}, Duplicates: {}, Illegal: {}",
+                stats.total_encountered,
+                stats.accepted_unique,
+                stats.rejected_by_policy,
+                stats.confirmed_duplicates,
+                stats.rejected_illegal
+            );
+        }
+    }
+
+    anyhow::ensure!(
+        stats.is_reconciled(),
+        "Ingestion accounting invariant violated: total_encountered ({}) != sum of categories ({})",
+        stats.total_encountered,
+        stats.reconciled_sum()
+    );
+    anyhow::ensure!(
+        stats.verify_retained_count(accepted_games.len()),
+        "Retained canonical game count ({}) does not match accepted_unique ({})",
+        accepted_games.len(),
+        stats.accepted_unique
+    );
+
+    Ok(CuratedIngestionOutcome {
+        stats,
+        accepted_games,
+        transpositions_distinct,
+    })
 }
 
 fn open_pgn_reader(path: &Path) -> Result<Box<dyn Read + Send>> {
@@ -176,104 +347,15 @@ fn main() -> Result<()> {
             let stream = open_pgn_reader(&input)?;
             let col = collection.into();
 
-            let mut pgn_reader = Reader::new(stream);
-            let mut visitor = ShakmatyGameVisitor::new(col, 1);
-            let mut dedupe = Deduplicator::new();
-            let mut stats = IngestionStats::default();
-
-            let masters_policy = MastersOtbPolicy::default();
-            let elite_policy = EliteOnlinePolicy::default();
-
             let start = Instant::now();
-            let mut count = 0;
-
-            loop {
-                match pgn_reader.read_game(&mut visitor) {
-                    Ok(Some(result)) => {
-                        stats.total_encountered += 1;
-                        match result {
-                            Ok(game) => {
-                                let passes_policy = match col {
-                                    Collection::MastersOtb => {
-                                        masters_policy.evaluate(&game) == PolicyVerdict::Accepted
-                                    }
-                                    Collection::EliteOnline => {
-                                        elite_policy.evaluate(&game) == PolicyVerdict::Accepted
-                                    }
-                                };
-                                if !passes_policy {
-                                    stats.rejected_by_policy += 1;
-                                } else {
-                                    match dedupe.evaluate(&game) {
-                                        DuplicateVerdict::Unique
-                                        | DuplicateVerdict::TranspositionDifferentGame => {
-                                            stats.accepted_unique += 1;
-                                        }
-                                        DuplicateVerdict::ConfirmedDuplicate { .. } => {
-                                            stats.confirmed_duplicates += 1;
-                                        }
-                                        DuplicateVerdict::SupersedesPrevious { .. } => {
-                                            stats.superseded_prior += 1;
-                                        }
-                                    }
-                                }
-                            }
-                            Err(IngestError::UnsupportedVariant(_))
-                            | Err(IngestError::NonStandardStartingPosition(_)) => {
-                                stats.rejected_variant += 1;
-                            }
-                            Err(IngestError::IllegalMove { .. }) => {
-                                stats.rejected_illegal += 1;
-                            }
-                            Err(IngestError::MalformedPgn(_)) => {
-                                stats.rejected_malformed += 1;
-                            }
-                            Err(_) => {
-                                stats.quarantined += 1;
-                            }
-                        }
-                    }
-                    Ok(None) => break,
-                    Err(io_err) => {
-                        if io_err.kind() == std::io::ErrorKind::InvalidData {
-                            stats.total_encountered += 1;
-                            stats.rejected_malformed += 1;
-                            if let Ok(has_more) = pgn_reader.has_more() {
-                                if !has_more {
-                                    break;
-                                }
-                            } else {
-                                break;
-                            }
-                        } else {
-                            break;
-                        }
-                    }
-                }
-
-                count += 1;
-                if let Some(max) = max_games {
-                    if stats.accepted_unique as usize >= max {
-                        break;
-                    }
-                }
-
-                if count % 20000 == 0 {
-                    println!(
-                        "Encountered: {}, Accepted: {}, Policy Rejected: {}, Duplicates: {}, Illegal: {}",
-                        stats.total_encountered,
-                        stats.accepted_unique,
-                        stats.rejected_by_policy,
-                        stats.confirmed_duplicates,
-                        stats.rejected_illegal
-                    );
-                }
-            }
-
+            let outcome = ingest_curated_stream(stream, col, max_games, true)?;
+            let stats = &outcome.stats;
             let elapsed = start.elapsed().as_secs_f64();
+
             println!("\n=== Ingestion Summary ===");
             println!("Total Encountered:    {}", stats.total_encountered);
             println!("Accepted Unique:      {}", stats.accepted_unique);
+            println!("Retained Canonical:   {}", outcome.accepted_games.len());
             println!("Confirmed Duplicates: {}", stats.confirmed_duplicates);
             println!("Superseded Prior:     {}", stats.superseded_prior);
             println!("Rejected by Policy:   {}", stats.rejected_by_policy);
@@ -281,14 +363,16 @@ fn main() -> Result<()> {
             println!("Rejected Illegal:     {}", stats.rejected_illegal);
             println!("Rejected Malformed:   {}", stats.rejected_malformed);
             println!("Quarantined:          {}", stats.quarantined);
+            println!("Completion Status:    {:?}", stats.completion_status);
             println!(
-                "Accounting Invariant: Reconciled = {}",
-                stats.is_reconciled()
+                "Accounting Invariant: Reconciled = {}, Retained Matches Accepted = {}",
+                stats.is_reconciled(),
+                stats.verify_retained_count(outcome.accepted_games.len())
             );
             println!("Duration:             {:.2}s", elapsed);
             println!(
                 "Throughput:           {:.1} games/sec",
-                stats.total_encountered as f64 / elapsed
+                stats.total_encountered as f64 / elapsed.max(1e-9)
             );
         }
 
@@ -323,132 +407,77 @@ fn run_benchmarks(
 
     let input_size = std::fs::metadata(input_path)?.len();
     let stream = open_pgn_reader(input_path)?;
-    let mut pgn_reader = Reader::new(stream);
-    let mut visitor = ShakmatyGameVisitor::new(collection, 1);
-    let mut dedupe = Deduplicator::new();
-    let mut stats = IngestionStats::default();
-
-    let masters_policy = MastersOtbPolicy::default();
-    let elite_policy = EliteOnlinePolicy::default();
-
-    let mut accepted_games: Vec<ParsedGame> = Vec::new();
-    let mut transpositions_distinct = 0;
 
     let import_start = Instant::now();
-
-    loop {
-        match pgn_reader.read_game(&mut visitor) {
-            Ok(Some(result)) => {
-                stats.total_encountered += 1;
-                match result {
-                    Ok(game) => {
-                        let passes_policy = match collection {
-                            Collection::MastersOtb => {
-                                masters_policy.evaluate(&game) == PolicyVerdict::Accepted
-                            }
-                            Collection::EliteOnline => {
-                                elite_policy.evaluate(&game) == PolicyVerdict::Accepted
-                            }
-                        };
-                        if !passes_policy {
-                            stats.rejected_by_policy += 1;
-                        } else {
-                            match dedupe.evaluate(&game) {
-                                DuplicateVerdict::Unique => {
-                                    stats.accepted_unique += 1;
-                                    accepted_games.push(game);
-                                }
-                                DuplicateVerdict::TranspositionDifferentGame => {
-                                    stats.accepted_unique += 1;
-                                    transpositions_distinct += 1;
-                                    accepted_games.push(game);
-                                }
-                                DuplicateVerdict::ConfirmedDuplicate { .. } => {
-                                    stats.confirmed_duplicates += 1;
-                                }
-                                DuplicateVerdict::SupersedesPrevious { old_id, .. } => {
-                                    stats.superseded_prior += 1;
-                                    if let Some(pos) =
-                                        accepted_games.iter().position(|g| g.metadata.id == old_id)
-                                    {
-                                        accepted_games[pos] = game;
-                                    } else {
-                                        accepted_games.push(game);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Err(IngestError::UnsupportedVariant(_))
-                    | Err(IngestError::NonStandardStartingPosition(_)) => {
-                        stats.rejected_variant += 1;
-                    }
-                    Err(IngestError::IllegalMove { .. }) => {
-                        stats.rejected_illegal += 1;
-                    }
-                    Err(IngestError::MalformedPgn(_)) => {
-                        stats.rejected_malformed += 1;
-                    }
-                    Err(_) => {
-                        stats.quarantined += 1;
-                    }
-                }
-            }
-            Ok(None) => break,
-            Err(io_err) => {
-                if io_err.kind() == std::io::ErrorKind::InvalidData {
-                    stats.total_encountered += 1;
-                    stats.rejected_malformed += 1;
-                    if let Ok(has_more) = pgn_reader.has_more() {
-                        if !has_more {
-                            break;
-                        }
-                    } else {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            }
-        }
-
-        if let Some(max) = max_games {
-            if stats.accepted_unique as usize >= max {
-                break;
-            }
-        }
-    }
-
+    let outcome = ingest_curated_stream(stream, collection, max_games, false)?;
     let import_dur = import_start.elapsed().as_secs_f64();
+
+    let stats = outcome.stats;
+    let accepted_games = outcome.accepted_games;
+    let transpositions_distinct = outcome.transpositions_distinct;
+
     let n_games = accepted_games.len();
     println!(
-        "Imported {} accepted games in {:.2}s ({:.1} games/sec)",
+        "Imported {} accepted games (status: {:?}) in {:.2}s ({:.1} games/sec)",
         n_games,
+        stats.completion_status,
         import_dur,
-        n_games as f64 / import_dur
+        n_games as f64 / import_dur.max(1e-9)
     );
-    println!("Accounting Invariant Reconciled: {}", stats.is_reconciled());
+    println!(
+        "Accounting Invariant Reconciled: {} (Retained == Accepted: {})",
+        stats.is_reconciled(),
+        stats.verify_retained_count(n_games)
+    );
 
-    // 2. Storage Benchmark: Compress games in 512-game blocks
+    // 2. Storage Benchmark: Compress games in 512-game blocks and verify decompression round-trip
     println!("Benchmarking compact game storage...");
     let mut total_raw_pgn_bytes = 0u64;
     for g in &accepted_games {
-        let pgn = export_to_pgn(g).unwrap_or_default();
+        let pgn = export_to_pgn(g).context("Failed to export accepted game to PGN")?;
         total_raw_pgn_bytes += pgn.len() as u64;
     }
 
     let mut codb_compressed_bytes = 0u64;
     let block_size = 512;
+    let mut num_blocks = 0u64;
     for chunk in accepted_games.chunks(block_size) {
         let mut block = GameBlock::new(collection);
         block.games = chunk.to_vec();
-        let comp = block.compress(3).expect("block compression failed");
+        let comp = block.compress(3).context("Block compression failed")?;
+        let decomp =
+            GameBlock::decompress(&comp, collection).context("Block decompression check failed")?;
+        anyhow::ensure!(
+            decomp == block.games,
+            "GameBlock round-trip fidelity check failed during benchmark"
+        );
         codb_compressed_bytes += comp.len() as u64;
+        num_blocks += 1;
     }
 
-    let raw_per_game = total_raw_pgn_bytes as f64 / n_games.max(1) as f64;
-    let codb_per_game = codb_compressed_bytes as f64 / n_games.max(1) as f64;
-    let comp_ratio = total_raw_pgn_bytes as f64 / codb_compressed_bytes.max(1) as f64;
+    // Container framing: 64-byte file header + 28 bytes per BlockIndexEntry
+    let codb_block_directory_bytes = if n_games == 0 {
+        0
+    } else {
+        64 + num_blocks * 28
+    };
+    let codb_total_container_bytes = codb_compressed_bytes + codb_block_directory_bytes;
+
+    let raw_per_game = if n_games == 0 {
+        0.0
+    } else {
+        total_raw_pgn_bytes as f64 / n_games as f64
+    };
+    let codb_per_game = if n_games == 0 {
+        0.0
+    } else {
+        codb_compressed_bytes as f64 / n_games as f64
+    };
+    let comp_ratio = if codb_compressed_bytes == 0 {
+        0.0
+    } else {
+        total_raw_pgn_bytes as f64 / codb_compressed_bytes as f64
+    };
 
     println!(
         "Raw PGN size:          {:.2} MB ({:.1} bytes/game)",
@@ -456,46 +485,40 @@ fn run_benchmarks(
         raw_per_game
     );
     println!(
-        "CODB Block-Zstd size:  {:.2} MB ({:.1} bytes/game)",
+        "CODB Block-Zstd size:  {:.2} MB ({:.1} bytes/game, +{} B block directory)",
         codb_compressed_bytes as f64 / 1_000_000.0,
-        codb_per_game
+        codb_per_game,
+        codb_block_directory_bytes
     );
     println!("Compression ratio:     {:.2}x", comp_ratio);
 
-    // 3. Index Depth Evaluation: 20, 40, 60 plies
-    println!("Benchmarking position indexing on-disk at depths 20, 40, 60 plies...");
+    // 3. Index Depth Evaluation: 20, 30, 40, 60 plies
+    println!("Benchmarking position indexing on-disk at depths 20, 30, 40, 60 plies...");
     let depth_20 = measure_index_depth(&accepted_games, 20)?;
+    let depth_30 = measure_index_depth(&accepted_games, 30)?;
     let depth_40 = measure_index_depth(&accepted_games, 40)?;
     let depth_60 = measure_index_depth(&accepted_games, 60)?;
 
-    println!(
-        "Depth 20: {} unique positions, {} unique pairs | CPI disk: {:.2} MB, SQLite disk: {:.2} MB",
-        depth_20.unique_positions,
-        depth_20.unique_position_move_pairs,
-        depth_20.immutable_index_size_bytes as f64 / 1_000_000.0,
-        depth_20.sqlite_index_size_bytes as f64 / 1_000_000.0
-    );
-    println!(
-        "Depth 40: {} unique positions, {} unique pairs | CPI disk: {:.2} MB, SQLite disk: {:.2} MB",
-        depth_40.unique_positions,
-        depth_40.unique_position_move_pairs,
-        depth_40.immutable_index_size_bytes as f64 / 1_000_000.0,
-        depth_40.sqlite_index_size_bytes as f64 / 1_000_000.0
-    );
-    println!(
-        "Depth 60: {} unique positions, {} unique pairs | CPI disk: {:.2} MB, SQLite disk: {:.2} MB",
-        depth_60.unique_positions,
-        depth_60.unique_position_move_pairs,
-        depth_60.immutable_index_size_bytes as f64 / 1_000_000.0,
-        depth_60.sqlite_index_size_bytes as f64 / 1_000_000.0
-    );
+    for d in [&depth_20, &depth_30, &depth_40, &depth_60] {
+        println!(
+            "Depth {}: {} unique positions, {} unique pairs | CPI disk: {:.2} MB ({} blocks), SQLite disk: {:.2} MB",
+            d.depth_plies,
+            d.unique_positions,
+            d.unique_position_move_pairs,
+            d.immutable_index_size_bytes as f64 / 1_000_000.0,
+            d.cpi_block_count,
+            d.sqlite_index_size_bytes as f64 / 1_000_000.0
+        );
+    }
 
     // 4. Query Latencies
     println!("Measuring query latencies across on-disk CPI vs on-disk SQLite vs in-memory...");
     let latencies = measure_query_latencies(&accepted_games)?;
 
     println!(
-        "Query Latency (p50 / p95 / p99): CPI disk: {:.1} / {:.1} / {:.1} µs | SQLite disk: {:.1} / {:.1} / {:.1} µs | CPI RAM: {:.2} / {:.2} / {:.2} µs",
+        "Query Latency ({} queries, equiv={}): CPI disk: {:.2} / {:.2} / {:.2} µs | SQLite disk: {:.2} / {:.2} / {:.2} µs | CPI RAM: {:.3} / {:.3} / {:.3} µs",
+        latencies.query_sample_count,
+        latencies.semantic_equivalence_verified,
         latencies.cpi_disk_p50_us,
         latencies.cpi_disk_p95_us,
         latencies.cpi_disk_p99_us,
@@ -514,6 +537,7 @@ fn run_benchmarks(
         input_size_bytes: input_size,
         total_encountered: stats.total_encountered,
         accepted_unique: stats.accepted_unique,
+        retained_canonical_games: n_games,
         confirmed_duplicates: stats.confirmed_duplicates,
         superseded_prior: stats.superseded_prior,
         rejected_by_policy: stats.rejected_by_policy,
@@ -521,17 +545,22 @@ fn run_benchmarks(
         rejected_illegal: stats.rejected_illegal,
         rejected_malformed: stats.rejected_malformed,
         quarantined: stats.quarantined,
+        completion_status: stats.completion_status,
         is_reconciled: stats.is_reconciled(),
+        retained_matches_accepted: stats.verify_retained_count(n_games),
         transpositions_distinct,
         import_duration_secs: import_dur,
-        import_throughput_games_sec: n_games as f64 / import_dur,
-        import_throughput_mb_sec: (input_size as f64 / 1_000_000.0) / import_dur,
+        import_throughput_games_sec: n_games as f64 / import_dur.max(1e-9),
+        import_throughput_mb_sec: (input_size as f64 / 1_000_000.0) / import_dur.max(1e-9),
         raw_pgn_bytes: total_raw_pgn_bytes,
         raw_bytes_per_game: raw_per_game,
         codb_block_compressed_bytes: codb_compressed_bytes,
+        codb_block_directory_bytes,
+        codb_total_container_bytes,
         codb_bytes_per_game: codb_per_game,
         compression_ratio: comp_ratio,
         depth_20,
+        depth_30,
         depth_40,
         depth_60,
         query_latency_us: latencies,
@@ -559,7 +588,12 @@ fn measure_index_depth(games: &[ParsedGame], depth_plies: usize) -> Result<Index
     let mut batch_entries = Vec::with_capacity(10_000);
 
     for g in games {
-        let entries = extract_game_positions(g, depth_plies).unwrap_or_default();
+        let entries = extract_game_positions(g, depth_plies).with_context(|| {
+            format!(
+                "Failed to extract positions for game {} at depth {}",
+                g.metadata.id, depth_plies
+            )
+        })?;
         for (k, cm, r) in entries {
             immutable.record(k, cm, r);
             batch_entries.push((k, cm, r));
@@ -586,6 +620,7 @@ fn measure_index_depth(games: &[ParsedGame], depth_plies: usize) -> Result<Index
         .tempfile()?;
     let meta = immutable.write_to_file(temp_cpi.path(), 256, 3)?;
     let cpi_disk_bytes = meta.total_file_size as usize;
+    let cpi_sparse_directory_bytes = (meta.block_count as usize) * 34;
 
     // Measure SQLite on-disk size: database file + WAL file if present
     let sqlite_db_bytes = std::fs::metadata(temp_sqlite.path())?.len();
@@ -597,10 +632,90 @@ fn measure_index_depth(games: &[ParsedGame], depth_plies: usize) -> Result<Index
         depth_plies,
         unique_positions,
         unique_position_move_pairs,
+        cpi_block_count: meta.block_count,
+        cpi_sparse_directory_bytes,
         immutable_index_size_bytes: cpi_disk_bytes,
         sqlite_index_size_bytes: sqlite_total_bytes,
         index_build_duration_secs: dur,
     })
+}
+
+/// Computes `(p50, p95, p99)` latency percentiles in microseconds from a slice of samples.
+/// Uses linear interpolation over sorted samples and guarantees `p50 <= p95 <= p99`.
+pub fn compute_percentiles(samples: &[f64]) -> (f64, f64, f64) {
+    let mut sorted: Vec<f64> = samples.iter().copied().filter(|x| !x.is_nan()).collect();
+    if sorted.is_empty() {
+        return (0.0, 0.0, 0.0);
+    }
+    sorted.sort_by(|a, b| a.total_cmp(b));
+
+    let percentile_at = |p: f64| -> f64 {
+        if sorted.len() == 1 {
+            return sorted[0];
+        }
+        let rank = p * (sorted.len() - 1) as f64;
+        let lo = rank.floor() as usize;
+        let hi = rank.ceil() as usize;
+        let frac = rank - lo as f64;
+        let val = sorted[lo] + frac * (sorted[hi] - sorted[lo]);
+        // Round to 3 decimal places (nanosecond resolution in µs)
+        (val * 1000.0).round() / 1000.0
+    };
+
+    (
+        percentile_at(0.50),
+        percentile_at(0.95),
+        percentile_at(0.99),
+    )
+}
+
+/// Deterministic SplitMix64 PRNG for reproducible benchmark sampling without external crate overhead.
+struct SplitMix64 {
+    state: u64,
+}
+
+impl SplitMix64 {
+    fn new(seed: u64) -> Self {
+        Self { state: seed }
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.state = self.state.wrapping_add(0x9e3779b97f4a7c15);
+        let mut z = self.state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d049bb133111eb);
+        z ^ (z >> 31)
+    }
+
+    fn next_u128(&mut self) -> u128 {
+        ((self.next_u64() as u128) << 64) | (self.next_u64() as u128)
+    }
+
+    fn choose_k<T: Copy>(&mut self, pool: &[T], k: usize) -> Vec<T> {
+        if pool.is_empty() || k == 0 {
+            return Vec::new();
+        }
+        if pool.len() <= k {
+            // Deterministic sample with replacement up to k so query count is stable
+            let mut out = Vec::with_capacity(k);
+            for i in 0..k {
+                let idx = if i < pool.len() {
+                    i
+                } else {
+                    (self.next_u64() as usize) % pool.len()
+                };
+                out.push(pool[idx]);
+            }
+            return out;
+        }
+        // Partial Fisher-Yates shuffle on indices
+        let mut indices: Vec<usize> = (0..pool.len()).collect();
+        for i in 0..k {
+            let j = i + ((self.next_u64() as usize) % (pool.len() - i));
+            indices.swap(i, j);
+        }
+        indices[..k].iter().map(|&idx| pool[idx]).collect()
+    }
 }
 
 fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
@@ -611,14 +726,38 @@ fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
         .tempfile()?;
     let mut sqlite = SqlitePositionIndex::open(temp_sqlite.path())?;
 
-    let mut keys = Vec::new();
-    for g in games.iter().take(500) {
-        let entries = extract_game_positions(g, 20).unwrap_or_default();
-        sqlite.insert_batch(&entries)?;
+    // Track position frequencies and distinct parent paths (to identify transpositions) across ALL accepted games
+    let mut pos_counts: BTreeMap<PositionKey, u32> = BTreeMap::new();
+    let mut parent_paths: BTreeMap<PositionKey, BTreeSet<(PositionKey, u16)>> = BTreeMap::new();
+    let mut batch_entries = Vec::with_capacity(10_000);
+
+    for g in games {
+        let entries = extract_game_positions(g, 40).with_context(|| {
+            format!(
+                "Failed to extract positions for game {} during latency benchmark",
+                g.metadata.id
+            )
+        })?;
+        let mut prev: Option<(PositionKey, u16)> = None;
         for (k, cm, r) in entries {
-            keys.push(k);
             immutable.record(k, cm, r);
+            *pos_counts.entry(k).or_insert(0) += 1;
+            if let Some(p) = prev {
+                parent_paths.entry(k).or_default().insert(p);
+            }
+            prev = Some((k, cm.0));
+            batch_entries.push((k, cm, r));
         }
+
+        if batch_entries.len() >= 10_000 {
+            sqlite.insert_batch(&batch_entries)?;
+            batch_entries.clear();
+        }
+    }
+
+    if !batch_entries.is_empty() {
+        sqlite.insert_batch(&batch_entries)?;
+        batch_entries.clear();
     }
 
     let temp_cpi = tempfile::Builder::new()
@@ -628,51 +767,185 @@ fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
     immutable.write_to_file(temp_cpi.path(), 256, 3)?;
     let disk_cpi = DiskPositionIndex::open(temp_cpi.path())?;
 
-    let query_keys = if keys.is_empty() {
-        vec![PositionKey(0)]
+    // Partition all indexed positions into deterministic strata:
+    // 1. Frequent positions (count >= 10, or count >= 3 when corpus < 2,000 games)
+    // 2. Medium-frequency positions (2 <= count < freq_threshold)
+    // 3. Rare positions (count == 1)
+    // 4. Transposition positions (reached via >= 2 distinct parent (PositionKey, move) pairs)
+    // 5. Miss keys (deterministic nonexistent keys)
+    let max_count = pos_counts.values().copied().max().unwrap_or(0);
+    let freq_threshold = if games.len() >= 2_000 {
+        10
+    } else if max_count >= 3 {
+        3
     } else {
-        keys.into_iter().take(200).collect()
+        max_count.max(1)
     };
+    let all_keys: Vec<PositionKey> = pos_counts.keys().copied().collect();
+    let mut frequent_pool = Vec::new();
+    let mut medium_pool = Vec::new();
+    let mut rare_pool = Vec::new();
+    let mut transposition_pool = Vec::new();
 
+    for (&k, &count) in &pos_counts {
+        if count >= freq_threshold {
+            frequent_pool.push(k);
+        } else if count >= 2 {
+            medium_pool.push(k);
+        } else {
+            rare_pool.push(k);
+        }
+        if parent_paths
+            .get(&k)
+            .is_some_and(|parents| parents.len() >= 2)
+        {
+            transposition_pool.push(k);
+        }
+    }
+
+    let mut rng = SplitMix64::new(0xC0DB_2026_0001_CAFE);
+    let target_per_stratum = if pos_counts.is_empty() { 0 } else { 400 };
+    let miss_target = if pos_counts.is_empty() { 200 } else { 400 };
+
+    let frequent_keys = rng.choose_k(
+        if frequent_pool.is_empty() {
+            &all_keys
+        } else {
+            &frequent_pool
+        },
+        target_per_stratum,
+    );
+    let medium_keys = rng.choose_k(
+        if medium_pool.is_empty() {
+            &all_keys
+        } else {
+            &medium_pool
+        },
+        target_per_stratum,
+    );
+    let rare_keys = rng.choose_k(
+        if rare_pool.is_empty() {
+            &all_keys
+        } else {
+            &rare_pool
+        },
+        target_per_stratum,
+    );
+    let transposition_keys = rng.choose_k(
+        if transposition_pool.is_empty() {
+            &all_keys
+        } else {
+            &transposition_pool
+        },
+        target_per_stratum,
+    );
+
+    let mut miss_keys = Vec::with_capacity(miss_target);
+    while miss_keys.len() < miss_target {
+        let candidate = PositionKey(rng.next_u128());
+        if !pos_counts.contains_key(&candidate) {
+            miss_keys.push(candidate);
+        }
+    }
+
+    let mut query_keys = Vec::with_capacity(
+        frequent_keys.len()
+            + medium_keys.len()
+            + rare_keys.len()
+            + transposition_keys.len()
+            + miss_keys.len(),
+    );
+    query_keys.extend_from_slice(&frequent_keys);
+    query_keys.extend_from_slice(&medium_keys);
+    query_keys.extend_from_slice(&rare_keys);
+    query_keys.extend_from_slice(&transposition_keys);
+    query_keys.extend_from_slice(&miss_keys);
+
+    // Deterministically shuffle the combined query workload so strata are interleaved during timing
+    for i in 0..query_keys.len() {
+        let j = i + ((rng.next_u64() as usize) % (query_keys.len() - i));
+        query_keys.swap(i, j);
+    }
+
+    // Verify semantic equivalence across all three backends outside the timed loop (Workstream 3.4)
+    for &k in &query_keys {
+        let imm_res = immutable.query(k);
+        let cpi_res = disk_cpi.query(k)?;
+        let sql_res = sqlite.query_position(k)?;
+
+        anyhow::ensure!(
+            imm_res == cpi_res,
+            "Semantic mismatch between in-memory index and on-disk CPI for key {}",
+            k.to_hex()
+        );
+        match &cpi_res {
+            Some(cpi_stats) => {
+                anyhow::ensure!(
+                    cpi_stats == &sql_res,
+                    "Semantic mismatch between CPI ({:?}) and SQLite ({:?}) for key {}",
+                    cpi_stats,
+                    sql_res,
+                    k.to_hex()
+                );
+            }
+            None => {
+                anyhow::ensure!(
+                    sql_res.total_games == 0 && sql_res.moves.is_empty(),
+                    "Expected empty SQLite result for missing key {}, got {:?}",
+                    k.to_hex(),
+                    sql_res
+                );
+            }
+        }
+    }
+
+    // Timed loops using nanosecond resolution converted to floating-point microseconds (Workstream 3.3)
     let mut imm_times = Vec::with_capacity(query_keys.len());
     for &k in &query_keys {
         let t0 = Instant::now();
-        let _ = immutable.query(k);
-        imm_times.push(t0.elapsed().as_micros() as f64);
+        let res = immutable.query(black_box(k));
+        black_box(res);
+        imm_times.push(t0.elapsed().as_nanos() as f64 / 1_000.0);
     }
 
     let mut disk_cpi_times = Vec::with_capacity(query_keys.len());
     for &k in &query_keys {
         let t0 = Instant::now();
-        let _ = disk_cpi.query(k)?;
-        disk_cpi_times.push(t0.elapsed().as_micros() as f64);
+        let res = disk_cpi.query(black_box(k))?;
+        black_box(res);
+        disk_cpi_times.push(t0.elapsed().as_nanos() as f64 / 1_000.0);
     }
 
     let mut sql_times = Vec::with_capacity(query_keys.len());
     for &k in &query_keys {
         let t0 = Instant::now();
-        let _ = sqlite.query_position(k)?;
-        sql_times.push(t0.elapsed().as_micros() as f64);
+        let res = sqlite.query_position(black_box(k))?;
+        black_box(res);
+        sql_times.push(t0.elapsed().as_nanos() as f64 / 1_000.0);
     }
 
-    imm_times.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    disk_cpi_times.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    sql_times.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
-    let p50 = |v: &[f64]| v[v.len() * 50 / 100];
-    let p95 = |v: &[f64]| v[v.len() * 95 / 100];
-    let p99 = |v: &[f64]| v[v.len() * 99 / 100];
+    let (sql_p50, sql_p95, sql_p99) = compute_percentiles(&sql_times);
+    let (cpi_p50, cpi_p95, cpi_p99) = compute_percentiles(&disk_cpi_times);
+    let (imm_p50, imm_p95, imm_p99) = compute_percentiles(&imm_times);
 
     Ok(LatencyMetrics {
-        sqlite_disk_p50_us: p50(&sql_times),
-        sqlite_disk_p95_us: p95(&sql_times),
-        sqlite_disk_p99_us: p99(&sql_times),
-        cpi_disk_p50_us: p50(&disk_cpi_times),
-        cpi_disk_p95_us: p95(&disk_cpi_times),
-        cpi_disk_p99_us: p99(&disk_cpi_times),
-        cpi_in_memory_p50_us: p50(&imm_times),
-        cpi_in_memory_p95_us: p50(&imm_times),
-        cpi_in_memory_p99_us: p50(&imm_times),
+        cache_regime: "warm_os_page_cache".to_string(),
+        query_sample_count: query_keys.len(),
+        frequent_keys_sampled: frequent_keys.len(),
+        medium_keys_sampled: medium_keys.len(),
+        rare_keys_sampled: rare_keys.len(),
+        transposition_keys_sampled: transposition_keys.len(),
+        miss_keys_sampled: miss_keys.len(),
+        semantic_equivalence_verified: true,
+        sqlite_disk_p50_us: sql_p50,
+        sqlite_disk_p95_us: sql_p95,
+        sqlite_disk_p99_us: sql_p99,
+        cpi_disk_p50_us: cpi_p50,
+        cpi_disk_p95_us: cpi_p95,
+        cpi_disk_p99_us: cpi_p99,
+        cpi_in_memory_p50_us: imm_p50,
+        cpi_in_memory_p95_us: imm_p95,
+        cpi_in_memory_p99_us: imm_p99,
     })
 }
 
@@ -730,4 +1003,185 @@ fn run_query(index_path: &Path, fen: Option<&str>, moves_str: Option<&str>) -> R
         println!("Index file {} does not exist.", index_path.display());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compute_percentiles_accuracy() {
+        // 101 samples from 0.100 to 10.100 µs (step 0.1)
+        let samples: Vec<f64> = (0..=100).map(|i| 0.1 + (i as f64) * 0.1).collect();
+        let (p50, p95, p99) = compute_percentiles(&samples);
+        assert!((p50 - 5.1).abs() < 1e-6, "p50 was {}", p50);
+        assert!((p95 - 9.6).abs() < 1e-6, "p95 was {}", p95);
+        assert!((p99 - 10.0).abs() < 1e-6, "p99 was {}", p99);
+        assert!(p50 < p95 && p95 < p99);
+
+        // Sub-microsecond values must not truncate to 0.0
+        let sub_us = vec![0.120, 0.180, 0.210, 0.450, 0.890];
+        let (sp50, sp95, sp99) = compute_percentiles(&sub_us);
+        assert!(sp50 > 0.0);
+        assert!(sp95 > sp50);
+        assert!(sp99 >= sp95);
+    }
+
+    #[test]
+    fn test_curated_ingestion_superseding_and_max_games_accounting() {
+        // Game 1: truncated 4-ply relay
+        // Game 2: full 6-ply relay of the same game (supersedes Game 1 in-place)
+        // Game 3: second distinct game
+        let pgn = r#"
+[Event "World Championship"]
+[Site "Reykjavik ISL"]
+[Date "1972.07.23"]
+[Round "6"]
+[White "Fischer, Robert James"]
+[Black "Spassky, Boris V"]
+[Result "*"]
+[WhiteElo "2785"]
+[BlackElo "2660"]
+
+1. c4 e6 2. Nf3 d5 *
+
+[Event "World Championship"]
+[Site "Reykjavik ISL"]
+[Date "1972.07.23"]
+[Round "6"]
+[White "Fischer, Robert James"]
+[Black "Spassky, Boris V"]
+[Result "1-0"]
+[WhiteElo "2785"]
+[BlackElo "2660"]
+
+1. c4 e6 2. Nf3 d5 3. d4 Nf6 1-0
+
+[Event "World Championship"]
+[Site "Reykjavik ISL"]
+[Date "1972.07.25"]
+[Round "7"]
+[White "Spassky, Boris V"]
+[Black "Fischer, Robert James"]
+[Result "1/2-1/2"]
+[WhiteElo "2660"]
+[BlackElo "2785"]
+
+1. e4 c5 2. Nf3 d6 3. d4 cxd4 1/2-1/2
+"#;
+        let outcome =
+            ingest_curated_stream(pgn.as_bytes(), Collection::MastersOtb, None, false).unwrap();
+        assert_eq!(outcome.stats.total_encountered, 3);
+        assert_eq!(outcome.stats.accepted_unique, 2);
+        assert_eq!(outcome.stats.superseded_prior, 1);
+        assert_eq!(outcome.accepted_games.len(), 2);
+        assert!(outcome
+            .stats
+            .is_fully_consistent(outcome.accepted_games.len()));
+        assert_eq!(
+            outcome.stats.completion_status,
+            IngestionCompletionStatus::CompleteEof
+        );
+        // Verify that the superseded game in slot 0 has the 6-ply move list
+        assert_eq!(outcome.accepted_games[0].moves.len(), 6);
+
+        // Now test with max_games = Some(1) -> PartialLimitReached
+        let partial =
+            ingest_curated_stream(pgn.as_bytes(), Collection::MastersOtb, Some(1), false).unwrap();
+        assert_eq!(partial.stats.accepted_unique, 1);
+        assert_eq!(partial.accepted_games.len(), 1);
+        assert_eq!(
+            partial.stats.completion_status,
+            IngestionCompletionStatus::PartialLimitReached
+        );
+        assert!(partial
+            .stats
+            .is_fully_consistent(partial.accepted_games.len()));
+    }
+
+    #[test]
+    fn test_end_to_end_broadcast_pgn_storage_and_index_equivalence() {
+        let broadcast_pgn = r#"
+[Event "2026 ANU Open"]
+[Site "Canberra, Australia"]
+[Date "2026.??.??"]
+[UTCDate "2026.07.31"]
+[Round "2.1"]
+[White "Ikeda, Junta"]
+[Black "Hegde, Sanat"]
+[Result "1-0"]
+[WhiteElo "2466"]
+[BlackElo "2267"]
+[TimeControl "60m+30s"]
+[Variant "Standard"]
+[ECO "B10a"]
+[BroadcastURL "https://lichess.org/broadcast/2026-anu-open/round-2/iDPcCots"]
+[GameURL "https://lichess.org/broadcast/2026-anu-open/round-2/iDPcCots/Qmy8doCq"]
+
+1. d4 Nf6 2. c4 e6 3. Nf3 d5 1-0
+
+[Event "2026 ANU Open"]
+[Site "Canberra, Australia"]
+[Date "2026.07.31"]
+[UTCDate "2026.07.31"]
+[Round "2.2"]
+[White "Shenoy, Trilok"]
+[Black "Press, Harry"]
+[Result "0-1"]
+[WhiteElo "2354"]
+[BlackElo "2375"]
+[TimeControl "60m+30s"]
+[Variant "Standard"]
+[ECO "D37"]
+[BroadcastURL "https://lichess.org/broadcast/2026-anu-open/round-2/iDPcCots"]
+[GameURL "https://lichess.org/broadcast/2026-anu-open/round-2/iDPcCots/4nmichIy"]
+
+1. c4 e6 2. d4 Nf6 3. Nf3 d5 0-1
+"#;
+        let outcome = ingest_curated_stream(
+            broadcast_pgn.as_bytes(),
+            Collection::MastersOtb,
+            None,
+            false,
+        )
+        .unwrap();
+        assert_eq!(outcome.accepted_games.len(), 2);
+
+        // Verify UTCDate recovered when Date had question marks, and provenance preserved
+        let g0 = &outcome.accepted_games[0];
+        assert_eq!(g0.metadata.date.as_deref(), Some("2026.07.31"));
+        assert_eq!(g0.metadata.eco.as_deref(), Some("B10a"));
+        assert_eq!(g0.metadata.site.as_deref(), Some("Canberra, Australia"));
+        assert_eq!(
+            g0.metadata.source_id.as_deref(),
+            Some("https://lichess.org/broadcast/2026-anu-open/round-2/iDPcCots/Qmy8doCq")
+        );
+        assert_eq!(
+            g0.metadata.broadcast_url.as_deref(),
+            Some("https://lichess.org/broadcast/2026-anu-open/round-2/iDPcCots")
+        );
+
+        // Compress -> Decompress -> Export PGN -> Re-ingest round-trip
+        let mut block = GameBlock::new(Collection::MastersOtb);
+        block.games = outcome.accepted_games.clone();
+        let compressed = block.compress(3).unwrap();
+        let decompressed = GameBlock::decompress(&compressed, Collection::MastersOtb).unwrap();
+        assert_eq!(decompressed, outcome.accepted_games);
+
+        let mut exported_pgn = String::new();
+        for g in &decompressed {
+            exported_pgn.push_str(&export_to_pgn(g).unwrap());
+            exported_pgn.push('\n');
+        }
+        let reingested =
+            ingest_curated_stream(exported_pgn.as_bytes(), Collection::MastersOtb, None, false)
+                .unwrap();
+        assert_eq!(reingested.accepted_games, outcome.accepted_games);
+
+        // Verify stratified latency benchmark and semantic equivalence across CPI and SQLite
+        let latencies = measure_query_latencies(&outcome.accepted_games).unwrap();
+        assert!(latencies.semantic_equivalence_verified);
+        assert_eq!(latencies.query_sample_count, 2000);
+        assert!(latencies.transposition_keys_sampled > 0);
+    }
 }

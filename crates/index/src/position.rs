@@ -40,7 +40,7 @@ pub struct MoveStats {
 }
 
 /// Complete Opening Explorer query response for a position.
-#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct PositionStats {
     pub position_key: String,
     pub total_games: u32,
@@ -204,7 +204,7 @@ impl SqlitePositionIndex {
             "SELECT move_u16, white_wins, draws, black_wins
              FROM position_moves
              WHERE pos_primary = ?1 AND pos_secondary = ?2
-             ORDER BY (white_wins + draws + black_wins) DESC;",
+             ORDER BY (white_wins + draws + black_wins) DESC, move_u16 ASC;",
         )?;
 
         let mut rows = stmt.query(params![key.primary() as i64, key.secondary() as i64])?;
@@ -331,8 +331,8 @@ impl ImmutablePositionIndex {
             });
         }
 
-        // Sort descending by total games
-        moves.sort_by_key(|a| std::cmp::Reverse(a.total_games));
+        // Sort descending by total games, with deterministic tie-breaker on compact_move
+        moves.sort_by_key(|a| (std::cmp::Reverse(a.total_games), a.compact_move.0));
 
         Some(PositionStats {
             position_key: key.to_hex(),
@@ -647,7 +647,7 @@ impl DiskPositionIndex {
                         total_games: total,
                     });
                 }
-                moves.sort_by_key(|a| std::cmp::Reverse(a.total_games));
+                moves.sort_by_key(|a| (std::cmp::Reverse(a.total_games), a.compact_move.0));
                 return Ok(Some(PositionStats {
                     position_key: key.to_hex(),
                     total_games: total_w + total_d + total_b,
@@ -766,6 +766,7 @@ mod tests {
                 eco: None,
                 time_control: None,
                 source_id: None,
+                broadcast_url: None,
             },
             moves: vec![
                 CompactMove::new(12, 28, None), // e2e4
