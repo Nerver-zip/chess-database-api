@@ -1,0 +1,27 @@
+[package]
+name = "codb-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "codb"
+path = "src/main.rs"
+
+[dependencies]
+codb-core.workspace = true
+codb-ingest.workspace = true
+codb-curate.workspace = true
+codb-storage.workspace = true
+codb-index.workspace = true
+
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tempfile.workspace = true
+rayon.workspace = true
+shakmaty.workspace = true

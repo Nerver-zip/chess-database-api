@@ -1,0 +1,22 @@
+/target
+**/*.rs.bk
+# Data directories and archives
+data/
+raw/
+downloads/
+*.zst
+*.pgn
+*.pgn.zst
+*.db
+*.sqlite
+*.sqlite3
+*.rocksdb
+*.mdb
+
+# Temporary files and scratch
+scratch/
+tmp/
+*.log
+
+# Benchmark artifacts that exceed limits
+benchmarks/data/
