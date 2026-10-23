@@ -5,7 +5,6 @@ data/
 raw/
 downloads/
 *.zst
-*.pgn
 *.pgn.zst
 *.db
 *.sqlite
@@ -13,10 +12,16 @@ downloads/
 *.rocksdb
 *.mdb
 
+# Allow small test fixtures
+!fixtures/
+!fixtures/*.pgn
+
 # Temporary files and scratch
 scratch/
 tmp/
 *.log
+__pycache__/
+*.pyc
 
 # Benchmark artifacts that exceed limits
 benchmarks/data/
