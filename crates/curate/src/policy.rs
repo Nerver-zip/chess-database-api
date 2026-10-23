@@ -293,6 +293,7 @@ mod tests {
                 eco: None,
                 time_control: tc.map(|s| s.into()),
                 source_id: None,
+                broadcast_url: None,
             },
             moves: vec![CompactMove::new(12, 28, None); plies],
             fen_start: None,

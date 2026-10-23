@@ -157,7 +157,11 @@ pub struct GameMetadata {
     pub result: GameResult,
     pub eco: Option<String>,
     pub time_control: Option<String>,
+    /// Game-specific identifier or canonical game URL (e.g. `GameURL` or per-game `Site` URL).
     pub source_id: Option<String>,
+    /// Tournament or broadcast-level URL provenance (e.g. `BroadcastURL`), never conflated with per-game `source_id`.
+    #[serde(default)]
+    pub broadcast_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -226,6 +230,13 @@ pub enum IngestionStatus {
     DuplicateSuperseded,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum IngestionCompletionStatus {
+    #[default]
+    CompleteEof,
+    PartialLimitReached,
+}
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct IngestionStats {
     pub total_encountered: u64,
@@ -237,20 +248,25 @@ pub struct IngestionStats {
     pub rejected_illegal: u64,
     pub rejected_malformed: u64,
     pub quarantined: u64,
+    #[serde(default)]
+    pub completion_status: IngestionCompletionStatus,
 }
 
 impl IngestionStats {
     /// Invariant: all mutually exclusive categories must sum exactly to total_encountered.
     pub fn is_reconciled(&self) -> bool {
-        self.total_encountered
-            == self.accepted_unique
-                + self.confirmed_duplicates
-                + self.superseded_prior
-                + self.rejected_by_policy
-                + self.rejected_variant
-                + self.rejected_illegal
-                + self.rejected_malformed
-                + self.quarantined
+        self.total_encountered == self.reconciled_sum()
+    }
+
+    /// Invariant: retained canonical games count must equal `accepted_unique`
+    /// (superseding replacements replace an existing accepted game in-place without incrementing `accepted_unique`).
+    pub fn verify_retained_count(&self, retained_len: usize) -> bool {
+        self.accepted_unique == retained_len as u64
+    }
+
+    /// Full accounting consistency check across category reconciliation and retained canonical games.
+    pub fn is_fully_consistent(&self, retained_len: usize) -> bool {
+        self.is_reconciled() && self.verify_retained_count(retained_len)
     }
 
     pub fn reconciled_sum(&self) -> u64 {
@@ -353,7 +369,11 @@ mod tests {
             rejected_illegal: 2,
             rejected_malformed: 2,
             quarantined: 1,
+            completion_status: IngestionCompletionStatus::CompleteEof,
         };
         assert!(stats.is_reconciled());
+        assert!(stats.verify_retained_count(70));
+        assert!(!stats.verify_retained_count(72));
+        assert!(stats.is_fully_consistent(70));
     }
 }

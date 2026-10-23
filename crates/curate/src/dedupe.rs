@@ -281,6 +281,7 @@ mod tests {
                 eco: Some("C65".into()),
                 time_control: Some("90+30".into()),
                 source_id: None,
+                broadcast_url: None,
             },
             moves,
             fen_start: None,

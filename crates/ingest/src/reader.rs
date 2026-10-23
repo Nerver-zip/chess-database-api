@@ -1,6 +1,6 @@
 use codb_core::{
-    compute_stable_game_id, Collection, CompactMove, GameMetadata, GameResult, IngestionStats,
-    ParsedGame,
+    compute_stable_game_id, Collection, CompactMove, GameMetadata, GameResult,
+    IngestionCompletionStatus, IngestionStats, ParsedGame,
 };
 use pgn_reader::{RawTag, Reader, SanPlus, Visitor};
 use shakmaty::fen::Fen;
@@ -27,11 +27,14 @@ pub enum IngestError {
 
 #[derive(Default, Debug)]
 pub struct GameTags {
+    pub tag_count: usize,
+    pub malformed_tag: Option<String>,
     pub white: String,
     pub black: String,
     pub white_elo: Option<u16>,
     pub black_elo: Option<u16>,
     pub date: Option<String>,
+    pub utc_date: Option<String>,
     pub event: Option<String>,
     pub site: Option<String>,
     pub round: Option<String>,
@@ -40,7 +43,133 @@ pub struct GameTags {
     pub time_control: Option<String>,
     pub variant: Option<String>,
     pub fen_start: Option<String>,
-    pub source_id: Option<String>,
+    pub game_url: Option<String>,
+    pub broadcast_url: Option<String>,
+    pub game_id_tag: Option<String>,
+}
+
+/// Computes a deterministic completeness score for PGN date strings:
+/// - 3: Complete valid `YYYY.MM.DD` calendar date (no `?` placeholders)
+/// - 2: Partial year+month known (`YYYY.MM.??`)
+/// - 1: Partial year known (`YYYY.??.??`) or other non-placeholder date string
+/// - 0: Unknown or placeholder-only (`""`, `"?"`, `"????.??.??"`)
+pub fn date_completeness_rank(d: &str) -> u8 {
+    let trimmed = d.trim();
+    if trimmed.is_empty() || trimmed == "?" || !trimmed.chars().any(|c| c.is_ascii_alphanumeric()) {
+        return 0;
+    }
+
+    let parts: Vec<&str> = trimmed.split(['.', '-']).collect();
+    if parts.len() == 3 {
+        let y_ok = parts[0].len() == 4
+            && !parts[0].contains('?')
+            && parts[0]
+                .parse::<u16>()
+                .is_ok_and(|y| (1000..=2999).contains(&y));
+        let m_ok = parts[1].len() == 2
+            && !parts[1].contains('?')
+            && parts[1].parse::<u8>().is_ok_and(|m| (1..=12).contains(&m));
+        let d_ok = parts[2].len() == 2
+            && !parts[2].contains('?')
+            && parts[2]
+                .parse::<u8>()
+                .is_ok_and(|day| (1..=31).contains(&day));
+
+        if y_ok && m_ok && d_ok && !trimmed.contains('?') {
+            return 3;
+        }
+        if y_ok && m_ok {
+            return 2;
+        }
+        if y_ok {
+            return 1;
+        }
+    }
+
+    1
+}
+
+/// Resolves `Date` and `UTCDate` deterministically:
+/// - Prefers the tag with strictly higher completeness rank (never overwrites a valid date with `????.??.??` or `YYYY.??.??`).
+/// - When both tags have equal completeness rank (e.g., both are complete `YYYY.MM.DD`), prefers `Date` (canonical PGN Seven Tag Roster date) over `UTCDate`.
+/// - Returns `None` if neither tag carries non-placeholder date information.
+pub fn resolve_canonical_date(date: Option<&str>, utc_date: Option<&str>) -> Option<String> {
+    let r_date = date.map(date_completeness_rank).unwrap_or(0);
+    let r_utc = utc_date.map(date_completeness_rank).unwrap_or(0);
+
+    if r_date == 0 && r_utc == 0 {
+        None
+    } else if r_utc > r_date {
+        utc_date.map(|s| s.trim().to_string())
+    } else {
+        date.map(|s| s.trim().to_string())
+    }
+}
+
+/// Classifies an HTTP(S) URL found in `Site` as either game-specific or tournament/broadcast-wide.
+/// Returns `Some(true)` if game-specific, `Some(false)` if tournament/broadcast-wide, or `None` if not an HTTP(S) URL.
+pub fn classify_http_url(url: &str) -> Option<bool> {
+    let trimmed = url.trim();
+    let rest = trimmed
+        .strip_prefix("https://")
+        .or_else(|| trimmed.strip_prefix("http://"))?;
+
+    let mut segments: Vec<&str> = rest.split('/').filter(|s| !s.is_empty()).collect();
+    if segments.is_empty() {
+        return Some(false);
+    }
+    // Remove host
+    segments.remove(0);
+    if segments.is_empty() {
+        return Some(false);
+    }
+
+    match segments[0] {
+        "broadcast" => {
+            // Lichess BroadcastURL: /broadcast/<slug>/<round-slug>/<round-id> (4 segments)
+            // Lichess GameURL:      /broadcast/<slug>/<round-slug>/<round-id>/<game-id> (5 segments)
+            Some(segments.len() >= 5)
+        }
+        "tournament" | "tournaments" | "swiss" | "event" | "events" => Some(false),
+        _ => Some(true),
+    }
+}
+
+/// Resolves `(source_id, broadcast_url)` from `Site`, `GameURL`, `BroadcastURL`, and `GameId` tags.
+/// Ensures a tournament or broadcast URL is never conflated with a unique game-specific `source_id`.
+pub fn resolve_provenance(
+    site: Option<&str>,
+    game_url: Option<&str>,
+    broadcast_url: Option<&str>,
+    game_id_tag: Option<&str>,
+) -> (Option<String>, Option<String>) {
+    let resolved_broadcast = if let Some(b) = broadcast_url {
+        Some(b.trim().to_string())
+    } else if let Some(s) = site {
+        if classify_http_url(s) == Some(false) {
+            Some(s.trim().to_string())
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let resolved_source_id = if let Some(g) = game_url {
+        Some(g.trim().to_string())
+    } else if let Some(gid) = game_id_tag {
+        Some(gid.trim().to_string())
+    } else if let Some(s) = site {
+        if classify_http_url(s) == Some(true) && resolved_broadcast.as_deref() != Some(s.trim()) {
+            Some(s.trim().to_string())
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    (resolved_source_id, resolved_broadcast)
 }
 
 pub struct GameMovetext {
@@ -85,39 +214,92 @@ impl Visitor for ShakmatyGameVisitor {
         name: &[u8],
         value: RawTag<'_>,
     ) -> ControlFlow<Self::Output> {
+        tags.tag_count += 1;
+        if name.is_empty() || !name.iter().all(|b| b.is_ascii_alphanumeric() || *b == b'_') {
+            tags.malformed_tag = Some(format!(
+                "Invalid PGN tag name: '{}'",
+                String::from_utf8_lossy(name)
+            ));
+            return ControlFlow::Continue(());
+        }
+
         let val_cow = value.decode();
         let val_str = String::from_utf8_lossy(&val_cow);
+        let trimmed = val_str.trim();
+
         match name {
-            b"White" => tags.white = val_str.trim().to_string(),
-            b"Black" => tags.black = val_str.trim().to_string(),
-            b"WhiteElo" => tags.white_elo = val_str.trim().parse::<u16>().ok(),
-            b"BlackElo" => tags.black_elo = val_str.trim().parse::<u16>().ok(),
+            b"White" => tags.white = trimmed.to_string(),
+            b"Black" => tags.black = trimmed.to_string(),
+            b"WhiteElo" => tags.white_elo = trimmed.parse::<u16>().ok(),
+            b"BlackElo" => tags.black_elo = trimmed.parse::<u16>().ok(),
             b"Date" => {
-                let d = val_str.trim();
-                if !d.is_empty() && d != "?" {
-                    tags.date = Some(d.to_string());
+                if !trimmed.is_empty() && trimmed != "?" {
+                    tags.date = Some(trimmed.to_string());
                 }
             }
-            b"Event" => tags.event = Some(val_str.trim().to_string()),
+            b"UTCDate" => {
+                if !trimmed.is_empty() && trimmed != "?" {
+                    tags.utc_date = Some(trimmed.to_string());
+                }
+            }
+            b"Event" => {
+                if !trimmed.is_empty() && trimmed != "?" {
+                    tags.event = Some(trimmed.to_string());
+                }
+            }
             b"Site" => {
-                let s = val_str.trim().to_string();
-                if s.starts_with("http") {
-                    tags.source_id = Some(s.clone());
+                if !trimmed.is_empty() && trimmed != "?" {
+                    tags.site = Some(trimmed.to_string());
                 }
-                tags.site = Some(s);
             }
-            b"Round" => tags.round = Some(val_str.trim().to_string()),
-            b"Result" => tags.result = GameResult::from_str_lenient(&val_str),
-            b"ECO" => tags.eco = Some(val_str.trim().to_string()),
-            b"TimeControl" => tags.time_control = Some(val_str.trim().to_string()),
-            b"Variant" => tags.variant = Some(val_str.trim().to_string()),
-            b"FEN" => tags.fen_start = Some(val_str.trim().to_string()),
+            b"GameURL" => {
+                if !trimmed.is_empty() && trimmed != "?" {
+                    tags.game_url = Some(trimmed.to_string());
+                }
+            }
+            b"BroadcastURL" => {
+                if !trimmed.is_empty() && trimmed != "?" {
+                    tags.broadcast_url = Some(trimmed.to_string());
+                }
+            }
+            b"GameId" => {
+                if !trimmed.is_empty() && trimmed != "?" {
+                    tags.game_id_tag = Some(trimmed.to_string());
+                }
+            }
+            b"Round" => {
+                if !trimmed.is_empty() && trimmed != "?" {
+                    tags.round = Some(trimmed.to_string());
+                }
+            }
+            b"Result" => tags.result = GameResult::from_str_lenient(trimmed),
+            b"ECO" => {
+                if !trimmed.is_empty() && trimmed != "?" {
+                    tags.eco = Some(trimmed.to_string());
+                }
+            }
+            b"TimeControl" => {
+                if !trimmed.is_empty() && trimmed != "?" && trimmed != "-" {
+                    tags.time_control = Some(trimmed.to_string());
+                }
+            }
+            b"Variant" => tags.variant = Some(trimmed.to_string()),
+            b"FEN" => tags.fen_start = Some(trimmed.to_string()),
             _ => {}
         }
         ControlFlow::Continue(())
     }
 
     fn begin_movetext(&mut self, tags: Self::Tags) -> ControlFlow<Self::Output, Self::Movetext> {
+        if let Some(err_msg) = tags.malformed_tag {
+            return ControlFlow::Break(Err(IngestError::MalformedPgn(err_msg)));
+        }
+        if tags.tag_count == 0 {
+            return ControlFlow::Break(Err(IngestError::MalformedPgn(
+                "Missing PGN header tags".into(),
+            )));
+        }
+
         if let Some(v) = &tags.variant {
             let v_lower = v.to_ascii_lowercase();
             if v_lower != "standard" && v_lower != "chess" {
@@ -242,12 +424,32 @@ impl Visitor for ShakmatyGameVisitor {
             });
         }
 
+        if movetext.tags.white.is_empty()
+            && movetext.tags.black.is_empty()
+            && movetext.moves.is_empty()
+        {
+            return Err(IngestError::MalformedPgn(
+                "Malformed PGN record missing players and moves".into(),
+            ));
+        }
+
+        let resolved_date = resolve_canonical_date(
+            movetext.tags.date.as_deref(),
+            movetext.tags.utc_date.as_deref(),
+        );
+        let (source_id, broadcast_url) = resolve_provenance(
+            movetext.tags.site.as_deref(),
+            movetext.tags.game_url.as_deref(),
+            movetext.tags.broadcast_url.as_deref(),
+            movetext.tags.game_id_tag.as_deref(),
+        );
+
         let id = compute_stable_game_id(
             self.collection,
-            movetext.tags.source_id.as_deref(),
+            source_id.as_deref(),
             &movetext.tags.white,
             &movetext.tags.black,
-            movetext.tags.date.as_deref(),
+            resolved_date.as_deref(),
             movetext.tags.round.as_deref(),
             &movetext.moves,
         );
@@ -259,14 +461,15 @@ impl Visitor for ShakmatyGameVisitor {
             black: movetext.tags.black,
             white_elo: movetext.tags.white_elo,
             black_elo: movetext.tags.black_elo,
-            date: movetext.tags.date,
+            date: resolved_date,
             event: movetext.tags.event,
             site: movetext.tags.site,
             round: movetext.tags.round,
             result: movetext.tags.result,
             eco: movetext.tags.eco,
             time_control: movetext.tags.time_control,
-            source_id: movetext.tags.source_id,
+            source_id,
+            broadcast_url,
         };
 
         Ok(ParsedGame {
@@ -277,19 +480,67 @@ impl Visitor for ShakmatyGameVisitor {
     }
 }
 
+/// Returns true only if `io_err` is a single-record PGN syntax error generated by `pgn-reader`
+/// (`"unterminated tag"` or `"unterminated comment"`), rather than a fatal stream/decompression I/O failure.
+pub fn is_recoverable_pgn_syntax_error(io_err: &std::io::Error) -> bool {
+    if io_err.kind() != std::io::ErrorKind::InvalidData {
+        return false;
+    }
+    let msg = io_err.to_string();
+    msg.contains("unterminated tag") || msg.contains("unterminated comment")
+}
+
+/// Resynchronizes the `pgn-reader` stream after a single-record syntax error (`unterminated tag` or `unterminated comment`).
+/// Returns `Ok(true)` if more games remain, `Ok(false)` on clean EOF, or `Err(IngestError)` on fatal stream/resync failure.
+pub fn resync_after_syntax_error<R: Read>(
+    pgn_reader: &mut Reader<R>,
+    consecutive_syntax_errors: &mut usize,
+) -> Result<bool, IngestError> {
+    const MAX_CONSECUTIVE_SYNTAX_ERRORS: usize = 64;
+    *consecutive_syntax_errors += 1;
+    if *consecutive_syntax_errors > MAX_CONSECUTIVE_SYNTAX_ERRORS {
+        return Err(IngestError::MalformedPgn(format!(
+            "Failed to resynchronize PGN stream after {} consecutive syntax errors",
+            MAX_CONSECUTIVE_SYNTAX_ERRORS
+        )));
+    }
+
+    match pgn_reader.skip_game() {
+        Ok(has_more) => Ok(has_more),
+        Err(io_err) => {
+            if is_recoverable_pgn_syntax_error(&io_err) {
+                Ok(true)
+            } else {
+                Err(IngestError::Io(io_err))
+            }
+        }
+    }
+}
+
+/// Builds a configured `pgn_reader::Reader` supporting long tag lines (4 KB) and comments (16 KB).
+pub fn build_pgn_reader<R: Read>(reader: R) -> Reader<R> {
+    Reader::build(reader)
+        .set_supported_tag_line_length(4096)
+        .set_supported_comment_length(16384)
+        .finish()
+}
+
 /// Helper function to parse all games from a PGN reader with tracking statistics.
+/// Fails closed (`Err`) on fatal I/O or decompression failures.
 pub fn parse_pgn_stream<R: Read>(
     reader: R,
     collection: Collection,
     stats: &mut IngestionStats,
-) -> Vec<ParsedGame> {
-    let mut pgn_reader = Reader::new(reader);
+) -> Result<Vec<ParsedGame>, IngestError> {
+    let mut pgn_reader = build_pgn_reader(reader);
     let mut visitor = ShakmatyGameVisitor::new(collection, 1);
     let mut games = Vec::new();
+    let mut consecutive_syntax_errors = 0usize;
 
     loop {
         match pgn_reader.read_game(&mut visitor) {
             Ok(Some(result)) => {
+                consecutive_syntax_errors = 0;
                 stats.total_encountered += 1;
                 match result {
                     Ok(game) => {
@@ -312,28 +563,29 @@ pub fn parse_pgn_stream<R: Read>(
                     }
                 }
             }
-            Ok(None) => break,
+            Ok(None) => {
+                stats.completion_status = IngestionCompletionStatus::CompleteEof;
+                break;
+            }
             Err(io_err) => {
-                if io_err.kind() == std::io::ErrorKind::InvalidData {
+                if is_recoverable_pgn_syntax_error(&io_err) {
                     stats.total_encountered += 1;
                     stats.rejected_malformed += 1;
                     tracing::warn!("Malformed PGN syntax error: {}", io_err);
-                    if let Ok(has_more) = pgn_reader.has_more() {
-                        if !has_more {
-                            break;
-                        }
-                    } else {
+                    if !resync_after_syntax_error(&mut pgn_reader, &mut consecutive_syntax_errors)?
+                    {
+                        stats.completion_status = IngestionCompletionStatus::CompleteEof;
                         break;
                     }
                 } else {
                     tracing::error!("Fatal I/O error while reading PGN: {}", io_err);
-                    break;
+                    return Err(IngestError::Io(io_err));
                 }
             }
         }
     }
 
-    games
+    Ok(games)
 }
 
 #[cfg(test)]
@@ -376,11 +628,16 @@ mod tests {
     #[test]
     fn test_parse_pgn_stream() {
         let mut stats = IngestionStats::default();
-        let games = parse_pgn_stream(SAMPLE_PGN.as_bytes(), Collection::MastersOtb, &mut stats);
+        let games =
+            parse_pgn_stream(SAMPLE_PGN.as_bytes(), Collection::MastersOtb, &mut stats).unwrap();
 
         assert_eq!(stats.total_encountered, 3);
         assert_eq!(stats.accepted_unique, 3);
-        assert!(stats.is_reconciled());
+        assert!(stats.is_fully_consistent(games.len()));
+        assert_eq!(
+            stats.completion_status,
+            IngestionCompletionStatus::CompleteEof
+        );
         assert_eq!(games.len(), 3);
 
         // Verify Carlsen vs Nepo game
@@ -403,11 +660,12 @@ mod tests {
 1. e4 e5 2. Na6 0-1
 "#;
         let mut stats = IngestionStats::default();
-        let games = parse_pgn_stream(bad_pgn.as_bytes(), Collection::MastersOtb, &mut stats);
+        let games =
+            parse_pgn_stream(bad_pgn.as_bytes(), Collection::MastersOtb, &mut stats).unwrap();
 
         assert_eq!(stats.total_encountered, 1);
         assert_eq!(stats.rejected_illegal, 1);
-        assert!(stats.is_reconciled());
+        assert!(stats.is_fully_consistent(games.len()));
         assert_eq!(games.len(), 0);
     }
 
@@ -423,11 +681,12 @@ mod tests {
 1. e4 e5 *
 "#;
         let mut stats = IngestionStats::default();
-        let games = parse_pgn_stream(variant_pgn.as_bytes(), Collection::MastersOtb, &mut stats);
+        let games =
+            parse_pgn_stream(variant_pgn.as_bytes(), Collection::MastersOtb, &mut stats).unwrap();
 
         assert_eq!(stats.total_encountered, 1);
         assert_eq!(stats.rejected_variant, 1);
-        assert!(stats.is_reconciled());
+        assert!(stats.is_fully_consistent(games.len()));
         assert_eq!(games.len(), 0);
     }
 
@@ -444,11 +703,12 @@ mod tests {
 1. c4 c5 *
 "#;
         let mut stats = IngestionStats::default();
-        let games = parse_pgn_stream(chess960_pgn.as_bytes(), Collection::MastersOtb, &mut stats);
+        let games =
+            parse_pgn_stream(chess960_pgn.as_bytes(), Collection::MastersOtb, &mut stats).unwrap();
 
         assert_eq!(stats.total_encountered, 1);
         assert_eq!(stats.rejected_variant, 1);
-        assert!(stats.is_reconciled());
+        assert!(stats.is_fully_consistent(games.len()));
         assert_eq!(games.len(), 0);
 
         // Standard FEN explicitly specified should be accepted
@@ -466,9 +726,10 @@ mod tests {
             standard_fen_pgn.as_bytes(),
             Collection::MastersOtb,
             &mut stats2,
-        );
+        )
+        .unwrap();
         assert_eq!(stats2.accepted_unique, 1);
-        assert!(stats2.is_reconciled());
+        assert!(stats2.is_fully_consistent(games2.len()));
         assert_eq!(games2.len(), 1);
     }
 
@@ -490,10 +751,10 @@ mod tests {
 1. d4 d5 2. Nc3 Nc6 3. Bf4 Bf5 4. Qd2 Qd7 5. O-O-O O-O-O 1/2-1/2
 "#;
         let mut stats = IngestionStats::default();
-        let games = parse_pgn_stream(pgn.as_bytes(), Collection::MastersOtb, &mut stats);
+        let games = parse_pgn_stream(pgn.as_bytes(), Collection::MastersOtb, &mut stats).unwrap();
 
         assert_eq!(stats.accepted_unique, 2);
-        assert!(stats.is_reconciled());
+        assert!(stats.is_fully_consistent(games.len()));
         // Game 1: O-O
         let g1 = &games[0];
         assert_eq!(g1.moves[6].to_uci(), "e1g1");
@@ -516,10 +777,10 @@ mod tests {
 1. e4 c5 2. e5 d5 3. exd6 *
 "#;
         let mut stats = IngestionStats::default();
-        let games = parse_pgn_stream(pgn.as_bytes(), Collection::MastersOtb, &mut stats);
+        let games = parse_pgn_stream(pgn.as_bytes(), Collection::MastersOtb, &mut stats).unwrap();
 
         assert_eq!(stats.accepted_unique, 1);
-        assert!(stats.is_reconciled());
+        assert!(stats.is_fully_consistent(games.len()));
         let g = &games[0];
         assert_eq!(g.moves.len(), 5);
         // Move 5: exd6 -> from e5 (sq 36) to d6 (sq 43)
@@ -539,10 +800,10 @@ mod tests {
 1. e4 d5 2. exd5 c6 3. dxc6 Nf6 4. cxb7 e5 5. bxa8=N *
 "#;
         let mut stats = IngestionStats::default();
-        let games = parse_pgn_stream(pgn.as_bytes(), Collection::MastersOtb, &mut stats);
+        let games = parse_pgn_stream(pgn.as_bytes(), Collection::MastersOtb, &mut stats).unwrap();
 
         assert_eq!(stats.accepted_unique, 1);
-        assert!(stats.is_reconciled());
+        assert!(stats.is_fully_consistent(games.len()));
         let g = &games[0];
         let last_move = g.moves.last().unwrap();
         assert_eq!(last_move.to_uci(), "b7a8n");
@@ -565,10 +826,10 @@ mod tests {
 1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 1/2-1/2
 "#;
         let mut stats = IngestionStats::default();
-        let games = parse_pgn_stream(pgn.as_bytes(), Collection::MastersOtb, &mut stats);
+        let games = parse_pgn_stream(pgn.as_bytes(), Collection::MastersOtb, &mut stats).unwrap();
 
         assert_eq!(stats.accepted_unique, 1);
-        assert!(stats.is_reconciled());
+        assert!(stats.is_fully_consistent(games.len()));
         let g = &games[0];
         assert_eq!(g.metadata.white, "Najdorf, Miguel");
         assert_eq!(g.metadata.black, "Spassky, Boris V");
@@ -576,5 +837,225 @@ mod tests {
             g.metadata.event.as_deref(),
             Some("Torneo Internacional \"Memorial Capablanca\"")
         );
+    }
+
+    #[test]
+    fn test_date_and_utcdate_precedence() {
+        let pgn = r#"
+[Event "Only UTCDate (Lichess Rated)"]
+[Site "https://lichess.org/a9tcp02g"]
+[UTCDate "2012.12.31"]
+[White "PlayerA"]
+[Black "PlayerB"]
+[Result "1-0"]
+
+1. e4 e5 1-0
+
+[Event "Partial Date with Complete UTCDate"]
+[Site "Canberra, Australia"]
+[Date "2026.??.??"]
+[UTCDate "2026.07.31"]
+[White "PlayerC"]
+[Black "PlayerD"]
+[Result "0-1"]
+
+1. d4 d5 0-1
+
+[Event "UTCDate Before Unknown Date (Never Overwrite Valid Date)"]
+[Site "Canberra, Australia"]
+[UTCDate "2026.08.15"]
+[Date "????.??.??"]
+[White "PlayerE"]
+[Black "PlayerF"]
+[Result "1/2-1/2"]
+
+1. c4 c5 1/2-1/2
+
+[Event "Both Complete (Date Takes Precedence Over UTCDate)"]
+[Site "Canberra, Australia"]
+[Date "2026.07.30"]
+[UTCDate "2026.07.31"]
+[White "PlayerG"]
+[Black "PlayerH"]
+[Result "1-0"]
+
+1. Nf3 Nf6 1-0
+"#;
+        let mut stats = IngestionStats::default();
+        let games = parse_pgn_stream(pgn.as_bytes(), Collection::MastersOtb, &mut stats).unwrap();
+
+        assert_eq!(games.len(), 4);
+        assert_eq!(games[0].metadata.date.as_deref(), Some("2012.12.31"));
+        assert_eq!(games[1].metadata.date.as_deref(), Some("2026.07.31"));
+        assert_eq!(games[2].metadata.date.as_deref(), Some("2026.08.15"));
+        assert_eq!(games[3].metadata.date.as_deref(), Some("2026.07.30"));
+    }
+
+    #[test]
+    fn test_provenance_extraction_game_vs_broadcast_vs_site() {
+        let pgn = r#"
+[Event "2026 ANU Open"]
+[Site "Canberra, Australia"]
+[Date "2026.07.31"]
+[Round "2.1"]
+[White "Ikeda, Junta"]
+[Black "Hegde, Sanat"]
+[Result "1-0"]
+[BroadcastURL "https://lichess.org/broadcast/2026-anu-open/round-2/iDPcCots"]
+[GameURL "https://lichess.org/broadcast/2026-anu-open/round-2/iDPcCots/Qmy8doCq"]
+
+1. e4 c6 1-0
+
+[Event "Broadcast Without GameURL"]
+[Site "Canberra, Australia"]
+[Date "2026.07.31"]
+[White "A"]
+[Black "B"]
+[Result "1-0"]
+[BroadcastURL "https://lichess.org/broadcast/2026-anu-open/round-2/iDPcCots"]
+
+1. e4 e5 1-0
+
+[Event "Broadcast URL in Site Without GameURL"]
+[Site "https://lichess.org/broadcast/2026-anu-open/round-2/iDPcCots"]
+[Date "2026.07.31"]
+[White "C"]
+[Black "D"]
+[Result "1-0"]
+
+1. d4 d5 1-0
+
+[Event "Online Game With Canonical Site URL"]
+[Site "https://lichess.org/a9tcp02g"]
+[UTCDate "2024.05.01"]
+[White "E"]
+[Black "F"]
+[Result "0-1"]
+
+1. c4 e5 0-1
+"#;
+        let mut stats = IngestionStats::default();
+        let games = parse_pgn_stream(pgn.as_bytes(), Collection::MastersOtb, &mut stats).unwrap();
+        assert_eq!(games.len(), 4);
+
+        // Game 0: Full Lichess Broadcast tags
+        assert_eq!(
+            games[0].metadata.site.as_deref(),
+            Some("Canberra, Australia")
+        );
+        assert_eq!(
+            games[0].metadata.source_id.as_deref(),
+            Some("https://lichess.org/broadcast/2026-anu-open/round-2/iDPcCots/Qmy8doCq")
+        );
+        assert_eq!(
+            games[0].metadata.broadcast_url.as_deref(),
+            Some("https://lichess.org/broadcast/2026-anu-open/round-2/iDPcCots")
+        );
+
+        // Game 1: BroadcastURL only -> must NOT pollute source_id!
+        assert_eq!(
+            games[1].metadata.site.as_deref(),
+            Some("Canberra, Australia")
+        );
+        assert_eq!(games[1].metadata.source_id, None);
+        assert_eq!(
+            games[1].metadata.broadcast_url.as_deref(),
+            Some("https://lichess.org/broadcast/2026-anu-open/round-2/iDPcCots")
+        );
+
+        // Game 2: Tournament/Broadcast URL placed in Site -> classified as broadcast_url, NOT source_id!
+        assert_eq!(games[2].metadata.source_id, None);
+        assert_eq!(
+            games[2].metadata.broadcast_url.as_deref(),
+            Some("https://lichess.org/broadcast/2026-anu-open/round-2/iDPcCots")
+        );
+
+        // Game 3: Game-specific URL in Site -> extracted as source_id
+        assert_eq!(
+            games[3].metadata.source_id.as_deref(),
+            Some("https://lichess.org/a9tcp02g")
+        );
+        assert_eq!(games[3].metadata.broadcast_url, None);
+    }
+
+    #[test]
+    fn test_fail_closed_on_synthetic_io_error() {
+        struct FailingReader {
+            prefix: Vec<u8>,
+            pos: usize,
+        }
+        impl Read for FailingReader {
+            fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+                if self.pos < self.prefix.len() {
+                    let n = buf.len().min(self.prefix.len() - self.pos);
+                    buf[..n].copy_from_slice(&self.prefix[self.pos..self.pos + n]);
+                    self.pos += n;
+                    Ok(n)
+                } else {
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::BrokenPipe,
+                        "synthetic stream read failure",
+                    ))
+                }
+            }
+        }
+
+        let reader = FailingReader {
+            prefix: b"[Event \"Valid Start\"]\n[White \"A\"]\n".to_vec(),
+            pos: 0,
+        };
+        let mut stats = IngestionStats::default();
+        let res = parse_pgn_stream(reader, Collection::MastersOtb, &mut stats);
+        assert!(res.is_err(), "Fatal I/O error must fail closed with Err");
+    }
+
+    #[test]
+    fn test_fail_closed_on_truncated_zstd_stream() {
+        let valid_pgn =
+            b"[Event \"Test\"]\n[White \"A\"]\n[Black \"B\"]\n[Result \"1-0\"]\n\n1. e4 e5 1-0\n";
+        let compressed = zstd::encode_all(&valid_pgn[..], 3).unwrap();
+        // Truncate the zstd frame midway so decompression fails
+        let truncated = &compressed[..compressed.len() / 2];
+        let decoder = zstd::stream::read::Decoder::new(truncated).unwrap();
+
+        let mut stats = IngestionStats::default();
+        let res = parse_pgn_stream(decoder, Collection::MastersOtb, &mut stats);
+        assert!(
+            res.is_err(),
+            "Truncated zstd stream must fail closed with Err"
+        );
+    }
+
+    #[test]
+    fn test_malformed_pgn_followed_by_valid_game() {
+        // Record 1: Malformed tag name (contains spaces/invalid chars)
+        // Record 2: Valid game
+        let mixed_pgn = r#"
+[Invalid Tag Name "Broken"]
+[White "Ghost"]
+[Black "Phantom"]
+
+1. e4 e5 *
+
+[Event "Valid Recovery Game"]
+[Site "Reykjavik ISL"]
+[Date "1972.07.23"]
+[Round "6"]
+[White "Fischer, Robert James"]
+[Black "Spassky, Boris V"]
+[Result "1-0"]
+
+1. c4 e6 2. Nf3 d5 3. d4 Nf6 4. Nc3 Be7 1-0
+"#;
+        let mut stats = IngestionStats::default();
+        let games =
+            parse_pgn_stream(mixed_pgn.as_bytes(), Collection::MastersOtb, &mut stats).unwrap();
+
+        assert_eq!(stats.total_encountered, 2);
+        assert_eq!(stats.rejected_malformed, 1);
+        assert_eq!(stats.accepted_unique, 1);
+        assert!(stats.is_fully_consistent(games.len()));
+        assert_eq!(games.len(), 1);
+        assert_eq!(games[0].metadata.white, "Fischer, Robert James");
     }
 }
