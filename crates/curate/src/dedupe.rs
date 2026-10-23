@@ -2,6 +2,20 @@ use codb_core::{CompactMove, ParsedGame};
 use std::collections::HashMap;
 use std::path::Path;
 
+#[derive(Debug, thiserror::Error)]
+pub enum DedupeError {
+    #[error("Database operational failure in deduplication store: {0}")]
+    Database(#[from] rusqlite::Error),
+    #[error("Game ID collision: stable ID {id} was assigned to distinct games: existing '{existing_meta}' vs candidate '{new_meta}'")]
+    IdCollision {
+        id: u64,
+        existing_meta: String,
+        new_meta: String,
+    },
+    #[error("Deduplication schema or constraint error: {0}")]
+    Constraint(String),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DuplicateVerdict {
     Unique,
@@ -21,13 +35,15 @@ pub struct NormalizedMetadataKey {
 
 impl NormalizedMetadataKey {
     pub fn to_canonical_string(&self) -> String {
+        // Sanitize '|' delimiter to prevent key ambiguity or injection
+        let clean = |s: &str| s.replace('|', "/");
         format!(
             "{}|{}|{}|{}|{}",
-            self.white_norm,
-            self.black_norm,
+            clean(&self.white_norm),
+            clean(&self.black_norm),
             self.year.map(|y| y.to_string()).unwrap_or_default(),
-            self.event_norm,
-            self.round.as_deref().unwrap_or_default()
+            clean(&self.event_norm),
+            clean(self.round.as_deref().unwrap_or_default())
         )
     }
 }
@@ -46,6 +62,7 @@ pub struct SeenGameRecord {
 pub struct MemoryDedupeStore {
     by_metadata: HashMap<NormalizedMetadataKey, Vec<SeenGameRecord>>,
     by_moves: HashMap<u64, Vec<SeenGameRecord>>,
+    by_id: HashMap<u64, (NormalizedMetadataKey, Vec<CompactMove>)>,
 }
 
 impl Default for MemoryDedupeStore {
@@ -59,10 +76,11 @@ impl MemoryDedupeStore {
         MemoryDedupeStore {
             by_metadata: HashMap::new(),
             by_moves: HashMap::new(),
+            by_id: HashMap::new(),
         }
     }
 
-    pub fn evaluate(&mut self, game: &ParsedGame) -> DuplicateVerdict {
+    pub fn evaluate(&mut self, game: &ParsedGame) -> Result<DuplicateVerdict, DedupeError> {
         let move_hash = compute_move_hash(&game.moves);
         let meta_key = normalize_metadata(game);
         let ply_count = game.moves.len();
@@ -78,10 +96,10 @@ impl MemoryDedupeStore {
             for existing in existing_games.iter_mut() {
                 // Exact move match (verified by actual move sequence, not hash alone)
                 if existing.moves == game.moves {
-                    return DuplicateVerdict::ConfirmedDuplicate {
+                    return Ok(DuplicateVerdict::ConfirmedDuplicate {
                         canonical_id: existing.id,
                         reason: "Exact metadata and verified move sequence match".into(),
-                    };
+                    });
                 }
 
                 // Check for verified prefix relationship
@@ -91,12 +109,28 @@ impl MemoryDedupeStore {
                         let old_id = existing.id;
                         let old_hash = existing.move_hash;
 
+                        // Check ID collision with unrelated game
+                        if game.metadata.id != old_id {
+                            if let Some((colliding_meta, _)) = self.by_id.get(&game.metadata.id) {
+                                return Err(DedupeError::IdCollision {
+                                    id: game.metadata.id,
+                                    existing_meta: colliding_meta.to_canonical_string(),
+                                    new_meta: meta_key.to_canonical_string(),
+                                });
+                            }
+                        }
+
                         // Update metadata record to point to the new fuller game
                         existing.id = game.metadata.id;
                         existing.move_hash = move_hash;
                         existing.moves = game.moves.clone();
                         existing.has_full_date = has_full_date;
                         existing.has_ratings = has_ratings;
+
+                        // Update by_id
+                        self.by_id.remove(&old_id);
+                        self.by_id
+                            .insert(game.metadata.id, (meta_key.clone(), game.moves.clone()));
 
                         // Ensure index consistency in by_moves: remove old reference, add new
                         if let Some(list) = self.by_moves.get_mut(&old_hash) {
@@ -107,20 +141,20 @@ impl MemoryDedupeStore {
                             .or_default()
                             .push(existing.clone());
 
-                        return DuplicateVerdict::SupersedesPrevious {
+                        return Ok(DuplicateVerdict::SupersedesPrevious {
                             old_id,
                             reason: "Verified prefix relationship: complete game replaces earlier truncated relay transmission"
                                 .into(),
-                        };
+                        });
                     }
                 } else if ply_count < existing.moves.len() {
                     // Check if candidate game is a strict prefix of existing longer game
                     if game.moves == existing.moves[..ply_count] {
-                        return DuplicateVerdict::ConfirmedDuplicate {
+                        return Ok(DuplicateVerdict::ConfirmedDuplicate {
                             canonical_id: existing.id,
                             reason: "Verified prefix relationship: truncated candidate discarded in favor of existing longer transmission"
                                 .into(),
-                        };
+                        });
                     }
                 }
             }
@@ -131,6 +165,15 @@ impl MemoryDedupeStore {
             for existing in existing_games {
                 // Verify move equality to protect against hash collisions
                 if existing.moves == game.moves && existing.metadata_key != meta_key {
+                    // Check ID collision
+                    if let Some((colliding_meta, _)) = self.by_id.get(&game.metadata.id) {
+                        return Err(DedupeError::IdCollision {
+                            id: game.metadata.id,
+                            existing_meta: colliding_meta.to_canonical_string(),
+                            new_meta: meta_key.to_canonical_string(),
+                        });
+                    }
+
                     let record = SeenGameRecord {
                         id: game.metadata.id,
                         move_hash,
@@ -140,16 +183,26 @@ impl MemoryDedupeStore {
                         has_ratings,
                     };
                     self.by_metadata
-                        .entry(meta_key)
+                        .entry(meta_key.clone())
                         .or_default()
                         .push(record.clone());
                     self.by_moves.entry(move_hash).or_default().push(record);
-                    return DuplicateVerdict::TranspositionDifferentGame;
+                    self.by_id
+                        .insert(game.metadata.id, (meta_key, game.moves.clone()));
+                    return Ok(DuplicateVerdict::TranspositionDifferentGame);
                 }
             }
         }
 
-        // 3. Entirely unique game
+        // 3. Entirely unique game: check ID collision, then record
+        if let Some((colliding_meta, _)) = self.by_id.get(&game.metadata.id) {
+            return Err(DedupeError::IdCollision {
+                id: game.metadata.id,
+                existing_meta: colliding_meta.to_canonical_string(),
+                new_meta: meta_key.to_canonical_string(),
+            });
+        }
+
         let record = SeenGameRecord {
             id: game.metadata.id,
             move_hash,
@@ -160,36 +213,38 @@ impl MemoryDedupeStore {
         };
 
         self.by_metadata
-            .entry(meta_key)
+            .entry(meta_key.clone())
             .or_default()
             .push(record.clone());
         self.by_moves.entry(move_hash).or_default().push(record);
+        self.by_id
+            .insert(game.metadata.id, (meta_key, game.moves.clone()));
 
-        DuplicateVerdict::Unique
+        Ok(DuplicateVerdict::Unique)
     }
 }
 
 /// Disk-backed temporary deduplication store using embedded SQLite.
-/// Scales to millions of games with bounded RAM consumption (<64 MB cache).
+/// Scales to millions of games with bounded RAM consumption (<32 MB cache).
 pub struct DiskDedupeStore {
     conn: rusqlite::Connection,
 }
 
 impl DiskDedupeStore {
-    pub fn open(db_path: &Path) -> Result<Self, rusqlite::Error> {
+    pub fn open(db_path: &Path) -> Result<Self, DedupeError> {
         let conn = rusqlite::Connection::open(db_path)?;
         Self::init_connection(conn)
     }
 
-    pub fn temp() -> Result<Self, rusqlite::Error> {
+    pub fn temp() -> Result<Self, DedupeError> {
         let conn = rusqlite::Connection::open_in_memory()?;
         Self::init_connection(conn)
     }
 
-    fn init_connection(conn: rusqlite::Connection) -> Result<Self, rusqlite::Error> {
+    fn init_connection(conn: rusqlite::Connection) -> Result<Self, DedupeError> {
         conn.execute_batch(
-            "PRAGMA synchronous = OFF;
-             PRAGMA journal_mode = OFF;
+            "PRAGMA synchronous = NORMAL;
+             PRAGMA journal_mode = WAL;
              PRAGMA temp_store = MEMORY;
              PRAGMA cache_size = -32000;
              CREATE TABLE IF NOT EXISTS seen_games (
@@ -206,7 +261,7 @@ impl DiskDedupeStore {
         Ok(DiskDedupeStore { conn })
     }
 
-    pub fn evaluate(&mut self, game: &ParsedGame) -> DuplicateVerdict {
+    pub fn evaluate(&mut self, game: &ParsedGame) -> Result<DuplicateVerdict, DedupeError> {
         let move_hash = compute_move_hash(&game.moves) as i64;
         let meta_key_struct = normalize_metadata(game);
         let meta_key_str = meta_key_struct.to_canonical_string();
@@ -221,109 +276,158 @@ impl DiskDedupeStore {
 
         let moves_blob = encode_moves_blob(&game.moves);
 
+        let tx = self.conn.transaction()?;
+
         // 1. Check for duplicates/prefixes within the same normalized metadata
         {
-            let mut stmt = match self
-                .conn
-                .prepare("SELECT id, move_hash, moves FROM seen_games WHERE meta_key = ?1")
-            {
-                Ok(s) => s,
-                Err(_) => return DuplicateVerdict::Unique,
-            };
+            let mut stmt =
+                tx.prepare("SELECT id, move_hash, moves FROM seen_games WHERE meta_key = ?1")?;
+            let mut rows = stmt.query([&meta_key_str])?;
 
-            let rows = stmt.query_map([&meta_key_str], |row| {
-                let id: i64 = row.get(0)?;
-                let m_hash: i64 = row.get(1)?;
-                let raw_blob: Vec<u8> = row.get(2)?;
-                Ok((id as u64, m_hash, raw_blob))
-            });
+            while let Some(row) = rows.next()? {
+                let existing_id: i64 = row.get(0)?;
+                let _existing_hash: i64 = row.get(1)?;
+                let existing_blob: Vec<u8> = row.get(2)?;
+                let existing_moves = decode_moves_blob(&existing_blob);
 
-            if let Ok(records) = rows {
-                for rec_res in records.flatten() {
-                    let (existing_id, _existing_hash, existing_blob) = rec_res;
-                    let existing_moves = decode_moves_blob(&existing_blob);
+                if existing_moves == game.moves {
+                    drop(rows);
+                    drop(stmt);
+                    tx.rollback()?;
+                    return Ok(DuplicateVerdict::ConfirmedDuplicate {
+                        canonical_id: existing_id as u64,
+                        reason: "Exact metadata and verified move sequence match".into(),
+                    });
+                }
 
-                    if existing_moves == game.moves {
-                        return DuplicateVerdict::ConfirmedDuplicate {
-                            canonical_id: existing_id,
-                            reason: "Exact metadata and verified move sequence match".into(),
-                        };
-                    }
+                if ply_count > existing_moves.len() {
+                    if existing_moves == game.moves[..existing_moves.len()] {
+                        drop(rows);
+                        drop(stmt);
 
-                    if ply_count > existing_moves.len() {
-                        if existing_moves == game.moves[..existing_moves.len()] {
-                            // Supersedes prior game! Update SQLite record in-place
-                            let _ = self.conn.execute(
-                                "UPDATE seen_games SET id = ?1, move_hash = ?2, moves = ?3, has_full_date = ?4, has_ratings = ?5 WHERE id = ?6",
-                                rusqlite::params![
-                                    game.metadata.id as i64,
-                                    move_hash,
-                                    moves_blob,
-                                    has_full_date,
-                                    has_ratings,
-                                    existing_id as i64
-                                ],
-                            );
-                            return DuplicateVerdict::SupersedesPrevious {
-                                old_id: existing_id,
-                                reason: "Verified prefix relationship: complete game replaces earlier truncated relay transmission".into(),
+                        // Check if new ID collides with an existing unrelated game
+                        if game.metadata.id != existing_id as u64 {
+                            let collision: Option<String> = match tx.query_row(
+                                "SELECT meta_key FROM seen_games WHERE id = ?1",
+                                [game.metadata.id as i64],
+                                |r| r.get(0),
+                            ) {
+                                Ok(m) => Some(m),
+                                Err(rusqlite::Error::QueryReturnedNoRows) => None,
+                                Err(e) => return Err(DedupeError::Database(e)),
                             };
+                            if let Some(colliding_meta) = collision {
+                                return Err(DedupeError::IdCollision {
+                                    id: game.metadata.id,
+                                    existing_meta: colliding_meta,
+                                    new_meta: meta_key_str,
+                                });
+                            }
                         }
-                    } else if ply_count < existing_moves.len()
-                        && game.moves == existing_moves[..ply_count]
-                    {
-                        return DuplicateVerdict::ConfirmedDuplicate {
-                            canonical_id: existing_id,
-                            reason: "Verified prefix relationship: truncated candidate discarded in favor of existing longer transmission".into(),
-                        };
+
+                        // Supersedes prior game! Update SQLite record in-place
+                        tx.execute(
+                            "UPDATE seen_games SET id = ?1, move_hash = ?2, moves = ?3, has_full_date = ?4, has_ratings = ?5 WHERE id = ?6",
+                            rusqlite::params![
+                                game.metadata.id as i64,
+                                move_hash,
+                                moves_blob,
+                                has_full_date,
+                                has_ratings,
+                                existing_id
+                            ],
+                        )?;
+                        tx.commit()?;
+                        return Ok(DuplicateVerdict::SupersedesPrevious {
+                            old_id: existing_id as u64,
+                            reason: "Verified prefix relationship: complete game replaces earlier truncated relay transmission".into(),
+                        });
                     }
+                } else if ply_count < existing_moves.len()
+                    && game.moves == existing_moves[..ply_count]
+                {
+                    drop(rows);
+                    drop(stmt);
+                    tx.rollback()?;
+                    return Ok(DuplicateVerdict::ConfirmedDuplicate {
+                        canonical_id: existing_id as u64,
+                        reason: "Verified prefix relationship: truncated candidate discarded in favor of existing longer transmission".into(),
+                    });
                 }
             }
         }
 
         // 2. Check for move hash matches across different metadata (transpositions)
         {
-            let mut stmt = match self
-                .conn
-                .prepare("SELECT id, meta_key, moves FROM seen_games WHERE move_hash = ?1")
-            {
-                Ok(s) => s,
-                Err(_) => return DuplicateVerdict::Unique,
-            };
+            let mut stmt =
+                tx.prepare("SELECT id, meta_key, moves FROM seen_games WHERE move_hash = ?1")?;
+            let mut rows = stmt.query([move_hash])?;
 
-            let rows = stmt.query_map([move_hash], |row| {
-                let id: i64 = row.get(0)?;
-                let m_key: String = row.get(1)?;
-                let raw_blob: Vec<u8> = row.get(2)?;
-                Ok((id as u64, m_key, raw_blob))
-            });
+            while let Some(row) = rows.next()? {
+                let _existing_id: i64 = row.get(0)?;
+                let existing_meta_key: String = row.get(1)?;
+                let existing_blob: Vec<u8> = row.get(2)?;
+                let existing_moves = decode_moves_blob(&existing_blob);
 
-            if let Ok(records) = rows {
-                for rec_res in records.flatten() {
-                    let (_existing_id, existing_meta_key, existing_blob) = rec_res;
-                    let existing_moves = decode_moves_blob(&existing_blob);
+                if existing_moves == game.moves && existing_meta_key != meta_key_str {
+                    drop(rows);
+                    drop(stmt);
 
-                    if existing_moves == game.moves && existing_meta_key != meta_key_str {
-                        // Legitimate transposition: insert candidate
-                        let _ = self.conn.execute(
-                            "INSERT INTO seen_games (id, move_hash, meta_key, has_full_date, has_ratings, moves) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                            rusqlite::params![
-                                game.metadata.id as i64,
-                                move_hash,
-                                meta_key_str,
-                                has_full_date,
-                                has_ratings,
-                                moves_blob
-                            ],
-                        );
-                        return DuplicateVerdict::TranspositionDifferentGame;
+                    // Check for ID collision
+                    let collision: Option<String> = match tx.query_row(
+                        "SELECT meta_key FROM seen_games WHERE id = ?1",
+                        [game.metadata.id as i64],
+                        |r| r.get(0),
+                    ) {
+                        Ok(m) => Some(m),
+                        Err(rusqlite::Error::QueryReturnedNoRows) => None,
+                        Err(e) => return Err(DedupeError::Database(e)),
+                    };
+                    if let Some(colliding_meta) = collision {
+                        return Err(DedupeError::IdCollision {
+                            id: game.metadata.id,
+                            existing_meta: colliding_meta,
+                            new_meta: meta_key_str,
+                        });
                     }
+
+                    // Legitimate transposition: insert candidate
+                    tx.execute(
+                        "INSERT INTO seen_games (id, move_hash, meta_key, has_full_date, has_ratings, moves) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        rusqlite::params![
+                            game.metadata.id as i64,
+                            move_hash,
+                            meta_key_str,
+                            has_full_date,
+                            has_ratings,
+                            moves_blob
+                        ],
+                    )?;
+                    tx.commit()?;
+                    return Ok(DuplicateVerdict::TranspositionDifferentGame);
                 }
             }
         }
 
-        // 3. Unique game: insert into store
-        let _ = self.conn.execute(
+        // 3. Unique game: check ID collision, then insert into store
+        let collision: Option<String> = match tx.query_row(
+            "SELECT meta_key FROM seen_games WHERE id = ?1",
+            [game.metadata.id as i64],
+            |r| r.get(0),
+        ) {
+            Ok(m) => Some(m),
+            Err(rusqlite::Error::QueryReturnedNoRows) => None,
+            Err(e) => return Err(DedupeError::Database(e)),
+        };
+        if let Some(colliding_meta) = collision {
+            return Err(DedupeError::IdCollision {
+                id: game.metadata.id,
+                existing_meta: colliding_meta,
+                new_meta: meta_key_str,
+            });
+        }
+
+        tx.execute(
             "INSERT INTO seen_games (id, move_hash, meta_key, has_full_date, has_ratings, moves) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             rusqlite::params![
                 game.metadata.id as i64,
@@ -333,9 +437,10 @@ impl DiskDedupeStore {
                 has_ratings,
                 moves_blob
             ],
-        );
+        )?;
+        tx.commit()?;
 
-        DuplicateVerdict::Unique
+        Ok(DuplicateVerdict::Unique)
     }
 }
 
@@ -380,7 +485,7 @@ impl Deduplicator {
     }
 
     /// Disk-backed deduplicator with bounded RAM consumption using embedded SQLite at `db_path`.
-    pub fn new_disk(db_path: &Path) -> Result<Self, rusqlite::Error> {
+    pub fn new_disk(db_path: &Path) -> Result<Self, DedupeError> {
         let store = DiskDedupeStore::open(db_path)?;
         Ok(Deduplicator {
             backend: DedupeBackend::Disk(store),
@@ -388,7 +493,7 @@ impl Deduplicator {
     }
 
     /// In-memory temporary disk deduplicator.
-    pub fn new_temp_disk() -> Result<Self, rusqlite::Error> {
+    pub fn new_temp_disk() -> Result<Self, DedupeError> {
         let store = DiskDedupeStore::temp()?;
         Ok(Deduplicator {
             backend: DedupeBackend::Disk(store),
@@ -396,7 +501,7 @@ impl Deduplicator {
     }
 
     /// Evaluates candidate game against deduplication policy.
-    pub fn evaluate(&mut self, game: &ParsedGame) -> DuplicateVerdict {
+    pub fn evaluate(&mut self, game: &ParsedGame) -> Result<DuplicateVerdict, DedupeError> {
         match &mut self.backend {
             DedupeBackend::Memory(mem) => mem.evaluate(game),
             DedupeBackend::Disk(disk) => disk.evaluate(game),
@@ -555,9 +660,9 @@ mod tests {
             moves,
         );
 
-        assert_eq!(dedupe.evaluate(&g1), DuplicateVerdict::Unique);
+        assert_eq!(dedupe.evaluate(&g1).unwrap(), DuplicateVerdict::Unique);
         assert_eq!(
-            dedupe.evaluate(&g2),
+            dedupe.evaluate(&g2).unwrap(),
             DuplicateVerdict::ConfirmedDuplicate {
                 canonical_id: 1,
                 reason: "Exact metadata and verified move sequence match".into()
@@ -591,9 +696,12 @@ mod tests {
             m2.clone(),
         );
 
-        assert_eq!(dedupe.evaluate(&g_truncated), DuplicateVerdict::Unique);
         assert_eq!(
-            dedupe.evaluate(&g_full),
+            dedupe.evaluate(&g_truncated).unwrap(),
+            DuplicateVerdict::Unique
+        );
+        assert_eq!(
+            dedupe.evaluate(&g_full).unwrap(),
             DuplicateVerdict::SupersedesPrevious {
                 old_id: 10,
                 reason: "Verified prefix relationship: complete game replaces earlier truncated relay transmission".into()
@@ -610,7 +718,7 @@ mod tests {
             vec![CompactMove::new(12, 28, None)],
         );
         assert_eq!(
-            dedupe.evaluate(&g_late_truncated),
+            dedupe.evaluate(&g_late_truncated).unwrap(),
             DuplicateVerdict::ConfirmedDuplicate {
                 canonical_id: 20,
                 reason: "Verified prefix relationship: truncated candidate discarded in favor of existing longer transmission".into()
@@ -646,9 +754,9 @@ mod tests {
             moves.clone(),
         );
 
-        assert_eq!(disk_dedupe.evaluate(&g1), DuplicateVerdict::Unique);
+        assert_eq!(disk_dedupe.evaluate(&g1).unwrap(), DuplicateVerdict::Unique);
         assert_eq!(
-            disk_dedupe.evaluate(&g2),
+            disk_dedupe.evaluate(&g2).unwrap(),
             DuplicateVerdict::ConfirmedDuplicate {
                 canonical_id: 1,
                 reason: "Exact metadata and verified move sequence match".into()
@@ -670,7 +778,7 @@ mod tests {
             m_full,
         );
         assert_eq!(
-            disk_dedupe.evaluate(&g_full),
+            disk_dedupe.evaluate(&g_full).unwrap(),
             DuplicateVerdict::SupersedesPrevious {
                 old_id: 1,
                 reason: "Verified prefix relationship: complete game replaces earlier truncated relay transmission".into()
@@ -696,9 +804,9 @@ mod tests {
         );
         let g2 = make_test_game(200, "Player C", "Player D", "2024.02.01", "Event 2", moves);
 
-        assert_eq!(dedupe.evaluate(&g1), DuplicateVerdict::Unique);
+        assert_eq!(dedupe.evaluate(&g1).unwrap(), DuplicateVerdict::Unique);
         assert_eq!(
-            dedupe.evaluate(&g2),
+            dedupe.evaluate(&g2).unwrap(),
             DuplicateVerdict::TranspositionDifferentGame
         );
     }
@@ -729,8 +837,8 @@ mod tests {
             ],
         );
 
-        assert_eq!(dedupe.evaluate(&g1), DuplicateVerdict::Unique);
-        assert_eq!(dedupe.evaluate(&g2), DuplicateVerdict::Unique);
+        assert_eq!(dedupe.evaluate(&g1).unwrap(), DuplicateVerdict::Unique);
+        assert_eq!(dedupe.evaluate(&g2).unwrap(), DuplicateVerdict::Unique);
     }
 
     #[test]
@@ -768,16 +876,16 @@ mod tests {
             ],
         );
 
-        assert_eq!(dedupe.evaluate(&g1), DuplicateVerdict::Unique);
+        assert_eq!(dedupe.evaluate(&g1).unwrap(), DuplicateVerdict::Unique);
         assert_eq!(
-            dedupe.evaluate(&g2),
+            dedupe.evaluate(&g2).unwrap(),
             DuplicateVerdict::SupersedesPrevious {
                 old_id: 1,
                 reason: "Verified prefix relationship: complete game replaces earlier truncated relay transmission".into()
             }
         );
         assert_eq!(
-            dedupe.evaluate(&g3),
+            dedupe.evaluate(&g3).unwrap(),
             DuplicateVerdict::SupersedesPrevious {
                 old_id: 2,
                 reason: "Verified prefix relationship: complete game replaces earlier truncated relay transmission".into()
@@ -794,7 +902,165 @@ mod tests {
         let g1 = make_test_game(1, "Player A", "Player B", "2024", "Event", m1);
         let g2 = make_test_game(2, "Player A", "Player B", "2024", "Event", m2);
 
-        assert_eq!(dedupe.evaluate(&g1), DuplicateVerdict::Unique);
-        assert_eq!(dedupe.evaluate(&g2), DuplicateVerdict::Unique);
+        assert_eq!(dedupe.evaluate(&g1).unwrap(), DuplicateVerdict::Unique);
+        assert_eq!(dedupe.evaluate(&g2).unwrap(), DuplicateVerdict::Unique);
+    }
+
+    // --- Regression tests for F1 (Eliminate Silent SQLite Deduplication Failures) ---
+
+    #[test]
+    fn test_sqlite_operational_failure_fails_closed_no_unique_verdict() {
+        let temp = tempfile::tempdir().unwrap();
+        let db_path = temp.path().join("corrupted.db");
+        let mut store = DiskDedupeStore::open(&db_path).unwrap();
+
+        // Deliberately drop the table to simulate database/schema corruption
+        store.conn.execute_batch("DROP TABLE seen_games;").unwrap();
+
+        let g = make_test_game(
+            1,
+            "Player A",
+            "Player B",
+            "2024",
+            "Event",
+            vec![CompactMove::new(12, 28, None)],
+        );
+
+        // Must FAIL CLOSED with Database error, NEVER silently return DuplicateVerdict::Unique!
+        let result = store.evaluate(&g);
+        assert!(
+            matches!(result, Err(DedupeError::Database(_))),
+            "Expected Database error, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_id_collision_between_distinct_games_fails_closed() {
+        let temp = tempfile::tempdir().unwrap();
+        let db_path = temp.path().join("collision.db");
+        let mut store = DiskDedupeStore::open(&db_path).unwrap();
+
+        // Game 1 with ID 42
+        let g1 = make_test_game(
+            42,
+            "Player Alpha",
+            "Player Beta",
+            "2024",
+            "Event 1",
+            vec![CompactMove::new(12, 28, None)],
+        );
+        // Game 2 with identical ID 42 but completely distinct players and moves
+        let g2 = make_test_game(
+            42,
+            "Player Gamma",
+            "Player Delta",
+            "2025",
+            "Event 2",
+            vec![CompactMove::new(11, 27, None)],
+        );
+
+        assert_eq!(store.evaluate(&g1).unwrap(), DuplicateVerdict::Unique);
+
+        // Inserting distinct game with colliding ID must fail closed with IdCollision!
+        let res2 = store.evaluate(&g2);
+        assert!(
+            matches!(res2, Err(DedupeError::IdCollision { id: 42, .. })),
+            "Expected IdCollision error, got: {:?}",
+            res2
+        );
+    }
+
+    #[test]
+    fn test_failed_transaction_rolls_back_cleanly() {
+        let temp = tempfile::tempdir().unwrap();
+        let db_path = temp.path().join("rollback.db");
+        let mut store = DiskDedupeStore::open(&db_path).unwrap();
+
+        let g1 = make_test_game(
+            1,
+            "Player A",
+            "Player B",
+            "2024",
+            "Event",
+            vec![CompactMove::new(12, 28, None)],
+        );
+        assert_eq!(store.evaluate(&g1).unwrap(), DuplicateVerdict::Unique);
+
+        // Check row count is 1
+        let count: i64 = store
+            .conn
+            .query_row("SELECT COUNT(*) FROM seen_games", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+
+        // Now attempt an invalid operation (colliding ID)
+        let g_colliding = make_test_game(
+            1,
+            "Player X",
+            "Player Y",
+            "2025",
+            "Other",
+            vec![CompactMove::new(50, 34, None)],
+        );
+        let res = store.evaluate(&g_colliding);
+        assert!(res.is_err());
+
+        // Verify transaction rolled back completely: row count is STILL 1
+        let count_after: i64 = store
+            .conn
+            .query_row("SELECT COUNT(*) FROM seen_games", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count_after, 1);
+    }
+
+    #[test]
+    fn test_reopening_database_after_failure_maintains_consistent_decisions() {
+        let temp = tempfile::tempdir().unwrap();
+        let db_path = temp.path().join("reopen.db");
+
+        let g1 = make_test_game(
+            100,
+            "Carlsen, M",
+            "Nakamura, H",
+            "2024",
+            "Blitz",
+            vec![CompactMove::new(12, 28, None)],
+        );
+
+        {
+            let mut store = DiskDedupeStore::open(&db_path).unwrap();
+            assert_eq!(store.evaluate(&g1).unwrap(), DuplicateVerdict::Unique);
+        }
+
+        // Reopen database connection
+        let mut reopened_store = DiskDedupeStore::open(&db_path).unwrap();
+
+        // Exact match must still be confirmed duplicate
+        let dup = reopened_store.evaluate(&g1).unwrap();
+        assert_eq!(
+            dup,
+            DuplicateVerdict::ConfirmedDuplicate {
+                canonical_id: 100,
+                reason: "Exact metadata and verified move sequence match".into(),
+            }
+        );
+    }
+
+    #[test]
+    fn test_delimiter_sanitization_in_metadata_key() {
+        let key = NormalizedMetadataKey {
+            white_norm: "Carlsen|Magnus".into(),
+            black_norm: "Nakamura|Hikaru".into(),
+            year: Some(2024),
+            event_norm: "World|Blitz".into(),
+            round: Some("1|A".into()),
+        };
+        let canonical = key.to_canonical_string();
+        // Pipe delimiters within field values should be sanitized to '/'
+        assert_eq!(
+            canonical,
+            "Carlsen/Magnus|Nakamura/Hikaru|2024|World/Blitz|1/A"
+        );
     }
 }

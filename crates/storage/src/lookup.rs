@@ -76,19 +76,39 @@ impl GameLookupWriter {
 
     /// Sorts entries by game ID, writes header, entries, and SHA-256 verification hash.
     pub fn finish(mut self) -> Result<(PathBuf, u64, String), StorageError> {
-        if let Some(parent) = self.path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-
         // Sort entries deterministically by (game_id, shard_id, block_index, game_index)
         self.entries.sort_unstable();
+        let count = self.entries.len() as u64;
+        Self::write_from_iter(
+            self.path,
+            self.collection,
+            count,
+            self.entries.into_iter().map(Ok),
+        )
+    }
+
+    /// Streams sorted entries from an iterator directly into the persistent lookup file,
+    /// writing the 32-byte header, 16-byte fixed entries, and 32-byte SHA-256 footer
+    /// with strictly O(1) memory consumption.
+    pub fn write_from_iter<I>(
+        path: PathBuf,
+        collection: Collection,
+        count: u64,
+        iter: I,
+    ) -> Result<(PathBuf, u64, String), StorageError>
+    where
+        I: Iterator<Item = Result<GameLookupEntry, StorageError>>,
+    {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
 
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(true)
-            .open(&self.path)?;
+            .open(&path)?;
         let mut writer = BufWriter::new(file);
         let mut hasher = Sha256::new();
 
@@ -101,11 +121,11 @@ impl GameLookupWriter {
         let mut header = [0u8; LOOKUP_HEADER_SIZE];
         header[0..4].copy_from_slice(LOOKUP_MAGIC);
         BigEndian::write_u32(&mut header[4..8], LOOKUP_VERSION);
-        header[8] = match self.collection {
+        header[8] = match collection {
             Collection::MastersOtb => 1,
             Collection::EliteOnline => 2,
         };
-        BigEndian::write_u64(&mut header[24..32], self.entries.len() as u64);
+        BigEndian::write_u64(&mut header[24..32], count);
 
         writer.write_all(&header)?;
         hasher.update(header);
@@ -116,13 +136,41 @@ impl GameLookupWriter {
         // [10..14]: block_index u32
         // [14..16]: game_index_in_block u16
         let mut entry_buf = [0u8; LOOKUP_ENTRY_SIZE];
-        for entry in &self.entries {
+        let mut written_count = 0u64;
+        let mut prev_entry: Option<GameLookupEntry> = None;
+
+        for entry_res in iter {
+            let entry = entry_res?;
+            if let Some(prev) = prev_entry {
+                if entry.game_id < prev.game_id {
+                    return Err(StorageError::Integrity(format!(
+                        "Lookup entries must be strictly sorted: game ID {} < previous {}",
+                        entry.game_id, prev.game_id
+                    )));
+                }
+                if entry == prev {
+                    return Err(StorageError::Integrity(format!(
+                        "Duplicate lookup entry encountered in lookup table: {:?}",
+                        entry
+                    )));
+                }
+            }
+            prev_entry = Some(entry);
+
             BigEndian::write_u64(&mut entry_buf[0..8], entry.game_id);
             BigEndian::write_u16(&mut entry_buf[8..10], entry.shard_id);
             BigEndian::write_u32(&mut entry_buf[10..14], entry.block_index);
             BigEndian::write_u16(&mut entry_buf[14..16], entry.game_index_in_block);
             writer.write_all(&entry_buf)?;
             hasher.update(entry_buf);
+            written_count += 1;
+        }
+
+        if written_count != count {
+            return Err(StorageError::Integrity(format!(
+                "Lookup entry count mismatch: expected {} entries, wrote {}",
+                count, written_count
+            )));
         }
 
         // 32-byte SHA-256 footer
@@ -131,11 +179,11 @@ impl GameLookupWriter {
         writer.flush()?;
 
         let total_bytes = LOOKUP_HEADER_SIZE as u64
-            + (self.entries.len() * LOOKUP_ENTRY_SIZE) as u64
+            + (count * LOOKUP_ENTRY_SIZE as u64)
             + LOOKUP_FOOTER_SIZE as u64;
         let sha256_hex = format!("{:064x}", checksum);
 
-        Ok((self.path, total_bytes, sha256_hex))
+        Ok((path, total_bytes, sha256_hex))
     }
 }
 
@@ -218,6 +266,15 @@ impl GameLookupReader {
 
     pub fn entry_count(&self) -> u64 {
         self.entry_count
+    }
+
+    #[inline]
+    pub fn get_entry(&self, idx: usize) -> Option<GameLookupEntry> {
+        if idx >= self.entry_count as usize {
+            None
+        } else {
+            Some(self.get_entry_at(idx))
+        }
     }
 
     #[inline]

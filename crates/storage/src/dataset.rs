@@ -1,7 +1,7 @@
-use codb_core::{Collection, GameLocation, IngestionStats, ParsedGame};
+use codb_core::{Collection, IngestionStats, ParsedGame};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -97,6 +97,187 @@ impl Default for DatasetWriterConfig {
     }
 }
 
+struct StagingCatalog {
+    conn: rusqlite::Connection,
+    db_path: PathBuf,
+}
+
+impl StagingCatalog {
+    fn create(path: PathBuf) -> Result<Self, StorageError> {
+        let conn = rusqlite::Connection::open(&path)?;
+        conn.execute_batch(
+            "PRAGMA synchronous = NORMAL;
+             PRAGMA journal_mode = WAL;
+             PRAGMA temp_store = MEMORY;
+             PRAGMA cache_size = -16000;
+             CREATE TABLE active_games (
+                 game_id INTEGER PRIMARY KEY,
+                 shard_id INTEGER NOT NULL,
+                 block_index INTEGER NOT NULL,
+                 game_index INTEGER NOT NULL
+             );
+             CREATE TABLE tombstones (
+                 shard_id INTEGER NOT NULL,
+                 block_index INTEGER NOT NULL,
+                 game_index INTEGER NOT NULL,
+                 PRIMARY KEY (shard_id, block_index, game_index)
+             );",
+        )?;
+        Ok(StagingCatalog {
+            conn,
+            db_path: path,
+        })
+    }
+
+    fn insert_locations(
+        &mut self,
+        shard_id: u16,
+        block_index: u32,
+        games: &[ParsedGame],
+    ) -> Result<(), StorageError> {
+        let tx = self.conn.transaction()?;
+        for (idx, game) in games.iter().enumerate() {
+            let res = tx.execute(
+                "INSERT INTO active_games (game_id, shard_id, block_index, game_index) VALUES (?1, ?2, ?3, ?4)",
+                rusqlite::params![game.metadata.id as i64, shard_id, block_index, idx as u16],
+            );
+            match res {
+                Ok(_) => {}
+                Err(rusqlite::Error::SqliteFailure(err, _))
+                    if err.code == rusqlite::ffi::ErrorCode::ConstraintViolation =>
+                {
+                    return Err(StorageError::Integrity(format!(
+                        "Game ID collision in dataset: stable ID {} already exists for an active game",
+                        game.metadata.id
+                    )));
+                }
+                Err(e) => return Err(StorageError::Database(e.to_string())),
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn mark_tombstone(&mut self, game_id: u64) -> Result<bool, StorageError> {
+        let tx = self.conn.transaction()?;
+        let loc: Option<(u16, u32, u16)> = match tx.query_row(
+            "SELECT shard_id, block_index, game_index FROM active_games WHERE game_id = ?1",
+            [game_id as i64],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        ) {
+            Ok(tuple) => Some(tuple),
+            Err(rusqlite::Error::QueryReturnedNoRows) => None,
+            Err(e) => return Err(StorageError::Database(e.to_string())),
+        };
+
+        if let Some((s_id, b_idx, g_idx)) = loc {
+            tx.execute(
+                "DELETE FROM active_games WHERE game_id = ?1",
+                [game_id as i64],
+            )?;
+            tx.execute(
+                "INSERT OR IGNORE INTO tombstones (shard_id, block_index, game_index) VALUES (?1, ?2, ?3)",
+                rusqlite::params![s_id, b_idx, g_idx],
+            )?;
+            tx.commit()?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn has_tombstones(&self) -> Result<bool, StorageError> {
+        let count: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM tombstones", [], |r| r.get(0))?;
+        Ok(count > 0)
+    }
+
+    fn is_tombstoned(
+        &self,
+        shard_id: u16,
+        block_index: u32,
+        game_index: u16,
+    ) -> Result<bool, StorageError> {
+        let count: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM tombstones WHERE shard_id = ?1 AND block_index = ?2 AND game_index = ?3",
+            rusqlite::params![shard_id, block_index, game_index],
+            |r| r.get(0),
+        )?;
+        Ok(count > 0)
+    }
+
+    fn tombstoned_shards(&self) -> Result<Vec<u16>, StorageError> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT DISTINCT shard_id FROM tombstones ORDER BY shard_id ASC")?;
+        let rows = stmt.query_map([], |r| r.get(0))?;
+        let mut shards = Vec::new();
+        for r in rows {
+            shards.push(r?);
+        }
+        Ok(shards)
+    }
+
+    fn clear_tombstones_for_shard(&mut self, shard_id: u16) -> Result<(), StorageError> {
+        self.conn
+            .execute("DELETE FROM tombstones WHERE shard_id = ?1", [shard_id])?;
+        Ok(())
+    }
+
+    fn update_game_location(
+        &mut self,
+        game_id: u64,
+        shard_id: u16,
+        block_index: u32,
+        game_index: u16,
+    ) -> Result<(), StorageError> {
+        self.conn.execute(
+            "UPDATE active_games SET shard_id = ?1, block_index = ?2, game_index = ?3 WHERE game_id = ?4",
+            rusqlite::params![shard_id, block_index, game_index, game_id as i64],
+        )?;
+        Ok(())
+    }
+
+    fn count_active_games(&self) -> Result<u64, StorageError> {
+        let count: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM active_games", [], |r| r.get(0))?;
+        Ok(count as u64)
+    }
+
+    fn write_lookup_file(
+        &self,
+        dest_path: PathBuf,
+        collection: Collection,
+    ) -> Result<(PathBuf, u64, String), StorageError> {
+        let count = self.count_active_games()?;
+        let mut stmt = self.conn.prepare(
+            "SELECT game_id, shard_id, block_index, game_index FROM active_games ORDER BY (game_id >= 0) DESC, game_id ASC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            let gid: i64 = r.get(0)?;
+            let sid: u16 = r.get(1)?;
+            let bidx: u32 = r.get(2)?;
+            let gidx: u16 = r.get(3)?;
+            Ok(crate::lookup::GameLookupEntry::new(
+                gid as u64, sid, bidx, gidx,
+            ))
+        })?;
+
+        let entry_iter = rows.map(|res| res.map_err(|e| StorageError::Database(e.to_string())));
+        GameLookupWriter::write_from_iter(dest_path, collection, count, entry_iter)
+    }
+
+    fn destroy(self) {
+        let path = self.db_path.clone();
+        drop(self.conn);
+        let _ = fs::remove_file(&path);
+        let _ = fs::remove_file(path.with_extension("sqlite-wal"));
+        let _ = fs::remove_file(path.with_extension("sqlite-shm"));
+    }
+}
+
 /// Persistent, bounded-memory dataset builder.
 pub struct DatasetWriter {
     target_dir: PathBuf,
@@ -106,10 +287,7 @@ pub struct DatasetWriter {
     active_shard: Option<ShardWriter>,
     completed_shards: Vec<(PathBuf, Vec<BlockDescriptor>, u64, u16)>,
     current_block: GameBlock,
-    // Maps active game_id -> GameLocation
-    game_locations: HashMap<u64, GameLocation>,
-    // Set of game locations that have been tombstoned due to superseding
-    tombstoned_locations: HashSet<GameLocation>,
+    catalog: StagingCatalog,
     total_retained_games: u64,
 }
 
@@ -135,6 +313,9 @@ impl DatasetWriter {
         fs::create_dir_all(&staging_dir)?;
         fs::create_dir_all(staging_dir.join("shards"))?;
 
+        let catalog_path = staging_dir.join("staging_catalog.sqlite");
+        let catalog = StagingCatalog::create(catalog_path)?;
+
         let collection = config.collection;
         Ok(DatasetWriter {
             target_dir,
@@ -144,8 +325,7 @@ impl DatasetWriter {
             active_shard: None,
             completed_shards: Vec::new(),
             current_block: GameBlock::new(collection),
-            game_locations: HashMap::new(),
-            tombstoned_locations: HashSet::new(),
+            catalog,
             total_retained_games: 0,
         })
     }
@@ -169,8 +349,9 @@ impl DatasetWriter {
 
         let game_count = self.current_block.games.len() as u32;
         let first_game_id = self.current_block.games[0].metadata.id;
-        let compressed_payload = self.current_block.compress(self.config.zstd_level)?;
-        let uncompressed_size = (self.current_block.games.len() * 150) as u32; // representative size
+        let (compressed_payload, uncompressed_size) = self
+            .current_block
+            .compress_with_stats(self.config.zstd_level)?;
 
         let shard = self.ensure_active_shard()?;
         let shard_id = shard.shard_id();
@@ -178,14 +359,12 @@ impl DatasetWriter {
             &compressed_payload,
             game_count,
             first_game_id,
-            uncompressed_size,
+            uncompressed_size as u32,
         )?;
 
-        // Record location for all games in this block
-        for (idx, game) in self.current_block.games.iter().enumerate() {
-            let loc = GameLocation::new(shard_id, block_index, idx as u16);
-            self.game_locations.insert(game.metadata.id, loc);
-        }
+        // Record location for all games in this block into disk-backed catalog
+        self.catalog
+            .insert_locations(shard_id, block_index, &self.current_block.games)?;
 
         self.current_block.games.clear();
 
@@ -240,10 +419,8 @@ impl DatasetWriter {
             return Ok(());
         }
 
-        // 2. Old game was already written to disk
-        if let Some(old_loc) = self.game_locations.remove(&old_id) {
-            self.tombstoned_locations.insert(old_loc);
-        }
+        // 2. Old game was already written to disk: mark tombstone in catalog
+        self.catalog.mark_tombstone(old_id)?;
 
         // Push new game into pipeline (replaces prior game logically)
         self.current_block.games.push(new_game);
@@ -268,24 +445,21 @@ impl DatasetWriter {
         self.rotate_shard()?;
 
         // If any tombstones exist, perform block compaction
-        if !self.tombstoned_locations.is_empty() {
+        if self.catalog.has_tombstones()? {
             self.compact_tombstones()?;
         }
 
-        // Write global game lookup index (games.idx)
+        let total_retained = self.catalog.count_active_games()?;
+
+        // Write global game lookup index (games.idx) via streaming from catalog
         let lookup_path = self.staging_dir.join("games.idx");
-        let mut lookup_writer = GameLookupWriter::with_capacity(
-            lookup_path.clone(),
-            self.config.collection,
-            self.game_locations.len(),
-        );
-
-        for (&game_id, &loc) in &self.game_locations {
-            lookup_writer.add_entry(game_id, loc);
-        }
-
-        let (_written_lookup_path, lookup_size_bytes, _internal_sha) = lookup_writer.finish()?;
+        let (_written_lookup_path, lookup_size_bytes, _internal_sha) = self
+            .catalog
+            .write_lookup_file(lookup_path.clone(), self.config.collection)?;
         let lookup_sha256 = compute_file_sha256(&lookup_path)?;
+
+        // Remove staging catalog SQLite database files
+        self.catalog.destroy();
 
         // Compute checksums for all finalized shards
         let mut shards_meta = Vec::new();
@@ -309,8 +483,6 @@ impl DatasetWriter {
                 game_count,
             });
         }
-
-        let total_retained = self.game_locations.len() as u64;
 
         // Verify accounting invariants
         if !accounting.is_reconciled() {
@@ -361,74 +533,76 @@ impl DatasetWriter {
             .map_err(|e| StorageError::Encoding(e.to_string()))?;
         fs::write(&manifest_path, manifest_json)?;
 
-        // Self-verify staging build before publication
-        Self::verify_staging_artifacts(&self.staging_dir, &manifest)?;
+        // Synchronize all files in staging directory before verification and publication
+        sync_dir_contents(&self.staging_dir)?;
 
-        // Atomically publish: rename staging_dir to target_dir
-        if self.target_dir.exists() {
-            fs::remove_dir_all(&self.target_dir)?;
-        }
+        // Self-verify staging build before publication
+        verify_dataset(&self.staging_dir, true)?;
+
+        // Safe publication protocol:
+        // Never delete the target dataset before the replacement is verified!
         if let Some(parent) = self.target_dir.parent() {
             fs::create_dir_all(parent)?;
         }
-        fs::rename(&self.staging_dir, &self.target_dir)?;
+
+        if self.target_dir.exists() {
+            let backup_dir = self
+                .staging_dir
+                .parent()
+                .unwrap_or_else(|| Path::new("."))
+                .join(format!(
+                    ".backup_{}_{}",
+                    self.target_dir
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy(),
+                    std::process::id()
+                ));
+
+            if backup_dir.exists() {
+                let _ = fs::remove_dir_all(&backup_dir);
+            }
+
+            // Move target_dir to backup_dir
+            fs::rename(&self.target_dir, &backup_dir)?;
+
+            // Move staging_dir to target_dir
+            if let Err(e) = fs::rename(&self.staging_dir, &self.target_dir) {
+                // Failure recovery: restore previous valid dataset
+                let _ = fs::rename(&backup_dir, &self.target_dir);
+                return Err(StorageError::Io(e));
+            }
+
+            // Successfully published new dataset: clean up backup directory
+            let _ = fs::remove_dir_all(&backup_dir);
+        } else {
+            fs::rename(&self.staging_dir, &self.target_dir)?;
+        }
+
+        if let Some(parent) = self.target_dir.parent() {
+            sync_dir_itself(parent);
+        }
 
         Ok(manifest)
     }
 
     /// Compaction pass: rewrites blocks containing tombstoned games to guarantee
     /// 100% dense, active games with zero superseded records in the finalized dataset.
+    /// Operates in streaming O(1) memory by rewriting block-by-block.
     fn compact_tombstones(&mut self) -> Result<(), StorageError> {
-        // Collect shards needing compaction
-        let tombstoned_shards: HashSet<u16> = self
-            .tombstoned_locations
-            .iter()
-            .map(|loc| loc.shard_id)
-            .collect();
-
+        let tombstoned_shards = self.catalog.tombstoned_shards()?;
         if tombstoned_shards.is_empty() {
             return Ok(());
         }
 
-        // For each affected shard, read non-tombstoned games and rewrite
         let mut new_completed_shards = Vec::new();
-        self.game_locations.clear();
 
-        for (shard_path, descriptors, _, shard_id) in self.completed_shards.drain(..) {
+        for (shard_path, descriptors, size_bytes, shard_id) in self.completed_shards.drain(..) {
             if !tombstoned_shards.contains(&shard_id) {
-                // Re-register locations for untouched shard
-                let mut reader = ShardReader::open(&shard_path)?;
-                for (b_idx, _desc) in descriptors.iter().enumerate() {
-                    let block_games = reader.decompress_block(b_idx as u32)?;
-                    for (g_idx, game) in block_games.iter().enumerate() {
-                        self.game_locations.insert(
-                            game.metadata.id,
-                            GameLocation::new(shard_id, b_idx as u32, g_idx as u16),
-                        );
-                    }
-                }
-                new_completed_shards.push((
-                    shard_path,
-                    descriptors,
-                    reader.total_games(),
-                    shard_id,
-                ));
+                new_completed_shards.push((shard_path, descriptors, size_bytes, shard_id));
             } else {
-                // Read all non-tombstoned games from this shard
+                // Stream-compact this shard block-by-block without loading all games into memory
                 let mut reader = ShardReader::open(&shard_path)?;
-                let mut retained_games = Vec::new();
-
-                for (b_idx, _desc) in descriptors.iter().enumerate() {
-                    let block_games = reader.decompress_block(b_idx as u32)?;
-                    for (g_idx, game) in block_games.into_iter().enumerate() {
-                        let loc = GameLocation::new(shard_id, b_idx as u32, g_idx as u16);
-                        if !self.tombstoned_locations.contains(&loc) {
-                            retained_games.push(game);
-                        }
-                    }
-                }
-
-                // Rewrite compacted shard to a temporary file, then replace
                 let temp_compact_path = shard_path.with_extension("compact");
                 let mut compact_writer = ShardWriter::create(
                     temp_compact_path.clone(),
@@ -436,81 +610,69 @@ impl DatasetWriter {
                     self.config.collection,
                 )?;
 
-                for chunk in retained_games.chunks(self.config.block_capacity) {
-                    let mut block = GameBlock::new(self.config.collection);
-                    block.games = chunk.to_vec();
-                    let payload = block.compress(self.config.zstd_level)?;
-                    let first_id = chunk[0].metadata.id;
-                    let b_idx = compact_writer.append_block(
-                        &payload,
-                        chunk.len() as u32,
-                        first_id,
-                        (chunk.len() * 150) as u32,
-                    )?;
-                    for (g_idx, g) in chunk.iter().enumerate() {
-                        self.game_locations.insert(
-                            g.metadata.id,
-                            GameLocation::new(shard_id, b_idx, g_idx as u16),
-                        );
+                let mut compact_block = GameBlock::new(self.config.collection);
+
+                for b_idx in 0..reader.block_count() {
+                    let block_games = reader.decompress_block(b_idx)?;
+                    for (g_idx, game) in block_games.into_iter().enumerate() {
+                        if !self.catalog.is_tombstoned(shard_id, b_idx, g_idx as u16)? {
+                            compact_block.games.push(game);
+                            if compact_block.games.len() >= self.config.block_capacity {
+                                let (payload, uncompressed_size) =
+                                    compact_block.compress_with_stats(self.config.zstd_level)?;
+                                let game_count = compact_block.games.len() as u32;
+                                let first_id = compact_block.games[0].metadata.id;
+                                let new_b_idx = compact_writer.append_block(
+                                    &payload,
+                                    game_count,
+                                    first_id,
+                                    uncompressed_size as u32,
+                                )?;
+                                for (new_g_idx, g) in compact_block.games.iter().enumerate() {
+                                    self.catalog.update_game_location(
+                                        g.metadata.id,
+                                        shard_id,
+                                        new_b_idx,
+                                        new_g_idx as u16,
+                                    )?;
+                                }
+                                compact_block.games.clear();
+                            }
+                        }
                     }
+                }
+
+                // Flush remaining games in compact_block
+                if !compact_block.games.is_empty() {
+                    let (payload, uncompressed_size) =
+                        compact_block.compress_with_stats(self.config.zstd_level)?;
+                    let game_count = compact_block.games.len() as u32;
+                    let first_id = compact_block.games[0].metadata.id;
+                    let new_b_idx = compact_writer.append_block(
+                        &payload,
+                        game_count,
+                        first_id,
+                        uncompressed_size as u32,
+                    )?;
+                    for (new_g_idx, g) in compact_block.games.iter().enumerate() {
+                        self.catalog.update_game_location(
+                            g.metadata.id,
+                            shard_id,
+                            new_b_idx,
+                            new_g_idx as u16,
+                        )?;
+                    }
+                    compact_block.games.clear();
                 }
 
                 let (_, new_desc, new_size) = compact_writer.finish()?;
                 fs::rename(&temp_compact_path, &shard_path)?;
                 new_completed_shards.push((shard_path, new_desc, new_size, shard_id));
+                self.catalog.clear_tombstones_for_shard(shard_id)?;
             }
         }
 
         self.completed_shards = new_completed_shards;
-        self.tombstoned_locations.clear();
-        Ok(())
-    }
-
-    fn verify_staging_artifacts(
-        staging_dir: &Path,
-        manifest: &DatasetManifest,
-    ) -> Result<(), StorageError> {
-        let lookup_path = staging_dir.join("games.idx");
-        if !lookup_path.exists() {
-            return Err(StorageError::Decoding(
-                "Missing games.idx in staging build".into(),
-            ));
-        }
-
-        let lookup_reader = GameLookupReader::open(&lookup_path)?;
-        if lookup_reader.entry_count() != manifest.total_games {
-            return Err(StorageError::Decoding(format!(
-                "Lookup entry count ({}) does not match manifest total_games ({})",
-                lookup_reader.entry_count(),
-                manifest.total_games
-            )));
-        }
-
-        if !lookup_reader.verify_checksum()? {
-            return Err(StorageError::Decoding(
-                "games.idx failed SHA-256 integrity check".into(),
-            ));
-        }
-
-        for shard_meta in &manifest.shards {
-            let shard_path = staging_dir.join("shards").join(&shard_meta.filename);
-            if !shard_path.exists() {
-                return Err(StorageError::Decoding(format!(
-                    "Missing shard file '{}' in staging",
-                    shard_meta.filename
-                )));
-            }
-            let reader = ShardReader::open(&shard_path)?;
-            if reader.block_count() != shard_meta.block_count {
-                return Err(StorageError::Decoding(format!(
-                    "Shard '{}' block count mismatch: actual {}, expected {}",
-                    shard_meta.filename,
-                    reader.block_count(),
-                    shard_meta.block_count
-                )));
-            }
-        }
-
         Ok(())
     }
 }
@@ -609,17 +771,16 @@ impl DatasetReader {
         shard_id: u16,
         block_index: u32,
     ) -> Result<&[ParsedGame], StorageError> {
-        if let Some((s_id, b_idx, ref games)) = self.cached_block {
-            if s_id == shard_id && b_idx == block_index {
-                // Cache hit
-                return Ok(unsafe { &*(games.as_slice() as *const [ParsedGame]) });
-            }
-        }
+        let is_hit = match &self.cached_block {
+            Some((s_id, b_idx, _)) => *s_id == shard_id && *b_idx == block_index,
+            None => false,
+        };
 
-        // Cache miss: decompress block
-        let shard = self.get_shard_reader(shard_id)?;
-        let decompressed = shard.decompress_block(block_index)?;
-        self.cached_block = Some((shard_id, block_index, decompressed));
+        if !is_hit {
+            let shard = self.get_shard_reader(shard_id)?;
+            let decompressed = shard.decompress_block(block_index)?;
+            self.cached_block = Some((shard_id, block_index, decompressed));
+        }
 
         Ok(&self.cached_block.as_ref().unwrap().2)
     }
@@ -762,25 +923,120 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
         ));
     }
 
-    // 4. Optional deep verification: decompress and verify every game in every block
+    // 4. Optional deep verification: exact 1-to-1 mapping between physical storage and lookup index
     let deep_passed = if deep {
+        // A. Verify collection matches
+        if reader.lookup_reader.collection() != manifest.collection {
+            return Err(StorageError::Integrity(format!(
+                "Collection mismatch: manifest collection is '{}', but lookup table is '{}'",
+                manifest.collection,
+                reader.lookup_reader.collection()
+            )));
+        }
+
+        // B. Verify lookup entry count matches manifest
+        if reader.lookup_reader.entry_count() != manifest.total_games {
+            return Err(StorageError::Integrity(format!(
+                "Lookup entry count ({}) does not match manifest total_games ({})",
+                reader.lookup_reader.entry_count(),
+                manifest.total_games
+            )));
+        }
+
+        // C. Verify lookup entries are strictly sorted and check location bounds
+        let mut prev_game_id: Option<u64> = None;
+        let count = reader.lookup_reader.entry_count() as usize;
+        for i in 0..count {
+            let entry = reader.lookup_reader.get_entry(i).ok_or_else(|| {
+                StorageError::Integrity(format!("Failed to read lookup entry at index {}", i))
+            })?;
+
+            if let Some(prev) = prev_game_id {
+                if entry.game_id < prev {
+                    return Err(StorageError::Integrity(format!(
+                        "Lookup table entries not sorted at index {}: game ID {} < previous {}",
+                        i, entry.game_id, prev
+                    )));
+                }
+                if entry.game_id == prev {
+                    return Err(StorageError::Integrity(format!(
+                        "Duplicate or colliding game ID {} found in lookup table at index {}",
+                        entry.game_id, i
+                    )));
+                }
+            }
+            prev_game_id = Some(entry.game_id);
+
+            let shard_meta = manifest
+                .shards
+                .iter()
+                .find(|s| s.shard_id == entry.shard_id)
+                .ok_or_else(|| {
+                    StorageError::Integrity(format!(
+                        "Lookup entry for game ID {} points to nonexistent shard ID {}",
+                        entry.game_id, entry.shard_id
+                    ))
+                })?;
+
+            if entry.block_index >= shard_meta.block_count {
+                return Err(StorageError::Integrity(format!(
+                    "Lookup entry for game ID {} points to block {} >= shard block count {}",
+                    entry.game_id, entry.block_index, shard_meta.block_count
+                )));
+            }
+        }
+
+        // D. Decompress every block in every shard and verify 1-to-1 mapping to lookup
+        let mut physical_game_count = 0u64;
         for shard_meta in &manifest.shards {
             let shard_path = dataset_dir.join("shards").join(&shard_meta.filename);
             let mut s_reader = ShardReader::open(&shard_path)?;
+
+            if s_reader.collection() != manifest.collection {
+                return Err(StorageError::Integrity(format!(
+                    "Shard '{}' collection '{}' does not match manifest '{}'",
+                    shard_meta.filename,
+                    s_reader.collection(),
+                    manifest.collection
+                )));
+            }
+
             for b_idx in 0..s_reader.block_count() {
                 let games = s_reader.decompress_block(b_idx)?;
-                for g in games {
-                    // Check game exists in lookup index
+                for (g_idx, g) in games.iter().enumerate() {
+                    physical_game_count += 1;
+
                     let locs = reader.lookup_reader.find_locations(g.metadata.id);
                     if locs.is_empty() {
-                        return Err(StorageError::Decoding(format!(
-                            "Deep verification failed: game ID {} in shard {} block {} missing from lookup table",
-                            g.metadata.id, shard_meta.shard_id, b_idx
+                        return Err(StorageError::Integrity(format!(
+                            "Deep verification failed: game ID {} in shard {} block {} slot {} missing from lookup table",
+                            g.metadata.id, shard_meta.shard_id, b_idx, g_idx
+                        )));
+                    }
+
+                    let matching = locs.iter().find(|loc| {
+                        loc.shard_id == shard_meta.shard_id
+                            && loc.block_index == b_idx
+                            && loc.game_index_in_block == g_idx as u16
+                    });
+
+                    if matching.is_none() {
+                        return Err(StorageError::Integrity(format!(
+                            "Deep verification failed: game ID {} physical location is ({}, {}, {}), but lookup table points elsewhere",
+                            g.metadata.id, shard_meta.shard_id, b_idx, g_idx
                         )));
                     }
                 }
             }
         }
+
+        if physical_game_count != manifest.total_games {
+            return Err(StorageError::Integrity(format!(
+                "Deep verification failed: physical game count in shards ({}) != manifest total_games ({})",
+                physical_game_count, manifest.total_games
+            )));
+        }
+
         true
     } else {
         false
@@ -797,4 +1053,27 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
         deep_verification_passed: deep_passed,
         status: "PASS".into(),
     })
+}
+
+fn sync_dir_contents(dir: &Path) -> Result<(), StorageError> {
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_file() {
+                if let Ok(f) = File::open(&p) {
+                    let _ = f.sync_all();
+                }
+            } else if p.is_dir() {
+                let _ = sync_dir_contents(&p);
+            }
+        }
+    }
+    sync_dir_itself(dir);
+    Ok(())
+}
+
+fn sync_dir_itself(dir: &Path) {
+    if let Ok(f) = File::open(dir) {
+        let _ = f.sync_all();
+    }
 }

@@ -2,8 +2,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use codb_core::{CompactMove, GameResult, ParsedGame, PositionKey};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
-use shakmaty::zobrist::Zobrist128;
-use shakmaty::{Chess, EnPassantMode, Move, Position, Role, Square};
+use shakmaty::{Chess, Position};
 use std::collections::BTreeMap;
 use std::io::{Cursor, Seek, SeekFrom, Write};
 use std::path::Path;
@@ -50,12 +49,7 @@ pub struct PositionStats {
     pub moves: Vec<MoveStats>,
 }
 
-/// Computes a canonical, 128-bit collision-resistant `PositionKey`.
-pub fn compute_position_key(pos: &Chess) -> PositionKey {
-    // Primary 128-bit Zobrist hash with strict legal en-passant mode
-    let zobrist: Zobrist128 = pos.zobrist_hash(EnPassantMode::Legal);
-    PositionKey(zobrist.0)
-}
+pub use codb_core::compute_position_key;
 
 /// Extracts all `(PositionKey, CompactMove, GameResult)` entries from a game up to `max_plies`.
 pub fn extract_game_positions(
@@ -69,53 +63,9 @@ pub fn extract_game_positions(
     for (i, &cm) in game.moves[..limit].iter().enumerate() {
         let key = compute_position_key(&board);
 
-        // Advance board
-        let from = Square::new(cm.from_sq() as u32);
-        let to = Square::new(cm.to_sq() as u32);
-        let promo = cm.promotion_piece().map(|p| match p {
-            1 => Role::Knight,
-            2 => Role::Bishop,
-            3 => Role::Rook,
-            4 => Role::Queen,
-            _ => Role::Queen,
-        });
-
-        let legal_moves = board.legal_moves();
-        let m = legal_moves
-            .into_iter()
-            .find(|cand| match cand {
-                Move::Normal {
-                    from: f,
-                    to: t,
-                    promotion,
-                    ..
-                } => *f == from && *t == to && *promotion == promo,
-                Move::EnPassant { from: f, to: t } => *f == from && *t == to,
-                Move::Castle { king, rook } => {
-                    let to_sq = if rook.file() > king.file() {
-                        if king.rank() == shakmaty::Rank::First {
-                            Square::G1
-                        } else {
-                            Square::G8
-                        }
-                    } else {
-                        if king.rank() == shakmaty::Rank::First {
-                            Square::C1
-                        } else {
-                            Square::C8
-                        }
-                    };
-                    *king == from && to_sq == to
-                }
-                _ => false,
-            })
-            .ok_or_else(|| {
-                IndexError::Reconstruction(format!(
-                    "Illegal move at ply {} ({})",
-                    i + 1,
-                    cm.to_uci()
-                ))
-            })?;
+        let m = cm.to_shakmaty_move(&board).ok_or_else(|| {
+            IndexError::Reconstruction(format!("Illegal move at ply {} ({})", i + 1, cm.to_uci()))
+        })?;
 
         board.play_unchecked(m);
         entries.push((key, cm, game.metadata.result));
@@ -671,6 +621,7 @@ impl DiskPositionIndex {
 mod tests {
     use super::*;
     use codb_core::{Collection, GameMetadata};
+    use shakmaty::{Move, Role, Square};
 
     #[test]
     fn test_transposition_position_key_identity() {

@@ -253,6 +253,7 @@ dependencies = [
  "byteorder",
  "codb-core",
  "memmap2",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2",

@@ -15,6 +15,8 @@ pub enum PipelineError {
     Ingest(#[from] IngestError),
     #[error("Fatal IO error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("Deduplication error: {0}")]
+    Dedupe(#[from] codb_curate::dedupe::DedupeError),
     #[error("Consumer error: {0}")]
     Consumer(String),
 }
@@ -133,7 +135,7 @@ impl<C: GameConsumer> CuratedPipeline<C> {
                             if !passes_policy {
                                 self.stats.rejected_by_policy += 1;
                             } else {
-                                match self.deduplicator.evaluate(&game) {
+                                match self.deduplicator.evaluate(&game)? {
                                     DuplicateVerdict::Unique => {
                                         self.stats.accepted_unique += 1;
                                         self.consumer

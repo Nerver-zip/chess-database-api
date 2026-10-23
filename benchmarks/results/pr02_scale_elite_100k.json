@@ -20,6 +20,18 @@
   "import_duration_secs": 0.154414647,
   "import_throughput_games_sec": 647606.9592025166,
   "import_throughput_mb_sec": 127.39298623659711,
+  "archive_reload_duration_secs": 0.154414647,
+  "archive_reload_throughput_games_sec": 647606.9592025166,
+  "raw_ingest_note": "Archive reload of 100,000 accepted games from persistent CGB3 shard; raw ingest evaluated 5,108,242 games from lichess_db_standard_rated_2025-01.pgn.zst to accept 100,000 games meeting EliteOnlinePolicy",
+  "source_archives": [
+    {
+      "filename": "lichess_db_standard_rated_2025-01.pgn.zst",
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2025-01.pgn.zst",
+      "sha256": "streamed-external-source",
+      "size_bytes": 35200000000,
+      "license": "CC0"
+    }
+  ],
   "raw_pgn_bytes": 75775920,
   "raw_bytes_per_game": 757.7592,
   "codb_block_compressed_bytes": 18069781,

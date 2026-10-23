@@ -11,7 +11,7 @@ A high-performance, compact, and reproducible chess game database and position-c
 
 > **Can we build a reliable, reproducible, publicly redistributable chess database containing millions of high-quality games, with full game retrieval and position-based opening statistics, within approximately 10 GB of deployed storage?**
 
-### Conclusion: **Feasibility Confirmed Across Real Datasets at Scale**
+### Conclusion: **Feasibility Supported (Conditional on Depth Slicing & Scaling Margins)**
 
 Based on reproducible measurements across 117,616 real Lichess Official Broadcast games (22,265 accepted after curation and prefix-verified deduplication) and over 5,000,000 modern Lichess Standard Rated games (up to 100,000 accepted games curated across 2024–2026 archives):
 
@@ -30,8 +30,8 @@ Based on reproducible measurements across 117,616 real Lichess Official Broadcas
   - Slicing **Masters OTB (5M games) to Depth 40** and **Elite Online (10M games) to Depth 30** projects to:
     - **Baseline:** **7.47 GB** (Core payloads: 1.04 GB Masters games + 1.81 GB Elite games + 1.72 GB Masters D40 index + 2.45 GB Elite D30 index + 0.44 GB ancillary overhead).
     - **Optimistic Scenario:** **6.28 GB**.
-    - **Conservative Scenario:** **9.66 GB** (incorporating sensitivity margins).
-  - **Conclusion:** Fully feasible within the 10 GB envelope under all tested scenarios.
+    - **Conservative Scenario:** **9.66 GB** (incorporating sensitivity margins, leaving **340 MB / 3.4%** headroom against the 10 GB limit).
+  - **Conclusion & Risk Factors:** Feasibility is **conditional** upon enforcing Depth 30 slicing for Elite Online (extending to Depth 40 pushes conservative storage to 12.16 GB, violating budget). Additional risk factors include compression degradation at scale and position uniqueness in long endgame transposition chains.
 
 ---
 

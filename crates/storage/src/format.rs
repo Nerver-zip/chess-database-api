@@ -1,7 +1,7 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use codb_core::{Collection, CompactMove, GameMetadata, GameResult, ParsedGame};
 use shakmaty::san::SanPlus;
-use shakmaty::{Chess, Move, Position, Role, Square};
+use shakmaty::Chess;
 use std::collections::HashMap;
 use std::io::{Cursor, Read, Write};
 use thiserror::Error;
@@ -23,6 +23,16 @@ pub enum StorageError {
     InvalidMagic,
     #[error("Game ID not found: {0}")]
     GameNotFound(u64),
+    #[error("Integrity error: {0}")]
+    Integrity(String),
+    #[error("Database error in storage catalog: {0}")]
+    Database(String),
+}
+
+impl From<rusqlite::Error> for StorageError {
+    fn from(err: rusqlite::Error) -> Self {
+        StorageError::Database(err.to_string())
+    }
 }
 
 /// An entry in the random-access block index.
@@ -55,6 +65,13 @@ impl GameBlock {
     /// players, ratings, date, event, site, round, result, ECO, time control, source ID (`GameURL`),
     /// broadcast URL (`BroadcastURL`), starting FEN, and legal moves.
     pub fn compress(&self, zstd_level: i32) -> Result<Vec<u8>, StorageError> {
+        let (compressed, _uncompressed_size) = self.compress_with_stats(zstd_level)?;
+        Ok(compressed)
+    }
+
+    /// Serializes and compresses this block, returning both the compressed bytes and the exact
+    /// uncompressed byte count of the serialized payload.
+    pub fn compress_with_stats(&self, zstd_level: i32) -> Result<(Vec<u8>, usize), StorageError> {
         let mut raw_buf = Vec::with_capacity(self.games.len() * 140);
 
         // Magic and format version header (CGB3: dictionary-interned ECO, Date, and BroadcastURL)
@@ -228,9 +245,13 @@ impl GameBlock {
             }
         }
 
+        let uncompressed_len = raw_buf.len();
+
         // Compress buffer with Zstandard
-        zstd::encode_all(Cursor::new(raw_buf), zstd_level)
-            .map_err(|e| StorageError::Zstd(e.to_string()))
+        let compressed = zstd::encode_all(Cursor::new(raw_buf), zstd_level)
+            .map_err(|e| StorageError::Zstd(e.to_string()))?;
+
+        Ok((compressed, uncompressed_len))
     }
 
     /// Decompresses and deserializes games from a compressed block payload.
@@ -434,50 +455,13 @@ pub fn export_to_pgn(game: &ParsedGame) -> Result<String, StorageError> {
             pgn.push_str(&format!("{}. ", move_num));
         }
 
-        let from = Square::new(cm.from_sq() as u32);
-        let to = Square::new(cm.to_sq() as u32);
-        let promo = cm.promotion_piece().map(|p| match p {
-            1 => Role::Knight,
-            2 => Role::Bishop,
-            3 => Role::Rook,
-            4 => Role::Queen,
-            _ => Role::Queen,
-        });
-
-        let legal_moves = board.legal_moves();
-        let m = legal_moves
-            .into_iter()
-            .find(|cand| match cand {
-                Move::Normal {
-                    from: f,
-                    to: t,
-                    promotion,
-                    ..
-                } => *f == from && *t == to && *promotion == promo,
-                Move::EnPassant { from: f, to: t } => *f == from && *t == to,
-                Move::Castle { king, rook } => {
-                    let to_sq = if rook.file() > king.file() {
-                        if king.rank() == shakmaty::Rank::First {
-                            Square::G1
-                        } else {
-                            Square::G8
-                        }
-                    } else if king.rank() == shakmaty::Rank::First {
-                        Square::C1
-                    } else {
-                        Square::C8
-                    };
-                    *king == from && to_sq == to
-                }
-                _ => false,
-            })
-            .ok_or_else(|| {
-                StorageError::Decoding(format!(
-                    "Cannot reconstruct move {} ({}) on board FEN",
-                    i + 1,
-                    cm.to_uci()
-                ))
-            })?;
+        let m = cm.to_shakmaty_move(&board).ok_or_else(|| {
+            StorageError::Decoding(format!(
+                "Cannot reconstruct move {} ({}) on board FEN",
+                i + 1,
+                cm.to_uci()
+            ))
+        })?;
 
         let san = SanPlus::from_move_and_play_unchecked(&mut board, m);
         pgn.push_str(&format!("{} ", san));

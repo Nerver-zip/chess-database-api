@@ -252,6 +252,20 @@ struct BenchmarkReport {
     import_throughput_games_sec: f64,
     import_throughput_mb_sec: f64,
 
+    // Timing and throughput disambiguation (raw ingest vs archive reload)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    raw_ingest_duration_secs: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    raw_ingest_throughput_games_sec: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    archive_reload_duration_secs: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    archive_reload_throughput_games_sec: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    raw_ingest_note: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    source_archives: Vec<SourceArchiveMetadata>,
+
     // Storage measurements (physically measured vs framing overhead)
     raw_pgn_bytes: u64,
     raw_bytes_per_game: f64,
@@ -355,7 +369,7 @@ pub fn ingest_curated_stream<R: Read>(
                         if !passes_policy {
                             stats.rejected_by_policy += 1;
                         } else {
-                            match dedupe.evaluate(&game) {
+                            match dedupe.evaluate(&game)? {
                                 DuplicateVerdict::Unique => {
                                     stats.accepted_unique += 1;
                                     accepted_games.push(game);
@@ -1136,6 +1150,22 @@ fn run_benchmarks(
         import_duration_secs: import_dur,
         import_throughput_games_sec: n_games as f64 / import_dur.max(1e-9),
         import_throughput_mb_sec: (input_size as f64 / 1_000_000.0) / import_dur.max(1e-9),
+        raw_ingest_duration_secs: Some(import_dur),
+        raw_ingest_throughput_games_sec: Some(n_games as f64 / import_dur.max(1e-9)),
+        archive_reload_duration_secs: None,
+        archive_reload_throughput_games_sec: None,
+        raw_ingest_note: None,
+        source_archives: vec![SourceArchiveMetadata {
+            filename: input_path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
+            url: None,
+            sha256: None,
+            size_bytes: input_size,
+            license: "CC0".into(),
+        }],
         raw_pgn_bytes: total_raw_pgn_bytes,
         raw_bytes_per_game: raw_per_game,
         codb_block_compressed_bytes: codb_compressed_bytes,
@@ -1353,6 +1383,15 @@ fn run_bench_dataset(
         import_throughput_games_sec: n_games as f64 / load_dur.max(1e-9),
         import_throughput_mb_sec: (total_persistent_bytes as f64 / 1_000_000.0)
             / load_dur.max(1e-9),
+        raw_ingest_duration_secs: None,
+        raw_ingest_throughput_games_sec: None,
+        archive_reload_duration_secs: Some(load_dur),
+        archive_reload_throughput_games_sec: Some(n_games as f64 / load_dur.max(1e-9)),
+        raw_ingest_note: Some(format!(
+            "Archive reload of {} accepted games from persistent CGB3 shard; raw ingest evaluated {} games to accept {} games",
+            n_games, stats.total_encountered, stats.accepted_unique
+        )),
+        source_archives: manifest.source_archives.clone(),
         raw_pgn_bytes: total_raw_pgn_bytes,
         raw_bytes_per_game: raw_per_game,
         codb_block_compressed_bytes: shards_bytes,

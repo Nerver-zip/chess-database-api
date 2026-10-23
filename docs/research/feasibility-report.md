@@ -244,20 +244,35 @@ To avoid conflating raw compressed payloads with a complete production deploymen
 | **Total Deployed Footprint (Option B)** | **Core Payloads + Ancillary Overhead** | | **7.47 GB** | **9.66 GB** |
 
 > [!NOTE]
-> In PR-01, Elite Online game storage was approximated using Masters OTB measurements (208 B/game) and an unvalidated scaling exponent. In PR-02, real modern Elite Online games (2024–2026) were directly curated and measured up to 100,000 games, confirming that online games are ~15% more compact in compressed moves (~180.7 B/game) while exhibiting ~20% higher position diversity at Depth 30. Despite this increased diversity, Option B remains comfortably under the 10 GB limit across all baseline (7.47 GB) and conservative (9.66 GB) sensitivity scenarios.
+> In PR-01, Elite Online game storage was approximated using Masters OTB measurements (208 B/game) and an unvalidated scaling exponent, projecting 6.96 GB baseline (8.82 GB conservative). In PR-02, real modern Elite Online games (2024–2026) were directly curated and measured up to 100,000 games, confirming that online games are ~15% more compact in compressed moves (~180.7 B/game) while exhibiting ~20% higher position diversity at Depth 30.
+>
+> **Feasibility Assessment (Conditional):** Under the recalibrated PR-02 Option B model, baseline deployed storage is **7.47 GB** (optimistic: **6.28 GB**), leaving ample buffer below the 10 GB budget. However, under conservative scaling assumptions, deployed storage reaches **9.66 GB**, leaving narrow headroom of **~340 MB (3.4%)**. Feasibility is therefore **conditional** upon maintaining Option B's Depth 30 limit for Elite Online and keeping empirical growth within projected bounds.
 
 ### 7.2 Architecture Scenarios Across Sensitivity Regimes (15M Games Capacity Target)
 
 | Scenario | Core Payload (Baseline) | Ancillary Overhead | Deployed Total (Optimistic) | Deployed Total (Baseline) | Deployed Total (Conservative) | Feasibility Assessment |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Option A (Depth 20 Both)** | 3.90 GB | 0.44 GB | 3.60 GB | **4.34 GB** | **5.14 GB** | **Feasible (Shallow Opening Book Only)** |
-| **Option B (Recommended: D40 Masters + D30 Elite)** | **7.03 GB** | **0.44 GB** | **6.28 GB** | **7.47 GB** | **9.66 GB** | **Feasible Under All Tested Scenarios (< 10 GB)** |
-| **Option C (Depth 40 Both)** | 8.73 GB | 0.44 GB | 7.75 GB | **9.17 GB** | **12.16 GB** | **Marginal (Exceeds 10 GB in Conservative Case)** |
+| **Option B (Recommended: D40 Masters + D30 Elite)** | **7.03 GB** | **0.44 GB** | **6.28 GB** | **7.47 GB** | **9.66 GB** | **Feasible (Conditional: 340 MB / 3.4% headroom in conservative regime)** |
+| **Option C (Depth 40 Both)** | 8.73 GB | 0.44 GB | 7.75 GB | **9.17 GB** | **12.16 GB** | **Infeasible Conservatively (Exceeds 10 GB limit by 2.16 GB)** |
 | **Option D (Depth 60 Both)** | 14.10 GB | 0.44 GB | 12.05 GB | **14.54 GB** | **19.85 GB** | **Infeasible (Exceeds 10 GB in All Regimes)** |
+
+### 7.3 Sensitivity Analysis & Critical Risk Factors
+
+To evaluate the operational resilience of the 10 GB capacity target, we analyze sensitivity across key operational variables:
+
+1. **Elite Online Index Depth Limit (Option B vs. Option C):**
+   - Option B indexes Elite Online to Depth 30 (120.3M positions baseline). Slicing Elite Online to Depth 40 (Option C, 159.5M positions) expands the CPI index from 2.45 GB to 4.15 GB baseline (and up to 6.08 GB conservative), driving total deployed storage to **12.16 GB** and violating the 10 GB budget. Enforcing the Depth 30 boundary for online games is mandatory.
+2. **Move Diversity and Position Uniqueness per Game:**
+   - In online bullet/blitz, novel move transposition chains occur more frequently than in theoretical grandmaster lines. If $\alpha_{D30}$ drifts from $0.9293$ to $0.9443$ (+1 $\sigma$ delta), position counts increase by 18.5%, consuming an additional 450 MB and narrowing conservative headroom to near zero.
+3. **Compression Ratio Degradation at Scale:**
+   - CGB3 block compression achieves 5.16× on Masters OTB and 4.19× on Elite Online. If entropy increases on larger, less curated corpora, a 10% drop in compression efficiency adds ~285 MB across 15M games.
+4. **Build-Time vs. Deploy-Time Storage & Memory:**
+   - Persistent CGB3 dataset creation in PR-02 operates with strictly bounded $O(1)$ memory using an on-disk SQLite staging catalog. However, build-time disk footprint requires $1.2\times$ temporary storage for staging shards, WAL files, and compaction scratch space before atomic publication.
 
 ---
 
-## 8. Corpus-Volume Reality Check & Roadmap for PR-03
+## 8. Corpus-Volume Reality Check & Roadmap for Future Milestones
 
 1. **Masters OTB Initial Corpus Volume vs. 5M Capacity Ceiling:**
    - Across our 3-month Lichess Official Broadcast sample (`117,616` raw games), `22,265` games (`18.93%`) pass `MastersOtbPolicy` and deduplication.
@@ -267,7 +282,6 @@ To avoid conflating raw compressed payloads with a complete production deploymen
    - PR-02 resolved the PR-01 Jan 2013 0-accepted limitation by ingesting modern 2024–2026 Lichess standard rated archives, establishing an empirical acceptance rate of **~1.96%** (100,000 accepted from 5,108,242 encountered games).
    - Confirmed game storage density of **180.70 B/game** (~15% more compact than Masters OTB) and position scaling exponent $\alpha = 0.9293$ at Depth 30 ($R^2 = 0.99999$).
    - Validated random retrieval across persistent datasets up to $N = 100{,}000$ with $p_{50} = 698\,\mu\text{s}$ and $p_{95} = 773\,\mu\text{s}$.
-3. **Transition Roadmap for PR-03:**
-   - **External Position Index Construction:** In PR-02, persistent CGB3 game archives are built in streaming $O(1)$ memory, but CPI index generation currently relies on intermediate in-memory position structures. PR-03 will implement external-memory position sorting/aggregation for billion-key indexes.
-   - **Cold-Cache vs. Warm-Cache Latency Profiling:** Add explicit OS cache invalidation (`posix_fadvise` / `POSIX_FADV_DONTNEED`) testing across multi-gigabyte disk indexes.
-   - **Explorer Query Engine & Integration:** Expose opening tree traversal and transposition lookup APIs directly against persistent immutable CGB3/CPI datasets.
+3. **Roadmap for Future Milestones:**
+   - **PR-03 — Position Index Construction:** External-memory position sorting/aggregation for billion-key indexes without in-memory retention, along with cold-cache vs. warm-cache latency profiling (`posix_fadvise`).
+   - **PR-04 — Query Engine & Integration:** Opening tree traversal, transposition lookup APIs, and integration with the Evalis Opening Explorer.

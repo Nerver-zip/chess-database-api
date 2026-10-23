@@ -47,6 +47,7 @@ jobs:
         run: |
           python3 scripts/test_validate_benchmarks.py
           python3 scripts/test_reproduce_runner.py
+          python3 scripts/test_feasibility_alignment.py
 
       - name: Verify lightweight CI reproduction runner
         run: ./scripts/reproduce_benchmarks.sh --ci
