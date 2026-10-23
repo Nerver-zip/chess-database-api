@@ -15,6 +15,7 @@ for r in runs:
         d30_bytes = d["depth_30"]["immutable_index_size_bytes"]
         d40_bytes = d["depth_40"]["immutable_index_size_bytes"]
         d60_bytes = d["depth_60"]["immutable_index_size_bytes"]
+        d40_sqlite_bytes = d["depth_40"]["sqlite_index_size_bytes"]
         codb_bytes = d["codb_block_compressed_bytes"]
         codb_dir_bytes = d["codb_block_directory_bytes"]
         data.append(
@@ -30,6 +31,7 @@ for r in runs:
                 d60_bytes,
                 codb_bytes,
                 codb_dir_bytes,
+                d40_sqlite_bytes,
             )
         )
 
@@ -40,7 +42,7 @@ header = (
 print(header)
 print("-" * len(header))
 for row in data:
-    n, p20, p30, p40, p60, b20, b30, b40, b60, cg, cdir = row
+    n, p20, p30, p40, p60, b20, b30, b40, b60, cg, cdir, d40_sql = row
     print(f"{n:>6} | {p20:>12} | {p30:>12} | {p40:>12} | {p60:>12} | {cg/n:>10.2f}")
 
 
@@ -157,7 +159,7 @@ output_json = {
         **fits,
         "game_bytes_codb_mean": mean_codb_bpg,
         "game_bytes_codb_at_20k": n20k_codb_bpg,
-        "sqlite_multiplier_vs_cpi_at_d40": round(n20k[7] and (78602240 / n20k[7]), 2),
+        "sqlite_multiplier_vs_cpi_at_d40": round(n20k[7] and (n20k[11] / n20k[7]), 2),
     },
     "deployed_storage_inventory_15m_gb": {
         "measured_extrapolated_game_blocks_5m_masters": round(games_5m_base, 2),

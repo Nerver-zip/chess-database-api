@@ -19,7 +19,7 @@ use codb_ingest::reader::{
     ShakmatyGameVisitor,
 };
 use codb_storage::format::{export_to_pgn, GameBlock};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use shakmaty::uci::UciMove;
 use shakmaty::{Chess, Position};
 
@@ -94,7 +94,7 @@ enum Commands {
     },
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct BenchmarkReport {
     run_name: String,
     collection: String,
@@ -137,7 +137,7 @@ struct BenchmarkReport {
     query_latency_us: LatencyMetrics,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct IndexDepthStats {
     depth_plies: usize,
     unique_positions: usize,
@@ -149,7 +149,7 @@ struct IndexDepthStats {
     index_build_duration_secs: f64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct LatencyMetrics {
     cache_regime: String,
     query_sample_count: usize,
@@ -1183,5 +1183,161 @@ mod tests {
         assert!(latencies.semantic_equivalence_verified);
         assert_eq!(latencies.query_sample_count, 2000);
         assert!(latencies.transposition_keys_sampled > 0);
+    }
+
+    #[test]
+    fn test_benchmark_artifacts_and_projections_consistency() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let results_dir = std::path::Path::new(manifest_dir)
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("benchmarks")
+            .join("results");
+
+        if !results_dir.exists() {
+            return;
+        }
+
+        let mut reports: std::collections::BTreeMap<String, BenchmarkReport> =
+            std::collections::BTreeMap::new();
+
+        for entry in std::fs::read_dir(&results_dir).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("json")
+                && !path
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .starts_with("projections_")
+            {
+                let content = std::fs::read_to_string(&path)
+                    .unwrap_or_else(|e| panic!("Failed to read {}: {}", path.display(), e));
+                let report: BenchmarkReport = serde_json::from_str(&content)
+                    .unwrap_or_else(|e| panic!("Schema failure in {}: {}", path.display(), e));
+
+                // 1. Accounting reconciliation invariant
+                let expected_sum = report.accepted_unique
+                    + report.confirmed_duplicates
+                    + report.superseded_prior
+                    + report.rejected_by_policy
+                    + report.rejected_variant
+                    + report.rejected_illegal
+                    + report.rejected_malformed
+                    + report.quarantined;
+
+                assert_eq!(
+                    report.total_encountered,
+                    expected_sum,
+                    "Accounting reconciliation invariant failed for {}",
+                    path.display()
+                );
+                assert!(
+                    report.is_reconciled,
+                    "is_reconciled is false in {}",
+                    path.display()
+                );
+                assert_eq!(
+                    report.retained_canonical_games as u64,
+                    report.accepted_unique,
+                    "retained != accepted in {}",
+                    path.display()
+                );
+                assert!(
+                    report.retained_matches_accepted,
+                    "retained_matches_accepted is false in {}",
+                    path.display()
+                );
+
+                // 2. Monotonic depth positions
+                assert!(
+                    report.depth_20.unique_positions <= report.depth_30.unique_positions,
+                    "depth_20 > depth_30 in {}",
+                    path.display()
+                );
+                assert!(
+                    report.depth_30.unique_positions <= report.depth_40.unique_positions,
+                    "depth_30 > depth_40 in {}",
+                    path.display()
+                );
+                assert!(
+                    report.depth_40.unique_positions <= report.depth_60.unique_positions,
+                    "depth_40 > depth_60 in {}",
+                    path.display()
+                );
+
+                // 3. Latency percentiles
+                assert!(
+                    report.query_latency_us.cpi_disk_p50_us
+                        <= report.query_latency_us.cpi_disk_p95_us
+                );
+                assert!(
+                    report.query_latency_us.cpi_disk_p95_us
+                        <= report.query_latency_us.cpi_disk_p99_us
+                );
+                assert!(
+                    report.query_latency_us.sqlite_disk_p50_us
+                        <= report.query_latency_us.sqlite_disk_p95_us
+                );
+                assert!(
+                    report.query_latency_us.sqlite_disk_p95_us
+                        <= report.query_latency_us.sqlite_disk_p99_us
+                );
+                assert!(report.query_latency_us.semantic_equivalence_verified);
+
+                reports.insert(report.run_name.clone(), report);
+            }
+        }
+
+        // Verify progressive scaling monotonicity
+        let prog_keys = [
+            "masters_1k",
+            "masters_2.5k",
+            "masters_5k",
+            "masters_10k",
+            "masters_20k",
+        ];
+        if prog_keys.iter().all(|k| reports.contains_key(*k)) {
+            let mut prev_n = 0;
+            let mut prev_d40_pos = 0;
+            let mut prev_cgb_bytes = 0;
+            for k in prog_keys {
+                let r = &reports[k];
+                assert!(r.accepted_unique > prev_n);
+                assert!(r.depth_40.unique_positions > prev_d40_pos);
+                assert!(r.codb_block_compressed_bytes > prev_cgb_bytes);
+                prev_n = r.accepted_unique;
+                prev_d40_pos = r.depth_40.unique_positions;
+                prev_cgb_bytes = r.codb_block_compressed_bytes;
+            }
+        }
+
+        // Verify projections artifact
+        let proj_path = results_dir.join("projections_heaps.json");
+        if proj_path.exists() {
+            let proj_content = std::fs::read_to_string(&proj_path).unwrap();
+            let v: serde_json::Value = serde_json::from_str(&proj_content).unwrap();
+            let opt_b_total = v["budget_scenarios_gb"]
+                ["option_b_recommended_d40_masters_d30_elite"]["deployed_total_baseline"]
+                .as_f64()
+                .unwrap();
+            let opt_b_cons = v["budget_scenarios_gb"]["option_b_recommended_d40_masters_d30_elite"]
+                ["deployed_total_conservative"]
+                .as_f64()
+                .unwrap();
+            assert!(
+                opt_b_total <= 10.0,
+                "Option B baseline exceeds 10 GB: {}",
+                opt_b_total
+            );
+            assert!(
+                opt_b_cons <= 10.0,
+                "Option B conservative exceeds 10 GB: {}",
+                opt_b_cons
+            );
+        }
     }
 }
