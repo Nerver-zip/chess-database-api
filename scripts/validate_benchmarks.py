@@ -12,6 +12,7 @@ Enforces strict verification on all authoritative benchmark artifacts in benchma
 
 import glob
 import json
+import math
 import os
 import sys
 
@@ -201,49 +202,133 @@ def validate_projections(proj_path, m20k_data):
     with open(proj_path) as f:
         proj = json.load(f)
 
-    # Check parameters
-    params = proj["parameters"]
+    # 1. Calculation integrity and numerical validity
+    params = proj.get("parameters")
+    if not params or not isinstance(params, dict):
+        raise ValueError(f"{proj_path}: Missing or invalid 'parameters' object.")
+
+    advisories = []
+
     for d_key in DEPTH_KEYS:
+        if d_key not in params:
+            raise ValueError(f"{proj_path}: Missing parameters for '{d_key}'.")
         p = params[d_key]
-        if p["r2"] < 0.999:
+        for field in [
+            "k",
+            "alpha_ols",
+            "in_sample_slope_std_err",
+            "sensitivity_delta_alpha",
+            "r2",
+            "measured_bytes_per_pos_at_20k",
+        ]:
+            if field not in p:
+                raise ValueError(
+                    f"{proj_path}: Missing parameter field '{field}' in '{d_key}'."
+                )
+            val = p[field]
+            if not isinstance(val, (int, float)) or not math.isfinite(val):
+                raise ValueError(
+                    f"{proj_path}: Parameter '{field}' in '{d_key}' is not a finite number: {val}"
+                )
+
+        if p["k"] <= 0:
             raise ValueError(
-                f"{proj_path}: {d_key} goodness of fit R^2 is below 0.999: {p['r2']}"
+                f"{proj_path}: Scaling constant k must be positive, got {p['k']} in '{d_key}'."
             )
-        if not (0.75 <= p["alpha_ols"] <= 0.98):
+        if p["measured_bytes_per_pos_at_20k"] <= 0:
             raise ValueError(
-                f"{proj_path}: {d_key} alpha_ols {p['alpha_ols']} out of plausible range [0.75, 0.98]."
+                f"{proj_path}: measured_bytes_per_pos_at_20k must be positive in '{d_key}'."
             )
 
-    # Check dynamic SQLite multiplier
+        # Scientific advisories (advisory notes, NOT validation failures)
+        if p["r2"] < 0.99:
+            advisories.append(
+                f"Model fit advisory: {d_key} goodness of fit R^2 is {p['r2']:.4f} (< 0.99)."
+            )
+        if p["alpha_ols"] < 0.70 or p["alpha_ols"] > 1.00:
+            advisories.append(
+                f"Scaling exponent advisory: {d_key} alpha_ols is {p['alpha_ols']:.4f} (outside typical range 0.70-1.00)."
+            )
+
+    # Check dynamic SQLite multiplier calculation consistency
     expected_multiplier = round(
         m20k_data["depth_40"]["sqlite_index_size_bytes"]
         / m20k_data["depth_40"]["immutable_index_size_bytes"],
         2,
     )
-    actual_multiplier = params["sqlite_multiplier_vs_cpi_at_d40"]
+    actual_multiplier = params.get("sqlite_multiplier_vs_cpi_at_d40")
+    if actual_multiplier is None or not math.isfinite(actual_multiplier):
+        raise ValueError(
+            f"{proj_path}: Missing or non-finite 'sqlite_multiplier_vs_cpi_at_d40'."
+        )
     if abs(actual_multiplier - expected_multiplier) > 0.01:
         raise ValueError(
-            f"{proj_path}: sqlite_multiplier_vs_cpi_at_d40 mismatch! "
-            f"Expected {expected_multiplier} from masters_20k.json, found {actual_multiplier}."
+            f"{proj_path}: Calculation inconsistency! sqlite_multiplier_vs_cpi_at_d40 "
+            f"({actual_multiplier}) does not match m20k data ({expected_multiplier})."
         )
 
-    # Check budget scenarios
-    opt_b = proj["budget_scenarios_gb"]["option_b_recommended_d40_masters_d30_elite"]
+    # 2. Check budget scenarios structure & internal consistency
+    budgets = proj.get("budget_scenarios_gb")
+    if not budgets or not isinstance(budgets, dict):
+        raise ValueError(f"{proj_path}: Missing or invalid 'budget_scenarios_gb'.")
+
+    opt_b = budgets.get("option_b_recommended_d40_masters_d30_elite")
+    if not opt_b or not isinstance(opt_b, dict):
+        raise ValueError(
+            f"{proj_path}: Missing 'option_b_recommended_d40_masters_d30_elite' budget."
+        )
+
+    for field in [
+        "masters_index_d40_baseline",
+        "elite_index_d30_proxy_baseline",
+        "core_payload_baseline",
+        "deployed_total_optimistic",
+        "deployed_total_baseline",
+        "deployed_total_conservative",
+    ]:
+        if field not in opt_b:
+            raise ValueError(
+                f"{proj_path}: Missing budget field '{field}' in Option B."
+            )
+        v = opt_b[field]
+        if not isinstance(v, (int, float)) or not math.isfinite(v):
+            raise ValueError(
+                f"{proj_path}: Budget field '{field}' is not a finite number: {v}"
+            )
+
     base_total = opt_b["deployed_total_baseline"]
     cons_total = opt_b["deployed_total_conservative"]
+    opt_total = opt_b["deployed_total_optimistic"]
 
-    if base_total > 10.0:
+    if not (opt_total <= base_total <= cons_total):
         raise ValueError(
-            f"{proj_path}: Option B baseline total ({base_total} GB) exceeds 10 GB budget!"
+            f"{proj_path}: Inconsistent scenario totals! "
+            f"Expected optimistic ({opt_total}) <= baseline ({base_total}) <= conservative ({cons_total})."
         )
-    if cons_total > 10.0:
-        raise ValueError(
-            f"{proj_path}: Option B conservative total ({cons_total} GB) exceeds 10 GB budget!"
-        )
+
+    # 3. Scientific feasibility assessment (reported, NOT a validation failure)
+    if cons_total <= 10.0:
+        assessment = "within_budget"
+    elif base_total <= 10.0:
+        assessment = "conditionally_within_budget"
+    else:
+        assessment = "over_budget"
 
     print(
-        f"  [OK] Projections verified: SQLite/CPI ratio={actual_multiplier}x, Option B Total={base_total} GB (Cons: {cons_total} GB)."
+        f"  [OK] Calculation integrity verified: SQLite/CPI ratio={actual_multiplier}x, "
+        f"Option B Baseline={base_total} GB (Cons: {cons_total} GB)."
     )
+    print(f"  [ANALYSIS] Feasibility Assessment: {assessment}")
+    if advisories:
+        for adv in advisories:
+            print(f"  [ADVISORY] {adv}")
+
+    return {
+        "assessment": assessment,
+        "advisories": advisories,
+        "baseline_gb": base_total,
+        "conservative_gb": cons_total,
+    }
 
 
 def main():

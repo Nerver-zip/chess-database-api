@@ -42,3 +42,11 @@ jobs:
 
       - name: Validate benchmark schemas and projections
         run: python3 scripts/validate_benchmarks.py
+
+      - name: Run validation and reproduction regression tests
+        run: |
+          python3 scripts/test_validate_benchmarks.py
+          python3 scripts/test_reproduce_runner.py
+
+      - name: Verify lightweight CI reproduction runner
+        run: ./scripts/reproduce_benchmarks.sh --ci

@@ -20,6 +20,8 @@ downloads/
 scratch/
 tmp/
 *.log
+__pycache__/
+*.pyc
 
 # Benchmark artifacts that exceed limits
 benchmarks/data/

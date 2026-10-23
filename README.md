@@ -90,7 +90,10 @@ cargo build --release
 
 ### 3. Run Stage B & Progressive Scaling Benchmarks
 ```bash
-# Execute automated reproduction harness (Stage A, Stage B, and Progressive Masters OTB 1k-20k series)
+# Lightweight CI validation (no external data required):
+./scripts/reproduce_benchmarks.sh --ci
+
+# Full empirical reproduction (when external source datasets are present in data/):
 ./scripts/reproduce_benchmarks.sh --all
 ```
 

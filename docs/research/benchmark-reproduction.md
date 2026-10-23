@@ -67,15 +67,20 @@ zstd -dc \
 
 ### 4.1 Automated One-Command Reproduction
 
-Run the automated research harness:
-```bash
-./scripts/reproduce_benchmarks.sh --all
-```
+The reproduction runner supports two explicit execution modes:
 
-For CI environments where external archives are not present, execute the lightweight test:
-```bash
-./scripts/reproduce_benchmarks.sh --ci
-```
+1. **Lightweight CI Validation Mode (`--ci`):**
+   Executes deterministic Stage A validation (1,000 games) and automated schema/consistency checks. Requires no external datasets or large downloads.
+   ```bash
+   ./scripts/reproduce_benchmarks.sh --ci
+   ```
+
+2. **Full Empirical Reproduction Mode (`--all`):**
+   Reproduces the complete research experiment (Stage A, Stage B, and the progressive Masters OTB scaling series 1k–20k).
+   **Fail-Closed Policy:** Strictly verifies required input files and checksums; terminates with exit code 1 if datasets are missing or corrupted.
+   ```bash
+   ./scripts/reproduce_benchmarks.sh --all
+   ```
 
 ### 4.2 Manual Step-by-Step Execution
 
@@ -113,16 +118,21 @@ BIN="./target/release/codb"
 
 #### Step 4: Progressive Masters OTB Scaling Series
 ```bash
-for N in 1000 2500 5000 10000 20000; do
+SAMPLE_LIMITS=(1000 2500 5000 10000 20000)
+RUN_NAMES=("masters_1k" "masters_2.5k" "masters_5k" "masters_10k" "masters_20k")
+
+for i in "${!SAMPLE_LIMITS[@]}"; do
+  LIMIT="${SAMPLE_LIMITS[$i]}"
+  RUN_NAME="${RUN_NAMES[$i]}"
   "$BIN" bench \
     --input data/masters_combined.pgn.zst \
     --collection masters-otb \
-    --max-games "$N" \
+    --max-games "$LIMIT" \
     --output-dir benchmarks/results \
-    --run-name "masters_${N/000/k}"
+    --run-name "$RUN_NAME"
 done
 ```
-*(Note: for $N = 2500$, the file name generated is `masters_2.5k.json`).*
+This produces exactly: `masters_1k.json`, `masters_2.5k.json`, `masters_5k.json`, `masters_10k.json`, and `masters_20k.json`.
 
 #### Step 5: Empirical Heaps' Law Fitting & Storage Projections
 ```bash
