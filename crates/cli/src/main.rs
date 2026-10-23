@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::hint::black_box;
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -14,11 +14,16 @@ use codb_index::position::{
     compute_position_key, extract_game_positions, DiskPositionIndex, ImmutablePositionIndex,
     SqlitePositionIndex,
 };
+use codb_ingest::pipeline::{CuratedPipeline, GameConsumer};
 use codb_ingest::reader::{
     build_pgn_reader, is_recoverable_pgn_syntax_error, resync_after_syntax_error, IngestError,
     ShakmatyGameVisitor,
 };
 use codb_storage::format::{export_to_pgn, GameBlock};
+use codb_storage::{
+    verify_dataset, CurationPolicyMetadata, DatasetReader, DatasetWriter, DatasetWriterConfig,
+    SourceArchiveMetadata, StorageError,
+};
 use serde::{Deserialize, Serialize};
 use shakmaty::uci::UciMove;
 use shakmaty::{Chess, Position};
@@ -34,9 +39,11 @@ struct Cli {
     command: Commands,
 }
 
-#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 enum CollectionArg {
+    #[serde(rename = "masters-otb")]
     MastersOtb,
+    #[serde(rename = "elite-online")]
     EliteOnline,
 }
 
@@ -47,6 +54,18 @@ impl From<CollectionArg> for Collection {
             CollectionArg::EliteOnline => Collection::EliteOnline,
         }
     }
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum FormatArg {
+    Pgn,
+    Json,
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum DedupeModeArg {
+    Memory,
+    Disk,
 }
 
 #[derive(Subcommand, Debug)]
@@ -61,6 +80,82 @@ enum Commands {
 
         #[arg(short, long)]
         max_games: Option<usize>,
+    },
+
+    /// Build a persistent curated dataset with bounded memory, sharded CGB3 storage, and global game lookup
+    Build {
+        /// Optional manifest JSON file listing input source archives
+        #[arg(short, long)]
+        manifest: Option<PathBuf>,
+
+        /// One or more input PGN or PGN.zst files (use '-' for stdin)
+        #[arg(short, long)]
+        input: Vec<PathBuf>,
+
+        /// Collection to curate
+        #[arg(short, long, default_value = "masters-otb")]
+        collection: CollectionArg,
+
+        /// Output directory for finalized dataset
+        #[arg(short, long)]
+        output: PathBuf,
+
+        /// Optional maximum accepted games limit
+        #[arg(long)]
+        max_games: Option<usize>,
+
+        /// Block capacity (games per compressed block)
+        #[arg(long, default_value = "512")]
+        block_capacity: usize,
+
+        /// Maximum games per shard file before rotating
+        #[arg(long, default_value = "500000")]
+        max_games_per_shard: usize,
+
+        /// Zstandard compression level (1-22)
+        #[arg(long, default_value = "3")]
+        zstd_level: i32,
+
+        /// Deduplication mode: memory or disk (disk uses temporary SQLite with bounded RAM)
+        #[arg(long, default_value = "disk")]
+        dedupe_mode: DedupeModeArg,
+    },
+
+    /// Retrieve an individual game by stable ID from a persistent dataset
+    GetGame {
+        /// Dataset directory path containing manifest.json
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// 64-bit stable game ID
+        #[arg(short, long)]
+        id: u64,
+
+        /// Output format: pgn or json
+        #[arg(short, long, default_value = "pgn")]
+        format: FormatArg,
+    },
+
+    /// Inspect a completed dataset manifest and physical storage metrics
+    Inspect {
+        /// Dataset directory path containing manifest.json
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// Output machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Verify dataset manifest, shard checksums, block boundaries, and game lookup integrity
+    Verify {
+        /// Dataset directory path containing manifest.json
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// Perform deep game-level decompression and verification of every block
+        #[arg(long)]
+        deep: bool,
     },
 
     /// Run the end-to-end benchmark suite and write JSON reports
@@ -338,6 +433,46 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::Build {
+            manifest,
+            input,
+            collection,
+            output,
+            max_games,
+            block_capacity,
+            max_games_per_shard,
+            zstd_level,
+            dedupe_mode,
+        } => {
+            run_build(BuildOptions {
+                manifest,
+                input,
+                collection,
+                output,
+                max_games,
+                block_capacity,
+                max_games_per_shard,
+                zstd_level,
+                dedupe_mode,
+            })?;
+        }
+
+        Commands::GetGame {
+            dataset,
+            id,
+            format,
+        } => {
+            run_get_game(&dataset, id, format)?;
+        }
+
+        Commands::Inspect { dataset, json } => {
+            run_inspect(&dataset, json)?;
+        }
+
+        Commands::Verify { dataset, deep } => {
+            run_verify(&dataset, deep)?;
+        }
+
         Commands::Ingest {
             input,
             collection,
@@ -391,6 +526,353 @@ fn main() -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+struct DatasetWriterConsumer<'a> {
+    writer: &'a mut DatasetWriter,
+}
+
+impl<'a> GameConsumer for DatasetWriterConsumer<'a> {
+    fn accept_game(&mut self, game: ParsedGame) -> std::result::Result<(), String> {
+        self.writer.push_game(game).map_err(|e| e.to_string())
+    }
+
+    fn supersede_game(&mut self, old_id: u64, new_game: ParsedGame) -> std::result::Result<(), String> {
+        self.writer
+            .handle_superseded_game(old_id, new_game)
+            .map_err(|e| e.to_string())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct SourceManifestInput {
+    #[allow(dead_code)]
+    collection: Option<CollectionArg>,
+    sources: Vec<SourceEntryInput>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SourceEntryInput {
+    path: PathBuf,
+    url: Option<String>,
+    license: Option<String>,
+    sha256: Option<String>,
+}
+
+fn open_auto_detect_reader(path: &Path) -> Result<Box<dyn Read + Send>> {
+    const ZSTD_MAGIC: [u8; 4] = [0x28, 0xB5, 0x2F, 0xFD];
+    if path.as_os_str() == "-" {
+        let mut stdin = std::io::stdin();
+        let mut prefix = [0u8; 4];
+        let n = stdin.read(&mut prefix)?;
+        if n == 4 && prefix == ZSTD_MAGIC {
+            let chained = Cursor::new(prefix).chain(stdin);
+            let zstd_dec = zstd::stream::read::Decoder::new(chained)?;
+            Ok(Box::new(zstd_dec))
+        } else {
+            let chained = Cursor::new(prefix[..n].to_vec()).chain(stdin);
+            Ok(Box::new(BufReader::new(chained)))
+        }
+    } else {
+        let file = File::open(path)
+            .with_context(|| format!("Failed to open input file {}", path.display()))?;
+        let mut buf_reader = BufReader::new(file);
+        let mut prefix = [0u8; 4];
+        let n = buf_reader.read(&mut prefix)?;
+        if n == 4 && prefix == ZSTD_MAGIC {
+            let chained = Cursor::new(prefix).chain(buf_reader);
+            let zstd_dec = zstd::stream::read::Decoder::new(chained)?;
+            Ok(Box::new(zstd_dec))
+        } else {
+            let chained = Cursor::new(prefix[..n].to_vec()).chain(buf_reader);
+            Ok(Box::new(BufReader::new(chained)))
+        }
+    }
+}
+
+struct BuildOptions {
+    manifest: Option<PathBuf>,
+    input: Vec<PathBuf>,
+    collection: CollectionArg,
+    output: PathBuf,
+    max_games: Option<usize>,
+    block_capacity: usize,
+    max_games_per_shard: usize,
+    zstd_level: i32,
+    dedupe_mode: DedupeModeArg,
+}
+
+fn run_build(opts: BuildOptions) -> Result<()> {
+    let mut resolved_inputs = Vec::new();
+    let mut source_metas = Vec::new();
+    let col: Collection = opts.collection.into();
+
+    if let Some(m_path) = opts.manifest {
+        let file_bytes = std::fs::read(&m_path)
+            .with_context(|| format!("Failed to read manifest file {}", m_path.display()))?;
+        let parsed_manifest: SourceManifestInput = serde_json::from_slice(&file_bytes)
+            .with_context(|| format!("Failed to parse manifest JSON in {}", m_path.display()))?;
+
+        for s in parsed_manifest.sources {
+            let size = if s.path.exists() {
+                std::fs::metadata(&s.path).map(|m| m.len()).unwrap_or(0)
+            } else {
+                0
+            };
+            resolved_inputs.push(s.path.clone());
+            source_metas.push(SourceArchiveMetadata {
+                filename: s
+                    .path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
+                url: s.url,
+                sha256: s.sha256,
+                size_bytes: size,
+                license: s.license.unwrap_or_else(|| "Unknown".into()),
+            });
+        }
+    }
+
+    for p in opts.input {
+        if !resolved_inputs.contains(&p) {
+            let size = if p.as_os_str() != "-" && p.exists() {
+                std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0)
+            } else {
+                0
+            };
+            source_metas.push(SourceArchiveMetadata {
+                filename: p
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
+                url: None,
+                sha256: None,
+                size_bytes: size,
+                license: "Unknown".into(),
+            });
+            resolved_inputs.push(p);
+        }
+    }
+
+    if resolved_inputs.is_empty() {
+        anyhow::bail!("No input files specified. Provide --input <file>... or --manifest <sources.json>");
+    }
+
+    println!("=== Building Persistent Curated Dataset ===");
+    println!("Collection:          {}", col);
+    println!("Output Directory:    {}", opts.output.display());
+    println!("Input Sources:       {} sources", resolved_inputs.len());
+    println!("Block Capacity:      {} games/block", opts.block_capacity);
+    println!("Max Games/Shard:     {}", opts.max_games_per_shard);
+    println!("Zstandard Level:     {}", opts.zstd_level);
+    println!("Deduplication Mode:  {:?}", opts.dedupe_mode);
+
+    let curation_policy = match col {
+        Collection::MastersOtb => CurationPolicyMetadata {
+            min_rating_both: 2200,
+            min_rating_one: 2400,
+            min_rating_other: 2000,
+            min_plies: 4,
+            extra_criteria: "Historical exception pre-1970".into(),
+        },
+        Collection::EliteOnline => CurationPolicyMetadata {
+            min_rating_both: 2200,
+            min_rating_one: 2400,
+            min_rating_other: 2000,
+            min_plies: 6,
+            extra_criteria: "Exclude Bullet and UltraBullet (<180s)".into(),
+        },
+    };
+
+    let writer_config = DatasetWriterConfig {
+        collection: col,
+        block_capacity: opts.block_capacity,
+        max_games_per_shard: opts.max_games_per_shard,
+        zstd_level: opts.zstd_level,
+        curation_policy,
+        deduplication_policy_version: "v2-verified-prefix".into(),
+    };
+
+    let mut dataset_writer = DatasetWriter::new(opts.output.clone(), writer_config)
+        .context("Failed to initialize dataset writer in staging directory")?;
+
+    let deduplicator = match opts.dedupe_mode {
+        DedupeModeArg::Memory => Deduplicator::new(),
+        DedupeModeArg::Disk => {
+            let temp_dedupe = tempfile::Builder::new()
+                .prefix("codb_dedupe_")
+                .suffix(".db")
+                .tempfile()?;
+            Deduplicator::new_disk(temp_dedupe.path())
+                .context("Failed to initialize disk-backed temporary deduplicator")?
+        }
+    };
+
+    let start = Instant::now();
+    let consumer = DatasetWriterConsumer {
+        writer: &mut dataset_writer,
+    };
+    let mut pipeline = CuratedPipeline::new(col, deduplicator, consumer)
+        .with_max_games(opts.max_games);
+
+    for path in &resolved_inputs {
+        println!("Streaming from {}...", path.display());
+        let reader = open_auto_detect_reader(path)
+            .with_context(|| format!("Failed to open stream for {}", path.display()))?;
+        pipeline
+            .process_stream(reader)
+            .with_context(|| format!("Error processing stream {}", path.display()))?;
+
+        if pipeline.stats.completion_status == IngestionCompletionStatus::PartialLimitReached {
+            println!("Target game limit reached.");
+            break;
+        }
+    }
+
+    let stats = pipeline.stats;
+    println!("\nFinalizing persistent dataset...");
+    let manifest = dataset_writer
+        .finalize(stats.clone(), source_metas)
+        .context("Failed to finalize persistent dataset")?;
+
+    let elapsed = start.elapsed().as_secs_f64();
+    println!("\n=== Build Complete ===");
+    println!("Target Directory:    {}", opts.output.display());
+    println!("Total Retained:      {} games", manifest.total_games);
+    println!("Encountered Games:   {}", stats.total_encountered);
+    println!("Duplicates Removed:  {}", stats.confirmed_duplicates);
+    println!("Superseded Prior:    {}", stats.superseded_prior);
+    println!("Policy Rejections:   {}", stats.rejected_by_policy);
+    println!("Shards Created:      {}", manifest.shards.len());
+    println!(
+        "Total Physical Size: {:.2} MB ({} bytes)",
+        manifest.total_physical_bytes as f64 / 1_000_000.0,
+        manifest.total_physical_bytes
+    );
+    let bpg = manifest.total_physical_bytes as f64 / manifest.total_games.max(1) as f64;
+    println!("Storage Efficiency:  {:.2} bytes/game", bpg);
+    println!(
+        "Duration:            {:.2}s ({:.1} games/sec)",
+        elapsed,
+        stats.total_encountered as f64 / elapsed.max(1e-9)
+    );
+
+    Ok(())
+}
+
+fn run_get_game(dataset: &Path, id: u64, format: FormatArg) -> Result<()> {
+    let mut reader = DatasetReader::open(dataset)
+        .with_context(|| format!("Failed to open dataset at {}", dataset.display()))?;
+    match reader.get_game(id) {
+        Ok(game) => {
+            match format {
+                FormatArg::Pgn => {
+                    let pgn = export_to_pgn(&game)
+                        .map_err(|e| anyhow::anyhow!("PGN export error: {}", e))?;
+                    print!("{}", pgn);
+                }
+                FormatArg::Json => {
+                    let json = serde_json::to_string_pretty(&game)?;
+                    println!("{}", json);
+                }
+            }
+            Ok(())
+        }
+        Err(StorageError::GameNotFound(missing_id)) => {
+            eprintln!(
+                "Error: Game ID {} not found in dataset {}",
+                missing_id,
+                dataset.display()
+            );
+            std::process::exit(1);
+        }
+        Err(err) => Err(anyhow::anyhow!("Storage error retrieving game: {}", err)),
+    }
+}
+
+fn run_inspect(dataset: &Path, json: bool) -> Result<()> {
+    let reader = DatasetReader::open(dataset)
+        .with_context(|| format!("Failed to open dataset at {}", dataset.display()))?;
+    let manifest = reader.manifest();
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(manifest)?);
+        return Ok(());
+    }
+
+    println!("========================================================================");
+    println!("                      CODB Dataset Inspection                           ");
+    println!("========================================================================");
+    println!("Build ID:            {}", manifest.dataset_build_id);
+    println!("Collection:          {}", manifest.collection);
+    println!("Build Timestamp:     {}", manifest.build_timestamp);
+    println!(
+        "Format Version:      {} (Schema: {})",
+        manifest.format_version, manifest.schema_version
+    );
+    println!("Total Retained Games:{}", manifest.total_games);
+    println!(
+        "Physical Size:       {:.2} MB ({} bytes)",
+        manifest.total_physical_bytes as f64 / 1_000_000.0,
+        manifest.total_physical_bytes
+    );
+    let bpg = manifest.total_physical_bytes as f64 / manifest.total_games.max(1) as f64;
+    println!("Physical Bytes/Game: {:.2} B/game", bpg);
+    println!("Shard Files:         {}", manifest.shards.len());
+    for s in &manifest.shards {
+        println!(
+            "  - Shard {}: {} ({} games, {:.2} MB)",
+            s.shard_id,
+            s.filename,
+            s.game_count,
+            s.file_size_bytes as f64 / 1_000_000.0
+        );
+    }
+    println!(
+        "Global Lookup:       {} ({} entries, {:.2} MB)",
+        manifest.lookup_table.filename,
+        manifest.lookup_table.entry_count,
+        manifest.lookup_table.file_size_bytes as f64 / 1_000_000.0
+    );
+    println!("Accounting Summary:");
+    println!("  Total Encountered: {}", manifest.accounting.total_encountered);
+    println!("  Accepted Unique:   {}", manifest.accounting.accepted_unique);
+    println!("  Duplicates Elim:   {}", manifest.accounting.confirmed_duplicates);
+    println!("  Superseded Prior:  {}", manifest.accounting.superseded_prior);
+    println!("  Policy Rejected:   {}", manifest.accounting.rejected_by_policy);
+    println!(
+        "  Accounting Valid:  {} (Fully consistent: {})",
+        manifest.accounting.is_reconciled(),
+        manifest
+            .accounting
+            .verify_retained_count(manifest.total_games as usize)
+    );
+    println!("========================================================================");
+    Ok(())
+}
+
+fn run_verify(dataset: &Path, deep: bool) -> Result<()> {
+    println!("Verifying dataset at {} (deep: {})...", dataset.display(), deep);
+    let start = Instant::now();
+    let report = verify_dataset(dataset, deep)
+        .with_context(|| format!("Verification failed for dataset {}", dataset.display()))?;
+    let elapsed = start.elapsed().as_secs_f64();
+
+    println!("=== Verification Results ===");
+    println!("Status:                   {}", report.status);
+    println!("Collection:               {}", report.collection);
+    println!("Total Games:              {}", report.total_games);
+    println!("Shards Verified:          {}", report.shards_checked);
+    println!("Lookup Entries Verified:  {}", report.lookups_checked);
+    println!("Artifact Hashes Valid:    {}", report.checksums_valid);
+    println!("Accounting Invariants:    {}", report.accounting_reconciled);
+    println!("Deep Game Verification:   {}", report.deep_verification_passed);
+    println!("Elapsed Time:             {:.2}s", elapsed);
+    println!("Result: SUCCESS [PASS]");
     Ok(())
 }
 
@@ -1338,5 +1820,67 @@ mod tests {
             assert!(opt_b_total >= opt_b_opt && opt_b_total.is_finite());
             assert!(opt_b_cons >= opt_b_total && opt_b_cons.is_finite());
         }
+    }
+
+    #[test]
+    fn test_cli_build_inspect_get_game_verify_e2e() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let fixture_path = std::path::Path::new(manifest_dir)
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("fixtures")
+            .join("stage_a_validation.pgn");
+
+        if !fixture_path.exists() {
+            return;
+        }
+
+        let tmp = tempfile::tempdir().unwrap();
+        let dataset_dir = tmp.path().join("cli_test_dataset");
+
+        // Run build
+        run_build(BuildOptions {
+            manifest: None,
+            input: vec![fixture_path.clone()],
+            collection: CollectionArg::MastersOtb,
+            output: dataset_dir.clone(),
+            max_games: Some(20),
+            block_capacity: 4,
+            max_games_per_shard: 8,
+            zstd_level: 3,
+            dedupe_mode: DedupeModeArg::Disk,
+        })
+        .unwrap();
+
+        assert!(dataset_dir.join("manifest.json").exists());
+        assert!(dataset_dir.join("games.idx").exists());
+
+        // Run inspect
+        run_inspect(&dataset_dir, false).unwrap();
+        run_inspect(&dataset_dir, true).unwrap();
+
+        // Run verify (including deep)
+        run_verify(&dataset_dir, true).unwrap();
+
+        // Open dataset reader and test retrieval
+        let mut reader = DatasetReader::open(&dataset_dir).unwrap();
+        assert_eq!(reader.total_games(), 20);
+
+        // Retrieve first game from games.idx
+        let lookup_path = dataset_dir.join("games.idx");
+        let lookup_reader = codb_storage::GameLookupReader::open(&lookup_path).unwrap();
+        assert_eq!(lookup_reader.entry_count(), 20);
+
+        // Test get_game with valid ID
+        let mut shard = codb_storage::ShardReader::open(&dataset_dir.join("shards/shard_0000.cgb3")).unwrap();
+        let b0 = shard.decompress_block(0).unwrap();
+        let any_game_id = b0[0].metadata.id;
+
+        let game = reader.get_game(any_game_id).unwrap();
+        assert_eq!(game.metadata.id, any_game_id);
+        let pgn = reader.get_game_pgn(any_game_id).unwrap();
+        assert!(!pgn.is_empty());
     }
 }

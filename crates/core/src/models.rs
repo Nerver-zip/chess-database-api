@@ -142,6 +142,27 @@ impl PositionKey {
     }
 }
 
+/// Identifies the physical location of a stored game within a persistent sharded dataset:
+/// shard index, compressed block index within that shard, and game offset within the block.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
+)]
+pub struct GameLocation {
+    pub shard_id: u16,
+    pub block_index: u32,
+    pub game_index_in_block: u16,
+}
+
+impl GameLocation {
+    pub fn new(shard_id: u16, block_index: u32, game_index_in_block: u16) -> Self {
+        GameLocation {
+            shard_id,
+            block_index,
+            game_index_in_block,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GameMetadata {
     pub id: u64,
@@ -343,6 +364,11 @@ mod tests {
             &moves,
         );
         assert_eq!(id1, id2);
+
+        // Test GameLocation ordering and construction
+        let loc1 = GameLocation::new(0, 5, 12);
+        let loc2 = GameLocation::new(0, 5, 13);
+        assert!(loc1 < loc2);
 
         // Different collection or moves produces different ID
         let id3 = compute_stable_game_id(

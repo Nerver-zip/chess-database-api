@@ -1,3 +1,11 @@
-//! Compact game storage, binary encoding, and decompression.
+//! Compact game storage, binary encoding, persistent CGB3 containers, and random-access retrieval.
 
+pub mod dataset;
 pub mod format;
+pub mod lookup;
+pub mod shard;
+
+pub use dataset::*;
+pub use format::*;
+pub use lookup::*;
+pub use shard::*;

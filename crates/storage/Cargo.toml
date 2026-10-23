@@ -15,6 +15,7 @@ byteorder.workspace = true
 memmap2.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
