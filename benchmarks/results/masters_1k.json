@@ -1,0 +1,60 @@
+{
+  "run_name": "masters_1k",
+  "collection": "masters-otb",
+  "input_file": "data/masters_combined.pgn.zst",
+  "input_size_bytes": 105785315,
+  "total_encountered": 4904,
+  "accepted_unique": 1000,
+  "confirmed_duplicates": 0,
+  "superseded_prior": 0,
+  "rejected_by_policy": 3904,
+  "rejected_variant": 0,
+  "rejected_illegal": 0,
+  "rejected_malformed": 0,
+  "quarantined": 0,
+  "is_reconciled": true,
+  "transpositions_distinct": 2,
+  "import_duration_secs": 0.08481692,
+  "import_throughput_games_sec": 11790.100371482482,
+  "import_throughput_mb_sec": 1247.2194816788913,
+  "raw_pgn_bytes": 850843,
+  "raw_bytes_per_game": 850.843,
+  "codb_block_compressed_bytes": 199726,
+  "codb_bytes_per_game": 199.726,
+  "compression_ratio": 4.260051270240229,
+  "depth_20": {
+    "depth_plies": 20,
+    "unique_positions": 11067,
+    "unique_position_move_pairs": 12286,
+    "immutable_index_size_bytes": 234830,
+    "sqlite_index_size_bytes": 1829288,
+    "index_build_duration_secs": 0.034516779
+  },
+  "depth_40": {
+    "depth_plies": 40,
+    "unique_positions": 30462,
+    "unique_position_move_pairs": 31714,
+    "immutable_index_size_bytes": 632617,
+    "sqlite_index_size_bytes": 6788904,
+    "index_build_duration_secs": 0.087213359
+  },
+  "depth_60": {
+    "depth_plies": 60,
+    "unique_positions": 47890,
+    "unique_position_move_pairs": 49177,
+    "immutable_index_size_bytes": 985799,
+    "sqlite_index_size_bytes": 10470416,
+    "index_build_duration_secs": 0.170106147
+  },
+  "query_latency_us": {
+    "sqlite_disk_p50_us": 4.0,
+    "sqlite_disk_p95_us": 10.0,
+    "sqlite_disk_p99_us": 17.0,
+    "cpi_disk_p50_us": 11.0,
+    "cpi_disk_p95_us": 14.0,
+    "cpi_disk_p99_us": 29.0,
+    "cpi_in_memory_p50_us": 0.0,
+    "cpi_in_memory_p95_us": 0.0,
+    "cpi_in_memory_p99_us": 0.0
+  }
+}

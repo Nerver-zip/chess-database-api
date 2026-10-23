@@ -1,0 +1,56 @@
+{
+  "parameters": {
+    "depth_20": {
+      "k": 44.29,
+      "alpha": 0.8023,
+      "alpha_err": 0.0194,
+      "r2": 0.999544,
+      "bytes_per_pos": 21.5
+    },
+    "depth_40": {
+      "k": 49.88,
+      "alpha": 0.9293,
+      "alpha_err": 0.004,
+      "r2": 0.999985,
+      "bytes_per_pos": 20.6
+    },
+    "depth_60": {
+      "k": 64.88,
+      "alpha": 0.9565,
+      "alpha_err": 0.0029,
+      "r2": 0.999993,
+      "bytes_per_pos": 20.3
+    },
+    "game_bytes_codb": 202.5,
+    "sqlite_multiplier_vs_cpi": 8.1
+  },
+  "budget_scenarios_gb": {
+    "masters_5m_games_storage": 1.01,
+    "elite_10m_games_storage": 2.03,
+    "total_games_storage_15m": 3.04,
+    "option_a_depth_20": {
+      "masters_index": 0.23,
+      "elite_index": 0.39,
+      "total": 3.66,
+      "pct_of_10gb": 36.6
+    },
+    "option_b_recommended_balanced": {
+      "masters_index_d40": 1.73,
+      "elite_index_d30": 1.45,
+      "total": 6.22,
+      "pct_of_10gb": 62.2
+    },
+    "option_c_depth_40_both": {
+      "masters_index": 1.73,
+      "elite_index": 3.29,
+      "total": 8.06,
+      "pct_of_10gb": 80.6
+    },
+    "option_d_depth_60_both": {
+      "masters_index": 3.37,
+      "elite_index": 6.53,
+      "total": 12.94,
+      "pct_of_10gb": 129.4
+    }
+  }
+}

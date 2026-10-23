@@ -6,6 +6,8 @@ use std::collections::HashMap;
 use std::io::{Cursor, Read, Write};
 use thiserror::Error;
 
+pub const BLOCK_MAGIC_V2: &[u8; 4] = b"CGB2";
+
 #[derive(Error, Debug)]
 pub enum StorageError {
     #[error("IO error: {0}")]
@@ -14,6 +16,8 @@ pub enum StorageError {
     Zstd(String),
     #[error("Decoding error: {0}")]
     Decoding(String),
+    #[error("Invalid block magic or version")]
+    InvalidMagic,
     #[error("Game ID not found: {0}")]
     GameNotFound(u64),
 }
@@ -44,10 +48,15 @@ impl GameBlock {
     }
 
     /// Serializes and compresses this block of games into a binary payload using dictionary encoding.
+    /// Preserves 100% of game metadata: players, ratings, date, event, site, round, result,
+    /// ECO, time control, source ID, starting FEN, and legal moves.
     pub fn compress(&self, zstd_level: i32) -> Result<Vec<u8>, StorageError> {
-        let mut raw_buf = Vec::with_capacity(self.games.len() * 128);
+        let mut raw_buf = Vec::with_capacity(self.games.len() * 140);
 
-        // 1. Dictionaries for strings within this block: players, events, sites
+        // Magic and format version header
+        raw_buf.write_all(BLOCK_MAGIC_V2)?;
+
+        // String dictionaries within this block
         let mut players: Vec<String> = Vec::new();
         let mut player_map: HashMap<String, u16> = HashMap::new();
 
@@ -56,6 +65,29 @@ impl GameBlock {
 
         let mut sites: Vec<String> = Vec::new();
         let mut site_map: HashMap<String, u16> = HashMap::new();
+
+        let mut rounds: Vec<String> = Vec::new();
+        let mut round_map: HashMap<String, u16> = HashMap::new();
+
+        let mut time_controls: Vec<String> = Vec::new();
+        let mut tc_map: HashMap<String, u16> = HashMap::new();
+
+        let mut source_ids: Vec<String> = Vec::new();
+        let mut source_map: HashMap<String, u16> = HashMap::new();
+
+        let mut fens: Vec<String> = Vec::new();
+        let mut fen_map: HashMap<String, u16> = HashMap::new();
+
+        let intern =
+            |val: &Option<String>, list: &mut Vec<String>, map: &mut HashMap<String, u16>| {
+                if let Some(s) = val {
+                    if !map.contains_key(s) {
+                        let idx = list.len() as u16;
+                        map.insert(s.clone(), idx);
+                        list.push(s.clone());
+                    }
+                }
+            };
 
         for g in &self.games {
             if !player_map.contains_key(&g.metadata.white) {
@@ -68,44 +100,35 @@ impl GameBlock {
                 player_map.insert(g.metadata.black.clone(), idx);
                 players.push(g.metadata.black.clone());
             }
-            if let Some(ev) = &g.metadata.event {
-                if !event_map.contains_key(ev) {
-                    let idx = events.len() as u16;
-                    event_map.insert(ev.clone(), idx);
-                    events.push(ev.clone());
-                }
-            }
-            if let Some(st) = &g.metadata.site {
-                if !site_map.contains_key(st) {
-                    let idx = sites.len() as u16;
-                    site_map.insert(st.clone(), idx);
-                    sites.push(st.clone());
-                }
-            }
+            intern(&g.metadata.event, &mut events, &mut event_map);
+            intern(&g.metadata.site, &mut sites, &mut site_map);
+            intern(&g.metadata.round, &mut rounds, &mut round_map);
+            intern(&g.metadata.time_control, &mut time_controls, &mut tc_map);
+            intern(&g.metadata.source_id, &mut source_ids, &mut source_map);
+            intern(&g.fen_start, &mut fens, &mut fen_map);
         }
 
-        // Header: game count (u32), dictionary counts
+        // Header: game count (u32)
         raw_buf.write_u32::<BigEndian>(self.games.len() as u32)?;
-        raw_buf.write_u16::<BigEndian>(players.len() as u16)?;
-        for p in &players {
-            let bytes = p.as_bytes();
-            raw_buf.write_u16::<BigEndian>(bytes.len() as u16)?;
-            raw_buf.write_all(bytes)?;
-        }
 
-        raw_buf.write_u16::<BigEndian>(events.len() as u16)?;
-        for e in &events {
-            let bytes = e.as_bytes();
-            raw_buf.write_u16::<BigEndian>(bytes.len() as u16)?;
-            raw_buf.write_all(bytes)?;
-        }
+        // Write dictionaries helper
+        let write_dict = |buf: &mut Vec<u8>, list: &[String]| -> Result<(), StorageError> {
+            buf.write_u16::<BigEndian>(list.len() as u16)?;
+            for item in list {
+                let bytes = item.as_bytes();
+                buf.write_u16::<BigEndian>(bytes.len() as u16)?;
+                buf.write_all(bytes)?;
+            }
+            Ok(())
+        };
 
-        raw_buf.write_u16::<BigEndian>(sites.len() as u16)?;
-        for s in &sites {
-            let bytes = s.as_bytes();
-            raw_buf.write_u16::<BigEndian>(bytes.len() as u16)?;
-            raw_buf.write_all(bytes)?;
-        }
+        write_dict(&mut raw_buf, &players)?;
+        write_dict(&mut raw_buf, &events)?;
+        write_dict(&mut raw_buf, &sites)?;
+        write_dict(&mut raw_buf, &rounds)?;
+        write_dict(&mut raw_buf, &time_controls)?;
+        write_dict(&mut raw_buf, &source_ids)?;
+        write_dict(&mut raw_buf, &fens)?;
 
         // Games serialization
         for g in &self.games {
@@ -116,23 +139,19 @@ impl GameBlock {
             raw_buf.write_u16::<BigEndian>(w_idx)?;
             raw_buf.write_u16::<BigEndian>(b_idx)?;
 
-            let ev_idx = g
-                .metadata
-                .event
-                .as_ref()
-                .and_then(|e| event_map.get(e))
-                .copied()
-                .unwrap_or(u16::MAX);
-            raw_buf.write_u16::<BigEndian>(ev_idx)?;
+            let get_idx = |val: &Option<String>, map: &HashMap<String, u16>| {
+                val.as_ref()
+                    .and_then(|s| map.get(s))
+                    .copied()
+                    .unwrap_or(u16::MAX)
+            };
 
-            let st_idx = g
-                .metadata
-                .site
-                .as_ref()
-                .and_then(|s| site_map.get(s))
-                .copied()
-                .unwrap_or(u16::MAX);
-            raw_buf.write_u16::<BigEndian>(st_idx)?;
+            raw_buf.write_u16::<BigEndian>(get_idx(&g.metadata.event, &event_map))?;
+            raw_buf.write_u16::<BigEndian>(get_idx(&g.metadata.site, &site_map))?;
+            raw_buf.write_u16::<BigEndian>(get_idx(&g.metadata.round, &round_map))?;
+            raw_buf.write_u16::<BigEndian>(get_idx(&g.metadata.time_control, &tc_map))?;
+            raw_buf.write_u16::<BigEndian>(get_idx(&g.metadata.source_id, &source_map))?;
+            raw_buf.write_u16::<BigEndian>(get_idx(&g.fen_start, &fen_map))?;
 
             raw_buf.write_u16::<BigEndian>(g.metadata.white_elo.unwrap_or(0))?;
             raw_buf.write_u16::<BigEndian>(g.metadata.black_elo.unwrap_or(0))?;
@@ -146,7 +165,16 @@ impl GameBlock {
             };
             raw_buf.write_u8(res_byte)?;
 
-            // Date: 10 bytes ASCII fixed buffer e.g. "2024.01.15" or empty
+            // ECO: 3 ASCII bytes e.g. "B90" or empty spaces
+            let mut eco_bytes = [b' '; 3];
+            if let Some(eco) = &g.metadata.eco {
+                let src = eco.as_bytes();
+                let len = src.len().min(3);
+                eco_bytes[..len].copy_from_slice(&src[..len]);
+            }
+            raw_buf.write_all(&eco_bytes)?;
+
+            // Date: 10 bytes ASCII fixed buffer e.g. "2024.01.15" or empty spaces
             let mut date_bytes = [b' '; 10];
             if let Some(d) = &g.metadata.date {
                 let src = d.as_bytes();
@@ -176,60 +204,66 @@ impl GameBlock {
             zstd::decode_all(compressed).map_err(|e| StorageError::Zstd(e.to_string()))?;
         let mut r = Cursor::new(raw_bytes);
 
+        // Verify magic
+        let mut magic = [0u8; 4];
+        r.read_exact(&mut magic)?;
+        if &magic != BLOCK_MAGIC_V2 {
+            return Err(StorageError::InvalidMagic);
+        }
+
         let game_count = r.read_u32::<BigEndian>()? as usize;
 
-        // Player dictionary
-        let player_count = r.read_u16::<BigEndian>()? as usize;
-        let mut players = Vec::with_capacity(player_count);
-        for _ in 0..player_count {
-            let len = r.read_u16::<BigEndian>()? as usize;
-            let mut buf = vec![0u8; len];
-            r.read_exact(&mut buf)?;
-            players.push(String::from_utf8_lossy(&buf).to_string());
-        }
+        let read_dict = |r: &mut Cursor<Vec<u8>>| -> Result<Vec<String>, StorageError> {
+            let count = r.read_u16::<BigEndian>()? as usize;
+            let mut list = Vec::with_capacity(count);
+            for _ in 0..count {
+                let len = r.read_u16::<BigEndian>()? as usize;
+                let mut buf = vec![0u8; len];
+                r.read_exact(&mut buf)?;
+                list.push(String::from_utf8_lossy(&buf).to_string());
+            }
+            Ok(list)
+        };
 
-        // Event dictionary
-        let event_count = r.read_u16::<BigEndian>()? as usize;
-        let mut events = Vec::with_capacity(event_count);
-        for _ in 0..event_count {
-            let len = r.read_u16::<BigEndian>()? as usize;
-            let mut buf = vec![0u8; len];
-            r.read_exact(&mut buf)?;
-            events.push(String::from_utf8_lossy(&buf).to_string());
-        }
-
-        // Site dictionary
-        let site_count = r.read_u16::<BigEndian>()? as usize;
-        let mut sites = Vec::with_capacity(site_count);
-        for _ in 0..site_count {
-            let len = r.read_u16::<BigEndian>()? as usize;
-            let mut buf = vec![0u8; len];
-            r.read_exact(&mut buf)?;
-            sites.push(String::from_utf8_lossy(&buf).to_string());
-        }
+        let players = read_dict(&mut r)?;
+        let events = read_dict(&mut r)?;
+        let sites = read_dict(&mut r)?;
+        let rounds = read_dict(&mut r)?;
+        let time_controls = read_dict(&mut r)?;
+        let source_ids = read_dict(&mut r)?;
+        let fens = read_dict(&mut r)?;
 
         let mut games = Vec::with_capacity(game_count);
+
+        let resolve_str = |idx: u16, list: &[String]| -> Option<String> {
+            if idx == u16::MAX {
+                None
+            } else {
+                list.get(idx as usize).cloned()
+            }
+        };
 
         for _ in 0..game_count {
             let id = r.read_u64::<BigEndian>()?;
             let w_idx = r.read_u16::<BigEndian>()? as usize;
             let b_idx = r.read_u16::<BigEndian>()? as usize;
+
             let ev_idx = r.read_u16::<BigEndian>()?;
             let st_idx = r.read_u16::<BigEndian>()?;
+            let rd_idx = r.read_u16::<BigEndian>()?;
+            let tc_idx = r.read_u16::<BigEndian>()?;
+            let src_idx = r.read_u16::<BigEndian>()?;
+            let fen_idx = r.read_u16::<BigEndian>()?;
 
             let white = players.get(w_idx).cloned().unwrap_or_default();
             let black = players.get(b_idx).cloned().unwrap_or_default();
 
-            let event = if ev_idx == u16::MAX {
-                None
-            } else {
-                events.get(ev_idx as usize).cloned()
-            };
-            let site = if st_idx == u16::MAX {
-                None
-            } else {
-                sites.get(st_idx as usize).cloned()
-            };
+            let event = resolve_str(ev_idx, &events);
+            let site = resolve_str(st_idx, &sites);
+            let round = resolve_str(rd_idx, &rounds);
+            let time_control = resolve_str(tc_idx, &time_controls);
+            let source_id = resolve_str(src_idx, &source_ids);
+            let fen_start = resolve_str(fen_idx, &fens);
 
             let w_elo_raw = r.read_u16::<BigEndian>()?;
             let b_elo_raw = r.read_u16::<BigEndian>()?;
@@ -242,6 +276,15 @@ impl GameBlock {
                 2 => GameResult::Draw,
                 3 => GameResult::BlackWins,
                 _ => GameResult::Star,
+            };
+
+            let mut eco_bytes = [0u8; 3];
+            r.read_exact(&mut eco_bytes)?;
+            let eco_str = String::from_utf8_lossy(&eco_bytes).trim().to_string();
+            let eco = if eco_str.is_empty() {
+                None
+            } else {
+                Some(eco_str)
             };
 
             let mut date_bytes = [0u8; 10];
@@ -270,14 +313,14 @@ impl GameBlock {
                     date,
                     event,
                     site,
-                    round: None,
+                    round,
                     result,
-                    eco: None,
-                    time_control: None,
-                    source_id: None,
+                    eco,
+                    time_control,
+                    source_id,
                 },
                 moves,
-                fen_start: None,
+                fen_start,
             });
         }
 
@@ -319,6 +362,12 @@ pub fn export_to_pgn(game: &ParsedGame) -> Result<String, StorageError> {
     if let Some(eco) = &game.metadata.eco {
         pgn.push_str(&format!("[ECO \"{}\"]\n", eco));
     }
+    if let Some(tc) = &game.metadata.time_control {
+        pgn.push_str(&format!("[TimeControl \"{}\"]\n", tc));
+    }
+    if let Some(fen) = &game.fen_start {
+        pgn.push_str(&format!("[SetUp \"1\"]\n[FEN \"{}\"]\n", fen));
+    }
     pgn.push('\n');
 
     // Replay moves legally to generate standard SAN
@@ -331,7 +380,6 @@ pub fn export_to_pgn(game: &ParsedGame) -> Result<String, StorageError> {
             pgn.push_str(&format!("{}. ", move_num));
         }
 
-        // Find the legal move corresponding to cm
         let from = Square::new(cm.from_sq() as u32);
         let to = Square::new(cm.to_sq() as u32);
         let promo = cm.promotion_piece().map(|p| match p {
@@ -342,7 +390,6 @@ pub fn export_to_pgn(game: &ParsedGame) -> Result<String, StorageError> {
             _ => Role::Queen,
         });
 
-        // Match against legal moves
         let legal_moves = board.legal_moves();
         let m = legal_moves
             .into_iter()
@@ -361,12 +408,10 @@ pub fn export_to_pgn(game: &ParsedGame) -> Result<String, StorageError> {
                         } else {
                             Square::G8
                         }
+                    } else if king.rank() == shakmaty::Rank::First {
+                        Square::C1
                     } else {
-                        if king.rank() == shakmaty::Rank::First {
-                            Square::C1
-                        } else {
-                            Square::C8
-                        }
+                        Square::C8
                     };
                     *king == from && to_sq == to
                 }
@@ -399,10 +444,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_storage_block_round_trip() {
+    fn test_storage_block_round_trip_full_metadata() {
         let mut block = GameBlock::new(Collection::MastersOtb);
 
-        // Game 1: 1. e4 e5 2. Nf3 Nc6
         let g1 = ParsedGame {
             metadata: GameMetadata {
                 id: 1001,
@@ -414,11 +458,11 @@ mod tests {
                 date: Some("2024.01.15".into()),
                 event: Some("Tata Steel 2024".into()),
                 site: Some("Wijk aan Zee NED".into()),
-                round: Some("1".into()),
+                round: Some("5".into()),
                 result: GameResult::Draw,
                 eco: Some("C65".into()),
                 time_control: Some("90+30".into()),
-                source_id: None,
+                source_id: Some("https://lichess.org/broadcast/123".into()),
             },
             moves: vec![
                 CompactMove::new(12, 28, None), // e2e4
@@ -429,7 +473,7 @@ mod tests {
             fen_start: None,
         };
 
-        block.games.push(g1);
+        block.games.push(g1.clone());
 
         // Compress
         let compressed = block.compress(3).expect("compression failed");
@@ -441,21 +485,28 @@ mod tests {
         assert_eq!(decoded.len(), 1);
 
         let recovered = &decoded[0];
-        assert_eq!(recovered.metadata.id, 1001);
-        assert_eq!(recovered.metadata.white, "Carlsen, Magnus");
-        assert_eq!(recovered.metadata.black, "Nakamura, Hikaru");
-        assert_eq!(recovered.metadata.white_elo, Some(2850));
-        assert_eq!(recovered.metadata.black_elo, Some(2800));
-        assert_eq!(recovered.metadata.date.as_deref(), Some("2024.01.15"));
-        assert_eq!(recovered.moves.len(), 4);
-        assert_eq!(recovered.moves[0].to_uci(), "e2e4");
-        assert_eq!(recovered.moves[1].to_uci(), "e7e5");
-        assert_eq!(recovered.moves[2].to_uci(), "g1f3");
-        assert_eq!(recovered.moves[3].to_uci(), "b8c6");
+        // FULL ROUND TRIP FIDELITY CHECK (Finding 2.1)
+        assert_eq!(recovered.metadata.id, g1.metadata.id);
+        assert_eq!(recovered.metadata.white, g1.metadata.white);
+        assert_eq!(recovered.metadata.black, g1.metadata.black);
+        assert_eq!(recovered.metadata.white_elo, g1.metadata.white_elo);
+        assert_eq!(recovered.metadata.black_elo, g1.metadata.black_elo);
+        assert_eq!(recovered.metadata.date, g1.metadata.date);
+        assert_eq!(recovered.metadata.event, g1.metadata.event);
+        assert_eq!(recovered.metadata.site, g1.metadata.site);
+        assert_eq!(recovered.metadata.round, g1.metadata.round);
+        assert_eq!(recovered.metadata.result, g1.metadata.result);
+        assert_eq!(recovered.metadata.eco, g1.metadata.eco);
+        assert_eq!(recovered.metadata.time_control, g1.metadata.time_control);
+        assert_eq!(recovered.metadata.source_id, g1.metadata.source_id);
+        assert_eq!(recovered.moves, g1.moves);
 
         // PGN Export Round-trip
         let pgn_text = export_to_pgn(recovered).expect("export to pgn failed");
         assert!(pgn_text.contains("[White \"Carlsen, Magnus\"]"));
+        assert!(pgn_text.contains("[Round \"5\"]"));
+        assert!(pgn_text.contains("[ECO \"C65\"]"));
+        assert!(pgn_text.contains("[TimeControl \"90+30\"]"));
         assert!(pgn_text.contains("1. e4 e5 2. Nf3 Nc6 1/2-1/2"));
     }
 }

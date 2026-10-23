@@ -1,6 +1,10 @@
-use codb_core::{Collection, CompactMove, GameMetadata, GameResult, IngestionStats, ParsedGame};
+use codb_core::{
+    compute_stable_game_id, Collection, CompactMove, GameMetadata, GameResult, IngestionStats,
+    ParsedGame,
+};
 use pgn_reader::{RawTag, Reader, SanPlus, Visitor};
-use shakmaty::{Chess, Move, Position, Role, Square};
+use shakmaty::fen::Fen;
+use shakmaty::{CastlingMode, Chess, Move, Position, Role, Square};
 use std::io::Read;
 use std::ops::ControlFlow;
 use thiserror::Error;
@@ -15,6 +19,8 @@ pub enum IngestError {
     IllegalMove { ply: usize, reason: String },
     #[error("Unsupported chess variant: {0}")]
     UnsupportedVariant(String),
+    #[error("Non-standard starting position: {0}")]
+    NonStandardStartingPosition(String),
     #[error("Malformed PGN: {0}")]
     MalformedPgn(String),
 }
@@ -119,9 +125,39 @@ impl Visitor for ShakmatyGameVisitor {
             }
         }
 
+        let mut board = Chess::default();
+        if let Some(fen) = &tags.fen_start {
+            match fen.parse::<Fen>() {
+                Ok(parsed_fen) => {
+                    let pos_res: Result<Chess, _> =
+                        parsed_fen.into_position(CastlingMode::Standard);
+                    match pos_res {
+                        Ok(custom_pos) => {
+                            if custom_pos != Chess::default() {
+                                return ControlFlow::Break(Err(
+                                    IngestError::NonStandardStartingPosition(fen.clone()),
+                                ));
+                            }
+                            board = custom_pos;
+                        }
+                        Err(_) => {
+                            return ControlFlow::Break(Err(
+                                IngestError::NonStandardStartingPosition(fen.clone()),
+                            ));
+                        }
+                    }
+                }
+                Err(_) => {
+                    return ControlFlow::Break(Err(IngestError::NonStandardStartingPosition(
+                        fen.clone(),
+                    )));
+                }
+            }
+        }
+
         ControlFlow::Continue(GameMovetext {
             tags,
-            board: Chess::default(),
+            board,
             moves: Vec::with_capacity(64),
             legal_replay_failed: false,
             failure_ply: 0,
@@ -206,8 +242,15 @@ impl Visitor for ShakmatyGameVisitor {
             });
         }
 
-        let id = self.next_id;
-        self.next_id += 1;
+        let id = compute_stable_game_id(
+            self.collection,
+            movetext.tags.source_id.as_deref(),
+            &movetext.tags.white,
+            &movetext.tags.black,
+            movetext.tags.date.as_deref(),
+            movetext.tags.round.as_deref(),
+            &movetext.moves,
+        );
 
         let meta = GameMetadata {
             id,
@@ -241,26 +284,51 @@ pub fn parse_pgn_stream<R: Read>(
     stats: &mut IngestionStats,
 ) -> Vec<ParsedGame> {
     let mut pgn_reader = Reader::new(reader);
-    let mut visitor = ShakmatyGameVisitor::new(collection, stats.accepted_games + 1);
+    let mut visitor = ShakmatyGameVisitor::new(collection, 1);
     let mut games = Vec::new();
 
-    while let Ok(Some(result)) = pgn_reader.read_game(&mut visitor) {
-        stats.total_encountered += 1;
-        match result {
-            Ok(game) => {
-                stats.parsed_games += 1;
-                stats.accepted_games += 1;
-                games.push(game);
+    loop {
+        match pgn_reader.read_game(&mut visitor) {
+            Ok(Some(result)) => {
+                stats.total_encountered += 1;
+                match result {
+                    Ok(game) => {
+                        stats.accepted_unique += 1;
+                        games.push(game);
+                    }
+                    Err(IngestError::UnsupportedVariant(_))
+                    | Err(IngestError::NonStandardStartingPosition(_)) => {
+                        stats.rejected_variant += 1;
+                    }
+                    Err(IngestError::IllegalMove { ply, reason }) => {
+                        tracing::warn!("Rejected illegal move at ply {}: {}", ply, reason);
+                        stats.rejected_illegal += 1;
+                    }
+                    Err(IngestError::MalformedPgn(_)) => {
+                        stats.rejected_malformed += 1;
+                    }
+                    Err(_) => {
+                        stats.quarantined += 1;
+                    }
+                }
             }
-            Err(IngestError::UnsupportedVariant(_)) => {
-                stats.rejected_variant += 1;
-            }
-            Err(IngestError::IllegalMove { ply, reason }) => {
-                eprintln!("Rejected illegal move at ply {}: {}", ply, reason);
-                stats.rejected_illegal += 1;
-            }
-            Err(_) => {
-                stats.quarantined += 1;
+            Ok(None) => break,
+            Err(io_err) => {
+                if io_err.kind() == std::io::ErrorKind::InvalidData {
+                    stats.total_encountered += 1;
+                    stats.rejected_malformed += 1;
+                    tracing::warn!("Malformed PGN syntax error: {}", io_err);
+                    if let Ok(has_more) = pgn_reader.has_more() {
+                        if !has_more {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                } else {
+                    tracing::error!("Fatal I/O error while reading PGN: {}", io_err);
+                    break;
+                }
             }
         }
     }
@@ -311,7 +379,8 @@ mod tests {
         let games = parse_pgn_stream(SAMPLE_PGN.as_bytes(), Collection::MastersOtb, &mut stats);
 
         assert_eq!(stats.total_encountered, 3);
-        assert_eq!(stats.accepted_games, 3);
+        assert_eq!(stats.accepted_unique, 3);
+        assert!(stats.is_reconciled());
         assert_eq!(games.len(), 3);
 
         // Verify Carlsen vs Nepo game
@@ -338,6 +407,7 @@ mod tests {
 
         assert_eq!(stats.total_encountered, 1);
         assert_eq!(stats.rejected_illegal, 1);
+        assert!(stats.is_reconciled());
         assert_eq!(games.len(), 0);
     }
 
@@ -357,7 +427,49 @@ mod tests {
 
         assert_eq!(stats.total_encountered, 1);
         assert_eq!(stats.rejected_variant, 1);
+        assert!(stats.is_reconciled());
         assert_eq!(games.len(), 0);
+    }
+
+    #[test]
+    fn test_non_standard_fen_rejection() {
+        // Non-standard starting position (e.g. Chess960 or custom handicap)
+        let chess960_pgn = r#"
+[Event "Fischer Random"]
+[FEN "bbqnnrkr/pppppppp/8/8/8/8/PPPPPPPP/BBQNNRKR w HFhf - 0 1"]
+[White "Player1"]
+[Black "Player2"]
+[Result "*"]
+
+1. c4 c5 *
+"#;
+        let mut stats = IngestionStats::default();
+        let games = parse_pgn_stream(chess960_pgn.as_bytes(), Collection::MastersOtb, &mut stats);
+
+        assert_eq!(stats.total_encountered, 1);
+        assert_eq!(stats.rejected_variant, 1);
+        assert!(stats.is_reconciled());
+        assert_eq!(games.len(), 0);
+
+        // Standard FEN explicitly specified should be accepted
+        let standard_fen_pgn = r#"
+[Event "Standard with explicit FEN"]
+[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+[White "Player1"]
+[Black "Player2"]
+[Result "1-0"]
+
+1. e4 e5 1-0
+"#;
+        let mut stats2 = IngestionStats::default();
+        let games2 = parse_pgn_stream(
+            standard_fen_pgn.as_bytes(),
+            Collection::MastersOtb,
+            &mut stats2,
+        );
+        assert_eq!(stats2.accepted_unique, 1);
+        assert!(stats2.is_reconciled());
+        assert_eq!(games2.len(), 1);
     }
 
     #[test]
@@ -380,7 +492,8 @@ mod tests {
         let mut stats = IngestionStats::default();
         let games = parse_pgn_stream(pgn.as_bytes(), Collection::MastersOtb, &mut stats);
 
-        assert_eq!(stats.accepted_games, 2);
+        assert_eq!(stats.accepted_unique, 2);
+        assert!(stats.is_reconciled());
         // Game 1: O-O
         let g1 = &games[0];
         assert_eq!(g1.moves[6].to_uci(), "e1g1");
@@ -405,7 +518,8 @@ mod tests {
         let mut stats = IngestionStats::default();
         let games = parse_pgn_stream(pgn.as_bytes(), Collection::MastersOtb, &mut stats);
 
-        assert_eq!(stats.accepted_games, 1);
+        assert_eq!(stats.accepted_unique, 1);
+        assert!(stats.is_reconciled());
         let g = &games[0];
         assert_eq!(g.moves.len(), 5);
         // Move 5: exd6 -> from e5 (sq 36) to d6 (sq 43)
@@ -427,7 +541,8 @@ mod tests {
         let mut stats = IngestionStats::default();
         let games = parse_pgn_stream(pgn.as_bytes(), Collection::MastersOtb, &mut stats);
 
-        assert_eq!(stats.accepted_games, 1);
+        assert_eq!(stats.accepted_unique, 1);
+        assert!(stats.is_reconciled());
         let g = &games[0];
         let last_move = g.moves.last().unwrap();
         assert_eq!(last_move.to_uci(), "b7a8n");
@@ -452,7 +567,8 @@ mod tests {
         let mut stats = IngestionStats::default();
         let games = parse_pgn_stream(pgn.as_bytes(), Collection::MastersOtb, &mut stats);
 
-        assert_eq!(stats.accepted_games, 1);
+        assert_eq!(stats.accepted_unique, 1);
+        assert!(stats.is_reconciled());
         let g = &games[0];
         assert_eq!(g.metadata.white, "Najdorf, Miguel");
         assert_eq!(g.metadata.black, "Spassky, Boris V");
