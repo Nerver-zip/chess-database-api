@@ -148,7 +148,50 @@ Enforces that every artifact strictly complies with the schema, accounting recon
 
 ---
 
-## 5. Deterministic vs. Hardware-Dependent Metrics
+## 5. PR-02 Persistent Dataset Pipeline & Validation
+
+PR-02 introduces the production-ready persistent CGB3 storage pipeline with sharding, global memory-mapped indexing, and bounded-memory ingestion.
+
+### 5.1 Building a Persistent Sharded Dataset
+```bash
+# Example: Build persistent Masters OTB dataset
+./target/release/codb build \
+  --input data/masters_combined.pgn.zst \
+  --collection masters-otb \
+  --output data/builds/masters-otb-20k \
+  --max-games 20000
+
+# Example: Build persistent Elite Online dataset from streaming standard input
+curl -sL https://database.lichess.org/standard/lichess_db_standard_rated_2025-01.pgn.zst \
+  | ./target/release/codb build \
+      --input - \
+      --collection elite-online \
+      --output data/builds/elite-online-50k \
+      --max-games 50000
+```
+
+### 5.2 Deep Verification of Shards, Hashes, and Lookups
+```bash
+# Verify dataset manifest, SHA-256 hashes, lookup table, and decompress all blocks
+./target/release/codb verify --dataset data/builds/elite-online-50k --deep
+```
+
+### 5.3 Inspecting Dataset Structure and Accounting
+```bash
+./target/release/codb inspect --dataset data/builds/elite-online-50k
+```
+
+### 5.4 Benchmarking Random Game Retrieval
+```bash
+./target/release/codb bench-dataset \
+  --dataset data/builds/elite-online-50k \
+  --run-name pr02_scale_elite_50k \
+  --samples 2000
+```
+
+---
+
+## 6. Deterministic vs. Hardware-Dependent Metrics
 
 When reproducing benchmarks on different hardware environments:
 
