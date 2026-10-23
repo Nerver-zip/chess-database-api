@@ -1,56 +1,81 @@
 {
+  "methodology_note": "Parameters are fitted via OLS log-linear regression across 5 nested cumulative prefixes (N=1,000 to N=20,000 accepted Masters OTB games). Because prefixes are nested and N=5M..10M is a 250x-500x extrapolation beyond the measured domain, bounds are presented as sensitivity scenarios (+/- delta_alpha and +15% bytes/pos margin) rather than formal statistical confidence intervals. Elite Online projections use Masters OTB scaling parameters as an unvalidated proxy because the 2013-01 Lichess sample had 0 accepted games under EliteOnlinePolicy.",
   "parameters": {
     "depth_20": {
       "k": 44.29,
-      "alpha": 0.8023,
-      "alpha_err": 0.0194,
+      "alpha_ols": 0.8023,
+      "in_sample_slope_std_err": 0.0099,
+      "sensitivity_delta_alpha": 0.0198,
       "r2": 0.999544,
-      "bytes_per_pos": 21.5
+      "measured_bytes_per_pos_at_20k": 21.57
+    },
+    "depth_30": {
+      "k": 43.4,
+      "alpha_ols": 0.8951,
+      "in_sample_slope_std_err": 0.0042,
+      "sensitivity_delta_alpha": 0.015,
+      "r2": 0.999933,
+      "measured_bytes_per_pos_at_20k": 20.88
     },
     "depth_40": {
       "k": 49.88,
-      "alpha": 0.9293,
-      "alpha_err": 0.004,
+      "alpha_ols": 0.9293,
+      "in_sample_slope_std_err": 0.0021,
+      "sensitivity_delta_alpha": 0.015,
       "r2": 0.999985,
-      "bytes_per_pos": 20.6
+      "measured_bytes_per_pos_at_20k": 20.57
     },
     "depth_60": {
       "k": 64.88,
-      "alpha": 0.9565,
-      "alpha_err": 0.0029,
+      "alpha_ols": 0.9565,
+      "in_sample_slope_std_err": 0.0015,
+      "sensitivity_delta_alpha": 0.015,
       "r2": 0.999993,
-      "bytes_per_pos": 20.3
+      "measured_bytes_per_pos_at_20k": 20.26
     },
-    "game_bytes_codb": 202.5,
-    "sqlite_multiplier_vs_cpi": 8.1
+    "game_bytes_codb_mean": 208.8,
+    "game_bytes_codb_at_20k": 208.16,
+    "sqlite_multiplier_vs_cpi_at_d40": 7.75
+  },
+  "deployed_storage_inventory_15m_gb": {
+    "measured_extrapolated_game_blocks_5m_masters": 1.04,
+    "proxy_extrapolated_game_blocks_10m_elite": 2.08,
+    "total_core_game_blocks_15m": 3.12,
+    "estimated_cgb_block_directory_framing": 0.001,
+    "estimated_game_id_lookup_table_12b_per_game": 0.18,
+    "estimated_provenance_manifests": 0.005,
+    "estimated_filesystem_alignment_margin": 0.254,
+    "total_ancillary_deployment_overhead": 0.44
   },
   "budget_scenarios_gb": {
-    "masters_5m_games_storage": 1.01,
-    "elite_10m_games_storage": 2.03,
-    "total_games_storage_15m": 3.04,
-    "option_a_depth_20": {
-      "masters_index": 0.23,
-      "elite_index": 0.39,
-      "total": 3.66,
-      "pct_of_10gb": 36.6
+    "option_a_depth_20_both": {
+      "masters_index_d20_baseline": 0.23,
+      "elite_index_d20_proxy_baseline": 0.39,
+      "core_payload_baseline": 3.74,
+      "deployed_total_baseline": 4.18,
+      "deployed_total_conservative": 4.85
     },
-    "option_b_recommended_balanced": {
-      "masters_index_d40": 1.73,
-      "elite_index_d30": 1.45,
-      "total": 6.22,
-      "pct_of_10gb": 62.2
+    "option_b_recommended_d40_masters_d30_elite": {
+      "masters_index_d40_baseline": 1.72,
+      "elite_index_d30_proxy_baseline": 1.67,
+      "core_payload_baseline": 6.52,
+      "deployed_total_optimistic": 5.95,
+      "deployed_total_baseline": 6.96,
+      "deployed_total_conservative": 8.82
     },
     "option_c_depth_40_both": {
-      "masters_index": 1.73,
-      "elite_index": 3.29,
-      "total": 8.06,
-      "pct_of_10gb": 80.6
+      "masters_index_d40_baseline": 1.72,
+      "elite_index_d40_proxy_baseline": 3.28,
+      "core_payload_baseline": 8.13,
+      "deployed_total_baseline": 8.57,
+      "deployed_total_conservative": 11.18
     },
     "option_d_depth_60_both": {
-      "masters_index": 3.37,
-      "elite_index": 6.53,
-      "total": 12.94,
-      "pct_of_10gb": 129.4
+      "masters_index_d60_baseline": 3.36,
+      "elite_index_d60_proxy_baseline": 6.52,
+      "core_payload_baseline": 13.0,
+      "deployed_total_baseline": 13.44,
+      "deployed_total_conservative": 18.29
     }
   }
 }

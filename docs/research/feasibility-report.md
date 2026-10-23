@@ -2,183 +2,207 @@
 
 ## 1. Executive Summary
 
-This report delivers the foundational engineering evaluation for the **Chess Openings DB** project, answering the central question of PR-01:
+This report delivers the foundational engineering evaluation for the **Chess Openings DB** project, addressing the central question of PR-01:
 
 > **Can we build a reliable, reproducible, publicly redistributable chess database containing millions of high-quality games, with full game retrieval and position-based opening statistics, within approximately 10 GB of deployed storage?**
 
-### The Definitive Answer: **YES, with Verified Architectural Boundaries**
+### Conclusion: **Preliminary Feasibility Supported — Full-Scale Validation Pending**
 
-Based on physical measurements across real Lichess broadcast and rated datasets (over 117,000 games ingested, validated against strict curation policies, deduplicated with prefix-verified semantics, and compressed with 100% metadata round-trip fidelity):
+Empirical measurements across 117,616 real Lichess Official Broadcast games (`22,265` accepted after curation and prefix-verified deduplication) and 121,332 Lichess Standard Rated games support preliminary storage feasibility within the 10 GB target, subject to explicit scaling assumptions and corpus-coverage boundaries:
 
-1. **Combined Two-Collection Feasibility (15 Million Games Total):**
-   - **Masters OTB (5,000,000 games):** Full game retrieval + Opening Explorer up to Depth 40 (20 full moves) consumes **~2.75 GB**.
-   - **Elite Online (10,000,000 games):** Full game retrieval + Opening Explorer up to Depth 30 (15 full moves) consumes **~3.48 GB** (or **~5.32 GB** at Depth 40).
-   - **Total Combined Deployed Storage:** **~6.23 GB** (Recommended Option B) to **~8.07 GB** (Option C), remaining **19% to 38% below the 10 GB ceiling**.
-2. **Empirical Boundary Condition (Depth 60):**
-   - Slicing up to Depth 60 (30 full moves, deep middlegame) consumes **12.95 GB** for 15 million games, exceeding the 10 GB threshold. Slicing beyond Depth 40 is explicitly rejected as unnecessary for opening preparation and counter to our storage budget.
-3. **Genuine Storage Density & Latency:**
-   - **CODB-v2 Game Blocks:** Achieve **202–206 bytes/game** (4.2× compression over raw PGN) with **100% round-trip metadata retention** (Round, ECO, TimeControl, SourceId, FEN, Date, Site, Event, Players, Elo, Result, Moves).
-   - **Custom CPI Index vs. SQLite:** Persistent on-disk `.cpi` consumes **20.3–21.6 bytes per unique position**, which is **7.2× to 9.4× smaller on disk than SQLite tables**.
-   - **Query Latency:** On-disk `.cpi` random-access queries execute in **11–16 µs (p50)** and **22–39 µs (p99)** on NVMe storage, while in-memory queries execute in **< 1 µs**.
+1. **Directly Demonstrated in PR-01 (Measured Evidence):**
+   - **Lossless Supported-Field Storage (`CGB3`):** Blocks of 512 games achieve **205.5–211.3 bytes/game** (`208.2 B/game` at $N = 20{,}000$, a **5.16×** compression ratio over exported PGN) while preserving 100% round-trip fidelity across all supported canonical and provenance fields (`White`, `Black`, `WhiteElo`, `BlackElo`, `Date` with `UTCDate` precedence, `Event`, `Site`, `Round`, `Result`, `ECO`, `TimeControl`, `GameURL` as `source_id`, `BroadcastURL` as `broadcast_url`, `FEN`, and legal moves).
+   - **On-Disk Position Index (`CODB_CPI` v2 vs. SQLite):** Measured directly at Depths **20, 30, 40, and 60** up to $N = 20{,}000$ accepted games. At $N = 20{,}000$, persistent `.cpi` files consume **20.26–21.57 bytes per unique position** (including the 64-byte header and 34-byte/block sparse index directory), which is **7.2× to 9.4× smaller on disk than equivalent SQLite tables**.
+   - **Stratified Query Latency & Semantic Equivalence:** Across 2,000 deterministically sampled queries per run (frequent, medium, rare, transposition, and miss keys; verified for 100% result equivalence between CPI and SQLite), warm-cache on-disk `.cpi` lookups complete in **13.1–14.0 µs (p50)**, **21.5–23.4 µs (p95)**, and **23.7–29.0 µs (p99)**, while in-memory lookups complete in **0.82–1.14 µs (p50)** and **2.38–2.79 µs (p99)**.
+
+2. **Modeled Full-Scale Projections (15 Million Games Capacity Target):**
+   - Extrapolating from $N = 20{,}000$ to a **15,000,000-game capacity ceiling** (5M Masters OTB + 10M Elite Online) using our recommended **Option B** architecture (Depth 40 for Masters OTB, Depth 30 for Elite Online):
+     - **Core Measured-Format Payloads (`.cgb` blocks + `.cpi` indexes):** **~6.52 GB** baseline (`1.04 GB` Masters games + `2.08 GB` Elite games + `1.72 GB` Masters D40 index + `1.67 GB` Elite D30 index).
+     - **Estimated Ancillary Deployment Overheads (`.cgb` block directory framing, global `game_id` lookup index, provenance manifests, and filesystem alignment reserve):** **~0.44 GB**.
+     - **Total Projected Deployed Footprint (Option B):** **~6.96 GB baseline** (ranging from **5.95 GB optimistic** to **8.82 GB conservative** under bounded sensitivity scenarios), remaining below the 10 GB ceiling.
+   - **Boundary Condition (Depth 60 Rejected):** Indexing to Depth 60 (30 full moves) projects to **13.44 GB baseline** (**18.29 GB conservative**), exceeding the 10 GB budget.
+
+3. **Explicit Evidence Gaps & Caveats for PR-02:**
+   - **Out-of-Sample Extrapolation ($250\times$–$500\times$):** Heaps' Law parameters are fitted over nested prefixes from $N = 1{,}000$ to $N = 20{,}000$ accepted games. Projections to 5M–10M games are presented with bounded sensitivity scenarios rather than formal statistical confidence intervals.
+   - **Elite Online Proxy Assumption:** In the tested early Lichess archive (`2013-01`, 121,332 games), `0` games satisfied `EliteOnlinePolicy` (121,330 failed the $\ge 2200$ rating threshold; 2 were excluded as $< 180\text{s}$ bullet). Consequently, Elite Online storage and position-growth projections currently use Masters OTB scaling parameters as an unvalidated proxy until modern multi-month Lichess archives are ingested in PR-02.
+   - **Masters OTB Source Volume vs. Capacity Target:** The full Lichess Broadcast archive (~1.26M–1.5M raw games) yields **~240,000–285,000 accepted Masters OTB games** at the measured 18.9% acceptance rate (~300,000–500,000 games when combined with public-domain historical events). Thus, an initial legally clean Masters OTB release will consume **< 0.45 GB**, while the 5,000,000-game figure represents a long-term architectural capacity ceiling rather than immediate yield from Lichess Broadcasts alone.
 
 ---
 
 ## 2. Benchmark Environment & Methodology
 
-All measurements were conducted on dedicated hardware using production release builds:
+All measurements were conducted using reproducible release builds (`cargo build --release`):
 
-- **Host OS:** Linux (Arch Linux x86_64, Kernel 6.12)
+- **Host OS:** Linux (x86_64, Kernel 6.12)
 - **CPU:** 11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz (4 cores / 8 hardware threads)
 - **RAM:** 16 GB DDR4-3200
 - **Storage:** NVMe PCIe Gen3 SSD (ext4 filesystem)
-- **Toolchain:** Rust 1.80+ (`rustc 1.99.1`, `cargo 1.99.1`)
-- **Compilation Profile:** `cargo run --release` (`opt-level = 3`, LTO enabled)
+- **Toolchain:** Rust (`rustc 1.99.1`, `opt-level = 3`)
 - **Datasets Tested:**
-  - `data/masters_combined.pgn.zst`: Concatenation of Lichess Official Broadcasts from 2026-07, 2026-08, and 2026-09 (117,616 total games encountered, verified international tournament relays).
-  - `data/elite_online_2013-01.pgn.zst`: Lichess rated game dump (121,332 games encountered).
+  - `fixtures/stage_a_validation.pgn`: Deterministic 1,000-game CI validation fixture.
+  - `data/masters_combined.pgn.zst`: Concatenation of Lichess Official Broadcasts from `2026-07`, `2026-08`, and `2026-09` (117,616 total games encountered; 22,265 accepted unique games).
+  - `data/elite_online_2013-01.pgn.zst`: Lichess standard rated game archive from January 2013 (121,332 games encountered; 0 accepted under `EliteOnlinePolicy`).
 
 ---
 
-## 3. Ingestion Accounting & Invariant Verification
+## 3. Ingestion Accounting & Fail-Closed Invariant Verification
 
-In accordance with our strict data integrity invariants, 100% of encountered games are accounted for across mutually exclusive categories:
+Every ingestion and benchmark run enforces two strict invariants and fails closed (`Err` / nonzero exit code) on any fatal I/O, Zstandard decompression, or move-reconstruction failure:
 
-$$\text{total\_encountered} = \text{accepted\_unique} + \text{confirmed\_duplicates} + \text{superseded\_prior} + \text{rejected\_by\_policy} + \text{rejected\_variant} + \text{rejected\_illegal} + \text{rejected\_malformed} + \text{quarantined}$$
+1. **Mutually Exclusive Category Reconciliation:**
+   $$\text{total\_encountered} = \text{accepted\_unique} + \text{confirmed\_duplicates} + \text{superseded\_prior} + \text{rejected\_by\_policy} + \text{rejected\_variant} + \text{rejected\_illegal} + \text{rejected\_malformed} + \text{quarantined}$$
+2. **Retained Canonical Corpus Invariant:**
+   $$\text{retained\_canonical\_games} = \text{accepted\_unique}$$
+   When a fuller relay transmission supersedes an earlier truncated prefix of the same game (`superseded_prior`), it replaces the existing record in-place without inflating `accepted_unique`.
 
 ### 3.1 Measured Ingestion Runs
 
-| Dataset | Total Encountered | Accepted Unique | Confirmed Dups | Superseded Prior | Rejected Policy | Rejected Variant/FEN | Rejected Illegal | Invariant Reconciled | Throughput |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Masters OTB 2026-08** | 48,940 | 9,923 | 1 | 6 | 38,681 | 329 | 0 | **true (100%)** | 43,290 games/s |
-| **Masters OTB 2026-07** | 40,038 | 6,545 | 2 | 0 | 32,920 | 571 | 0 | **true (100%)** | 42,425 games/s |
-| **Masters OTB 2026-09** | 28,638 | 5,797 | 13 | 5 | 22,589 | 231 | 3 | **true (100%)** | 34,440 games/s |
-| **Combined Masters OTB** | **117,616** | **22,265** | **16** | **11** | **94,190** | **1,131** | **3** | **true (100%)** | **32,431 games/s** |
-| **Lichess Online 2013-01** | 121,332 | 0 | 0 | 0 | 121,332 | 0 | 0 | **true (100%)** | 80,988 games/s |
-
-> [!NOTE]
-> In `data/elite_online_2013-01.pgn.zst`, 100% of games were rejected by `EliteOnlinePolicy`:
-> - 121,330 games had player ratings below the elite threshold (< 2200/2100).
-> - The remaining 2 games had ratings $\ge 2200$ but were 2-minute bullet games (`120+0`), which our policy strictly excludes (< 180s total estimated duration).
-> This demonstrates that our curation policies actively filter non-qualifying games rather than accepting them unconditionally.
+| Dataset / Run | Completion Status | Total Encountered | Accepted Unique | Retained Canonical | Confirmed Dups | Superseded Prior | Rejected Policy | Rejected Variant/FEN | Rejected Illegal | Rejected Malformed | Invariants Verified |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Stage A Fixture** | `CompleteEof` | 1,000 | 1,000 | 1,000 | 0 | 0 | 0 | 0 | 0 | 0 | **true** |
+| **Masters OTB 2026-08** | `CompleteEof` | 48,940 | 9,923 | 9,923 | 1 | 6 | 38,681 | 329 | 0 | 0 | **true** |
+| **Masters OTB 2026-07** | `CompleteEof` | 40,038 | 6,545 | 6,545 | 2 | 0 | 32,920 | 571 | 0 | 0 | **true** |
+| **Masters OTB 2026-09** | `CompleteEof` | 28,638 | 5,797 | 5,797 | 13 | 5 | 22,589 | 231 | 3 | 0 | **true** |
+| **Combined Masters OTB** | `CompleteEof` | **117,616** | **22,265** | **22,265** | **16** | **11** | **94,190** | **1,131** | **3** | **0** | **true** |
+| **Lichess Online 2013-01** | `CompleteEof` | 121,332 | 0 | 0 | 0 | 0 | 121,332 | 0 | 0 | 0 | **true** |
 
 ---
 
-## 4. Game Storage Density & Full Round-Trip Fidelity
+## 4. Game Storage Density & Supported-Field Round-Trip Fidelity
 
-In earlier feasibility prototypes, metadata fields (Round, ECO, TimeControl, SourceId, FEN) were stubbed as `None` during deserialization, artificially deflating game size to ~46 B/game.
+Under `CGB3` (`BLOCK_MAGIC_V3`), all supported canonical and provenance fields—including variable-length `ECO`, `Date` (resolved with deterministic `Date` vs. `UTCDate` precedence), `GameURL` (`source_id`), and `BroadcastURL` (`broadcast_url`)—are dictionary-interned per 512-game block without fixed-width truncation. During every benchmark run, each compressed block is decompressed and verified against the original `ParsedGame` records.
 
-Under `CODB-v2` (`BLOCK_MAGIC_V2`), **all metadata fields are fully interned and recovered with 100% round-trip fidelity**.
+### 4.1 Measured Storage Density Across Progressive Batches (`masters_combined`)
 
-### 4.1 Storage Density Measurements Across Progressive Batches
-
-| Sample Size $N$ | Raw PGN Size | Raw PGN Bytes/Game | CODB-v2 Compressed | CODB-v2 Bytes/Game | Compression Ratio |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **1,000 games** | 0.85 MB | 850.8 B | 0.20 MB | **199.7 B** | **4.26×** |
-| **2,500 games** | 2.13 MB | 851.2 B | 0.50 MB | **201.5 B** | **4.22×** |
-| **5,000 games** | 4.29 MB | 857.9 B | 1.02 MB | **204.3 B** | **4.20×** |
-| **10,000 games** | 8.63 MB | 863.4 B | 2.06 MB | **206.0 B** | **4.19×** |
-| **20,000 games** | 17.06 MB | 852.9 B | 4.04 MB | **201.9 B** | **4.22×** |
-
-- **Mean Measured Game Size:** **202.5 bytes / game**
-- **Full Game Storage for 5,000,000 Masters Games:** $5{,}000{,}000 \times 202.5\text{ B} = \mathbf{1.01\text{ GB}}$
-- **Full Game Storage for 10,000,000 Elite Games:** $10{,}000{,}000 \times 202.5\text{ B} = \mathbf{2.03\text{ GB}}$
-- **Combined 15,000,000 Games Storage:** $\mathbf{3.04\text{ GB}}$
+| Sample Size $N$ | Completion Status | Exported PGN Size | Exported PGN Bytes/Game | `CGB3` Compressed Blocks | Block Dir Framing | `CGB3` Bytes/Game | Compression Ratio |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **1,000 games** | `PartialLimitReached` | 1.06 MB | 1,062.0 B | 0.21 MB | 120 B | **205.5 B** | **5.17×** |
+| **2,500 games** | `PartialLimitReached` | 2.67 MB | 1,068.7 B | 0.52 MB | 204 B | **208.6 B** | **5.12×** |
+| **5,000 games** | `PartialLimitReached` | 5.38 MB | 1,075.9 B | 1.05 MB | 344 B | **210.4 B** | **5.11×** |
+| **10,000 games** | `PartialLimitReached` | 10.80 MB | 1,080.1 B | 2.11 MB | 624 B | **211.3 B** | **5.11×** |
+| **20,000 games** | `PartialLimitReached` | 21.49 MB | 1,074.7 B | 4.16 MB | 1,184 B | **208.2 B** | **5.16×** |
+| **9,923 games (`2026-08`)** | `CompleteEof` | 10.70 MB | 1,078.0 B | 2.06 MB | 624 B | **208.0 B** | **5.18×** |
 
 ---
 
-## 5. Position Indexing: Empirical Scaling & Heaps' Law Fits
+## 5. Position Indexing: Empirical Scaling & Sensitivity Analysis
 
-Using progressive benchmark runs at $N \in \{1000, 2500, 5000, 10000, 20000\}$ accepted games from `data/masters_combined.pgn.zst`, we measure unique position count $U(N)$ and unique position-move pairs.
+We physically measure unique positions $U(N)$, unique `(position, move)` pairs, persistent `.cpi` file size, and persistent SQLite database size across **four depths: 20, 30, 40, and 60 plies**.
 
-### 5.1 Measured Scaling Data
+### 5.1 Directly Measured Scaling Data (`masters_combined`)
 
-| Games $N$ | Depth 20 Positions | Depth 20 CPI Disk | Depth 40 Positions | Depth 40 CPI Disk | Depth 60 Positions | Depth 60 CPI Disk |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1,000** | 11,067 | 0.23 MB | 30,462 | 0.63 MB | 47,890 | 0.99 MB |
-| **2,500** | 23,907 | 0.51 MB | 71,912 | 1.49 MB | 115,815 | 2.38 MB |
-| **5,000** | 42,205 | 0.90 MB | 137,215 | 2.84 MB | 224,389 | 4.59 MB |
-| **10,000** | 71,545 | 1.54 MB | 260,050 | 5.36 MB | 435,410 | 8.87 MB |
-| **20,000** | 122,987 | 2.65 MB | 493,211 | 10.14 MB | 841,110 | 17.04 MB |
-
-### 5.2 Heaps' Law Regression: $U(N) = k \cdot N^\alpha$
-
-Fitting $\ln U(N) = \ln k + \alpha \ln N$ across all 5 empirical points:
-
-| Depth | $k$ | $\alpha$ (Scaling Exponent) | 95% Confidence Interval for $\alpha$ | Goodness of Fit $R^2$ | CPI Storage Density |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Depth 20 (10 moves)** | **44.29** | **0.8023** | $[0.7829, 0.8217]$ | **0.999544** | **21.5 B / position** |
-| **Depth 40 (20 moves)** | **49.88** | **0.9293** | $[0.9253, 0.9333]$ | **0.999985** | **20.6 B / position** |
-| **Depth 60 (30 moves)** | **64.88** | **0.9565** | $[0.9536, 0.9594]$ | **0.999993** | **20.3 B / position** |
-
-### 5.3 Extrapolated Projections with 95% Confidence Intervals
-
-| Horizon $N$ | Depth 20 Projected Positions | Depth 20 95% CI | Depth 40 Projected Positions | Depth 40 95% CI |
+| Games $N$ | Depth 20 Pos / CPI | Depth 30 Pos / CPI | Depth 40 Pos / CPI | Depth 60 Pos / CPI |
 | :--- | :--- | :--- | :--- | :--- |
-| **100,000** | 454,823 | $[363\text{k}, 569\text{k}]$ | 2,209,041 | $[2.11\text{M}, 2.31\text{M}]$ |
-| **500,000** | 1,654,354 | $[1.28\text{M}, 2.13\text{M}]$ | 9,856,482 | $[9.35\text{M}, 10.39\text{M}]$ |
-| **1,000,000** | 2,885,001 | $[2.21\text{M}, 3.77\text{M}]$ | 18,769,565 | $[17.76\text{M}, 19.84\text{M}]$ |
-| **2,000,000** | 5,031,105 | $[3.80\text{M}, 6.67\text{M}]$ | 35,742,628 | $[33.72\text{M}, 37.89\text{M}]$ |
-| **5,000,000 (Masters)** | **10,493,780** | $[7.78\text{M}, 14.15\text{M}]$ | **83,747,612** | $[78.71\text{M}, 89.10\text{M}]$ |
-| **10,000,000 (Elite)** | **18,299,927** | $[13.39\text{M}, 25.01\text{M}]$ | **159,479,441** | $[149.47\text{M}, 170.15\text{M}]$ |
+| **1,000** | 11,067 (`0.23 MB`) | 20,833 (`0.43 MB`) | 30,462 (`0.63 MB`) | 47,890 (`0.99 MB`) |
+| **2,500** | 23,907 (`0.51 MB`) | 47,987 (`1.00 MB`) | 71,912 (`1.49 MB`) | 115,815 (`2.38 MB`) |
+| **5,000** | 42,205 (`0.90 MB`) | 89,793 (`1.87 MB`) | 137,215 (`2.84 MB`) | 224,389 (`4.59 MB`) |
+| **10,000** | 71,545 (`1.54 MB`) | 164,961 (`3.44 MB`) | 260,050 (`5.36 MB`) | 435,410 (`8.87 MB`) |
+| **20,000** | 122,987 (`2.65 MB`) | 304,740 (`6.36 MB`) | 493,211 (`10.14 MB`) | 841,110 (`17.04 MB`) |
+
+### 5.2 Empirical Heaps' Law Fits ($U(N) = k \cdot N^\alpha$) & Methodological Caveats
+
+Fitting $\ln U(N) = \ln k + \alpha \ln N$ via OLS across $N \in \{1000, 2500, 5000, 10000, 20000\}$:
+
+| Depth | $k$ | $\alpha_{\text{OLS}}$ | In-Sample Slope Std Err ($s_\alpha$) | Sensitivity Bound ($\pm \Delta\alpha$) | In-Sample $R^2$ | Measured CPI Density (at $N=20\text{k}$) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Depth 20 (10 moves)** | **44.29** | **0.8023** | $0.0099$ | $\pm 0.0198$ | **0.999544** | **21.57 B / position** |
+| **Depth 30 (15 moves)** | **43.40** | **0.8951** | $0.0042$ | $\pm 0.0150$ | **0.999933** | **20.88 B / position** |
+| **Depth 40 (20 moves)** | **49.88** | **0.9293** | $0.0021$ | $\pm 0.0150$ | **0.999985** | **20.57 B / position** |
+| **Depth 60 (30 moves)** | **64.88** | **0.9565** | $0.0015$ | $\pm 0.0150$ | **0.999993** | **20.26 B / position** |
+
+> [!WARNING]
+> **Statistical Extrapolation Caveat:** Because the 5 empirical points are nested cumulative prefixes ($N = 1\text{k} \dots 20\text{k}$, $df = 3$) and projecting to $N = 5{,}000{,}000$ or $10{,}000{,}000$ spans $250\times$–$500\times$ beyond the observed sample domain, the in-sample residual error $s_\alpha$ **must not** be interpreted as a formal 95% confidence interval at multi-million-game scale. Instead, we evaluate projections across three bounded sensitivity regimes:
+> - **Optimistic:** $\alpha = \alpha_{\text{OLS}} - \Delta\alpha$ and $-5\%$ bytes/position (assuming stronger transposition convergence at multi-million scale).
+> - **Baseline:** Point fit $\alpha = \alpha_{\text{OLS}}$ and measured bytes/position at $N = 20{,}000$.
+> - **Conservative:** $\alpha = \alpha_{\text{OLS}} + \Delta\alpha$ (where $\Delta\alpha = \max(2 s_\alpha, 0.015)$), $+15\%$ bytes/position margin, and $+10\%$ bytes/game margin (`229.0 B/game`).
+
+### 5.3 Extrapolated Unique Position Counts Across Sensitivity Scenarios
+
+| Horizon $N$ | Depth 20 Baseline (`[Opt, Cons]`) | Depth 30 Baseline (`[Opt, Cons]`) | Depth 40 Baseline (`[Opt, Cons]`) | Depth 60 Baseline (`[Opt, Cons]`) |
+| :--- | :--- | :--- | :--- | :--- |
+| **100,000** | 455k (`[362k, 571k]`) | 1.30M (`[1.09M, 1.54M]`) | 2.21M (`[1.86M, 2.63M]`) | 3.93M (`[3.31M, 4.67M]`) |
+| **500,000** | 1.65M (`[1.28M, 2.15M]`) | 5.47M (`[4.50M, 6.67M]`) | 9.86M (`[8.10M, 12.00M]`) | 18.34M (`[15.06M, 22.33M]`) |
+| **1,000,000** | 2.89M (`[2.19M, 3.79M]`) | 10.18M (`[8.28M, 12.53M]`) | 18.77M (`[15.26M, 23.09M]`) | 35.59M (`[28.93M, 43.78M]`) |
+| **5,000,000 (Masters Cap.)** | **10.49M** (`[7.73M, 14.24M]`) | **42.99M** (`[34.11M, 54.18M]`) | **83.75M** (`[66.45M, 105.55M]`) | **165.91M** (`[131.64M, 209.10M]`) |
+| **10,000,000 (Elite Proxy)** | **18.30M** (`[13.30M, 25.18M]`) | **79.95M** (`[62.78M, 101.82M]`) | **159.48M** (`[125.23M, 203.10M]`) | **321.97M** (`[252.82M, 410.02M]`) |
 
 ---
 
 ## 6. On-Disk Index Comparison: CPI vs. Persistent SQLite
 
-Previous benchmarks recorded `sqlite_index_size_bytes: 0` because SQLite was executed solely in-memory. 
+We compare physical `.cpi` files (written via `ImmutablePositionIndex::write_to_file`, including the 64-byte header, Zstd-compressed position blocks, and 34-byte/block sparse index directory) against physical on-disk SQLite databases (`position_moves` table + `idx_pos` index + WAL file):
 
-We now measure **physical on-disk SQLite databases** (including primary key B-trees and covering index `idx_pos` pages on disk) compared against **physical `.cpi` binary files**:
+### 6.1 Physical Disk Footprint Comparison (at $N = 20{,}000$ Accepted Games)
 
-### 6.1 Physical Disk Footprint Comparison (at $N = 20{,}000$ Games)
+| Depth | Unique Positions | CPI Sparse Index Blocks | CPI Disk File Size | SQLite On-Disk DB Size | CPI Space Savings |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Depth 20 (Plies 1–20)** | 122,987 | 481 (`16.4 KB` dir) | **2.65 MB** | 25.02 MB | **9.4× smaller** |
+| **Depth 30 (Plies 1–30)** | 304,740 | 1,191 (`40.5 KB` dir) | **6.36 MB** | 52.72 MB | **8.3× smaller** |
+| **Depth 40 (Plies 1–40)** | 493,211 | 1,927 (`65.5 KB` dir) | **10.14 MB** | 78.60 MB | **7.8× smaller** |
+| **Depth 60 (Plies 1–60)** | 841,110 | 3,286 (`111.7 KB` dir) | **17.04 MB** | 123.34 MB | **7.2× smaller** |
 
-| Depth | CPI Disk File Size | SQLite On-Disk DB Size | CPI Space Savings |
-| :--- | :--- | :--- | :--- |
-| **Depth 20 (Plies 1–20)** | **2.65 MB** | 25.02 MB | **9.4× smaller** |
-| **Depth 40 (Plies 1–40)** | **10.14 MB** | 78.60 MB | **7.8× smaller** |
-| **Depth 60 (Plies 1–60)** | **17.04 MB** | 123.34 MB | **7.2× smaller** |
+### 6.2 Stratified Query Latency Comparison (Warm OS Page Cache, 2,000 Queries)
 
-> [!WARNING]
-> If SQLite were used as the deployed format, an index of 83.7M positions (Depth 40 for 5M games) would require **~13.7 GB for the index alone**, immediately violating the 10 GB limit. The custom block-compressed `.cpi` format is **strictly required** to keep the index within budget (~1.73 GB).
+Latency benchmarks sample **2,000 queries** deterministically (`SEED = 0xC0DB_2026_0001_CAFE`) across the full Depth-40 index of $N = 20{,}000$ accepted games:
+- **400 frequent opening positions** ($\text{count} \ge 10$)
+- **400 medium-frequency positions** ($2 \le \text{count} < 10$)
+- **400 rare positions** ($\text{count} = 1$)
+- **400 transposition positions** (verified reached via $\ge 2$ distinct parent `(position, move)` paths)
+- **400 miss queries** (nonexistent 128-bit keys)
 
-### 6.2 Query Latency Comparison (NVMe On-Disk Random Access)
+Before timing, all 2,000 queries are checked to verify 100% semantic equivalence between `ImmutablePositionIndex`, `DiskPositionIndex`, and `SqlitePositionIndex`. Timings use `Instant::elapsed().as_nanos() as f64 / 1000.0` under a **warm OS page cache** regime (immediately following index build/write on NVMe storage):
 
-Query times measured over 200 random opening and transposition lookups on physical NVMe storage:
-
-| Storage Representation | p50 Latency | p95 Latency | p99 Latency |
-| :--- | :--- | :--- | :--- |
-| **CPI In-Memory (RAM Baseline)** | **< 1.0 µs** | **< 1.0 µs** | **< 1.0 µs** |
-| **CPI Persistent On-Disk (mmap + block zstd)** | **11.0 – 16.0 µs** | **16.0 – 23.0 µs** | **24.0 – 39.0 µs** |
-| **SQLite Persistent On-Disk (WAL mode, page cache)** | **4.0 – 5.0 µs** | **11.0 – 12.0 µs** | **18.0 – 32.0 µs** |
-
-- **Latency Analysis:** On-disk CPI lookups perform an in-memory sparse index binary search, a memory-mapped block slice, and a micro-block zstd decompression, completing in **11–16 µs**.
-- While SQLite page lookups are slightly faster at p50 (4 µs vs 11 µs) due to uncompressed page caching in OS RAM, CPI is **8× more compact**, enabling whole-dataset deployment on modest hardware.
+| Storage Representation (`masters_20k`, 2,000 Stratified Queries) | p50 Latency | p95 Latency | p99 Latency | Semantic Equivalence |
+| :--- | :--- | :--- | :--- | :--- |
+| **CPI In-Memory (`BTreeMap` RAM Baseline)** | **1.144 µs** | **1.905 µs** | **2.789 µs** | **Verified (2000/2000)** |
+| **CPI Persistent On-Disk (`mmap` + block zstd, warm OS cache)** | **14.010 µs** | **23.400 µs** | **28.950 µs** | **Verified (2000/2000)** |
+| **SQLite Persistent On-Disk (WAL mode, warm page cache)** | **5.720 µs** | **12.990 µs** | **20.790 µs** | **Verified (2000/2000)** |
 
 ---
 
-## 7. Total Deployed Storage Budget Evaluation
+## 7. Complete Deployed Storage Inventory: Measured vs. Estimated Costs
 
-We evaluate the combined storage of both collections against the **10 GB total deployed budget**:
+To avoid conflating raw compressed payloads with a complete production deployment, Table 7.1 separates **measured/extrapolated format payloads** from **modeled ancillary deployment overheads** for the 15,000,000-game capacity target:
 
-- **Masters OTB:** 5,000,000 games $\implies 1.01\text{ GB}$ game storage
-- **Elite Online:** 10,000,000 games $\implies 2.03\text{ GB}$ game storage
-- **Total Game Storage (15M games):** **$3.04\text{ GB}$**
+### 7.1 Component-Level Deployed Storage Inventory (15M Games, Option B)
 
-### 7.1 Architecture Scenarios
+| Component | Category | Basis / Formula | Baseline Size (GB) | Conservative Size (GB) |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. Masters OTB `.cgb` Game Blocks (5M games)** | Measured format, extrapolated to 5M | $5\text{M} \times 208.16\text{ B/game}$ (+10% cons.) | **1.04 GB** | **1.15 GB** |
+| **2. Elite Online `.cgb` Game Blocks (10M games)** | Proxy-extrapolated from Masters `CGB3` | $10\text{M} \times 208.16\text{ B/game}$ (+10% cons.) | **2.08 GB** | **2.29 GB** |
+| **3. Masters OTB `.cpi` Index (Depth 40, 5M)** | Measured format + Heaps' Law fit (incl. 34 B/block sparse dir) | $83.75\text{M pos} \times 20.57\text{ B/pos}$ | **1.72 GB** | **2.50 GB** |
+| **4. Elite Online `.cpi` Index (Depth 30, 10M)** | Direct D30 fit applied as proxy (incl. 34 B/block sparse dir) | $79.95\text{M pos} \times 20.88\text{ B/pos}$ | **1.67 GB** | **2.44 GB** |
+| **Subtotal — Core Format Payloads** | | | **6.52 GB** | **8.38 GB** |
+| **5. `.cgb` Container Framing & Block Offset Directory** | Measured struct (`64 B + 28 B/block`) | $29{,}297\text{ blocks} \times 28\text{ B}$ | **0.001 GB** | **0.001 GB** |
+| **6. Global `game_id -> (block, idx)` Lookup Index** | Estimated PR-02 index (`12 B/game`) | $15\text{M} \times 12\text{ B}$ | **0.180 GB** | **0.180 GB** |
+| **7. Provenance & SHA-256 Block Checksum Manifests** | Estimated PR-02 `provenance.json` | JSON + per-block SHA-256 hashes | **0.005 GB** | **0.005 GB** |
+| **8. Filesystem Block Alignment & Operational Margin** | Estimated deployment reserve | ~4% alignment / swap / metadata slack | **0.254 GB** | **0.254 GB** |
+| **Subtotal — Ancillary Deployment Overhead** | | | **0.44 GB** | **0.44 GB** |
+| **Total Deployed Footprint (Option B)** | **Core Payloads + Ancillary Overhead** | | **6.96 GB** | **8.82 GB** |
 
-| Scenario | Masters Index | Elite Online Index | Games Store | Total Deployed Storage | Headroom Below 10 GB | Feasibility Status |
+> [!NOTE]
+> **Optional Unimplemented Index Extensions (Deferred to PR-02):**
+> - **Representative `top_games` IDs per position:** If a single representative 64-bit game ID (`8 B`) is embedded per unique position across 163.7M combined positions, it adds **~1.31 GB** raw (~0.65 GB compressed), which still fits within the 6.96 GB baseline budget (~7.61 GB total).
+> - **Multi-dimensional Rating $\times$ Era $\times$ Speed pre-materialized slices:** Explicitly rejected for static full-depth materialization, as multiplying index tables by 10–18× would exceed 10 GB. If slice filtering is required in PR-02, it will be limited to shallow opening books (Depth $\le 16$) or computed via compact bitsets.
+
+### 7.2 Architecture Scenarios Across Sensitivity Regimes (15M Games Capacity Target)
+
+| Scenario | Core Payload (Baseline) | Ancillary Overhead | Deployed Total (Optimistic) | Deployed Total (Baseline) | Deployed Total (Conservative) | Feasibility Assessment |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Option A (Light Opening Book - Depth 20)** | 0.23 GB | 0.39 GB | 3.04 GB | **3.66 GB** | **+63.4% (6.34 GB free)** | **Feasible (Generous)** |
-| **Option B (Recommended Balanced Explorer)** | **1.73 GB (Depth 40)** | **1.45 GB (Depth 30)** | **3.04 GB** | **6.22 GB** | **+37.8% (3.78 GB free)** | **Feasible (Optimal)** |
-| **Option C (Full Depth 40 for Both)** | 1.73 GB (Depth 40) | 3.29 GB (Depth 40) | 3.04 GB | **8.06 GB** | **+19.4% (1.94 GB free)** | **Feasible (Tight)** |
-| **Option D (Deep Middlegame - Depth 60)** | 3.37 GB (Depth 60) | 6.53 GB (Depth 60) | 3.04 GB | **12.94 GB** | **-29.4% (Exceeds by 2.94 GB)** | **Infeasible** |
+| **Option A (Depth 20 Both)** | 3.74 GB | 0.44 GB | 3.45 GB | **4.18 GB** | **4.85 GB** | **Feasible (Shallow Opening Book Only)** |
+| **Option B (Recommended: D40 Masters + D30 Elite)** | **6.52 GB** | **0.44 GB** | **5.95 GB** | **6.96 GB** | **8.82 GB** | **Feasible Under All Tested Scenarios (< 10 GB)** |
+| **Option C (Depth 40 Both)** | 8.13 GB | 0.44 GB | 7.21 GB | **8.57 GB** | **11.18 GB** | **Marginal (Exceeds 10 GB in Conservative Case)** |
+| **Option D (Depth 60 Both)** | 13.00 GB | 0.44 GB | 11.12 GB | **13.44 GB** | **18.29 GB** | **Infeasible (Exceeds 10 GB in All Regimes)** |
 
 ---
 
-## 8. Summary of Findings & Next Steps (PR-02)
+## 8. Corpus-Volume Reality Check & PR-02 Validation Roadmap
 
-1. **Storage Feasibility is Proven:** The target of 15 million high-quality chess games (5M Masters + 10M Elite Online) with full game retrieval and Opening Explorer queries is fully achievable within **6.22 GB to 8.06 GB**, well below the 10 GB threshold.
-2. **Standard Depth Policy:** Option B (Depth 40 for Masters OTB, Depth 30 for Elite Online) provides optimal balance: complete grandmaster opening preparation up to move 20, high-volume online tactical trends up to move 15, and 3.78 GB of safety headroom.
-3. **PR-02 Focus:**
-   - Implement production binary writer and reader pipeline for `.cgb` / `.cpi`.
-   - Build high-performance HTTP query daemon (`codb serve`) using `axum`.
-   - Implement automated dataset release pipeline with cryptographic SHA-256 manifests.
+1. **Masters OTB Initial Corpus Volume vs. 5M Capacity Ceiling:**
+   - Across our 3-month Lichess Official Broadcast sample (`117,616` raw games), `22,265` games (`18.93%`) pass `MastersOtbPolicy` and deduplication.
+   - Across the entire Lichess Broadcast archive (`~1.26M–1.5M` raw games from 2020–present), this acceptance rate yields **~240,000 to ~285,000 curated Masters OTB games** (~300,000 to ~500,000 when combined with public-domain historical tournaments).
+   - At $N = 500{,}000$ games, the entire Masters OTB collection (games + Depth 40 `.cpi` index) will occupy **~0.31 GB** on disk. The 5,000,000-game Masters OTB figure in Section 7 is an **architectural capacity stress test**, ensuring our binary formats scale without redesign as future broadcasts and additional open-licensed OTB sources are added.
+2. **Elite Online Empirical Validation (Priority 1 for PR-02):**
+   - Because `data/elite_online_2013-01.pgn.zst` had `0` accepted games under `EliteOnlinePolicy`, PR-02 must ingest a modern Lichess rated monthly archive (e.g., 2024–2026) to directly measure Elite Online acceptance rate, bytes/game, and Heaps' Law exponent $\alpha_{\text{online}}$ at Depth 30.
+3. **Cold-Cache vs. Warm-Cache Latency Characterization:**
+   - PR-01 latency figures reflect warm OS page cache conditions on NVMe storage. PR-02 will add explicit cold-cache (`posix_fadvise` / `DONTNEED`) benchmarks at multi-gigabyte index sizes.

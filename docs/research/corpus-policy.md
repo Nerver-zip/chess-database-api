@@ -22,18 +22,18 @@ Implemented in `crates/curate/src/policy.rs`:
 
 ```rust
 pub struct MastersOtbPolicy {
-    pub min_both_elo: u16,        // Default: 2100
-    pub min_one_elo: u16,         // Default: 2300 (FM/IM/GM)
+    pub min_both_elo: u16,        // Default: 2200
+    pub min_one_elo: u16,         // Default: 2400 (IM/GM)
     pub min_other_elo: u16,       // Default: 2000
-    pub min_plies: usize,         // Default: 6 (3 full moves)
+    pub min_plies: usize,         // Default: 4 (2 full moves)
     pub allow_historical_pre_1970: bool, // Default: true
 }
 ```
 
 ### 2.3 Tiered Hierarchy & Historical Exception
 1. **Modern Era (Post-1970 FIDE Elo):**
-   - Both players $\ge 2100$ FIDE Elo, OR
-   - One player $\ge 2300$ and opponent $\ge 2000$.
+   - Both players $\ge 2200$ FIDE Elo, OR
+   - One player $\ge 2400$ and opponent $\ge 2000$.
 2. **Historical Era (Pre-1970 / Pre-FIDE Elo):**
    - Pre-1970 games from verified master events are accepted even when Elo headers are absent, as official FIDE Elo lists did not exist prior to 1970.
    - Historical master tournaments (e.g. Zurich 1953, AVRO 1938, St. Petersburg 1914) are preserved with verified player names.

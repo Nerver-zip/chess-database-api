@@ -11,12 +11,16 @@ A high-performance, compact, and reproducible chess game database and position-c
 
 > **Can we build a reliable, reproducible, publicly redistributable chess database containing millions of high-quality games, with full game retrieval and position-based opening statistics, within approximately 10 GB of deployed storage?**
 
-### The Answer: **YES**
+### Conclusion: **Preliminary Feasibility Supported — Full-Scale Validation Pending**
 
-Based on real-world measurements on verified datasets (over 120,000 games from Lichess Official Broadcasts and Lichess Rated Archives):
-- **10 Million Games:** Full game retrieval + Position Explorer up to Depth 40 (20 full moves) consumes **~2.82 GB**, leaving **~72% headroom** below the 10 GB target.
-- **20 Million Games:** Full game retrieval + Position Explorer up to Depth 40 consumes **~5.27 GB**, providing **~47% headroom** below the 10 GB target.
-- **Query Performance:** Lookups on the custom immutable index run in **sub-microsecond latency** (p50: <1.0 µs, p99: 2.0 µs) with negligible memory footprint.
+Based on reproducible measurements across 117,616 real Lichess Official Broadcast games (`22,265` accepted after curation and prefix-verified deduplication) and 121,332 Lichess Rated games:
+- **Directly Measured in PR-01 ($N \le 20{,}000$ accepted games):**
+  - **Compact Game Storage (`CGB3`):** **205.5–211.3 bytes/game** (`208.2 B/game` at $N = 20{,}000$, a **5.16×** compression ratio over exported PGN) with 100% round-trip fidelity across all supported canonical and provenance fields (`Date`/`UTCDate`, `GameURL`, `BroadcastURL`, `Site`, `Event`, `Round`, `ECO`, `TimeControl`, `Players`, `Elo`, `Result`, `FEN`, and legal moves).
+  - **Position Indexing (`CODB_CPI` v2 vs. SQLite):** Measured directly at Depths **20, 30, 40, and 60**. Persistent `.cpi` files consume **20.26–21.57 bytes per unique position** (including sparse index directories), which is **7.2× to 9.4× smaller on disk than SQLite**.
+  - **Query Latency (Warm OS Page Cache, 2,000 Stratified Queries):** On-disk `.cpi` lookups execute in **13.1–14.0 µs (p50)** and **23.7–29.0 µs (p99)** on NVMe storage, and in-memory lookups execute in **0.82–1.14 µs (p50)**, with verified semantic equivalence against SQLite.
+- **Modeled Full-Scale Projections (15 Million Games Capacity Target — Option B):**
+  - Slicing **Masters OTB (5M capacity ceiling) to Depth 40** and **Elite Online (10M target) to Depth 30** projects to **~6.52 GB core payload + ~0.44 GB ancillary deployment overhead = ~6.96 GB baseline** (**5.95 GB optimistic** to **8.82 GB conservative** under bounded sensitivity scenarios), remaining below the 10 GB ceiling.
+  - **Explicit Caveats for PR-02:** Projections from $N = 20{,}000$ to 5M–10M games represent a $250\times$–$500\times$ extrapolation; Elite Online projections currently use Masters OTB scaling parameters as an unvalidated proxy (as the tested `2013-01` Lichess archive had `0` accepted games under `EliteOnlinePolicy`); and the initial legally approved Masters OTB release from Lichess Broadcasts + Public Domain archives will be ~300k–500k curated games (< 0.45 GB), with 5M serving as a long-term architectural capacity target.
 
 ---
 

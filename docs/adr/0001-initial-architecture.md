@@ -33,27 +33,29 @@ The engine strictly segregates two collections:
 > [!IMPORTANT]
 > FIDE Elo ratings and online platform Glicko-2 ratings are never merged or conflated.
 
-### 2.3 Storage Representation: CODB-v2 Block-Zstd Container (`.cgb`)
-- **16-bit Move Encoding:** All legal chess moves are packed into a 16-bit word (`from`: 6 bits, `to`: 6 bits, `promo`: 3 bits, reserved: 1 bit). Replaying against legal board state resolves castling, en passant, and captures without ambiguity.
-- **Dictionary Header Compression:** Players, events, sites, rounds, time controls, and source IDs are dictionary-encoded in blocks of $N = 512$ games.
-- **Full Round-Trip Fidelity:** Achieves **~202–206 bytes per game** (a 4.2× compression ratio over raw ASCII PGN) while retaining 100% metadata fidelity and enabling sub-millisecond $O(1)$ random-access game retrieval via a lightweight offset index (`.cgi`).
+### 2.3 Storage Representation: CODB-v3 Block-Zstd Container (`.cgb`, `CGB3`)
+- **16-bit Move Encoding:** All standard legal chess moves are packed into a 16-bit word (`from`: 6 bits, `to`: 6 bits, `promo`: 3 bits, reserved: 1 bit). Replaying against legal board state resolves castling, en passant, and captures without ambiguity.
+- **Dictionary Header Compression Without Truncation:** Players, events, sites, rounds, dates (`Date`/`UTCDate`), ECO codes, time controls, game-level source IDs (`GameURL`), broadcast URLs (`BroadcastURL`), and starting FENs are dictionary-encoded in blocks of $N = 512$ games with explicit `u16` bounds checking and zero fixed-width truncation.
+- **Supported-Field Round-Trip Fidelity:** Achieves **~205.5–211.3 bytes per game** (`208.2 B/game` at $N = 20{,}000$, a **5.16×** compression ratio over exported PGN) while preserving 100% fidelity across all supported canonical and provenance fields.
 
 ### 2.4 Position Identity: 128-bit Collision-Resistant Keys
-- 64-bit Zobrist hashing is vulnerable to the Birthday Paradox at scale ($p \approx 10^{-5}$ at 20M positions).
-- We standardize on a **128-bit key (`Zobrist128`)** using `shakmaty::zobrist::Zobrist128` with `EnPassantMode::Legal`. This guarantees zero hash collisions even across hundreds of millions of positions.
+- 64-bit Zobrist hashing is vulnerable to birthday-bound collisions at scale ($p \approx 10^{-5}$ at 20M positions).
+- We standardize on a **128-bit key (`Zobrist128`)** using `shakmaty::zobrist::Zobrist128` with `EnPassantMode::Legal`, reducing the theoretical birthday collision probability at $10^8$ positions to $< 10^{-22}$ (astronomically negligible).
 - Halfmove clock and fullmove number are excluded from the position key to ensure proper opening transposition mapping.
 
 ### 2.5 Index Engine: Custom Immutable Sorted Block Index (`.cpi`)
-- For distribution and read-only querying, we select the **Custom Immutable Sorted Index** (`.cpi`) with block-level zstd compression (256 positions/block) and an in-memory sparse index directory.
-- **Empirical Storage Advantage:** Consumes **20.3–21.6 bytes per unique position**, which is **7.2× to 9.4× smaller on disk than SQLite tables**.
-- **Empirical Query Latency:** Random-access on-disk lookups execute in **11–16 µs (p50)** on NVMe storage, while in-memory queries execute in **< 1.0 µs**.
+- For distribution and read-only querying, we select the **Custom Immutable Sorted Index** (`.cpi`) with block-level zstd compression (256 positions/block) and an on-disk sparse index directory (34 bytes/block).
+- **Empirical Storage Advantage:** Consumes **20.26–21.57 bytes per unique position** (including header and sparse index directory), which is **7.2× to 9.4× smaller on disk than SQLite tables**.
+- **Empirical Query Latency (Warm OS Page Cache, 2,000 Stratified Queries):** Random-access on-disk lookups execute in **13.1–14.0 µs (p50)** and **23.7–29.0 µs (p99)** on NVMe storage, while in-memory queries execute in **0.82–1.14 µs (p50)** and **2.38–2.79 µs (p99)** with verified semantic equivalence against SQLite.
 
-### 2.6 Index Depth Strategy: Balanced Multi-Collection Tiering
-- Unique position growth follows Heaps' Law ($U(N) = k \cdot N^\alpha$).
-  - Depth 20: $k = 44.29, \alpha = 0.8023 \pm 0.0194, R^2 = 0.9995$
-  - Depth 40: $k = 49.88, \alpha = 0.9293 \pm 0.0040, R^2 = 0.9999$
-  - Depth 60: $k = 64.88, \alpha = 0.9565 \pm 0.0029, R^2 = 0.9999$
-- **Recommended Option B:** Slicing **Masters OTB to Depth 40** (20 full moves, capturing >99.8% of theoretical opening preparation) and **Elite Online to Depth 30** (15 full moves, capturing tactical opening branches) yields a total combined deployment of **6.22 GB for 15 million games (38% headroom under 10 GB)**.
+### 2.6 Index Depth Strategy & Evidence Calibration
+- Unique position growth across $N \in [1\text{k}, 20\text{k}]$ accepted Masters OTB games is modeled via Heaps' Law ($U(N) = k \cdot N^\alpha$):
+  - Depth 20: $k = 44.29, \alpha_{\text{OLS}} = 0.8023$ (in-sample $s_\alpha = 0.0099$, sensitivity $\pm 0.0198$), $R^2 = 0.9995$
+  - Depth 30: $k = 43.40, \alpha_{\text{OLS}} = 0.8951$ (in-sample $s_\alpha = 0.0042$, sensitivity $\pm 0.0150$), $R^2 = 0.9999$
+  - Depth 40: $k = 49.88, \alpha_{\text{OLS}} = 0.9293$ (in-sample $s_\alpha = 0.0021$, sensitivity $\pm 0.0150$), $R^2 = 0.9999$
+  - Depth 60: $k = 64.88, \alpha_{\text{OLS}} = 0.9565$ (in-sample $s_\alpha = 0.0015$, sensitivity $\pm 0.0150$), $R^2 = 0.9999$
+- **Recommended Option B (Preliminary Feasibility Supported):** Slicing **Masters OTB to Depth 40** and **Elite Online to Depth 30** projects to **6.52 GB core payload + 0.44 GB ancillary deployment overhead = 6.96 GB baseline** (**5.95 GB optimistic** to **8.82 GB conservative**) for a 15M-game capacity target (5M Masters + 10M Elite).
+- **Pending PR-02 Validations:** Elite Online projections currently use Masters OTB scaling parameters as an unvalidated proxy (since the tested 2013-01 Lichess sample had 0 accepted games under `EliteOnlinePolicy`), and the initial legally approved Masters OTB corpus from Lichess Broadcasts + Public Domain archives will be ~300k–500k curated games (< 0.45 GB), with 5M representing a long-term capacity ceiling.
 
 ### 2.7 Verified Prefix Deduplication
 - A candidate game supersedes an existing game **only** if the candidate is a legally verified prefix extension:
