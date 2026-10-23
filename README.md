@@ -88,14 +88,13 @@ cargo build --release
     --run-name stage_a_validation
 ```
 
-### 3. Run Stage B & C Benchmarks on Real Datasets
+### 3. Run Stage B & Progressive Scaling Benchmarks
 ```bash
-# 1. Download approved reference datasets (Lichess Broadcasts & Lichess Rated)
-./scripts/download_sample_data.sh
-
-# 2. Execute automated benchmark harness
-./scripts/run_benchmarks.sh
+# Execute automated reproduction harness (Stage A, Stage B, and Progressive Masters OTB 1k-20k series)
+./scripts/reproduce_benchmarks.sh --all
 ```
+
+For complete step-by-step reproduction instructions, dataset checksums, and combined corpus assembly, see the [Benchmark Reproduction Guide](docs/research/benchmark-reproduction.md).
 
 Machine-readable JSON reports are written to `benchmarks/results/`.
 
@@ -109,6 +108,7 @@ Machine-readable JSON reports are written to `benchmarks/results/`.
 - [Deduplication & Conflict Resolution](docs/research/deduplication.md)
 - [Compact Storage & Layout Options](docs/research/storage-options.md)
 - [Storage Feasibility & Scaling Report](docs/research/feasibility-report.md)
+- [Benchmark Reproduction & Methodology Guide](docs/research/benchmark-reproduction.md)
 - [Future API Contract & Decoupling](docs/research/api-contract.md)
 - [ADR-0001: Initial Architecture Decisions](docs/adr/0001-initial-architecture.md)
 

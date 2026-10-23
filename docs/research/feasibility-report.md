@@ -57,14 +57,24 @@ Every ingestion and benchmark run enforces two strict invariants and fails close
 
 ### 3.1 Measured Ingestion Runs
 
+#### Single-Archive and Complete Datasets
 | Dataset / Run | Completion Status | Total Encountered | Accepted Unique | Retained Canonical | Confirmed Dups | Superseded Prior | Rejected Policy | Rejected Variant/FEN | Rejected Illegal | Rejected Malformed | Invariants Verified |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Stage A Fixture** | `CompleteEof` | 1,000 | 1,000 | 1,000 | 0 | 0 | 0 | 0 | 0 | 0 | **true** |
-| **Masters OTB 2026-08** | `CompleteEof` | 48,940 | 9,923 | 9,923 | 1 | 6 | 38,681 | 329 | 0 | 0 | **true** |
-| **Masters OTB 2026-07** | `CompleteEof` | 40,038 | 6,545 | 6,545 | 2 | 0 | 32,920 | 571 | 0 | 0 | **true** |
-| **Masters OTB 2026-09** | `CompleteEof` | 28,638 | 5,797 | 5,797 | 13 | 5 | 22,589 | 231 | 3 | 0 | **true** |
-| **Combined Masters OTB** | `CompleteEof` | **117,616** | **22,265** | **22,265** | **16** | **11** | **94,190** | **1,131** | **3** | **0** | **true** |
+| **Masters OTB 2026-08** | `CompleteEof` | 48,940 | 9,923 | 9,923 | 1 | 6 | 38,647 | 329 | 0 | 34 | **true** |
+| **Masters OTB 2026-07** | `CompleteEof` | 40,038 | 6,545 | 6,545 | 2 | 0 | 32,833 | 571 | 0 | 87 | **true** |
+| **Masters OTB 2026-09** | `CompleteEof` | 28,638 | 5,797 | 5,797 | 13 | 5 | 22,535 | 231 | 3 | 54 | **true** |
+| **Combined Masters OTB** | `CompleteEof` | **117,616** | **22,265** | **22,265** | **16** | **11** | **94,015** | **1,131** | **3** | **175** | **true** |
 | **Lichess Online 2013-01** | `CompleteEof` | 121,332 | 0 | 0 | 0 | 0 | 121,332 | 0 | 0 | 0 | **true** |
+
+#### Progressive Masters OTB Scaling Batches (`data/masters_combined.pgn.zst`)
+| Benchmark Run ($N$) | Completion Status | Total Encountered | Accepted Unique | Retained Canonical | Confirmed Dups | Superseded Prior | Rejected Policy | Rejected Variant/FEN | Rejected Illegal | Rejected Malformed | Invariants Verified |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **`masters_1k`** | `PartialLimitReached` | 4,904 | 1,000 | 1,000 | 0 | 0 | 3,894 | 0 | 0 | 10 | **true** |
+| **`masters_2.5k`** | `PartialLimitReached` | 15,212 | 2,500 | 2,500 | 0 | 0 | 12,696 | 0 | 0 | 16 | **true** |
+| **`masters_5k`** | `PartialLimitReached` | 34,708 | 5,000 | 5,000 | 2 | 0 | 29,048 | 571 | 0 | 87 | **true** |
+| **`masters_10k`** | `PartialLimitReached` | 59,556 | 10,000 | 10,000 | 2 | 0 | 48,605 | 858 | 0 | 91 | **true** |
+| **`masters_20k`** | `PartialLimitReached` | 106,640 | 20,000 | 20,000 | 16 | 11 | 85,324 | 1,131 | 3 | 155 | **true** |
 
 ---
 
@@ -155,8 +165,8 @@ Before timing, all 2,000 queries are checked to verify 100% semantic equivalence
 | Storage Representation (`masters_20k`, 2,000 Stratified Queries) | p50 Latency | p95 Latency | p99 Latency | Semantic Equivalence |
 | :--- | :--- | :--- | :--- | :--- |
 | **CPI In-Memory (`BTreeMap` RAM Baseline)** | **1.144 µs** | **1.905 µs** | **2.789 µs** | **Verified (2000/2000)** |
-| **CPI Persistent On-Disk (`mmap` + block zstd, warm OS cache)** | **14.010 µs** | **23.400 µs** | **28.950 µs** | **Verified (2000/2000)** |
-| **SQLite Persistent On-Disk (WAL mode, warm page cache)** | **5.720 µs** | **12.990 µs** | **20.790 µs** | **Verified (2000/2000)** |
+| **CPI Persistent On-Disk (`mmap` + block zstd, warm OS cache)** | **14.013 µs** | **23.403 µs** | **28.945 µs** | **Verified (2000/2000)** |
+| **SQLite Persistent On-Disk (WAL mode, warm page cache)** | **5.720 µs** | **12.994 µs** | **20.788 µs** | **Verified (2000/2000)** |
 
 ---
 

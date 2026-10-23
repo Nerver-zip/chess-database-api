@@ -17,9 +17,9 @@
   "is_reconciled": true,
   "retained_matches_accepted": true,
   "transpositions_distinct": 986,
-  "import_duration_secs": 0.011706238,
-  "import_throughput_games_sec": 85424.54031773486,
-  "import_throughput_mb_sec": 32.02232860804641,
+  "import_duration_secs": 0.013251607,
+  "import_throughput_games_sec": 75462.54578784293,
+  "import_throughput_mb_sec": 28.28796537657659,
   "raw_pgn_bytes": 373862,
   "raw_bytes_per_game": 373.862,
   "codb_block_compressed_bytes": 20033,
@@ -35,7 +35,7 @@
     "cpi_sparse_directory_bytes": 34,
     "immutable_index_size_bytes": 4652,
     "sqlite_index_size_bytes": 74168,
-    "index_build_duration_secs": 0.038878541
+    "index_build_duration_secs": 0.044761669
   },
   "depth_30": {
     "depth_plies": 30,
@@ -45,7 +45,7 @@
     "cpi_sparse_directory_bytes": 68,
     "immutable_index_size_bytes": 6883,
     "sqlite_index_size_bytes": 98888,
-    "index_build_duration_secs": 0.057372332
+    "index_build_duration_secs": 0.062742806
   },
   "depth_40": {
     "depth_plies": 40,
@@ -55,7 +55,7 @@
     "cpi_sparse_directory_bytes": 68,
     "immutable_index_size_bytes": 7816,
     "sqlite_index_size_bytes": 103008,
-    "index_build_duration_secs": 0.063883891
+    "index_build_duration_secs": 0.068185703
   },
   "depth_60": {
     "depth_plies": 60,
@@ -65,7 +65,7 @@
     "cpi_sparse_directory_bytes": 68,
     "immutable_index_size_bytes": 7816,
     "sqlite_index_size_bytes": 103008,
-    "index_build_duration_secs": 0.062699498
+    "index_build_duration_secs": 0.064846865
   },
   "query_latency_us": {
     "cache_regime": "warm_os_page_cache",
@@ -76,14 +76,14 @@
     "transposition_keys_sampled": 400,
     "miss_keys_sampled": 400,
     "semantic_equivalence_verified": true,
-    "sqlite_disk_p50_us": 4.361,
-    "sqlite_disk_p95_us": 5.576,
-    "sqlite_disk_p99_us": 8.284,
-    "cpi_disk_p50_us": 11.143,
-    "cpi_disk_p95_us": 12.364,
-    "cpi_disk_p99_us": 17.748,
-    "cpi_in_memory_p50_us": 0.475,
-    "cpi_in_memory_p95_us": 0.718,
-    "cpi_in_memory_p99_us": 0.917
+    "sqlite_disk_p50_us": 4.645,
+    "sqlite_disk_p95_us": 5.807,
+    "sqlite_disk_p99_us": 9.202,
+    "cpi_disk_p50_us": 11.861,
+    "cpi_disk_p95_us": 13.182,
+    "cpi_disk_p99_us": 18.613,
+    "cpi_in_memory_p50_us": 0.504,
+    "cpi_in_memory_p95_us": 0.785,
+    "cpi_in_memory_p99_us": 1.042
   }
 }

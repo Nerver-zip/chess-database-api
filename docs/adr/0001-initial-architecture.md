@@ -75,7 +75,7 @@ The engine strictly segregates two collections:
 2. **Rejected: Monolithic Zstandard PGN Stream:**
    - Monolithic compression prevents random access (requires sequential scan to fetch game #5,000,000).
 3. **Rejected: SQLite for Deployed Position Tables:**
-   - Physical on-disk SQLite tables require **~13.7 GB for 83.7M positions**, exceeding the budget. CPI reduces this to **~1.73 GB**.
+   - Physical on-disk SQLite tables require **~13.3 GB for 83.7M positions** (at the measured 7.75× storage overhead), exceeding the budget. CPI reduces this to **~1.72 GB**.
 4. **Rejected: Indexing Beyond Depth 40 (Depth 60):**
    - At Depth 60, $\alpha \approx 0.9565$ growth expands 15M games to **12.94 GB**, exceeding the 10 GB limit.
 5. **Rejected: Naive Multi-Dimensional Materialization:**
