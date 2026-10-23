@@ -1,0 +1,52 @@
+{
+  "run_name": "stage_b_masters_otb_07",
+  "collection": "masters-otb",
+  "input_file": "data/masters_otb_2026-07.pgn.zst",
+  "input_size_bytes": 24535400,
+  "total_encountered": 40038,
+  "accepted_games": 38998,
+  "rejected_variant": 571,
+  "rejected_illegal": 0,
+  "duplicates_superseded": 70,
+  "transpositions_distinct": 2269,
+  "import_duration_secs": 0.981842275,
+  "import_throughput_games_sec": 39719.21050150341,
+  "import_throughput_mb_sec": 24.989146041812063,
+  "raw_pgn_bytes": 29874317,
+  "raw_bytes_per_game": 766.0474126878302,
+  "codb_block_compressed_bytes": 6950288,
+  "codb_bytes_per_game": 178.22165239243037,
+  "compression_ratio": 4.2982847617249815,
+  "depth_20": {
+    "depth_plies": 20,
+    "unique_positions": 262866,
+    "unique_position_move_pairs": 733772,
+    "immutable_index_size_bytes": 5233084,
+    "sqlite_index_size_bytes": 0,
+    "index_build_duration_secs": 3.126417944
+  },
+  "depth_40": {
+    "depth_plies": 40,
+    "unique_positions": 960075,
+    "unique_position_move_pairs": 1447118,
+    "immutable_index_size_bytes": 18376660,
+    "sqlite_index_size_bytes": 0,
+    "index_build_duration_secs": 8.719679439
+  },
+  "depth_60": {
+    "depth_plies": 60,
+    "unique_positions": 1589489,
+    "unique_position_move_pairs": 2080842,
+    "immutable_index_size_bytes": 30240520,
+    "sqlite_index_size_bytes": 0,
+    "index_build_duration_secs": 15.027355476
+  },
+  "query_latency_us": {
+    "sqlite_p50_us": 2.0,
+    "sqlite_p95_us": 10.0,
+    "sqlite_p99_us": 16.0,
+    "immutable_p50_us": 0.0,
+    "immutable_p95_us": 2.0,
+    "immutable_p99_us": 7.0
+  }
+}

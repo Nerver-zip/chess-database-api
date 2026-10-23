@@ -5,13 +5,16 @@ data/
 raw/
 downloads/
 *.zst
-*.pgn
 *.pgn.zst
 *.db
 *.sqlite
 *.sqlite3
 *.rocksdb
 *.mdb
+
+# Allow small test fixtures
+!fixtures/
+!fixtures/*.pgn
 
 # Temporary files and scratch
 scratch/

@@ -1,0 +1,52 @@
+{
+  "run_name": "stage_a_validation",
+  "collection": "masters-otb",
+  "input_file": "fixtures/stage_a_validation.pgn",
+  "input_size_bytes": 374861,
+  "total_encountered": 1000,
+  "accepted_games": 1000,
+  "rejected_variant": 0,
+  "rejected_illegal": 0,
+  "duplicates_superseded": 0,
+  "transpositions_distinct": 986,
+  "import_duration_secs": 0.004654287,
+  "import_throughput_games_sec": 214855.68036522027,
+  "import_throughput_mb_sec": 80.54101519738684,
+  "raw_pgn_bytes": 373862,
+  "raw_bytes_per_game": 373.862,
+  "codb_block_compressed_bytes": 11150,
+  "codb_bytes_per_game": 11.15,
+  "compression_ratio": 33.53022421524663,
+  "depth_20": {
+    "depth_plies": 20,
+    "unique_positions": 215,
+    "unique_position_move_pairs": 19148,
+    "immutable_index_size_bytes": 4559,
+    "sqlite_index_size_bytes": 0,
+    "index_build_duration_secs": 0.027547488
+  },
+  "depth_40": {
+    "depth_plies": 40,
+    "unique_positions": 361,
+    "unique_position_move_pairs": 29608,
+    "immutable_index_size_bytes": 7620,
+    "sqlite_index_size_bytes": 0,
+    "index_build_duration_secs": 0.036163223
+  },
+  "depth_60": {
+    "depth_plies": 60,
+    "unique_positions": 361,
+    "unique_position_move_pairs": 29608,
+    "immutable_index_size_bytes": 7620,
+    "sqlite_index_size_bytes": 0,
+    "index_build_duration_secs": 0.033059195
+  },
+  "query_latency_us": {
+    "sqlite_p50_us": 1.0,
+    "sqlite_p95_us": 2.0,
+    "sqlite_p99_us": 5.0,
+    "immutable_p50_us": 0.0,
+    "immutable_p95_us": 0.0,
+    "immutable_p99_us": 3.0
+  }
+}

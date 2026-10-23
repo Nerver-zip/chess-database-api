@@ -16,6 +16,8 @@ codb-curate.workspace = true
 codb-storage.workspace = true
 codb-index.workspace = true
 
+pgn-reader.workspace = true
+zstd.workspace = true
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
