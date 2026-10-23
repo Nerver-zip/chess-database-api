@@ -68,6 +68,7 @@ pub struct CuratedPipeline<C: GameConsumer> {
     pub transpositions_distinct: u64,
     pub max_games: Option<usize>,
     consecutive_syntax_errors: usize,
+    pub log_progress: bool,
 }
 
 impl<C: GameConsumer> CuratedPipeline<C> {
@@ -82,6 +83,7 @@ impl<C: GameConsumer> CuratedPipeline<C> {
             transpositions_distinct: 0,
             max_games: None,
             consecutive_syntax_errors: 0,
+            log_progress: false,
         }
     }
 
@@ -90,12 +92,18 @@ impl<C: GameConsumer> CuratedPipeline<C> {
         self
     }
 
+    pub fn with_log_progress(mut self, log: bool) -> Self {
+        self.log_progress = log;
+        self
+    }
+
     /// Ingests games from a PGN stream incrementally.
     /// Can be called multiple times across multiple source files while preserving
     /// cross-file deduplication, prefix supersession, and accounting invariants.
     pub fn process_stream<R: Read>(&mut self, reader: R) -> Result<(), PipelineError> {
         let mut pgn_reader = build_pgn_reader(reader);
-        let mut visitor = ShakmatyGameVisitor::new(self.collection, 1);
+        let mut visitor =
+            ShakmatyGameVisitor::new(self.collection, 1).with_early_policy_filter(true);
 
         loop {
             // Check if limit reached
@@ -151,6 +159,9 @@ impl<C: GameConsumer> CuratedPipeline<C> {
                                 }
                             }
                         }
+                        Err(IngestError::RejectedByPolicy(_)) => {
+                            self.stats.rejected_by_policy += 1;
+                        }
                         Err(IngestError::UnsupportedVariant(_))
                         | Err(IngestError::NonStandardStartingPosition(_)) => {
                             self.stats.rejected_variant += 1;
@@ -185,6 +196,17 @@ impl<C: GameConsumer> CuratedPipeline<C> {
                         return Err(PipelineError::Io(io_err));
                     }
                 }
+            }
+
+            if self.log_progress && self.stats.total_encountered.is_multiple_of(5000) {
+                eprintln!(
+                    "  [Progress] Encountered: {:>7}, Accepted: {:>6}, Policy Rejected: {:>6}, Duplicates: {:>5}, Illegal: {:>3}",
+                    self.stats.total_encountered,
+                    self.stats.accepted_unique,
+                    self.stats.rejected_by_policy,
+                    self.stats.confirmed_duplicates,
+                    self.stats.rejected_illegal
+                );
             }
         }
 

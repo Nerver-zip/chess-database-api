@@ -1,4 +1,3 @@
-use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::hint::black_box;
 use std::io::{BufReader, Cursor, Read};
@@ -22,7 +21,7 @@ use codb_ingest::reader::{
 use codb_storage::format::{export_to_pgn, GameBlock};
 use codb_storage::{
     verify_dataset, CurationPolicyMetadata, DatasetReader, DatasetWriter, DatasetWriterConfig,
-    SourceArchiveMetadata, StorageError,
+    ShardReader, SourceArchiveMetadata, StorageError,
 };
 use serde::{Deserialize, Serialize};
 use shakmaty::uci::UciMove;
@@ -89,7 +88,7 @@ enum Commands {
         manifest: Option<PathBuf>,
 
         /// One or more input PGN or PGN.zst files (use '-' for stdin)
-        #[arg(short, long)]
+        #[arg(short, long, num_args = 1..)]
         input: Vec<PathBuf>,
 
         /// Collection to curate
@@ -187,6 +186,46 @@ enum Commands {
         #[arg(short, long)]
         moves: Option<String>,
     },
+
+    /// Benchmark an existing persistent dataset: random game retrieval latencies,
+    /// position indexing across depths (20, 30, 40, 60), and generate empirical JSON report
+    BenchDataset {
+        /// Dataset directory path containing manifest.json
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// Output directory for benchmark report JSON
+        #[arg(short, long, default_value = "benchmarks/results")]
+        output_dir: PathBuf,
+
+        /// Run name identifier for the generated benchmark report
+        #[arg(long)]
+        run_name: String,
+
+        /// Number of random ID retrieval lookups to measure (default: 10,000)
+        #[arg(long, default_value = "10000")]
+        random_lookups: usize,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct RandomRetrievalMetrics {
+    lookups_count: usize,
+    p50_us: f64,
+    p95_us: f64,
+    p99_us: f64,
+    max_us: f64,
+    correctness_verified: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct PersistentStorageMetrics {
+    shards_count: usize,
+    shards_bytes: u64,
+    lookup_index_bytes: u64,
+    manifest_bytes: u64,
+    total_persistent_bytes: u64,
+    physical_bytes_per_game: f64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -230,6 +269,12 @@ struct BenchmarkReport {
 
     // Latency measurements in microseconds
     query_latency_us: LatencyMetrics,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    random_retrieval_latency_us: Option<RandomRetrievalMetrics>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    persistent_storage: Option<PersistentStorageMetrics>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -524,6 +569,15 @@ fn main() -> Result<()> {
         Commands::Query { index, fen, moves } => {
             run_query(&index, fen.as_deref(), moves.as_deref())?;
         }
+
+        Commands::BenchDataset {
+            dataset,
+            output_dir,
+            run_name,
+            random_lookups,
+        } => {
+            run_bench_dataset(&dataset, &output_dir, &run_name, random_lookups)?;
+        }
     }
 
     Ok(())
@@ -538,7 +592,11 @@ impl<'a> GameConsumer for DatasetWriterConsumer<'a> {
         self.writer.push_game(game).map_err(|e| e.to_string())
     }
 
-    fn supersede_game(&mut self, old_id: u64, new_game: ParsedGame) -> std::result::Result<(), String> {
+    fn supersede_game(
+        &mut self,
+        old_id: u64,
+        new_game: ParsedGame,
+    ) -> std::result::Result<(), String> {
         self.writer
             .handle_superseded_game(old_id, new_game)
             .map_err(|e| e.to_string())
@@ -560,13 +618,31 @@ struct SourceEntryInput {
     sha256: Option<String>,
 }
 
+fn is_zstd_magic(prefix: &[u8]) -> bool {
+    if prefix.len() < 4 {
+        return false;
+    }
+    // Standard Zstandard frame (0xFD2FB528 in little-endian: [0x28, 0xB5, 0x2F, 0xFD])
+    if prefix[..4] == [0x28, 0xB5, 0x2F, 0xFD] {
+        return true;
+    }
+    // Zstandard skippable frame (0x184D2A50..=0x184D2A5F in little-endian: [0x50..=0x5F, 0x2A, 0x4D, 0x18])
+    if (0x50..=0x5F).contains(&prefix[0])
+        && prefix[1] == 0x2A
+        && prefix[2] == 0x4D
+        && prefix[3] == 0x18
+    {
+        return true;
+    }
+    false
+}
+
 fn open_auto_detect_reader(path: &Path) -> Result<Box<dyn Read + Send>> {
-    const ZSTD_MAGIC: [u8; 4] = [0x28, 0xB5, 0x2F, 0xFD];
     if path.as_os_str() == "-" {
         let mut stdin = std::io::stdin();
         let mut prefix = [0u8; 4];
         let n = stdin.read(&mut prefix)?;
-        if n == 4 && prefix == ZSTD_MAGIC {
+        if n == 4 && is_zstd_magic(&prefix) {
             let chained = Cursor::new(prefix).chain(stdin);
             let zstd_dec = zstd::stream::read::Decoder::new(chained)?;
             Ok(Box::new(zstd_dec))
@@ -577,11 +653,12 @@ fn open_auto_detect_reader(path: &Path) -> Result<Box<dyn Read + Send>> {
     } else {
         let file = File::open(path)
             .with_context(|| format!("Failed to open input file {}", path.display()))?;
+        let is_zst_ext = path.extension().and_then(|s| s.to_str()) == Some("zst");
         let mut buf_reader = BufReader::new(file);
         let mut prefix = [0u8; 4];
         let n = buf_reader.read(&mut prefix)?;
-        if n == 4 && prefix == ZSTD_MAGIC {
-            let chained = Cursor::new(prefix).chain(buf_reader);
+        if is_zst_ext || (n == 4 && is_zstd_magic(&prefix)) {
+            let chained = Cursor::new(prefix[..n].to_vec()).chain(buf_reader);
             let zstd_dec = zstd::stream::read::Decoder::new(chained)?;
             Ok(Box::new(zstd_dec))
         } else {
@@ -659,7 +736,9 @@ fn run_build(opts: BuildOptions) -> Result<()> {
     }
 
     if resolved_inputs.is_empty() {
-        anyhow::bail!("No input files specified. Provide --input <file>... or --manifest <sources.json>");
+        anyhow::bail!(
+            "No input files specified. Provide --input <file>... or --manifest <sources.json>"
+        );
     }
 
     println!("=== Building Persistent Curated Dataset ===");
@@ -717,7 +796,8 @@ fn run_build(opts: BuildOptions) -> Result<()> {
         writer: &mut dataset_writer,
     };
     let mut pipeline = CuratedPipeline::new(col, deduplicator, consumer)
-        .with_max_games(opts.max_games);
+        .with_max_games(opts.max_games)
+        .with_log_progress(true);
 
     for path in &resolved_inputs {
         println!("Streaming from {}...", path.display());
@@ -839,11 +919,26 @@ fn run_inspect(dataset: &Path, json: bool) -> Result<()> {
         manifest.lookup_table.file_size_bytes as f64 / 1_000_000.0
     );
     println!("Accounting Summary:");
-    println!("  Total Encountered: {}", manifest.accounting.total_encountered);
-    println!("  Accepted Unique:   {}", manifest.accounting.accepted_unique);
-    println!("  Duplicates Elim:   {}", manifest.accounting.confirmed_duplicates);
-    println!("  Superseded Prior:  {}", manifest.accounting.superseded_prior);
-    println!("  Policy Rejected:   {}", manifest.accounting.rejected_by_policy);
+    println!(
+        "  Total Encountered: {}",
+        manifest.accounting.total_encountered
+    );
+    println!(
+        "  Accepted Unique:   {}",
+        manifest.accounting.accepted_unique
+    );
+    println!(
+        "  Duplicates Elim:   {}",
+        manifest.accounting.confirmed_duplicates
+    );
+    println!(
+        "  Superseded Prior:  {}",
+        manifest.accounting.superseded_prior
+    );
+    println!(
+        "  Policy Rejected:   {}",
+        manifest.accounting.rejected_by_policy
+    );
     println!(
         "  Accounting Valid:  {} (Fully consistent: {})",
         manifest.accounting.is_reconciled(),
@@ -856,7 +951,11 @@ fn run_inspect(dataset: &Path, json: bool) -> Result<()> {
 }
 
 fn run_verify(dataset: &Path, deep: bool) -> Result<()> {
-    println!("Verifying dataset at {} (deep: {})...", dataset.display(), deep);
+    println!(
+        "Verifying dataset at {} (deep: {})...",
+        dataset.display(),
+        deep
+    );
     let start = Instant::now();
     let report = verify_dataset(dataset, deep)
         .with_context(|| format!("Verification failed for dataset {}", dataset.display()))?;
@@ -870,7 +969,10 @@ fn run_verify(dataset: &Path, deep: bool) -> Result<()> {
     println!("Lookup Entries Verified:  {}", report.lookups_checked);
     println!("Artifact Hashes Valid:    {}", report.checksums_valid);
     println!("Accounting Invariants:    {}", report.accounting_reconciled);
-    println!("Deep Game Verification:   {}", report.deep_verification_passed);
+    println!(
+        "Deep Game Verification:   {}",
+        report.deep_verification_passed
+    );
     println!("Elapsed Time:             {:.2}s", elapsed);
     println!("Result: SUCCESS [PASS]");
     Ok(())
@@ -1046,6 +1148,239 @@ fn run_benchmarks(
         depth_40,
         depth_60,
         query_latency_us: latencies,
+        random_retrieval_latency_us: None,
+        persistent_storage: None,
+    };
+
+    std::fs::create_dir_all(output_dir)?;
+    let out_file = output_dir.join(format!("{}.json", run_name));
+    let json_text = serde_json::to_string_pretty(&report)?;
+    std::fs::write(&out_file, json_text)?;
+    println!("Benchmark report written to {}", out_file.display());
+
+    Ok(())
+}
+
+fn run_bench_dataset(
+    dataset_dir: &Path,
+    output_dir: &Path,
+    run_name: &str,
+    random_lookups: usize,
+) -> Result<()> {
+    println!("=== Benchmarking Persistent Dataset ===");
+    println!("Dataset:     {}", dataset_dir.display());
+    println!("Run Name:    {}", run_name);
+
+    let mut reader = DatasetReader::open(dataset_dir)
+        .with_context(|| format!("Failed to open dataset at {}", dataset_dir.display()))?;
+    let manifest = reader.manifest().clone();
+    let collection = manifest.collection;
+
+    println!("Collection:  {}", collection);
+    println!("Total Games: {}", manifest.total_games);
+
+    // 1. Load all games from persistent shards
+    let load_start = Instant::now();
+    let mut all_games = Vec::with_capacity(manifest.total_games as usize);
+    for shard_meta in &manifest.shards {
+        let shard_path = dataset_dir.join("shards").join(&shard_meta.filename);
+        let mut shard_reader = ShardReader::open(&shard_path)?;
+        for b_idx in 0..shard_reader.block_count() {
+            let block_games = shard_reader.decompress_block(b_idx)?;
+            all_games.extend(block_games);
+        }
+    }
+    let load_dur = load_start.elapsed().as_secs_f64();
+    let n_games = all_games.len();
+    anyhow::ensure!(
+        n_games == manifest.total_games as usize,
+        "Total games in shards ({}) != manifest.total_games ({})",
+        n_games,
+        manifest.total_games
+    );
+    println!(
+        "Loaded {} games from {} shard(s) in {:.2}s ({:.1} games/sec)",
+        n_games,
+        manifest.shards.len(),
+        load_dur,
+        n_games as f64 / load_dur.max(1e-9)
+    );
+
+    // 2. Measure raw PGN size
+    println!("Computing equivalent raw PGN baseline...");
+    let mut total_raw_pgn_bytes = 0u64;
+    for g in &all_games {
+        let pgn = export_to_pgn(g).context("Failed to export accepted game to PGN")?;
+        total_raw_pgn_bytes += pgn.len() as u64;
+    }
+    let raw_per_game = total_raw_pgn_bytes as f64 / n_games.max(1) as f64;
+
+    // 3. Measure persistent storage footprint
+    let shards_bytes: u64 = manifest.shards.iter().map(|s| s.file_size_bytes).sum();
+    let lookup_bytes = manifest.lookup_table.file_size_bytes;
+    let manifest_bytes = std::fs::metadata(dataset_dir.join("manifest.json"))
+        .map(|m| m.len())
+        .unwrap_or(0);
+    let total_persistent_bytes = shards_bytes + lookup_bytes + manifest_bytes;
+    let physical_bytes_per_game = total_persistent_bytes as f64 / n_games.max(1) as f64;
+    let comp_ratio = total_raw_pgn_bytes as f64 / shards_bytes.max(1) as f64;
+
+    println!(
+        "Raw PGN size:          {:.2} MB ({:.1} bytes/game)",
+        total_raw_pgn_bytes as f64 / 1_000_000.0,
+        raw_per_game
+    );
+    println!(
+        "CGB3 Shards size:      {:.2} MB ({:.1} bytes/game)",
+        shards_bytes as f64 / 1_000_000.0,
+        shards_bytes as f64 / n_games.max(1) as f64
+    );
+    println!(
+        "Lookup Index size:     {:.2} MB ({} entries)",
+        lookup_bytes as f64 / 1_000_000.0,
+        manifest.lookup_table.entry_count
+    );
+    println!(
+        "Total Persistent size: {:.2} MB ({:.2} bytes/game)",
+        total_persistent_bytes as f64 / 1_000_000.0,
+        physical_bytes_per_game
+    );
+    println!("Compression ratio:     {:.2}x", comp_ratio);
+
+    // 4. Random game retrieval latency benchmark
+    let sample_count = random_lookups.min(n_games);
+    println!(
+        "Benchmarking random game retrieval ({} lookups)...",
+        sample_count
+    );
+    let mut rng_state: u64 = 0x9E3779B97F4A7C15;
+    let mut query_indices: Vec<usize> = (0..n_games).collect();
+    for i in (1..query_indices.len()).rev() {
+        rng_state = rng_state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        let j = (rng_state as usize) % (i + 1);
+        query_indices.swap(i, j);
+    }
+    let query_ids: Vec<u64> = query_indices
+        .iter()
+        .take(sample_count)
+        .map(|&idx| all_games[idx].metadata.id)
+        .collect();
+
+    let mut retrieval_latencies = Vec::with_capacity(sample_count);
+    let mut max_us = 0.0f64;
+    for &id in &query_ids {
+        let t0 = Instant::now();
+        let g = reader.get_game(id)?;
+        let dur_us = t0.elapsed().as_secs_f64() * 1_000_000.0;
+        anyhow::ensure!(g.metadata.id == id, "Retrieved game ID mismatch");
+        max_us = max_us.max(dur_us);
+        retrieval_latencies.push(dur_us);
+    }
+    let (p50_us, p95_us, p99_us) = compute_percentiles(&retrieval_latencies);
+    println!(
+        "Random Retrieval Latency: p50 = {:.2} µs, p95 = {:.2} µs, p99 = {:.2} µs, max = {:.2} µs (100% correct)",
+        p50_us, p95_us, p99_us, max_us
+    );
+
+    // 5. Index Depth Evaluation: 20, 30, 40, 60 plies
+    println!("Benchmarking position indexing on-disk at depths 20, 30, 40, 60 plies...");
+    let depth_20 = measure_index_depth(&all_games, 20)?;
+    let depth_30 = measure_index_depth(&all_games, 30)?;
+    let depth_40 = measure_index_depth(&all_games, 40)?;
+    let depth_60 = measure_index_depth(&all_games, 60)?;
+
+    for d in [&depth_20, &depth_30, &depth_40, &depth_60] {
+        println!(
+            "Depth {}: {} unique positions, {} unique pairs | CPI disk: {:.2} MB ({} blocks), SQLite disk: {:.2} MB",
+            d.depth_plies,
+            d.unique_positions,
+            d.unique_position_move_pairs,
+            d.immutable_index_size_bytes as f64 / 1_000_000.0,
+            d.cpi_block_count,
+            d.sqlite_index_size_bytes as f64 / 1_000_000.0
+        );
+    }
+
+    // 6. Query Latencies
+    println!("Measuring query latencies across on-disk CPI vs on-disk SQLite vs in-memory...");
+    let latencies = measure_query_latencies(&all_games)?;
+    println!(
+        "Query Latency ({} queries, equiv={}): CPI disk: {:.2} / {:.2} / {:.2} µs | SQLite disk: {:.2} / {:.2} / {:.2} µs",
+        latencies.query_sample_count,
+        latencies.semantic_equivalence_verified,
+        latencies.cpi_disk_p50_us,
+        latencies.cpi_disk_p95_us,
+        latencies.cpi_disk_p99_us,
+        latencies.sqlite_disk_p50_us,
+        latencies.sqlite_disk_p95_us,
+        latencies.sqlite_disk_p99_us
+    );
+
+    let stats = &manifest.accounting;
+    let source_str = manifest
+        .source_archives
+        .iter()
+        .map(|s| s.filename.clone())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let report = BenchmarkReport {
+        run_name: run_name.to_string(),
+        collection: collection.to_string(),
+        input_file: if source_str.is_empty() {
+            dataset_dir.display().to_string()
+        } else {
+            source_str
+        },
+        input_size_bytes: total_persistent_bytes,
+        total_encountered: stats.total_encountered,
+        accepted_unique: stats.accepted_unique,
+        retained_canonical_games: n_games,
+        confirmed_duplicates: stats.confirmed_duplicates,
+        superseded_prior: stats.superseded_prior,
+        rejected_by_policy: stats.rejected_by_policy,
+        rejected_variant: stats.rejected_variant,
+        rejected_illegal: stats.rejected_illegal,
+        rejected_malformed: stats.rejected_malformed,
+        quarantined: stats.quarantined,
+        completion_status: stats.completion_status,
+        is_reconciled: stats.is_reconciled(),
+        retained_matches_accepted: stats.verify_retained_count(n_games),
+        transpositions_distinct: 0,
+        import_duration_secs: load_dur,
+        import_throughput_games_sec: n_games as f64 / load_dur.max(1e-9),
+        import_throughput_mb_sec: (total_persistent_bytes as f64 / 1_000_000.0)
+            / load_dur.max(1e-9),
+        raw_pgn_bytes: total_raw_pgn_bytes,
+        raw_bytes_per_game: raw_per_game,
+        codb_block_compressed_bytes: shards_bytes,
+        codb_block_directory_bytes: 0,
+        codb_total_container_bytes: shards_bytes,
+        codb_bytes_per_game: shards_bytes as f64 / n_games.max(1) as f64,
+        compression_ratio: comp_ratio,
+        depth_20,
+        depth_30,
+        depth_40,
+        depth_60,
+        query_latency_us: latencies,
+        random_retrieval_latency_us: Some(RandomRetrievalMetrics {
+            lookups_count: sample_count,
+            p50_us,
+            p95_us,
+            p99_us,
+            max_us,
+            correctness_verified: true,
+        }),
+        persistent_storage: Some(PersistentStorageMetrics {
+            shards_count: manifest.shards.len(),
+            shards_bytes,
+            lookup_index_bytes: lookup_bytes,
+            manifest_bytes,
+            total_persistent_bytes,
+            physical_bytes_per_game,
+        }),
     };
 
     std::fs::create_dir_all(output_dir)?;
@@ -1209,8 +1544,13 @@ fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
     let mut sqlite = SqlitePositionIndex::open(temp_sqlite.path())?;
 
     // Track position frequencies and distinct parent paths (to identify transpositions) across ALL accepted games
-    let mut pos_counts: BTreeMap<PositionKey, u32> = BTreeMap::new();
-    let mut parent_paths: BTreeMap<PositionKey, BTreeSet<(PositionKey, u16)>> = BTreeMap::new();
+    let mut pos_counts: std::collections::HashMap<PositionKey, u32> =
+        std::collections::HashMap::new();
+    let mut first_parents: std::collections::HashMap<PositionKey, (PositionKey, u16)> =
+        std::collections::HashMap::new();
+    let mut transposition_pool: Vec<PositionKey> = Vec::new();
+    let mut transposition_set: std::collections::HashSet<PositionKey> =
+        std::collections::HashSet::new();
     let mut batch_entries = Vec::with_capacity(10_000);
 
     for g in games {
@@ -1225,7 +1565,15 @@ fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
             immutable.record(k, cm, r);
             *pos_counts.entry(k).or_insert(0) += 1;
             if let Some(p) = prev {
-                parent_paths.entry(k).or_default().insert(p);
+                if transposition_set.len() < 5000 {
+                    if let Some(&fp) = first_parents.get(&k) {
+                        if fp != p && transposition_set.insert(k) {
+                            transposition_pool.push(k);
+                        }
+                    } else if first_parents.len() < 100_000 {
+                        first_parents.insert(k, p);
+                    }
+                }
             }
             prev = Some((k, cm.0));
             batch_entries.push((k, cm, r));
@@ -1241,6 +1589,8 @@ fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
         sqlite.insert_batch(&batch_entries)?;
         batch_entries.clear();
     }
+    drop(first_parents);
+    drop(transposition_set);
 
     let temp_cpi = tempfile::Builder::new()
         .prefix("codb_lat_")
@@ -1263,25 +1613,21 @@ fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
     } else {
         max_count.max(1)
     };
-    let all_keys: Vec<PositionKey> = pos_counts.keys().copied().collect();
     let mut frequent_pool = Vec::new();
     let mut medium_pool = Vec::new();
     let mut rare_pool = Vec::new();
-    let mut transposition_pool = Vec::new();
 
     for (&k, &count) in &pos_counts {
         if count >= freq_threshold {
-            frequent_pool.push(k);
+            if frequent_pool.len() < 5000 {
+                frequent_pool.push(k);
+            }
         } else if count >= 2 {
-            medium_pool.push(k);
-        } else {
+            if medium_pool.len() < 5000 {
+                medium_pool.push(k);
+            }
+        } else if rare_pool.len() < 5000 {
             rare_pool.push(k);
-        }
-        if parent_paths
-            .get(&k)
-            .is_some_and(|parents| parents.len() >= 2)
-        {
-            transposition_pool.push(k);
         }
     }
 
@@ -1289,9 +1635,19 @@ fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
     let target_per_stratum = if pos_counts.is_empty() { 0 } else { 400 };
     let miss_target = if pos_counts.is_empty() { 200 } else { 400 };
 
+    let fallback_pool: Vec<PositionKey> = if frequent_pool.is_empty()
+        || medium_pool.is_empty()
+        || rare_pool.is_empty()
+        || transposition_pool.is_empty()
+    {
+        pos_counts.keys().copied().take(1000).collect()
+    } else {
+        Vec::new()
+    };
+
     let frequent_keys = rng.choose_k(
         if frequent_pool.is_empty() {
-            &all_keys
+            &fallback_pool
         } else {
             &frequent_pool
         },
@@ -1299,7 +1655,7 @@ fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
     );
     let medium_keys = rng.choose_k(
         if medium_pool.is_empty() {
-            &all_keys
+            &fallback_pool
         } else {
             &medium_pool
         },
@@ -1307,7 +1663,7 @@ fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
     );
     let rare_keys = rng.choose_k(
         if rare_pool.is_empty() {
-            &all_keys
+            &fallback_pool
         } else {
             &rare_pool
         },
@@ -1315,7 +1671,7 @@ fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
     );
     let transposition_keys = rng.choose_k(
         if transposition_pool.is_empty() {
-            &all_keys
+            &fallback_pool
         } else {
             &transposition_pool
         },
@@ -1329,6 +1685,7 @@ fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
             miss_keys.push(candidate);
         }
     }
+    drop(pos_counts);
 
     let mut query_keys = Vec::with_capacity(
         frequent_keys.len()
@@ -1874,7 +2231,8 @@ mod tests {
         assert_eq!(lookup_reader.entry_count(), 20);
 
         // Test get_game with valid ID
-        let mut shard = codb_storage::ShardReader::open(&dataset_dir.join("shards/shard_0000.cgb3")).unwrap();
+        let mut shard =
+            codb_storage::ShardReader::open(&dataset_dir.join("shards/shard_0000.cgb3")).unwrap();
         let b0 = shard.decompress_block(0).unwrap();
         let any_game_id = b0[0].metadata.id;
 
