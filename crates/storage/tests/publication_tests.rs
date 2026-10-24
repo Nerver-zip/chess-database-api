@@ -1512,3 +1512,271 @@ fn test_live_reader_during_backup_symlink_replacement() {
         g103.metadata.id
     );
 }
+
+// =========================================================================
+// Test Group C: Lossless & Redundancy-Verified Backup Reconciliation (Tests A–F)
+// =========================================================================
+
+#[test]
+fn test_reconciliation_valid_backup_corrupted_root_file() {
+    let tmp = tempdir().unwrap();
+    let target = tmp
+        .path()
+        .join("test_reconciliation_valid_backup_corrupted_root");
+
+    create_legacy_flat_dataset(&target, 4, 100).unwrap();
+    let shard_file = target.join("shards").join("shard_0000.cgb3");
+    let valid_shard_bytes = fs::read(&shard_file).unwrap();
+
+    // Create backup directory containing the ONLY valid shard copy
+    let backup_dir = target.join(".backup_shards_123_456");
+    fs::create_dir_all(&backup_dir).unwrap();
+    fs::copy(&shard_file, backup_dir.join("shard_0000.cgb3")).unwrap();
+
+    // Corrupt root shard file with truncated garbage data
+    fs::write(&shard_file, b"corrupted partial data garbage").unwrap();
+
+    // Run recovery: must detect corruption in root, prefer valid candidate in backup,
+    // and atomically reconstruct without data loss!
+    let recovered =
+        recover_dataset(&target).expect("Recovery must succeed by preferring valid backup shard");
+    assert_eq!(recovered, target.join("current"));
+
+    // Verify dataset integrity and deep block reading
+    let v_rep = verify_dataset(&target, true).unwrap();
+    assert!(v_rep.deep_verification_passed);
+    let reader = DatasetReader::open(&target).unwrap();
+    assert_eq!(reader.total_games(), 4);
+
+    // Verify the corrupt shard was replaced with the valid one and backup was cleaned up after successful reconstruction
+    assert!(
+        !backup_dir.exists(),
+        "Redundant backup directory should be cleaned up after safe reconstruction"
+    );
+    let restored_bytes = fs::read(
+        target
+            .join("current")
+            .join("shards")
+            .join("shard_0000.cgb3"),
+    )
+    .unwrap();
+    assert_eq!(restored_bytes, valid_shard_bytes);
+}
+
+#[test]
+fn test_reconciliation_both_files_valid_but_different_preserves_both_and_fails_closed() {
+    let tmp = tempdir().unwrap();
+    let target_a = tmp.path().join("dataset_a");
+    let target_b = tmp.path().join("dataset_b");
+
+    create_legacy_flat_dataset(&target_a, 4, 100).unwrap();
+    create_legacy_flat_dataset(&target_b, 4, 500).unwrap();
+
+    let shard_a_bytes = fs::read(target_a.join("shards").join("shard_0000.cgb3")).unwrap();
+    let shard_b_bytes = fs::read(target_b.join("shards").join("shard_0000.cgb3")).unwrap();
+    assert_ne!(shard_a_bytes, shard_b_bytes);
+
+    // In target_a, create backup containing shard_0000 from dataset_b
+    let backup_dir = target_a.join(".backup_shards_123_456");
+    fs::create_dir_all(&backup_dir).unwrap();
+    fs::write(backup_dir.join("shard_0000.cgb3"), &shard_b_bytes).unwrap();
+
+    // Run recovery: should detect conflicting distinct valid files, preserve both, and fail closed
+    let err = recover_dataset(&target_a).unwrap_err();
+    assert!(
+        err.to_string().contains("conflicting") || err.to_string().contains("Conflicting"),
+        "Unexpected error: {}",
+        err
+    );
+
+    // Both files and backup directory MUST BE PRESERVED safely
+    assert!(
+        backup_dir.exists(),
+        "Backup directory must not be removed on conflict"
+    );
+    assert_eq!(
+        fs::read(backup_dir.join("shard_0000.cgb3")).unwrap(),
+        shard_b_bytes,
+        "Backup artifact must remain intact"
+    );
+    assert_eq!(
+        fs::read(target_a.join("shards").join("shard_0000.cgb3")).unwrap(),
+        shard_a_bytes,
+        "Root artifact must remain intact"
+    );
+}
+
+#[test]
+fn test_reconciliation_unknown_backup_contents_preserved_and_fails_closed() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("test_unknown_backup");
+
+    create_dataset(&target, 4, 100).unwrap();
+    let shard_file = target
+        .join("current")
+        .join("shards")
+        .join("shard_0000.cgb3");
+    let shard_bytes = fs::read(&shard_file).unwrap();
+
+    // Create a backup directory with valid shard_0000 AND an extra unknown file
+    let backup_dir = target.join(".backup_shards_123_456");
+    fs::create_dir_all(&backup_dir).unwrap();
+    fs::write(backup_dir.join("shard_0000.cgb3"), &shard_bytes).unwrap();
+    let extra_content = b"extra unknown data that is unique";
+    fs::write(backup_dir.join("extra.txt"), extra_content).unwrap();
+
+    // Run recovery: backup must not be declared redundant merely because current is valid!
+    let err = recover_dataset(&target).unwrap_err();
+    assert!(
+        err.to_string().contains("redundant")
+            || err.to_string().contains("unique")
+            || err.to_string().contains("preserved"),
+        "Unexpected error: {}",
+        err
+    );
+
+    // Verify backup directory and unknown file are preserved
+    assert!(backup_dir.exists(), "Backup directory must be preserved");
+    assert_eq!(
+        fs::read(backup_dir.join("extra.txt")).unwrap(),
+        extra_content
+    );
+    assert_eq!(
+        fs::read(backup_dir.join("shard_0000.cgb3")).unwrap(),
+        shard_bytes
+    );
+}
+
+#[test]
+fn test_reconciliation_symlink_points_to_wrong_target_preserves_backup() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("test_wrong_symlink");
+
+    create_dataset(&target, 4, 100).unwrap();
+    let shard_file = target
+        .join("current")
+        .join("shards")
+        .join("shard_0000.cgb3");
+    let shard_bytes = fs::read(&shard_file).unwrap();
+
+    // Create a different existing directory
+    let other_dir = target.join("other_directory");
+    fs::create_dir_all(&other_dir).unwrap();
+    fs::write(other_dir.join("some_other_file.bin"), b"other data").unwrap();
+
+    // Point root symlink 'shards' to 'other_directory' (which exists, but is WRONG target)
+    let root_shards = target.join("shards");
+    if root_shards.exists() || fs::symlink_metadata(&root_shards).is_ok() {
+        let _ = fs::remove_file(&root_shards);
+    }
+    #[cfg(unix)]
+    std::os::unix::fs::symlink("other_directory", &root_shards).unwrap();
+
+    // Create a backup containing recoverable shard data
+    let backup_dir = target.join(".backup_shards_123_456");
+    fs::create_dir_all(&backup_dir).unwrap();
+    fs::write(backup_dir.join("shard_0000.cgb3"), &shard_bytes).unwrap();
+
+    // Run recovery: existing symlink target must NOT authorize backup deletion!
+    let err = recover_dataset(&target).unwrap_err();
+    assert!(
+        err.to_string().contains("expected active dataset artifact")
+            || err.to_string().contains("does not reference")
+            || err.to_string().contains("cannot be deleted"),
+        "Unexpected error: {}",
+        err
+    );
+
+    // Verify backup is preserved
+    assert!(backup_dir.exists(), "Backup directory must not be deleted");
+    assert_eq!(
+        fs::read(backup_dir.join("shard_0000.cgb3")).unwrap(),
+        shard_bytes
+    );
+}
+
+#[test]
+fn test_reconciliation_truly_redundant_backup_cleanup_succeeds() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("test_redundant_backup");
+
+    create_dataset(&target, 4, 100).unwrap();
+    let shard_file = target
+        .join("current")
+        .join("shards")
+        .join("shard_0000.cgb3");
+    let shard_bytes = fs::read(&shard_file).unwrap();
+
+    // Create a backup directory containing exact identical copies and nothing else
+    let backup_dir = target.join(".backup_shards_123_456");
+    fs::create_dir_all(&backup_dir).unwrap();
+    fs::write(backup_dir.join("shard_0000.cgb3"), &shard_bytes).unwrap();
+
+    // Run recovery
+    let recovered =
+        recover_dataset(&target).expect("Recovery must succeed for truly redundant backup");
+    assert_eq!(recovered, target.join("current"));
+
+    // Redundant backup must be safely cleaned up
+    assert!(
+        !backup_dir.exists(),
+        "Redundant backup directory should be removed"
+    );
+
+    // Dataset is verified and complete
+    let v_rep = verify_dataset(&target, true).unwrap();
+    assert!(v_rep.deep_verification_passed);
+    let reader = DatasetReader::open(&target).unwrap();
+    assert_eq!(reader.total_games(), 4);
+}
+
+#[test]
+fn test_reconciliation_idempotency_and_correction_flow() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("test_idempotency");
+
+    create_dataset(&target, 4, 100).unwrap();
+    let shard_file = target
+        .join("current")
+        .join("shards")
+        .join("shard_0000.cgb3");
+    let shard_bytes = fs::read(&shard_file).unwrap();
+
+    // Create backup with unknown file
+    let backup_dir = target.join(".backup_shards_123_456");
+    fs::create_dir_all(&backup_dir).unwrap();
+    fs::write(backup_dir.join("shard_0000.cgb3"), &shard_bytes).unwrap();
+    let extra_file = backup_dir.join("extra.txt");
+    fs::write(&extra_file, b"unique data").unwrap();
+
+    // 1. First recovery fails and preserves
+    let err1 = recover_dataset(&target).unwrap_err();
+    assert!(backup_dir.exists());
+    assert!(extra_file.exists());
+
+    // 2. Second recovery without fix produces identical failure and still preserves (idempotent failure)
+    let err2 = recover_dataset(&target).unwrap_err();
+    assert_eq!(err1.to_string(), err2.to_string());
+    assert!(backup_dir.exists());
+    assert!(extra_file.exists());
+
+    // 3. User corrects the problem: moves extra.txt to a safe location
+    let safe_location = tmp.path().join("rescued_extra.txt");
+    fs::rename(&extra_file, &safe_location).unwrap();
+
+    // 4. Recovery retry now succeeds!
+    let recovered =
+        recover_dataset(&target).expect("Recovery must succeed after fixing the problem");
+    assert_eq!(recovered, target.join("current"));
+    assert!(
+        !backup_dir.exists(),
+        "Backup should be removed once redundant"
+    );
+
+    // 5. Subsequent recovery on already-recovered dataset succeeds idempotently
+    let recovered2 = recover_dataset(&target).expect("Repeated recovery must succeed");
+    assert_eq!(recovered2, target.join("current"));
+
+    let v_rep = verify_dataset(&target, true).unwrap();
+    assert!(v_rep.deep_verification_passed);
+}
