@@ -40,6 +40,14 @@ pub mod fault {
         FailRecoveryCreateDestDir,
         FailRecoverySyncReconstructed,
         FailCreateRootSymlink,
+        // Intermediate failure points for partial copy recovery
+        FailPartialCopyManifest,
+        FailPartialCopyLookup,
+        FailPartialCopyShard,
+        // Intermediate failure points for backup and symlink handling
+        FailAfterBackupBeforeSymlink,
+        FailRenameSymlinkOverRoot,
+        FailRestoreBackup,
     }
 
     thread_local! {
@@ -48,6 +56,10 @@ pub mod fault {
 
     pub fn set_fault_point(point: Option<FaultPoint>) {
         ACTIVE_FAULT.with(|f| *f.borrow_mut() = point);
+    }
+
+    pub fn is_fault_active(point: FaultPoint) -> bool {
+        ACTIVE_FAULT.with(|f| *f.borrow() == Some(point))
     }
 
     pub fn trigger_if(point: FaultPoint) -> Result<(), crate::format::StorageError> {
@@ -81,6 +93,12 @@ pub mod fault {
                 FaultPoint::FailRecoveryCreateDestDir => "FailRecoveryCreateDestDir",
                 FaultPoint::FailRecoverySyncReconstructed => "FailRecoverySyncReconstructed",
                 FaultPoint::FailCreateRootSymlink => "FailCreateRootSymlink",
+                FaultPoint::FailPartialCopyManifest => "FailPartialCopyManifest",
+                FaultPoint::FailPartialCopyLookup => "FailPartialCopyLookup",
+                FaultPoint::FailPartialCopyShard => "FailPartialCopyShard",
+                FaultPoint::FailAfterBackupBeforeSymlink => "FailAfterBackupBeforeSymlink",
+                FaultPoint::FailRenameSymlinkOverRoot => "FailRenameSymlinkOverRoot",
+                FaultPoint::FailRestoreBackup => "FailRestoreBackup",
             };
             if val == match_str {
                 std::process::exit(137);
@@ -1388,6 +1406,202 @@ fn is_real_dir(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+fn validate_manifest_file(path: &Path) -> Option<DatasetManifest> {
+    if !is_real_file(path) {
+        return None;
+    }
+    let data = fs::read(path).ok()?;
+    let m = serde_json::from_slice::<DatasetManifest>(&data).ok()?;
+    if m.is_complete && m.manifest_version > 0 {
+        Some(m)
+    } else {
+        None
+    }
+}
+
+#[derive(Debug, Clone)]
+enum ReconstructionArtifact<'a> {
+    Manifest,
+    Lookup(Option<&'a DatasetManifest>, u64),
+    Shard(Option<&'a DatasetManifest>, &'a str, u64),
+}
+
+fn is_artifact_valid(path: &Path, artifact: &ReconstructionArtifact) -> bool {
+    if !is_real_file(path) {
+        return false;
+    }
+    match artifact {
+        ReconstructionArtifact::Manifest => validate_manifest_file(path).is_some(),
+        ReconstructionArtifact::Lookup(manifest_opt, expected_len) => {
+            if let Ok(meta) = fs::metadata(path) {
+                if meta.len() < 64 || (meta.len() - 64) % 16 != 0 {
+                    return false;
+                }
+                // Check magic bytes CGL1
+                if let Ok(mut f) = File::open(path) {
+                    use std::io::Read;
+                    let mut magic = [0u8; 4];
+                    if f.read_exact(&mut magic).is_err() || &magic != crate::lookup::LOOKUP_MAGIC {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+
+                if let Some(manifest) = manifest_opt {
+                    if meta.len() != manifest.lookup_table.file_size_bytes {
+                        return false;
+                    }
+                    if let Ok(hash) = compute_file_sha256(path) {
+                        return hash.eq_ignore_ascii_case(&manifest.lookup_table.sha256);
+                    }
+                    return false;
+                } else {
+                    return meta.len() == *expected_len;
+                }
+            }
+            false
+        }
+        ReconstructionArtifact::Shard(manifest_opt, filename, expected_len) => {
+            if let Ok(meta) = fs::metadata(path) {
+                if meta.len() < 84 {
+                    return false;
+                }
+                // Check magic bytes CGCS
+                if let Ok(mut f) = File::open(path) {
+                    use std::io::Read;
+                    let mut magic = [0u8; 4];
+                    if f.read_exact(&mut magic).is_err()
+                        || &magic != crate::shard::SHARD_MAGIC_HEADER
+                    {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+
+                if let Some(manifest) = manifest_opt {
+                    if let Some(shard_meta) =
+                        manifest.shards.iter().find(|s| s.filename == *filename)
+                    {
+                        if meta.len() != shard_meta.file_size_bytes {
+                            return false;
+                        }
+                        if let Ok(hash) = compute_file_sha256(path) {
+                            return hash.eq_ignore_ascii_case(&shard_meta.sha256);
+                        }
+                        return false;
+                    }
+                }
+                return meta.len() == *expected_len;
+            }
+            false
+        }
+    }
+}
+
+fn atomic_reconstruct_file(
+    src: &Path,
+    dest: &Path,
+    artifact: &ReconstructionArtifact,
+    pre_fault: Option<fault::FaultPoint>,
+    partial_fault: Option<fault::FaultPoint>,
+) -> Result<(), StorageError> {
+    // 1. If dest already exists and is completely valid, nothing to do!
+    if is_artifact_valid(dest, artifact) {
+        return Ok(());
+    }
+
+    // 2. If dest is not valid, verify that src IS valid before attempting reconstruction
+    if !is_artifact_valid(src, artifact) {
+        return Err(StorageError::Integrity(format!(
+            "Reconstruction failed verification: Cannot reconstruct '{}': source '{}' is invalid or incomplete and destination is invalid; artifacts preserved safely without deletion",
+            dest.display(),
+            src.display()
+        )));
+    }
+
+    // 3. Pre-copy fault trigger point
+    if let Some(pf) = pre_fault {
+        fault::trigger_if(pf)?;
+    }
+
+    // 4. Ensure destination parent directory exists
+    let parent_dir = dest.parent().ok_or_else(|| {
+        StorageError::Io(std::io::Error::other(format!(
+            "Destination '{}' has no parent directory",
+            dest.display()
+        )))
+    })?;
+    fs::create_dir_all(parent_dir)?;
+
+    // 5. Create uniquely named temporary reconstruction file in destination parent directory
+    let now_nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let tmp_name = format!(
+        ".reconstruct_tmp_{}_{}_{}",
+        dest.file_name().unwrap_or_default().to_string_lossy(),
+        std::process::id(),
+        now_nanos
+    );
+    let tmp_path = parent_dir.join(&tmp_name);
+
+    let mut src_file = File::open(src)?;
+    let mut tmp_file = File::create(&tmp_path)?;
+
+    // 6. Copy bytes, with support for simulated partial-copy failures
+    if let Some(part_fault) = partial_fault {
+        if fault::is_fault_active(part_fault) {
+            use std::io::{Read, Write};
+            let mut partial_buf = vec![0u8; 32];
+            let n = src_file.read(&mut partial_buf)?;
+            tmp_file.write_all(&partial_buf[..n])?;
+            tmp_file.sync_all()?;
+            // Trigger partial copy failure after partial write
+            fault::trigger_if(part_fault)?;
+        }
+    }
+
+    std::io::copy(&mut src_file, &mut tmp_file)?;
+
+    // 7. Synchronize completed temporary file before publication
+    tmp_file.sync_all()?;
+    drop(tmp_file);
+
+    // 8. Validate reconstructed artifact against authoritative metadata before publication
+    if !is_artifact_valid(&tmp_path, artifact) {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(StorageError::Integrity(format!(
+            "Reconstructed temporary artifact '{}' failed verification against authoritative metadata",
+            tmp_path.display()
+        )));
+    }
+
+    // 9. Atomically rename completed temporary file into place
+    fs::rename(&tmp_path, dest)?;
+
+    // 10. Synchronize parent directory for durability
+    sync_dir_itself(parent_dir)?;
+
+    Ok(())
+}
+
+fn rollback_backup(backup_path: &Path, link_path: &Path) -> Result<(), StorageError> {
+    if fault::trigger_if(fault::FaultPoint::FailRestoreBackup).is_err() {
+        return Err(StorageError::Io(std::io::Error::other(
+            "Injected fault at FailRestoreBackup",
+        )));
+    }
+    if link_path.exists() || fs::symlink_metadata(link_path).is_ok() {
+        fs::remove_file(link_path)?;
+    }
+    fs::rename(backup_path, link_path)?;
+    sync_dir_itself(link_path.parent().unwrap())?;
+    Ok(())
+}
+
 fn ensure_root_symlinks(target_dir: &Path) -> Result<(), StorageError> {
     #[cfg(unix)]
     {
@@ -1399,9 +1613,9 @@ fn ensure_root_symlinks(target_dir: &Path) -> Result<(), StorageError> {
             let link_path = target_dir.join(link_name);
             let target_path = Path::new(target);
 
-            // If it's already a symlink pointing to the expected target, nothing to do
+            // If it's already a symlink pointing to the expected target and target exists, nothing to do
             if let Ok(existing_target) = fs::read_link(&link_path) {
-                if existing_target == target_path {
+                if existing_target == target_path && target_dir.join(target).exists() {
                     continue;
                 }
             }
@@ -1410,22 +1624,82 @@ fn ensure_root_symlinks(target_dir: &Path) -> Result<(), StorageError> {
 
             let tmp_link =
                 target_dir.join(format!(".tmp_link_{}_{}", link_name, std::process::id()));
-            let _ = fs::remove_file(&tmp_link);
+            if tmp_link.exists() || fs::symlink_metadata(&tmp_link).is_ok() {
+                fs::remove_file(&tmp_link)?;
+            }
             symlink(target, &tmp_link)?;
 
             // If link_path is a real directory (not a symlink), rename over it will fail on POSIX with EISDIR/ENOTEMPTY.
             // Safely back it up first, perform atomic rename, and then clean up backup.
             if is_real_dir(&link_path) {
-                let backup_path =
-                    target_dir.join(format!(".backup_{}_{}", link_name, std::process::id()));
-                let _ = fs::remove_dir_all(&backup_path);
+                let now_nanos = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_nanos())
+                    .unwrap_or(0);
+                let backup_path = target_dir.join(format!(
+                    ".backup_{}_{}_{}",
+                    link_name,
+                    std::process::id(),
+                    now_nanos
+                ));
+
+                // Move real directory to uniquely named backup
                 fs::rename(&link_path, &backup_path)?;
-                if let Err(e) = fs::rename(&tmp_link, &link_path) {
-                    // Restore backup on failure
-                    let _ = fs::rename(&backup_path, &link_path);
+
+                // Fault point: Failure after moving original root directory to backup
+                if let Err(e) = fault::trigger_if(fault::FaultPoint::FailAfterBackupBeforeSymlink) {
+                    let rollback_res = rollback_backup(&backup_path, &link_path);
                     let _ = fs::remove_file(&tmp_link);
+                    if let Err(rb_err) = rollback_res {
+                        return Err(StorageError::Integrity(format!(
+                            "Failed after moving '{}' to backup and failed to restore backup from '{}': {}. Injected fault: {}",
+                            link_path.display(),
+                            backup_path.display(),
+                            rb_err,
+                            e
+                        )));
+                    }
+                    return Err(e);
+                }
+
+                // Install replacement symlink
+                let rename_res =
+                    if fault::trigger_if(fault::FaultPoint::FailRenameSymlinkOverRoot).is_err() {
+                        Err(std::io::Error::other(
+                            "Injected fault at FailRenameSymlinkOverRoot",
+                        ))
+                    } else {
+                        fs::rename(&tmp_link, &link_path)
+                    };
+
+                if let Err(e) = rename_res {
+                    // Attempt rollback
+                    let rollback_res = rollback_backup(&backup_path, &link_path);
+                    let _ = fs::remove_file(&tmp_link);
+                    if let Err(rb_err) = rollback_res {
+                        return Err(StorageError::Integrity(format!(
+                            "Failed to install replacement symlink '{}' and failed to restore backup from '{}': {}. Underlying error: {}",
+                            link_path.display(),
+                            backup_path.display(),
+                            rb_err,
+                            e
+                        )));
+                    }
                     return Err(StorageError::Io(e));
                 }
+
+                // Verify replacement symlink points to target and target exists
+                let target_full = target_dir.join(target);
+                if !target_full.exists() {
+                    let rollback_res = rollback_backup(&backup_path, &link_path);
+                    return Err(StorageError::Integrity(format!(
+                        "Replacement symlink target '{}' does not exist; backup restored: {:?}",
+                        target_full.display(),
+                        rollback_res
+                    )));
+                }
+
+                // Replacement symlink verified! Now safe to remove the redundant backup directory.
                 fs::remove_dir_all(&backup_path)?;
             } else {
                 // If it's a file or existing symlink, atomic POSIX rename replaces it safely
@@ -1434,6 +1708,81 @@ fn ensure_root_symlinks(target_dir: &Path) -> Result<(), StorageError> {
         }
     }
     Ok(())
+}
+
+fn reconcile_and_recover_backups(target_dir: &Path) -> Result<(), StorageError> {
+    if let Ok(entries) = fs::read_dir(target_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.starts_with(".backup_") && path.is_dir() {
+                // Name format: .backup_<link_name>_<pid>_<nanos>
+                let parts: Vec<&str> = name_str.split('_').collect();
+                if parts.len() >= 2 {
+                    let link_name = parts[1]; // "shards", "games.idx", "manifest.json"
+                    let link_path = target_dir.join(link_name);
+
+                    // Check if current active version is valid and link_path points to it
+                    let current_valid = verify_dataset(&target_dir.join("current"), false).is_ok();
+                    let link_is_valid_symlink = if let Ok(target) = fs::read_link(&link_path) {
+                        let target_full = if target.is_relative() {
+                            target_dir.join(&target)
+                        } else {
+                            target
+                        };
+                        target_full.exists()
+                    } else {
+                        false
+                    };
+
+                    if current_valid && link_is_valid_symlink {
+                        // Active published version is complete & verified, and link_path points to it.
+                        // The backup is strictly redundant and safe to remove.
+                        fs::remove_dir_all(&path)?;
+                    } else if !link_path.exists() && fs::symlink_metadata(&link_path).is_err() {
+                        // link_path does not exist at all! Restore the backup directory!
+                        rollback_backup(&path, &link_path)?;
+                    } else if fs::symlink_metadata(&link_path)
+                        .map(|m| m.file_type().is_symlink())
+                        .unwrap_or(false)
+                        && !link_is_valid_symlink
+                    {
+                        // link_path is a broken/dangling symlink! Restore the backup!
+                        rollback_backup(&path, &link_path)?;
+                    } else if is_real_dir(&link_path) {
+                        // Both link_path and backup exist as real directories.
+                        // Consolidate any missing files from backup into link_path.
+                        for sub in fs::read_dir(&path)?.flatten() {
+                            let sub_dst = link_path.join(sub.file_name());
+                            if !sub_dst.exists() {
+                                fs::rename(sub.path(), &sub_dst)?;
+                            }
+                        }
+                        fs::remove_dir_all(&path)?;
+                        sync_dir_itself(target_dir)?;
+                    }
+                    // In all other cases, preserve the backup! Never delete unknown data.
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn cleanup_reconstruct_temps(dir: &Path) {
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.starts_with(".reconstruct_tmp_")
+                || name_str.starts_with(".current_tmp")
+                || name_str.starts_with(".tmp_link_")
+            {
+                let _ = fs::remove_file(entry.path());
+            }
+        }
+    }
 }
 
 /// Safe, deterministic, and idempotent recovery procedure for datasets.
@@ -1448,20 +1797,28 @@ pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
         )));
     }
 
-    // 1. Clean up any leftover temporary symlinks and staging directories
+    // 1. Reconcile any unrestored or redundant backup directories safely
+    reconcile_and_recover_backups(target_dir)?;
+
+    // 2. Clean up abandoned temporary symlinks, temporary reconstruction files, and staging directories
+    cleanup_reconstruct_temps(target_dir);
     if let Ok(entries) = fs::read_dir(target_dir) {
         for entry in entries.flatten() {
             let name = entry.file_name();
             let name_str = name.to_string_lossy();
-            if name_str.starts_with(".staging_") || name_str.starts_with(".backup_") {
+            if name_str.starts_with(".staging_") {
                 let _ = fs::remove_dir_all(entry.path());
-            } else if name_str.starts_with(".current_tmp") || name_str.starts_with(".tmp_link_") {
-                let _ = fs::remove_file(entry.path());
             }
         }
     }
     let versions_dir = target_dir.join("versions");
     if versions_dir.is_dir() {
+        cleanup_reconstruct_temps(&versions_dir);
+        let legacy_dir = versions_dir.join("legacy_v0");
+        if legacy_dir.is_dir() {
+            cleanup_reconstruct_temps(&legacy_dir);
+            cleanup_reconstruct_temps(&legacy_dir.join("shards"));
+        }
         if let Ok(entries) = fs::read_dir(&versions_dir) {
             for entry in entries.flatten() {
                 let name = entry.file_name();
@@ -1472,8 +1829,9 @@ pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
             }
         }
     }
+    cleanup_reconstruct_temps(&target_dir.join("shards"));
 
-    // 2. Check if current symlink exists and is valid
+    // 3. Check if current symlink exists and is valid
     let current_path = target_dir.join("current");
     let current_is_valid = if current_path.exists() {
         verify_dataset(&current_path, false).is_ok()
@@ -1487,27 +1845,78 @@ pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
         return Ok(current_path);
     }
 
-    // 3. Check for partial legacy split states (e.g. from prior aborted legacy migration where files were moved or split)
+    // 4. Check for partial legacy split states (e.g. from prior aborted legacy migration where files were moved or split)
     let legacy_dir = versions_dir.join("legacy_v0");
     if legacy_dir.is_dir() {
-        let leg_manifest = legacy_dir.join("manifest.json");
-        let leg_lookup = legacy_dir.join("games.idx");
-        let leg_shards = legacy_dir.join("shards");
+        let leg_manifest_path = legacy_dir.join("manifest.json");
+        let root_manifest_path = target_dir.join("manifest.json");
 
-        let root_manifest = target_dir.join("manifest.json");
-        let root_lookup = target_dir.join("games.idx");
-        let root_shards = target_dir.join("shards");
+        let leg_has_manifest = validate_manifest_file(&leg_manifest_path).is_some();
+        let root_has_manifest = validate_manifest_file(&root_manifest_path).is_some();
 
-        // Reconstruct lookup index if split
-        if !is_real_file(&leg_lookup) && is_real_file(&root_lookup) {
-            fault::trigger_if(fault::FaultPoint::FailRecoveryCopyLookup)?;
-            fs::copy(&root_lookup, &leg_lookup)?;
-        } else if !is_real_file(&root_lookup) && is_real_file(&leg_lookup) {
-            fault::trigger_if(fault::FaultPoint::FailRecoveryCopyLookup)?;
-            fs::copy(&leg_lookup, &root_lookup)?;
+        // Reconstruct manifest if missing or invalid on one side
+        if !leg_has_manifest && root_has_manifest {
+            atomic_reconstruct_file(
+                &root_manifest_path,
+                &leg_manifest_path,
+                &ReconstructionArtifact::Manifest,
+                Some(fault::FaultPoint::FailRecoveryCopyManifest),
+                Some(fault::FaultPoint::FailPartialCopyManifest),
+            )?;
+        }
+        if !root_has_manifest && leg_has_manifest {
+            atomic_reconstruct_file(
+                &leg_manifest_path,
+                &root_manifest_path,
+                &ReconstructionArtifact::Manifest,
+                Some(fault::FaultPoint::FailRecoveryCopyManifest),
+                Some(fault::FaultPoint::FailPartialCopyManifest),
+            )?;
         }
 
-        // Reconstruct shards if split
+        // Re-check for authoritative manifest
+        let authoritative_manifest_val = validate_manifest_file(&leg_manifest_path)
+            .or_else(|| validate_manifest_file(&root_manifest_path));
+        let authoritative_manifest = authoritative_manifest_val.as_ref();
+
+        // Reconstruct lookup index
+        let root_lookup = target_dir.join("games.idx");
+        let leg_lookup = legacy_dir.join("games.idx");
+
+        let lookup_expected_len = authoritative_manifest
+            .map(|m| m.lookup_table.file_size_bytes)
+            .unwrap_or_else(|| {
+                fs::metadata(&root_lookup)
+                    .or_else(|_| fs::metadata(&leg_lookup))
+                    .map(|m| m.len())
+                    .unwrap_or(0)
+            });
+        let lookup_artifact =
+            ReconstructionArtifact::Lookup(authoritative_manifest, lookup_expected_len);
+
+        if !is_artifact_valid(&leg_lookup, &lookup_artifact) && is_real_file(&root_lookup) {
+            atomic_reconstruct_file(
+                &root_lookup,
+                &leg_lookup,
+                &lookup_artifact,
+                Some(fault::FaultPoint::FailRecoveryCopyLookup),
+                Some(fault::FaultPoint::FailPartialCopyLookup),
+            )?;
+        }
+        if !is_artifact_valid(&root_lookup, &lookup_artifact) && is_real_file(&leg_lookup) {
+            atomic_reconstruct_file(
+                &leg_lookup,
+                &root_lookup,
+                &lookup_artifact,
+                Some(fault::FaultPoint::FailRecoveryCopyLookup),
+                Some(fault::FaultPoint::FailPartialCopyLookup),
+            )?;
+        }
+
+        // Reconstruct shards
+        let root_shards = target_dir.join("shards");
+        let leg_shards = legacy_dir.join("shards");
+
         if is_real_dir(&root_shards) {
             if !leg_shards.exists() {
                 fault::trigger_if(fault::FaultPoint::FailRecoveryCreateDestDir)?;
@@ -1516,37 +1925,64 @@ pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
             for entry in fs::read_dir(&root_shards)? {
                 let entry = entry?;
                 let path = entry.path();
-                if is_real_file(&path) {
-                    let dest = leg_shards.join(entry.file_name());
-                    if !dest.exists() {
-                        fault::trigger_if(fault::FaultPoint::FailRecoveryCopyShard)?;
-                        fs::copy(&path, &dest)?;
-                    }
-                }
-            }
-        }
-        if is_real_dir(&leg_shards) && is_real_dir(&root_shards) {
-            for entry in fs::read_dir(&leg_shards)? {
-                let entry = entry?;
-                let path = entry.path();
-                if is_real_file(&path) {
-                    let dest = root_shards.join(entry.file_name());
-                    if !dest.exists() {
-                        fault::trigger_if(fault::FaultPoint::FailRecoveryCopyShard)?;
-                        fs::copy(&path, &dest)?;
+                let fname = entry.file_name();
+                let fname_str = fname.to_string_lossy().to_string();
+                if fname_str.ends_with(".cgb3") {
+                    let dest_shard = leg_shards.join(&fname);
+                    let expected_len = authoritative_manifest
+                        .and_then(|m| m.shards.iter().find(|s| s.filename == fname_str))
+                        .map(|s| s.file_size_bytes)
+                        .unwrap_or_else(|| fs::metadata(&path).map(|m| m.len()).unwrap_or(0));
+                    let shard_artifact = ReconstructionArtifact::Shard(
+                        authoritative_manifest,
+                        &fname_str,
+                        expected_len,
+                    );
+                    if !is_artifact_valid(&dest_shard, &shard_artifact) && is_real_file(&path) {
+                        atomic_reconstruct_file(
+                            &path,
+                            &dest_shard,
+                            &shard_artifact,
+                            Some(fault::FaultPoint::FailRecoveryCopyShard),
+                            Some(fault::FaultPoint::FailPartialCopyShard),
+                        )?;
                     }
                 }
             }
         }
 
-        // Reconstruct manifest if split
-        if !is_real_file(&leg_manifest) && is_real_file(&root_manifest) {
-            fault::trigger_if(fault::FaultPoint::FailRecoveryCopyManifest)?;
-            fs::copy(&root_manifest, &leg_manifest)?;
-        }
-        if !is_real_file(&root_manifest) && is_real_file(&leg_manifest) {
-            fault::trigger_if(fault::FaultPoint::FailRecoveryCopyManifest)?;
-            fs::copy(&leg_manifest, &root_manifest)?;
+        if is_real_dir(&leg_shards) {
+            if !root_shards.exists() {
+                fault::trigger_if(fault::FaultPoint::FailRecoveryCreateDestDir)?;
+                fs::create_dir_all(&root_shards)?;
+            }
+            for entry in fs::read_dir(&leg_shards)? {
+                let entry = entry?;
+                let path = entry.path();
+                let fname = entry.file_name();
+                let fname_str = fname.to_string_lossy().to_string();
+                if fname_str.ends_with(".cgb3") {
+                    let dest_shard = root_shards.join(&fname);
+                    let expected_len = authoritative_manifest
+                        .and_then(|m| m.shards.iter().find(|s| s.filename == fname_str))
+                        .map(|s| s.file_size_bytes)
+                        .unwrap_or_else(|| fs::metadata(&path).map(|m| m.len()).unwrap_or(0));
+                    let shard_artifact = ReconstructionArtifact::Shard(
+                        authoritative_manifest,
+                        &fname_str,
+                        expected_len,
+                    );
+                    if !is_artifact_valid(&dest_shard, &shard_artifact) && is_real_file(&path) {
+                        atomic_reconstruct_file(
+                            &path,
+                            &dest_shard,
+                            &shard_artifact,
+                            Some(fault::FaultPoint::FailRecoveryCopyShard),
+                            Some(fault::FaultPoint::FailPartialCopyShard),
+                        )?;
+                    }
+                }
+            }
         }
 
         fault::trigger_if(fault::FaultPoint::FailRecoverySyncReconstructed)?;

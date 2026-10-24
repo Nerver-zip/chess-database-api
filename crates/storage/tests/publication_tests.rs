@@ -1093,3 +1093,422 @@ fn test_recovery_preserves_artifacts_on_verification_failure() {
         "manifest.json was destroyed!"
     );
 }
+
+// =========================================================================
+// Test Group A: Atomic Recovery Against Partial File Copies
+// =========================================================================
+
+#[test]
+fn test_recovery_partial_manifest_copy_interrupted() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("partial_manifest_dataset");
+
+    // 1. Create authentic legacy flat dataset
+    create_legacy_flat_dataset(&target, 4, 100).unwrap();
+
+    // 2. Set up split state where manifest only exists in legacy_v0
+    let versions_dir = target.join("versions");
+    let legacy_v0 = versions_dir.join("legacy_v0");
+    fs::create_dir_all(&legacy_v0).unwrap();
+    fs::rename(
+        target.join("manifest.json"),
+        legacy_v0.join("manifest.json"),
+    )
+    .unwrap();
+    let original_manifest_bytes = fs::read(legacy_v0.join("manifest.json")).unwrap();
+
+    // 3. Inject fault: copy of manifest interrupted after partial output
+    fault::set_fault_point(Some(FaultPoint::FailPartialCopyManifest));
+
+    // 4. Run recovery: must fail cleanly
+    let err = recover_dataset(&target).unwrap_err();
+    assert!(
+        err.to_string().contains("FailPartialCopyManifest"),
+        "Unexpected error: {}",
+        err
+    );
+
+    // 5. Assert source manifest is completely intact and root manifest was NOT partially populated
+    assert_eq!(
+        fs::read(legacy_v0.join("manifest.json")).unwrap(),
+        original_manifest_bytes,
+        "Source manifest was corrupted"
+    );
+    assert!(
+        !target.join("manifest.json").exists(),
+        "Destination manifest must not exist as partial completed artifact"
+    );
+
+    // 6. Clear fault and retry recovery: must complete automatically
+    fault::set_fault_point(None);
+    let recovered = recover_dataset(&target).expect("Recovery after fault clearance must succeed");
+    assert_eq!(recovered, target.join("current"));
+
+    // 7. Verify deep integrity and game retrieval
+    let v_rep = verify_dataset(&target, true).unwrap();
+    assert!(v_rep.deep_verification_passed);
+    let mut reader = DatasetReader::open(&target).unwrap();
+    assert_eq!(reader.total_games(), 4);
+    let g100 = sample_game(100, Collection::MastersOtb, "Carlsen", "Caruana");
+    assert_eq!(
+        reader.get_game(g100.metadata.id).unwrap().metadata.id,
+        g100.metadata.id
+    );
+
+    // 8. Idempotency
+    let rec2 = recover_dataset(&target).unwrap();
+    assert_eq!(rec2, target.join("current"));
+}
+
+#[test]
+fn test_recovery_partial_lookup_copy_interrupted() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("partial_lookup_dataset");
+
+    create_legacy_flat_dataset(&target, 4, 100).unwrap();
+
+    let versions_dir = target.join("versions");
+    let legacy_v0 = versions_dir.join("legacy_v0");
+    fs::create_dir_all(&legacy_v0).unwrap();
+    fs::rename(
+        target.join("manifest.json"),
+        legacy_v0.join("manifest.json"),
+    )
+    .unwrap();
+    let original_lookup_bytes = fs::read(target.join("games.idx")).unwrap();
+
+    // Inject lookup partial copy failure
+    fault::set_fault_point(Some(FaultPoint::FailPartialCopyLookup));
+
+    let err = recover_dataset(&target).unwrap_err();
+    assert!(
+        err.to_string().contains("FailPartialCopyLookup"),
+        "Unexpected error: {}",
+        err
+    );
+
+    // Assert source lookup is intact and legacy_v0 lookup was NOT masqueraded as completed
+    assert_eq!(
+        fs::read(target.join("games.idx")).unwrap(),
+        original_lookup_bytes
+    );
+    assert!(
+        !legacy_v0.join("games.idx").exists(),
+        "Partial lookup destination must not masquerade as completed artifact"
+    );
+
+    fault::set_fault_point(None);
+    let recovered = recover_dataset(&target).expect("Recovery after fault clearance must succeed");
+    assert_eq!(recovered, target.join("current"));
+
+    let v_rep = verify_dataset(&target, true).unwrap();
+    assert!(v_rep.deep_verification_passed);
+    let reader = DatasetReader::open(&target).unwrap();
+    assert_eq!(reader.total_games(), 4);
+
+    let rec2 = recover_dataset(&target).unwrap();
+    assert_eq!(rec2, target.join("current"));
+}
+
+#[test]
+fn test_recovery_partial_shard_copy_interrupted() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("partial_shard_dataset");
+
+    create_legacy_flat_dataset(&target, 4, 100).unwrap();
+
+    let versions_dir = target.join("versions");
+    let legacy_v0 = versions_dir.join("legacy_v0");
+    fs::create_dir_all(&legacy_v0).unwrap();
+    fs::rename(
+        target.join("manifest.json"),
+        legacy_v0.join("manifest.json"),
+    )
+    .unwrap();
+
+    let src_shard = target.join("shards").join("shard_0000.cgb3");
+    let original_shard_bytes = fs::read(&src_shard).unwrap();
+
+    // Inject shard partial copy failure
+    fault::set_fault_point(Some(FaultPoint::FailPartialCopyShard));
+
+    let err = recover_dataset(&target).unwrap_err();
+    assert!(
+        err.to_string().contains("FailPartialCopyShard"),
+        "Unexpected error: {}",
+        err
+    );
+
+    assert_eq!(fs::read(&src_shard).unwrap(), original_shard_bytes);
+    assert!(
+        !legacy_v0.join("shards").join("shard_0000.cgb3").exists(),
+        "Partial shard destination must not masquerade as completed artifact"
+    );
+
+    fault::set_fault_point(None);
+    let recovered = recover_dataset(&target).expect("Recovery after fault clearance must succeed");
+    assert_eq!(recovered, target.join("current"));
+
+    let v_rep = verify_dataset(&target, true).unwrap();
+    assert!(v_rep.deep_verification_passed);
+    let reader = DatasetReader::open(&target).unwrap();
+    assert_eq!(reader.total_games(), 4);
+
+    let rec2 = recover_dataset(&target).unwrap();
+    assert_eq!(rec2, target.join("current"));
+}
+
+#[test]
+fn test_recovery_two_opposite_partial_copies_reconstruction() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("two_partial_dataset");
+
+    // 1. Create a deterministic multi-shard dataset with 8 games (4 games/shard = 2 shards: shard_0000 & shard_0001)
+    create_legacy_flat_dataset(&target, 8, 100).unwrap();
+
+    let versions_dir = target.join("versions");
+    let legacy_v0 = versions_dir.join("legacy_v0");
+    let leg_shards = legacy_v0.join("shards");
+    fs::create_dir_all(&leg_shards).unwrap();
+
+    let root_shards = target.join("shards");
+
+    // Distribute shards between root and legacy_v0:
+    // Shard 0 exists correctly in root.
+    // Shard 1 exists correctly in legacy_v0.
+    fs::rename(
+        root_shards.join("shard_0001.cgb3"),
+        leg_shards.join("shard_0001.cgb3"),
+    )
+    .unwrap();
+    fs::copy(
+        target.join("manifest.json"),
+        legacy_v0.join("manifest.json"),
+    )
+    .unwrap();
+
+    let orig_shard0_bytes = fs::read(root_shards.join("shard_0000.cgb3")).unwrap();
+    let orig_shard1_bytes = fs::read(leg_shards.join("shard_0001.cgb3")).unwrap();
+
+    // 2. Simulate prior failed recoveries that left TRUNCATED / PARTIAL files at opposite destinations:
+    // Destination in legacy_v0 for Shard 0: write 16 bytes of truncated data
+    use std::io::Write;
+    let mut f_part0 = fs::File::create(leg_shards.join("shard_0000.cgb3")).unwrap();
+    f_part0.write_all(b"TRUNCATED_SHARD0").unwrap();
+    drop(f_part0);
+
+    // Destination in root for Shard 1: write 16 bytes of truncated data
+    let mut f_part1 = fs::File::create(root_shards.join("shard_0001.cgb3")).unwrap();
+    f_part1.write_all(b"TRUNCATED_SHARD1").unwrap();
+    drop(f_part1);
+
+    // Confirm that partial destinations exist on disk
+    assert!(leg_shards.join("shard_0000.cgb3").exists());
+    assert_ne!(
+        fs::read(leg_shards.join("shard_0000.cgb3")).unwrap(),
+        orig_shard0_bytes
+    );
+    assert!(root_shards.join("shard_0001.cgb3").exists());
+    assert_ne!(
+        fs::read(root_shards.join("shard_0001.cgb3")).unwrap(),
+        orig_shard1_bytes
+    );
+
+    // 3. Run recovery: must detect partial destinations as invalid, reconstruct them from valid sources, and succeed!
+    let recovered = recover_dataset(&target)
+        .expect("Recovery must resolve two opposite partial-copy destinations automatically");
+    assert_eq!(recovered, target.join("current"));
+
+    // 4. Assert that both destinations now contain the complete, valid bytes
+    assert_eq!(
+        fs::read(leg_shards.join("shard_0000.cgb3")).unwrap(),
+        orig_shard0_bytes,
+        "Shard 0 in legacy_v0 was not properly reconstructed from root"
+    );
+    assert_eq!(
+        fs::read(root_shards.join("shard_0001.cgb3")).unwrap(),
+        orig_shard1_bytes,
+        "Shard 1 in root was not properly reconstructed from legacy_v0"
+    );
+
+    // 5. Deep dataset verification must pass
+    let v_rep = verify_dataset(&target, true).unwrap();
+    assert!(v_rep.deep_verification_passed);
+
+    // 6. All 8 games (100..107 across both shards) remain fully retrievable
+    let mut reader = DatasetReader::open(&target).unwrap();
+    assert_eq!(reader.total_games(), 8);
+    for id_seed in 100..108 {
+        let g = sample_game(id_seed, Collection::MastersOtb, "Carlsen", "Caruana");
+        assert_eq!(
+            reader.get_game(g.metadata.id).unwrap().metadata.id,
+            g.metadata.id
+        );
+    }
+
+    // 7. Repeated recovery produces the same valid result
+    let rec2 = recover_dataset(&target).unwrap();
+    assert_eq!(rec2, target.join("current"));
+}
+
+// =========================================================================
+// Test Group B: Safe Backup Retention and Symlink Handling
+// =========================================================================
+
+#[test]
+fn test_symlink_failure_after_backup_restores_cleanly() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("backup_symlink_dataset");
+
+    create_legacy_flat_dataset(&target, 4, 100).unwrap();
+    let orig_shards_bytes = fs::read(target.join("shards").join("shard_0000.cgb3")).unwrap();
+
+    // Inject failure after root shards directory is moved to backup
+    fault::set_fault_point(Some(FaultPoint::FailAfterBackupBeforeSymlink));
+
+    let err = recover_dataset(&target).unwrap_err();
+    assert!(
+        err.to_string().contains("FailAfterBackupBeforeSymlink"),
+        "Unexpected error: {}",
+        err
+    );
+
+    // The rollback must have restored the backup back to root 'shards'
+    assert!(
+        target.join("shards").is_dir(),
+        "Root shards directory was not restored after symlink installation failure"
+    );
+    assert_eq!(
+        fs::read(target.join("shards").join("shard_0000.cgb3")).unwrap(),
+        orig_shards_bytes
+    );
+
+    // Clear fault and retry
+    fault::set_fault_point(None);
+    let recovered = recover_dataset(&target).unwrap();
+    assert_eq!(recovered, target.join("current"));
+
+    let v_rep = verify_dataset(&target, true).unwrap();
+    assert!(v_rep.deep_verification_passed);
+}
+
+#[test]
+fn test_symlink_replacement_failure_restores_backup() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("symlink_replacement_dataset");
+
+    create_legacy_flat_dataset(&target, 4, 100).unwrap();
+    let orig_shards_bytes = fs::read(target.join("shards").join("shard_0000.cgb3")).unwrap();
+
+    // Inject failure during rename of symlink over root directory
+    fault::set_fault_point(Some(FaultPoint::FailRenameSymlinkOverRoot));
+
+    let err = recover_dataset(&target).unwrap_err();
+    assert!(
+        err.to_string().contains("FailRenameSymlinkOverRoot"),
+        "Unexpected error: {}",
+        err
+    );
+
+    // Rollback restored root shards
+    assert!(target.join("shards").is_dir());
+    assert_eq!(
+        fs::read(target.join("shards").join("shard_0000.cgb3")).unwrap(),
+        orig_shards_bytes
+    );
+
+    fault::set_fault_point(None);
+    let recovered = recover_dataset(&target).unwrap();
+    assert_eq!(recovered, target.join("current"));
+
+    let v_rep = verify_dataset(&target, true).unwrap();
+    assert!(v_rep.deep_verification_passed);
+}
+
+#[test]
+fn test_backup_restoration_failure_preserves_backup_and_recovers_on_retry() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("backup_restoration_dataset");
+
+    create_legacy_flat_dataset(&target, 4, 100).unwrap();
+    let orig_shards_bytes = fs::read(target.join("shards").join("shard_0000.cgb3")).unwrap();
+
+    // Inject both symlink failure and backup restoration failure
+    // First: fail rename symlink over root, and during rollback, fail restore backup!
+    fault::set_fault_point(Some(FaultPoint::FailRestoreBackup));
+
+    // Artificially trigger the failure scenario:
+    // Move shards to .backup_shards_123_456
+    let backup_dir = target.join(".backup_shards_123_456");
+    fs::rename(target.join("shards"), &backup_dir).unwrap();
+
+    // Run recovery: reconcile_and_recover_backups will attempt to restore the backup.
+    // With FailRestoreBackup active, it must propagate the error and PRESERVE the backup!
+    let err = recover_dataset(&target).unwrap_err();
+    assert!(
+        err.to_string().contains("FailRestoreBackup"),
+        "Unexpected error: {}",
+        err
+    );
+
+    // CRITICAL: The backup directory MUST NOT be deleted!
+    assert!(
+        backup_dir.exists(),
+        "CRITICAL BUG: Backup directory was deleted when restoration failed!"
+    );
+    assert_eq!(
+        fs::read(backup_dir.join("shard_0000.cgb3")).unwrap(),
+        orig_shards_bytes
+    );
+
+    // Clear fault and retry recovery: recovery must restore the preserved backup and complete!
+    fault::set_fault_point(None);
+    let recovered =
+        recover_dataset(&target).expect("Recovery must resolve preserved backup on retry");
+    assert_eq!(recovered, target.join("current"));
+
+    let v_rep = verify_dataset(&target, true).unwrap();
+    assert!(v_rep.deep_verification_passed);
+    let reader = DatasetReader::open(&target).unwrap();
+    assert_eq!(reader.total_games(), 4);
+
+    let rec2 = recover_dataset(&target).unwrap();
+    assert_eq!(rec2, target.join("current"));
+}
+
+#[test]
+fn test_live_reader_during_backup_symlink_replacement() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("live_reader_symlink_dataset");
+
+    // 1. Create versioned published dataset
+    create_dataset(&target, 4, 100).unwrap();
+
+    // 2. Open live reader pinned to snapshot
+    let mut reader = DatasetReader::open(&target).unwrap();
+    assert_eq!(reader.total_games(), 4);
+
+    // 3. Delete or tamper with root convenience symlinks (e.g. replace root shards with a temp backup or broken link)
+    let root_shards = target.join("shards");
+    if root_shards.exists() || fs::symlink_metadata(&root_shards).is_ok() {
+        let _ = fs::remove_file(&root_shards);
+    }
+
+    // 4. Reader continues retrieving games without any error because it is pinned to its canonicalized snapshot directory!
+    let g100 = sample_game(100, Collection::MastersOtb, "Carlsen", "Caruana");
+    assert_eq!(
+        reader.get_game(g100.metadata.id).unwrap().metadata.id,
+        g100.metadata.id
+    );
+
+    // 5. Recovery re-installs root symlinks safely
+    let recovered = recover_dataset(&target).unwrap();
+    assert_eq!(recovered, target.join("current"));
+
+    // 6. Reader still retrieves games flawlessly
+    let g103 = sample_game(103, Collection::MastersOtb, "Carlsen", "Caruana");
+    assert_eq!(
+        reader.get_game(g103.metadata.id).unwrap().metadata.id,
+        g103.metadata.id
+    );
+}
