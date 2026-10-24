@@ -48,6 +48,10 @@ pub mod fault {
         FailAfterBackupBeforeSymlink,
         FailRenameSymlinkOverRoot,
         FailRestoreBackup,
+        // Directory enumeration fail-closed fault points
+        FailRedundancyCheckEnumeration,
+        FailRemainingEntriesEnumeration,
+        FailReconcileEntriesEnumeration,
     }
 
     thread_local! {
@@ -99,6 +103,9 @@ pub mod fault {
                 FaultPoint::FailAfterBackupBeforeSymlink => "FailAfterBackupBeforeSymlink",
                 FaultPoint::FailRenameSymlinkOverRoot => "FailRenameSymlinkOverRoot",
                 FaultPoint::FailRestoreBackup => "FailRestoreBackup",
+                FaultPoint::FailRedundancyCheckEnumeration => "FailRedundancyCheckEnumeration",
+                FaultPoint::FailRemainingEntriesEnumeration => "FailRemainingEntriesEnumeration",
+                FaultPoint::FailReconcileEntriesEnumeration => "FailReconcileEntriesEnumeration",
             };
             if val == match_str {
                 std::process::exit(137);
@@ -1802,11 +1809,28 @@ fn is_backup_redundant(
         if !expected_meta.is_dir() {
             return Ok(false);
         }
-        let entries = match fs::read_dir(backup_path) {
-            Ok(e) => e,
-            Err(_) => return Ok(false),
-        };
-        for entry in entries.flatten() {
+        let entries = fs::read_dir(backup_path).map_err(|e| {
+            StorageError::Io(std::io::Error::new(
+                e.kind(),
+                format!(
+                    "Failed to read backup directory '{}': {}",
+                    backup_path.display(),
+                    e
+                ),
+            ))
+        })?;
+        for entry_res in entries {
+            fault::trigger_if(fault::FaultPoint::FailRedundancyCheckEnumeration)?;
+            let entry = entry_res.map_err(|e| {
+                StorageError::Io(std::io::Error::new(
+                    e.kind(),
+                    format!(
+                        "Failed to read entry in backup directory '{}': {}",
+                        backup_path.display(),
+                        e
+                    ),
+                ))
+            })?;
             let file_name = entry.file_name();
             let sub_backup = entry.path();
             let sub_expected = expected_path.join(&file_name);
@@ -1863,225 +1887,152 @@ fn is_backup_redundant(
 }
 
 fn reconcile_and_recover_backups(target_dir: &Path) -> Result<(), StorageError> {
-    if let Ok(entries) = fs::read_dir(target_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let name = entry.file_name();
-            let name_str = name.to_string_lossy();
-            if let Some(remainder) = name_str.strip_prefix(".backup_") {
-                // Extract link_name: strip prefix ".backup_" and suffix "_<pid>_<nanos>" if present
-                let link_name_opt = if let Some(last_underscore) = remainder.rfind('_') {
-                    let without_nanos = &remainder[..last_underscore];
-                    without_nanos
-                        .rfind('_')
-                        .map(|pid_underscore| &without_nanos[..pid_underscore])
-                } else {
-                    None
+    let entries = fs::read_dir(target_dir).map_err(|e| {
+        StorageError::Io(std::io::Error::new(
+            e.kind(),
+            format!(
+                "Failed to read dataset directory '{}': {}",
+                target_dir.display(),
+                e
+            ),
+        ))
+    })?;
+    for entry_res in entries {
+        let entry = entry_res.map_err(|e| {
+            StorageError::Io(std::io::Error::new(
+                e.kind(),
+                format!(
+                    "Failed to read entry in dataset directory '{}': {}",
+                    target_dir.display(),
+                    e
+                ),
+            ))
+        })?;
+        let path = entry.path();
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if let Some(remainder) = name_str.strip_prefix(".backup_") {
+            // Extract link_name: strip prefix ".backup_" and suffix "_<pid>_<nanos>" if present
+            let link_name_opt = if let Some(last_underscore) = remainder.rfind('_') {
+                let without_nanos = &remainder[..last_underscore];
+                without_nanos
+                    .rfind('_')
+                    .map(|pid_underscore| &without_nanos[..pid_underscore])
+            } else {
+                None
+            };
+            let link_name = link_name_opt.unwrap_or(remainder);
+            let link_path = target_dir.join(link_name);
+
+            let is_symlink = fs::symlink_metadata(&link_path)
+                .map(|m| m.file_type().is_symlink())
+                .unwrap_or(false);
+
+            if !link_path.exists() && fs::symlink_metadata(&link_path).is_err() {
+                // link_path does not exist at all! Restore the backup directory or file!
+                rollback_backup(&path, &link_path)?;
+            } else if is_symlink && !link_path.exists() {
+                // link_path is a broken/dangling symlink! Restore the backup!
+                rollback_backup(&path, &link_path)?;
+            } else if is_symlink {
+                // link_path is a symlink pointing to an existing location.
+                // Must verify actual target matches expected active dataset artifact!
+                let current_path = target_dir.join("current");
+                let current_valid = verify_dataset(&current_path, false).is_ok();
+                let expected_artifact = current_path.join(link_name);
+
+                let expected_canon = fs::canonicalize(&expected_artifact).ok();
+                let link_canon = fs::canonicalize(&link_path).ok();
+
+                let is_expected_target = match (&expected_canon, &link_canon) {
+                    (Some(exp), Some(lnk)) => exp == lnk,
+                    _ => false,
                 };
-                let link_name = link_name_opt.unwrap_or(remainder);
-                let link_path = target_dir.join(link_name);
 
-                let is_symlink = fs::symlink_metadata(&link_path)
-                    .map(|m| m.file_type().is_symlink())
-                    .unwrap_or(false);
-
-                if !link_path.exists() && fs::symlink_metadata(&link_path).is_err() {
-                    // link_path does not exist at all! Restore the backup directory or file!
-                    rollback_backup(&path, &link_path)?;
-                } else if is_symlink && !link_path.exists() {
-                    // link_path is a broken/dangling symlink! Restore the backup!
-                    rollback_backup(&path, &link_path)?;
-                } else if is_symlink {
-                    // link_path is a symlink pointing to an existing location.
-                    // Must verify actual target matches expected active dataset artifact!
-                    let current_path = target_dir.join("current");
-                    let current_valid = verify_dataset(&current_path, false).is_ok();
-                    let expected_artifact = current_path.join(link_name);
-
-                    let expected_canon = fs::canonicalize(&expected_artifact).ok();
-                    let link_canon = fs::canonicalize(&link_path).ok();
-
-                    let is_expected_target = match (&expected_canon, &link_canon) {
-                        (Some(exp), Some(lnk)) => exp == lnk,
-                        _ => false,
-                    };
-
-                    if current_valid && is_expected_target {
-                        let expected_dir = expected_canon.as_ref().unwrap();
-                        let manifest_opt = find_authoritative_manifest(target_dir);
-                        if is_backup_redundant(&path, expected_dir, manifest_opt.as_ref())? {
-                            // Truly redundant! Safe to remove.
-                            if path.is_dir() {
-                                fs::remove_dir_all(&path)?;
-                            } else {
-                                fs::remove_file(&path)?;
-                            }
+                if current_valid && is_expected_target {
+                    let expected_dir = expected_canon.as_ref().unwrap();
+                    let manifest_opt = find_authoritative_manifest(target_dir);
+                    if is_backup_redundant(&path, expected_dir, manifest_opt.as_ref())? {
+                        // Truly redundant! Safe to remove.
+                        if path.is_dir() {
+                            fs::remove_dir_all(&path)?;
                         } else {
-                            // Redundancy cannot be established!
-                            // Backup contains unique, conflicting, or unknown data.
-                            // Preserve backup and fail closed!
-                            return Err(StorageError::Integrity(format!(
-                                "Backup '{}' cannot be established as safely redundant with active dataset artifact '{}'; backup preserved safely",
+                            fs::remove_file(&path)?;
+                        }
+                    } else {
+                        // Redundancy cannot be established!
+                        // Backup contains unique, conflicting, or unknown data.
+                        // Preserve backup and fail closed!
+                        return Err(StorageError::Integrity(format!(
+                            "Backup '{}' cannot be established as safely redundant with active dataset artifact '{}'; backup preserved safely",
+                            path.display(),
+                            expected_dir.display()
+                        )));
+                    }
+                } else {
+                    // Either active dataset is not valid, or symlink points to wrong target.
+                    // Symlink pointing to wrong target does not authorize backup deletion!
+                    return Err(StorageError::Integrity(format!(
+                        "Root symlink '{}' does not reference expected active dataset artifact '{:?}' (points to '{:?}'); backup '{}' cannot be deleted and is preserved safely",
+                        link_name,
+                        expected_canon,
+                        link_canon,
+                        path.display()
+                    )));
+                }
+            } else if is_real_dir(&link_path) && path.is_dir() {
+                // Both link_path and backup exist as real directories.
+                let manifest_opt = find_authoritative_manifest(target_dir);
+                let backup_entries = fs::read_dir(&path)
+                    .map_err(|e| {
+                        StorageError::Io(std::io::Error::new(
+                            e.kind(),
+                            format!(
+                                "Failed to read backup directory '{}': {}",
                                 path.display(),
-                                expected_dir.display()
-                            )));
-                        }
-                    } else {
-                        // Either active dataset is not valid, or symlink points to wrong target.
-                        // Symlink pointing to wrong target does not authorize backup deletion!
-                        return Err(StorageError::Integrity(format!(
-                            "Root symlink '{}' does not reference expected active dataset artifact '{:?}' (points to '{:?}'); backup '{}' cannot be deleted and is preserved safely",
-                            link_name,
-                            expected_canon,
-                            link_canon,
-                            path.display()
-                        )));
-                    }
-                } else if is_real_dir(&link_path) && path.is_dir() {
-                    // Both link_path and backup exist as real directories.
-                    let manifest_opt = find_authoritative_manifest(target_dir);
-                    let backup_entries = match fs::read_dir(&path) {
-                        Ok(e) => e.flatten().collect::<Vec<_>>(),
-                        Err(e) => return Err(StorageError::Io(e)),
-                    };
+                                e
+                            ),
+                        ))
+                    })?
+                    .map(|res| {
+                        fault::trigger_if(fault::FaultPoint::FailReconcileEntriesEnumeration)?;
+                        res.map_err(|e| {
+                            StorageError::Io(std::io::Error::new(
+                                e.kind(),
+                                format!(
+                                    "Failed to read entry in backup directory '{}': {}",
+                                    path.display(),
+                                    e
+                                ),
+                            ))
+                        })
+                    })
+                    .collect::<Result<Vec<_>, StorageError>>()?;
 
-                    let mut unreconciled_items = Vec::new();
+                let mut unreconciled_items = Vec::new();
 
-                    for sub in backup_entries {
-                        let sub_name = sub.file_name();
-                        let sub_name_str = sub_name.to_string_lossy().to_string();
-                        let sub_src = sub.path();
-                        let sub_dst = link_path.join(&sub_name);
+                for sub in backup_entries {
+                    let sub_name = sub.file_name();
+                    let sub_name_str = sub_name.to_string_lossy().to_string();
+                    let sub_src = sub.path();
+                    let sub_dst = link_path.join(&sub_name);
 
-                        let artifact = if link_name == "shards" {
-                            let expected_len = if let Some(ref m) = manifest_opt {
-                                m.shards
-                                    .iter()
-                                    .find(|s| s.filename == sub_name_str)
-                                    .map(|s| s.file_size_bytes)
-                                    .unwrap_or(0)
-                            } else {
-                                sub_src.metadata().map(|m| m.len()).unwrap_or(0)
-                            };
-                            ReconstructionArtifact::Shard(
-                                manifest_opt.as_ref(),
-                                &sub_name_str,
-                                expected_len,
-                            )
-                        } else if link_name == "games.idx" {
-                            let expected_len = manifest_opt
-                                .as_ref()
-                                .map(|m| m.lookup_table.file_size_bytes)
-                                .unwrap_or(0);
-                            ReconstructionArtifact::Lookup(manifest_opt.as_ref(), expected_len)
+                    let artifact = if link_name == "shards" {
+                        let expected_len = if let Some(ref m) = manifest_opt {
+                            m.shards
+                                .iter()
+                                .find(|s| s.filename == sub_name_str)
+                                .map(|s| s.file_size_bytes)
+                                .unwrap_or(0)
                         } else {
-                            ReconstructionArtifact::Manifest
+                            sub_src.metadata().map(|m| m.len()).unwrap_or(0)
                         };
-
-                        if !sub_dst.exists() {
-                            // Missing in destination root directory
-                            if is_artifact_valid(&sub_src, &artifact) {
-                                atomic_reconstruct_file(&sub_src, &sub_dst, &artifact, None, None)?;
-                                let _ = fs::remove_file(&sub_src);
-                            } else {
-                                unreconciled_items.push(format!(
-                                    "missing destination, invalid source: {}",
-                                    sub_name_str
-                                ));
-                            }
-                        } else {
-                            // Name collision!
-                            let src_valid = is_artifact_valid(&sub_src, &artifact);
-                            let dst_valid = is_artifact_valid(&sub_dst, &artifact);
-                            let src_is_container = is_valid_container_format(&sub_src, link_name);
-
-                            if src_valid && !dst_valid {
-                                // Destination is corrupt/invalid, backup is valid.
-                                // Reconstruct atomically over destination.
-                                atomic_reconstruct_file(&sub_src, &sub_dst, &artifact, None, None)?;
-                                let _ = fs::remove_file(&sub_src);
-                            } else if src_valid && dst_valid {
-                                // Both are valid against manifest; compare hashes
-                                let src_hash = compute_file_sha256(&sub_src)?;
-                                let dst_hash = compute_file_sha256(&sub_dst)?;
-                                if src_hash.eq_ignore_ascii_case(&dst_hash) {
-                                    let _ = fs::remove_file(&sub_src);
-                                } else {
-                                    unreconciled_items.push(format!(
-                                        "conflicting distinct valid files for '{}' (root sha256: {}, backup sha256: {})",
-                                        sub_name_str, dst_hash, src_hash
-                                    ));
-                                }
-                            } else if !src_valid && dst_valid {
-                                // Destination is valid against manifest.
-                                // If backup is a valid distinct container, preserve both!
-                                if src_is_container {
-                                    let src_hash = compute_file_sha256(&sub_src)?;
-                                    let dst_hash = compute_file_sha256(&sub_dst)?;
-                                    if src_hash.eq_ignore_ascii_case(&dst_hash) {
-                                        let _ = fs::remove_file(&sub_src);
-                                    } else {
-                                        unreconciled_items.push(format!(
-                                            "conflicting distinct valid files for '{}' (root sha256: {}, backup sha256: {})",
-                                            sub_name_str, dst_hash, src_hash
-                                        ));
-                                    }
-                                } else {
-                                    // Backup is an incomplete or corrupt fragment
-                                    let _ = fs::remove_file(&sub_src);
-                                }
-                            } else {
-                                // Neither candidate matches manifest
-                                if src_is_container {
-                                    let src_hash =
-                                        compute_file_sha256(&sub_src).unwrap_or_default();
-                                    let dst_hash =
-                                        compute_file_sha256(&sub_dst).unwrap_or_default();
-                                    if !src_hash.is_empty()
-                                        && src_hash.eq_ignore_ascii_case(&dst_hash)
-                                    {
-                                        let _ = fs::remove_file(&sub_src);
-                                    } else {
-                                        unreconciled_items.push(format!(
-                                            "conflicting unverified artifacts for '{}' (root sha256: {}, backup sha256: {})",
-                                            sub_name_str, dst_hash, src_hash
-                                        ));
-                                    }
-                                } else {
-                                    unreconciled_items.push(format!(
-                                        "both root and backup candidates for '{}' are invalid or incomplete",
-                                        sub_name_str
-                                    ));
-                                }
-                            }
-                        }
-                    }
-
-                    if !unreconciled_items.is_empty() {
-                        return Err(StorageError::Integrity(format!(
-                            "Cannot safely reconcile backup directory '{}' with '{}': {:?}; backup and root artifacts preserved safely",
-                            path.display(),
-                            link_path.display(),
-                            unreconciled_items
-                        )));
-                    }
-
-                    // Check if backup directory is now empty
-                    let remaining: Vec<_> = fs::read_dir(&path)?.flatten().collect();
-                    if remaining.is_empty() {
-                        fs::remove_dir_all(&path)?;
-                        sync_dir_itself(target_dir)?;
-                    } else {
-                        return Err(StorageError::Integrity(format!(
-                            "Backup directory '{}' still contains unexpected files: {:?}; backup preserved safely",
-                            path.display(),
-                            remaining.iter().map(|e| e.file_name()).collect::<Vec<_>>()
-                        )));
-                    }
-                } else if is_real_file(&link_path) && path.is_file() {
-                    // Both link_path and backup exist as real files
-                    let manifest_opt = find_authoritative_manifest(target_dir);
-                    let artifact = if link_name == "games.idx" {
+                        ReconstructionArtifact::Shard(
+                            manifest_opt.as_ref(),
+                            &sub_name_str,
+                            expected_len,
+                        )
+                    } else if link_name == "games.idx" {
                         let expected_len = manifest_opt
                             .as_ref()
                             .map(|m| m.lookup_table.file_size_bytes)
@@ -2091,54 +2042,189 @@ fn reconcile_and_recover_backups(target_dir: &Path) -> Result<(), StorageError> 
                         ReconstructionArtifact::Manifest
                     };
 
-                    let src_valid = is_artifact_valid(&path, &artifact);
-                    let dst_valid = is_artifact_valid(&link_path, &artifact);
-                    let src_is_container = is_valid_container_format(&path, link_name);
+                    if !sub_dst.exists() {
+                        // Missing in destination root directory
+                        if is_artifact_valid(&sub_src, &artifact) {
+                            atomic_reconstruct_file(&sub_src, &sub_dst, &artifact, None, None)?;
+                            let _ = fs::remove_file(&sub_src);
+                        } else {
+                            unreconciled_items.push(format!(
+                                "missing destination, invalid source: {}",
+                                sub_name_str
+                            ));
+                        }
+                    } else {
+                        // Name collision!
+                        let src_valid = is_artifact_valid(&sub_src, &artifact);
+                        let dst_valid = is_artifact_valid(&sub_dst, &artifact);
+                        let src_is_container = is_valid_container_format(&sub_src, link_name);
 
-                    if src_valid && !dst_valid {
-                        atomic_reconstruct_file(&path, &link_path, &artifact, None, None)?;
+                        if src_valid && !dst_valid {
+                            // Destination is corrupt/invalid, backup is valid.
+                            // Reconstruct atomically over destination.
+                            atomic_reconstruct_file(&sub_src, &sub_dst, &artifact, None, None)?;
+                            let _ = fs::remove_file(&sub_src);
+                        } else if src_valid && dst_valid {
+                            // Both are valid against manifest; compare hashes
+                            let src_hash = compute_file_sha256(&sub_src)?;
+                            let dst_hash = compute_file_sha256(&sub_dst)?;
+                            if src_hash.eq_ignore_ascii_case(&dst_hash) {
+                                let _ = fs::remove_file(&sub_src);
+                            } else {
+                                unreconciled_items.push(format!(
+                                        "conflicting distinct valid files for '{}' (root sha256: {}, backup sha256: {})",
+                                        sub_name_str, dst_hash, src_hash
+                                    ));
+                            }
+                        } else if !src_valid && dst_valid {
+                            // Destination is valid against manifest.
+                            // If backup is a valid distinct container, preserve both!
+                            if src_is_container {
+                                let src_hash = compute_file_sha256(&sub_src)?;
+                                let dst_hash = compute_file_sha256(&sub_dst)?;
+                                if src_hash.eq_ignore_ascii_case(&dst_hash) {
+                                    let _ = fs::remove_file(&sub_src);
+                                } else {
+                                    unreconciled_items.push(format!(
+                                            "conflicting distinct valid files for '{}' (root sha256: {}, backup sha256: {})",
+                                            sub_name_str, dst_hash, src_hash
+                                        ));
+                                }
+                            } else {
+                                // Backup is an incomplete or corrupt fragment
+                                let _ = fs::remove_file(&sub_src);
+                            }
+                        } else {
+                            // Neither candidate matches manifest
+                            if src_is_container {
+                                let src_hash = compute_file_sha256(&sub_src).unwrap_or_default();
+                                let dst_hash = compute_file_sha256(&sub_dst).unwrap_or_default();
+                                if !src_hash.is_empty() && src_hash.eq_ignore_ascii_case(&dst_hash)
+                                {
+                                    let _ = fs::remove_file(&sub_src);
+                                } else {
+                                    unreconciled_items.push(format!(
+                                            "conflicting unverified artifacts for '{}' (root sha256: {}, backup sha256: {})",
+                                            sub_name_str, dst_hash, src_hash
+                                        ));
+                                }
+                            } else {
+                                unreconciled_items.push(format!(
+                                        "both root and backup candidates for '{}' are invalid or incomplete",
+                                        sub_name_str
+                                    ));
+                            }
+                        }
+                    }
+                }
+
+                if !unreconciled_items.is_empty() {
+                    return Err(StorageError::Integrity(format!(
+                            "Cannot safely reconcile backup directory '{}' with '{}': {:?}; backup and root artifacts preserved safely",
+                            path.display(),
+                            link_path.display(),
+                            unreconciled_items
+                        )));
+                }
+
+                // Check if backup directory is now empty
+                fault::trigger_if(fault::FaultPoint::FailRemainingEntriesEnumeration)?;
+                let remaining = fs::read_dir(&path)
+                    .map_err(|e| {
+                        StorageError::Io(std::io::Error::new(
+                            e.kind(),
+                            format!(
+                                "Failed to verify remaining entries in backup directory '{}': {}",
+                                path.display(),
+                                e
+                            ),
+                        ))
+                    })?
+                    .map(|res| {
+                        fault::trigger_if(fault::FaultPoint::FailRemainingEntriesEnumeration)?;
+                        res.map_err(|e| {
+                            StorageError::Io(std::io::Error::new(
+                                e.kind(),
+                                format!(
+                                    "Failed to read remaining entry in backup directory '{}': {}",
+                                    path.display(),
+                                    e
+                                ),
+                            ))
+                        })
+                    })
+                    .collect::<Result<Vec<_>, StorageError>>()?;
+
+                if remaining.is_empty() {
+                    fs::remove_dir_all(&path)?;
+                    sync_dir_itself(target_dir)?;
+                } else {
+                    return Err(StorageError::Integrity(format!(
+                            "Backup directory '{}' still contains unexpected files: {:?}; backup preserved safely",
+                            path.display(),
+                            remaining.iter().map(|e| e.file_name()).collect::<Vec<_>>()
+                        )));
+                }
+            } else if is_real_file(&link_path) && path.is_file() {
+                // Both link_path and backup exist as real files
+                let manifest_opt = find_authoritative_manifest(target_dir);
+                let artifact = if link_name == "games.idx" {
+                    let expected_len = manifest_opt
+                        .as_ref()
+                        .map(|m| m.lookup_table.file_size_bytes)
+                        .unwrap_or(0);
+                    ReconstructionArtifact::Lookup(manifest_opt.as_ref(), expected_len)
+                } else {
+                    ReconstructionArtifact::Manifest
+                };
+
+                let src_valid = is_artifact_valid(&path, &artifact);
+                let dst_valid = is_artifact_valid(&link_path, &artifact);
+                let src_is_container = is_valid_container_format(&path, link_name);
+
+                if src_valid && !dst_valid {
+                    atomic_reconstruct_file(&path, &link_path, &artifact, None, None)?;
+                    let _ = fs::remove_file(&path);
+                } else if src_valid && dst_valid {
+                    let src_hash = compute_file_sha256(&path)?;
+                    let dst_hash = compute_file_sha256(&link_path)?;
+                    if src_hash.eq_ignore_ascii_case(&dst_hash) {
                         let _ = fs::remove_file(&path);
-                    } else if src_valid && dst_valid {
+                    } else {
+                        return Err(StorageError::Integrity(format!(
+                                "Conflicting distinct valid files for '{}' (root sha256: {}, backup sha256: {}); preserving both and aborting reconciliation",
+                                link_name, dst_hash, src_hash
+                            )));
+                    }
+                } else if !src_valid && dst_valid {
+                    if src_is_container {
                         let src_hash = compute_file_sha256(&path)?;
                         let dst_hash = compute_file_sha256(&link_path)?;
                         if src_hash.eq_ignore_ascii_case(&dst_hash) {
                             let _ = fs::remove_file(&path);
                         } else {
                             return Err(StorageError::Integrity(format!(
-                                "Conflicting distinct valid files for '{}' (root sha256: {}, backup sha256: {}); preserving both and aborting reconciliation",
-                                link_name, dst_hash, src_hash
-                            )));
-                        }
-                    } else if !src_valid && dst_valid {
-                        if src_is_container {
-                            let src_hash = compute_file_sha256(&path)?;
-                            let dst_hash = compute_file_sha256(&link_path)?;
-                            if src_hash.eq_ignore_ascii_case(&dst_hash) {
-                                let _ = fs::remove_file(&path);
-                            } else {
-                                return Err(StorageError::Integrity(format!(
                                     "Conflicting distinct valid files for '{}' (root sha256: {}, backup sha256: {}); preserving both and aborting reconciliation",
                                     link_name, dst_hash, src_hash
                                 )));
-                            }
-                        } else {
-                            let _ = fs::remove_file(&path);
                         }
                     } else {
-                        return Err(StorageError::Integrity(format!(
+                        let _ = fs::remove_file(&path);
+                    }
+                } else {
+                    return Err(StorageError::Integrity(format!(
                             "Both root and backup candidates for '{}' are invalid or incomplete; preserving both and aborting reconciliation",
                             link_name
                         )));
-                    }
-                } else {
-                    // In all other ambiguous cases, preserve the backup safely!
-                    return Err(StorageError::Integrity(format!(
+                }
+            } else {
+                // In all other ambiguous cases, preserve the backup safely!
+                return Err(StorageError::Integrity(format!(
                         "Ambiguous backup state for '{}' (backup: '{}', link: '{}'); preserving backup safely",
                         link_name,
                         path.display(),
                         link_path.display()
                     )));
-                }
             }
         }
     }
@@ -2391,16 +2477,13 @@ pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
     // 4. Inspect versions directory for latest valid version
     if versions_dir.is_dir() {
         let mut candidates = Vec::new();
-        if let Ok(entries) = fs::read_dir(&versions_dir) {
-            for entry in entries.flatten() {
-                let p = entry.path();
-                if p.is_dir() {
-                    let meta = p.metadata();
-                    let mtime = meta
-                        .and_then(|m| m.modified())
-                        .unwrap_or(std::time::UNIX_EPOCH);
-                    candidates.push((p, mtime));
-                }
+        for entry_res in fs::read_dir(&versions_dir)? {
+            let entry = entry_res?;
+            let p = entry.path();
+            if p.is_dir() {
+                let meta = p.metadata()?;
+                let mtime = meta.modified().unwrap_or(std::time::UNIX_EPOCH);
+                candidates.push((p, mtime));
             }
         }
         candidates.sort_by_key(|a| std::cmp::Reverse(a.1));
@@ -2467,13 +2550,12 @@ pub fn cleanup_old_versions(
     };
 
     let mut versions = Vec::new();
-    for entry in fs::read_dir(&versions_dir)?.flatten() {
+    for entry_res in fs::read_dir(&versions_dir)? {
+        let entry = entry_res?;
         let p = entry.path();
         if p.is_dir() {
-            let meta = p.metadata();
-            let mtime = meta
-                .and_then(|m| m.modified())
-                .unwrap_or(std::time::UNIX_EPOCH);
+            let meta = p.metadata()?;
+            let mtime = meta.modified().unwrap_or(std::time::UNIX_EPOCH);
             let name = p.file_name().unwrap().to_string_lossy().to_string();
             let is_active = active_version_name.as_deref() == Some(&name);
             versions.push((p, mtime, is_active));

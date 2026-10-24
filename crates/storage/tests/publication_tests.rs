@@ -1780,3 +1780,141 @@ fn test_reconciliation_idempotency_and_correction_flow() {
     let v_rep = verify_dataset(&target, true).unwrap();
     assert!(v_rep.deep_verification_passed);
 }
+
+// =========================================================================
+// Test Group D: Fail-Closed Directory Enumeration (Tests A–C)
+// =========================================================================
+
+#[test]
+fn test_enumeration_failure_during_redundancy_check_preserves_backup_and_fails_closed() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("test_redundancy_enum_fail");
+
+    create_dataset(&target, 4, 100).unwrap();
+    let shard_file = target
+        .join("current")
+        .join("shards")
+        .join("shard_0000.cgb3");
+    let shard_bytes = fs::read(&shard_file).unwrap();
+
+    // Create a backup directory containing shard_0000.cgb3 AND a unique file
+    let backup_dir = target.join(".backup_shards_123_456");
+    fs::create_dir_all(&backup_dir).unwrap();
+    fs::write(backup_dir.join("shard_0000.cgb3"), &shard_bytes).unwrap();
+    let unique_content = b"potentially unique data";
+    fs::write(backup_dir.join("unique_report.bin"), unique_content).unwrap();
+
+    // Inject enumeration failure during redundancy verification
+    fault::set_fault_point(Some(FaultPoint::FailRedundancyCheckEnumeration));
+
+    // Run recovery: must fail closed on enumeration failure!
+    let err = recover_dataset(&target).unwrap_err();
+    assert!(
+        err.to_string().contains("FailRedundancyCheckEnumeration")
+            || err.to_string().contains("Failed to read"),
+        "Unexpected error: {}",
+        err
+    );
+
+    // CRITICAL: Backup directory and ALL its contents MUST NOT be deleted!
+    assert!(
+        backup_dir.exists(),
+        "CRITICAL BUG: Backup directory was deleted after failed enumeration!"
+    );
+    assert_eq!(
+        fs::read(backup_dir.join("unique_report.bin")).unwrap(),
+        unique_content,
+        "Unique file in backup must remain intact!"
+    );
+    assert_eq!(
+        fs::read(backup_dir.join("shard_0000.cgb3")).unwrap(),
+        shard_bytes
+    );
+}
+
+#[test]
+fn test_enumeration_failure_while_checking_remaining_backup_files_preserves_backup_and_fails_closed(
+) {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("test_remaining_enum_fail");
+
+    create_legacy_flat_dataset(&target, 4, 100).unwrap();
+    let shard_file = target.join("shards").join("shard_0000.cgb3");
+    let shard_bytes = fs::read(&shard_file).unwrap();
+
+    // Create a backup directory containing identical shard_0000.cgb3
+    let backup_dir = target.join(".backup_shards_123_456");
+    fs::create_dir_all(&backup_dir).unwrap();
+    fs::write(backup_dir.join("shard_0000.cgb3"), &shard_bytes).unwrap();
+
+    // Inject failure during remaining-entries enumeration check
+    fault::set_fault_point(Some(FaultPoint::FailRemainingEntriesEnumeration));
+
+    // Run recovery: reconciliation of matching file proceeds, but remaining-entries verification fails!
+    let err = recover_dataset(&target).unwrap_err();
+    assert!(
+        err.to_string().contains("FailRemainingEntriesEnumeration")
+            || err.to_string().contains("remaining"),
+        "Unexpected error: {}",
+        err
+    );
+
+    // CRITICAL: Backup directory MUST be preserved on enumeration failure!
+    assert!(
+        backup_dir.exists(),
+        "CRITICAL BUG: Backup directory was deleted when remaining-entries enumeration failed!"
+    );
+}
+
+#[test]
+fn test_enumeration_failure_recovery_retry_succeeds_and_is_idempotent() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("test_retry_enum_success");
+
+    create_legacy_flat_dataset(&target, 4, 100).unwrap();
+    let shard_file = target.join("shards").join("shard_0000.cgb3");
+    let shard_bytes = fs::read(&shard_file).unwrap();
+
+    // Create a backup directory containing identical shard_0000.cgb3
+    let backup_dir = target.join(".backup_shards_123_456");
+    fs::create_dir_all(&backup_dir).unwrap();
+    fs::write(backup_dir.join("shard_0000.cgb3"), &shard_bytes).unwrap();
+
+    // 1. Inject failure during remaining-entries check
+    fault::set_fault_point(Some(FaultPoint::FailRemainingEntriesEnumeration));
+    let err = recover_dataset(&target).unwrap_err();
+    assert!(
+        err.to_string().contains("FailRemainingEntriesEnumeration")
+            || err.to_string().contains("remaining"),
+        "Unexpected error: {}",
+        err
+    );
+    assert!(backup_dir.exists());
+
+    // 2. Clear injected enumeration failure
+    fault::set_fault_point(None);
+
+    // 3. Retry recovery: must complete successfully when artifacts are safely reconcilable
+    let recovered = recover_dataset(&target)
+        .expect("Recovery must succeed once enumeration failure is cleared");
+    assert_eq!(recovered, target.join("current"));
+
+    // Redundant backup directory safely removed
+    assert!(
+        !backup_dir.exists(),
+        "Redundant backup directory should be removed after successful recovery"
+    );
+
+    // Deep verification passes
+    let v_rep = verify_dataset(&target, true).unwrap();
+    assert!(v_rep.deep_verification_passed);
+    let reader = DatasetReader::open(&target).unwrap();
+    assert_eq!(reader.total_games(), 4);
+
+    // 4. Subsequent recovery call remains idempotent
+    let recovered2 =
+        recover_dataset(&target).expect("Subsequent recovery must succeed idempotently");
+    assert_eq!(recovered2, target.join("current"));
+    let v_rep2 = verify_dataset(&target, true).unwrap();
+    assert!(v_rep2.deep_verification_passed);
+}
