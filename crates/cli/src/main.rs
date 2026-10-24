@@ -250,7 +250,8 @@ struct BenchmarkReport {
     run_name: String,
     collection: String,
     input_file: String,
-    input_size_bytes: u64,
+    #[serde(default)]
+    input_size_bytes: Option<u64>,
     total_encountered: u64,
     accepted_unique: u64,
     retained_canonical_games: usize,
@@ -729,11 +730,41 @@ fn run_build(opts: BuildOptions) -> Result<()> {
             .with_context(|| format!("Failed to parse manifest JSON in {}", m_path.display()))?;
 
         for s in parsed_manifest.sources {
-            let size = if s.path.exists() {
-                std::fs::metadata(&s.path).map(|m| m.len()).unwrap_or(0)
+            if s.path.as_os_str() != "-" && !s.path.exists() {
+                anyhow::bail!(
+                    "Source archive file '{}' specified in manifest does not exist",
+                    s.path.display()
+                );
+            }
+            let (size, verified_sha256) = if s.path.as_os_str() != "-" && s.path.exists() {
+                let file_size = std::fs::metadata(&s.path)?.len();
+                let actual_hash = compute_file_sha256(&s.path).with_context(|| {
+                    format!("Failed to compute SHA-256 for {}", s.path.display())
+                })?;
+                if let Some(ref expected_hash) = s.sha256 {
+                    if expected_hash.len() != 64
+                        || !expected_hash.chars().all(|c| c.is_ascii_hexdigit())
+                    {
+                        anyhow::bail!(
+                            "Malformed SHA-256 for source archive '{}': '{}' is not a valid 64-character hexadecimal checksum",
+                            s.path.display(),
+                            expected_hash
+                        );
+                    }
+                    if !expected_hash.eq_ignore_ascii_case(&actual_hash) {
+                        anyhow::bail!(
+                            "Source archive checksum mismatch for '{}': expected {}, calculated {}",
+                            s.path.display(),
+                            expected_hash,
+                            actual_hash
+                        );
+                    }
+                }
+                (file_size, Some(actual_hash.to_lowercase()))
             } else {
-                0
+                (0, None)
             };
+
             resolved_inputs.push(s.path.clone());
             source_metas.push(SourceArchiveMetadata {
                 filename: s
@@ -743,7 +774,7 @@ fn run_build(opts: BuildOptions) -> Result<()> {
                     .to_string_lossy()
                     .to_string(),
                 url: s.url,
-                sha256: s.sha256,
+                sha256: verified_sha256,
                 size_bytes: size,
                 license: s.license.unwrap_or_else(|| "Unknown".into()),
             });
@@ -752,19 +783,27 @@ fn run_build(opts: BuildOptions) -> Result<()> {
 
     for p in opts.input {
         if !resolved_inputs.contains(&p) {
-            let size = if p.as_os_str() != "-" && p.exists() {
-                std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0)
-            } else {
-                0
-            };
-            source_metas.push(SourceArchiveMetadata {
-                filename: p
+            if p.as_os_str() != "-" && !p.exists() {
+                anyhow::bail!("Source input file '{}' does not exist", p.display());
+            }
+            let (size, verified_sha256, fname) = if p.as_os_str() != "-" && p.exists() {
+                let file_size = std::fs::metadata(&p)?.len();
+                let actual_hash = compute_file_sha256(&p)
+                    .with_context(|| format!("Failed to compute SHA-256 for {}", p.display()))?;
+                let filename = p
                     .file_name()
                     .unwrap_or_default()
                     .to_string_lossy()
-                    .to_string(),
+                    .to_string();
+                (file_size, Some(actual_hash.to_lowercase()), filename)
+            } else {
+                (0, None, "<stdin>".to_string())
+            };
+
+            source_metas.push(SourceArchiveMetadata {
+                filename: fname,
                 url: None,
-                sha256: None,
+                sha256: verified_sha256,
                 size_bytes: size,
                 license: "Unknown".into(),
             });
@@ -1171,7 +1210,7 @@ fn run_benchmarks(
         run_name: run_name.to_string(),
         collection: collection.to_string(),
         input_file: input_path.display().to_string(),
-        input_size_bytes: input_size,
+        input_size_bytes: Some(input_size),
         total_encountered: stats.total_encountered,
         accepted_unique: stats.accepted_unique,
         retained_canonical_games: n_games,
@@ -1252,8 +1291,9 @@ fn run_bench_dataset(
     // 1. Load all games from persistent shards
     let load_start = Instant::now();
     let mut all_games = Vec::with_capacity(manifest.total_games as usize);
+    let snapshot_dir = reader.snapshot_dir().to_path_buf();
     for shard_meta in &manifest.shards {
-        let shard_path = dataset_dir.join("shards").join(&shard_meta.filename);
+        let shard_path = snapshot_dir.join("shards").join(&shard_meta.filename);
         let mut shard_reader = ShardReader::open(&shard_path)?;
         for b_idx in 0..shard_reader.block_count() {
             let block_games = shard_reader.decompress_block(b_idx)?;
@@ -1288,7 +1328,7 @@ fn run_bench_dataset(
     // 3. Measure persistent storage footprint
     let shards_bytes: u64 = manifest.shards.iter().map(|s| s.file_size_bytes).sum();
     let lookup_bytes = manifest.lookup_table.file_size_bytes;
-    let manifest_bytes = std::fs::metadata(dataset_dir.join("manifest.json"))
+    let manifest_bytes = std::fs::metadata(snapshot_dir.join("manifest.json"))
         .map(|m| m.len())
         .unwrap_or(0);
     let total_persistent_bytes = shards_bytes + lookup_bytes + manifest_bytes;
@@ -1397,10 +1437,18 @@ fn run_bench_dataset(
         .join(", ");
     let source_size: u64 = manifest.source_archives.iter().map(|s| s.size_bytes).sum();
 
+    let all_have_sha = !manifest.source_archives.is_empty()
+        && manifest.source_archives.iter().all(|s| s.sha256.is_some());
+    let prov_status = if all_have_sha {
+        "verified".to_string()
+    } else {
+        "declared_unverified".to_string()
+    };
+
     let report = BenchmarkReport {
         schema_version: "2.0.0".to_string(),
         benchmark_type: "dataset_archive".to_string(),
-        provenance_status: Some("declared".to_string()),
+        provenance_status: Some(prov_status),
         reproduction_status: Some("dataset_reproducible".to_string()),
         run_name: run_name.to_string(),
         collection: collection.to_string(),
@@ -1410,9 +1458,9 @@ fn run_bench_dataset(
             source_str
         },
         input_size_bytes: if source_size > 0 {
-            source_size
+            Some(source_size)
         } else {
-            total_persistent_bytes
+            None
         },
         total_encountered: stats.total_encountered,
         accepted_unique: stats.accepted_unique,
@@ -2330,5 +2378,228 @@ mod tests {
         assert_eq!(game.metadata.id, any_game_id);
         let pgn = reader.get_game_pgn(any_game_id).unwrap();
         assert!(!pgn.is_empty());
+    }
+
+    #[test]
+    fn test_cli_build_checksum_verification_success_and_failures() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let fixture_path = std::path::Path::new(manifest_dir)
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("fixtures")
+            .join("stage_a_validation.pgn");
+
+        if !fixture_path.exists() {
+            return;
+        }
+
+        let tmp = tempfile::tempdir().unwrap();
+        let valid_hash = compute_file_sha256(&fixture_path).unwrap();
+
+        // 1. Success with correct declared SHA-256
+        let sources_valid = tmp.path().join("sources_valid.json");
+        let manifest_json = format!(
+            r#"{{"sources": [{{"path": "{}", "url": null, "sha256": "{}", "size_bytes": 0, "license": "CC0"}}]}}"#,
+            fixture_path.display(),
+            valid_hash
+        );
+        std::fs::write(&sources_valid, manifest_json).unwrap();
+
+        let out_valid = tmp.path().join("out_valid");
+        run_build(BuildOptions {
+            manifest: Some(sources_valid),
+            input: vec![],
+            collection: CollectionArg::MastersOtb,
+            output: out_valid.clone(),
+            max_games: Some(5),
+            block_capacity: 4,
+            max_games_per_shard: 8,
+            zstd_level: 3,
+            dedupe_mode: DedupeModeArg::Disk,
+        })
+        .unwrap();
+
+        let reader = DatasetReader::open(&out_valid).unwrap();
+        assert_eq!(
+            reader.manifest().source_archives[0].sha256.as_deref(),
+            Some(valid_hash.as_str())
+        );
+
+        // 2. Failure with incorrect declared SHA-256 (hash mismatch)
+        let sources_mismatch = tmp.path().join("sources_mismatch.json");
+        let wrong_hash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        let manifest_json_wrong = format!(
+            r#"{{"sources": [{{"path": "{}", "url": null, "sha256": "{}", "size_bytes": 0, "license": "CC0"}}]}}"#,
+            fixture_path.display(),
+            wrong_hash
+        );
+        std::fs::write(&sources_mismatch, manifest_json_wrong).unwrap();
+
+        let out_mismatch = tmp.path().join("out_mismatch");
+        let err_mismatch = run_build(BuildOptions {
+            manifest: Some(sources_mismatch),
+            input: vec![],
+            collection: CollectionArg::MastersOtb,
+            output: out_mismatch.clone(),
+            max_games: Some(5),
+            block_capacity: 4,
+            max_games_per_shard: 8,
+            zstd_level: 3,
+            dedupe_mode: DedupeModeArg::Disk,
+        })
+        .unwrap_err();
+        assert!(err_mismatch.to_string().contains("checksum mismatch"));
+        assert!(!out_mismatch.join("current").exists());
+
+        // 3. Failure with malformed SHA-256
+        let sources_malformed = tmp.path().join("sources_malformed.json");
+        let manifest_json_malformed = format!(
+            r#"{{"sources": [{{"path": "{}", "url": null, "sha256": "not-a-valid-hex-hash", "size_bytes": 0, "license": "CC0"}}]}}"#,
+            fixture_path.display()
+        );
+        std::fs::write(&sources_malformed, manifest_json_malformed).unwrap();
+
+        let out_malformed = tmp.path().join("out_malformed");
+        let err_malformed = run_build(BuildOptions {
+            manifest: Some(sources_malformed),
+            input: vec![],
+            collection: CollectionArg::MastersOtb,
+            output: out_malformed.clone(),
+            max_games: Some(5),
+            block_capacity: 4,
+            max_games_per_shard: 8,
+            zstd_level: 3,
+            dedupe_mode: DedupeModeArg::Disk,
+        })
+        .unwrap_err();
+        assert!(err_malformed.to_string().contains("Malformed SHA-256"));
+        assert!(!out_malformed.join("current").exists());
+
+        // 4. Failure with missing source file
+        let sources_missing = tmp.path().join("sources_missing.json");
+        let nonexistent_path = tmp.path().join("nonexistent_file.pgn");
+        let manifest_json_missing = format!(
+            r#"{{"sources": [{{"path": "{}", "url": null, "sha256": "{}", "size_bytes": 0, "license": "CC0"}}]}}"#,
+            nonexistent_path.display(),
+            valid_hash
+        );
+        std::fs::write(&sources_missing, manifest_json_missing).unwrap();
+
+        let out_missing = tmp.path().join("out_missing");
+        let err_missing = run_build(BuildOptions {
+            manifest: Some(sources_missing),
+            input: vec![],
+            collection: CollectionArg::MastersOtb,
+            output: out_missing.clone(),
+            max_games: Some(5),
+            block_capacity: 4,
+            max_games_per_shard: 8,
+            zstd_level: 3,
+            dedupe_mode: DedupeModeArg::Disk,
+        })
+        .unwrap_err();
+        assert!(err_missing.to_string().contains("does not exist"));
+
+        // 5. Failure when file is altered after SHA-256 recorded
+        let altered_file = tmp.path().join("altered.pgn");
+        std::fs::copy(&fixture_path, &altered_file).unwrap();
+        let expected_altered_hash = compute_file_sha256(&altered_file).unwrap();
+        // Alter file
+        use std::io::Write;
+        let mut f = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&altered_file)
+            .unwrap();
+        f.write_all(b"\n% Tampered content\n").unwrap();
+        drop(f);
+
+        let sources_altered = tmp.path().join("sources_altered.json");
+        let manifest_json_altered = format!(
+            r#"{{"sources": [{{"path": "{}", "url": null, "sha256": "{}", "size_bytes": 0, "license": "CC0"}}]}}"#,
+            altered_file.display(),
+            expected_altered_hash
+        );
+        std::fs::write(&sources_altered, manifest_json_altered).unwrap();
+
+        let out_altered = tmp.path().join("out_altered");
+        let err_altered = run_build(BuildOptions {
+            manifest: Some(sources_altered),
+            input: vec![],
+            collection: CollectionArg::MastersOtb,
+            output: out_altered.clone(),
+            max_games: Some(5),
+            block_capacity: 4,
+            max_games_per_shard: 8,
+            zstd_level: 3,
+            dedupe_mode: DedupeModeArg::Disk,
+        })
+        .unwrap_err();
+        assert!(err_altered.to_string().contains("checksum mismatch"));
+    }
+
+    #[test]
+    fn test_bench_dataset_unknown_source_size_does_not_substitute_persistent_bytes() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let fixture_path = std::path::Path::new(manifest_dir)
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("fixtures")
+            .join("stage_a_validation.pgn");
+
+        if !fixture_path.exists() {
+            return;
+        }
+
+        let tmp = tempfile::tempdir().unwrap();
+        let dataset_dir = tmp.path().join("dataset_unknown_source");
+        let bench_out = tmp.path().join("bench_reports");
+
+        // Build dataset using direct input
+        run_build(BuildOptions {
+            manifest: None,
+            input: vec![fixture_path.clone()],
+            collection: CollectionArg::MastersOtb,
+            output: dataset_dir.clone(),
+            max_games: Some(10),
+            block_capacity: 4,
+            max_games_per_shard: 8,
+            zstd_level: 3,
+            dedupe_mode: DedupeModeArg::Disk,
+        })
+        .unwrap();
+
+        // Mutate dataset manifest so source size is 0 (simulating unknown original source size)
+        let resolved = codb_storage::resolve_dataset_snapshot(&dataset_dir).unwrap();
+        let manifest_file = resolved.join("manifest.json");
+        let mut manifest: codb_storage::DatasetManifest =
+            serde_json::from_slice(&std::fs::read(&manifest_file).unwrap()).unwrap();
+        for s in &mut manifest.source_archives {
+            s.size_bytes = 0;
+        }
+        std::fs::write(
+            &manifest_file,
+            serde_json::to_string_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+
+        // Run bench-dataset
+        run_bench_dataset(&dataset_dir, &bench_out, "bench_unknown_test", 5).unwrap();
+
+        let report_file = bench_out.join("bench_unknown_test.json");
+        assert!(report_file.exists());
+        let report_val: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&report_file).unwrap()).unwrap();
+
+        // Assert input_size_bytes is null (None), NOT substituted by total_persistent_bytes!
+        assert!(report_val["input_size_bytes"].is_null());
+
+        let p_storage = &report_val["persistent_storage"];
+        assert!(p_storage.is_object());
+        let total_p_bytes = p_storage["total_persistent_bytes"].as_u64().unwrap();
+        assert!(total_p_bytes > 0);
     }
 }

@@ -225,6 +225,44 @@ class TestValidateBenchmarks(unittest.TestCase):
         finally:
             os.remove(temp_path)
 
+    def test_unknown_source_size_cannot_disguise_as_archive_bytes(self):
+        """Condition 10: Unknown source size cannot disguise archive bytes as input size."""
+        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+            archive_data = json.load(f)
+
+        corrupt = copy.deepcopy(archive_data)
+        # Zero source size (unknown source) but set input_size_bytes = total_persistent_bytes
+        corrupt["source_archives"][0]["size_bytes"] = 0
+        corrupt["input_size_bytes"] = corrupt["persistent_storage"]["total_persistent_bytes"]
+
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(corrupt, f)
+            temp_path = f.name
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                validate_benchmark_file(temp_path)
+            self.assertIn("incorrectly populates source input_size_bytes", str(ctx.exception))
+        finally:
+            os.remove(temp_path)
+
+    def test_unknown_source_size_with_none_passes(self):
+        """Condition 11: Unknown source size represented honestly as null passes."""
+        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+            archive_data = json.load(f)
+
+        valid = copy.deepcopy(archive_data)
+        valid["source_archives"][0]["size_bytes"] = 0
+        valid["input_size_bytes"] = None
+
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(valid, f)
+            temp_path = f.name
+        try:
+            res = validate_benchmark_file(temp_path)
+            self.assertIsNone(res["input_size_bytes"])
+        finally:
+            os.remove(temp_path)
+
 
 if __name__ == "__main__":
     unittest.main()

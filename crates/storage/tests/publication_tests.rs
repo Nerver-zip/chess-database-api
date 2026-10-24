@@ -4,8 +4,8 @@ use codb_core::{
 };
 use codb_storage::fault::{self, FaultPoint};
 use codb_storage::{
-    cleanup_old_versions, recover_dataset, verify_dataset, DatasetReader, DatasetWriter,
-    DatasetWriterConfig, SourceArchiveMetadata, StorageError,
+    cleanup_old_versions, recover_dataset, resolve_dataset_snapshot, verify_dataset, DatasetReader,
+    DatasetWriter, DatasetWriterConfig, SourceArchiveMetadata, StorageError,
 };
 use std::fs;
 use std::path::Path;
@@ -96,6 +96,48 @@ fn create_dataset(
     };
 
     writer.finalize(stats, vec![source])?;
+    Ok(())
+}
+
+fn create_legacy_flat_dataset(
+    target_dir: &Path,
+    games_count: usize,
+    seed_offset: u64,
+) -> Result<(), StorageError> {
+    create_dataset(target_dir, games_count, seed_offset)?;
+    let active_version = resolve_dataset_snapshot(target_dir)?;
+    let temp_staging = target_dir
+        .parent()
+        .unwrap()
+        .join(format!("legacy_flat_tmp_{}", std::process::id()));
+    if temp_staging.exists() {
+        let _ = fs::remove_dir_all(&temp_staging);
+    }
+    fs::create_dir_all(&temp_staging)?;
+    for item in ["manifest.json", "games.idx", "shards"] {
+        let src = active_version.join(item);
+        if src.exists() {
+            if src.is_dir() {
+                let dst = temp_staging.join(item);
+                fs::create_dir_all(&dst)?;
+                for entry in fs::read_dir(&src)? {
+                    let entry = entry?;
+                    fs::copy(entry.path(), dst.join(entry.file_name()))?;
+                }
+            } else {
+                fs::copy(&src, temp_staging.join(item))?;
+            }
+        }
+    }
+    let _ = fs::remove_dir_all(target_dir);
+    fs::create_dir_all(target_dir)?;
+    for item in ["manifest.json", "games.idx", "shards"] {
+        let src = temp_staging.join(item);
+        if src.exists() {
+            fs::rename(src, target_dir.join(item))?;
+        }
+    }
+    let _ = fs::remove_dir_all(&temp_staging);
     Ok(())
 }
 
@@ -511,4 +553,304 @@ fn test_crash_simulation_subprocess_termination() {
 
     let v_report = verify_dataset(&target, true).unwrap();
     assert!(v_report.deep_verification_passed);
+}
+
+#[test]
+fn test_live_reader_pinned_to_snapshot_across_publication() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("dataset_published");
+
+    // 1. Publish dataset A with 4 games (seeds 100..104, block_cap=2, max_shard=4)
+    create_dataset(&target, 4, 100).expect("Dataset A build should succeed");
+    let mut reader_a = DatasetReader::open(&target).expect("Reader A should open target");
+    assert_eq!(reader_a.total_games(), 4);
+    let snap_a_dir = reader_a.snapshot_dir().to_path_buf();
+
+    // Retrieve game 100 from dataset A
+    let g100 = sample_game(100, Collection::MastersOtb, "Carlsen", "Caruana");
+    let retrieved_100 = reader_a.get_game(g100.metadata.id).unwrap();
+    assert_eq!(retrieved_100.metadata.id, g100.metadata.id);
+
+    // 2. Publish dataset B with 6 games and different seeds (500..506)
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    create_dataset(&target, 6, 500).expect("Dataset B build should succeed");
+
+    // 3. Reader A must STILL observe dataset A snapshot, even though 'current' now points to B!
+    assert_eq!(reader_a.snapshot_dir(), &snap_a_dir);
+    assert_eq!(reader_a.total_games(), 4);
+
+    // Retrieve game 103 from dataset A through reader_a (triggers lazy shard decompression from A)
+    let g103 = sample_game(103, Collection::MastersOtb, "Carlsen", "Caruana");
+    let retrieved_103 = reader_a.get_game(g103.metadata.id).unwrap();
+    assert_eq!(retrieved_103.metadata.id, g103.metadata.id);
+
+    // Reader A cannot see games from dataset B
+    let g500 = sample_game(500, Collection::MastersOtb, "Carlsen", "Caruana");
+    assert!(matches!(
+        reader_a.get_game(g500.metadata.id),
+        Err(StorageError::GameNotFound(_))
+    ));
+
+    // 4. A newly opened reader B observes dataset B
+    let mut reader_b = DatasetReader::open(&target).expect("Reader B should open target");
+    assert_eq!(reader_b.total_games(), 6);
+    assert_ne!(reader_b.snapshot_dir(), &snap_a_dir);
+
+    // Reader B retrieves game 500
+    let retrieved_500 = reader_b.get_game(g500.metadata.id).unwrap();
+    assert_eq!(retrieved_500.metadata.id, g500.metadata.id);
+
+    // Reader B cannot see games from dataset A
+    assert!(matches!(
+        reader_b.get_game(g100.metadata.id),
+        Err(StorageError::GameNotFound(_))
+    ));
+}
+
+#[test]
+fn test_verify_dataset_uses_single_snapshot_during_publication() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("dataset_published");
+
+    // Publish dataset A (4 games)
+    create_dataset(&target, 4, 100).expect("Dataset A build should succeed");
+    let snap_a = resolve_dataset_snapshot(&target).expect("Snapshot A should resolve");
+
+    // Publish dataset B (6 games)
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    create_dataset(&target, 6, 500).expect("Dataset B build should succeed");
+
+    // Verify snapshot A directly: operates strictly on snapshot A
+    let rep_a = verify_dataset(&snap_a, true).expect("Snapshot A verification should pass");
+    assert_eq!(rep_a.total_games, 4);
+    assert!(rep_a.deep_verification_passed);
+
+    // Verify target (which is now active version B): operates strictly on snapshot B
+    let rep_b = verify_dataset(&target, true).expect("Dataset target verification should pass");
+    assert_eq!(rep_b.total_games, 6);
+    assert!(rep_b.deep_verification_passed);
+}
+
+#[test]
+fn test_repeated_transitions_readers_retain_fidelity() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("dataset_published");
+
+    // Publish version A (4 games)
+    create_dataset(&target, 4, 100).unwrap();
+    let mut reader_a = DatasetReader::open(&target).unwrap();
+    let snap_a = reader_a.snapshot_dir().to_path_buf();
+
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    // Publish version B (6 games)
+    create_dataset(&target, 6, 200).unwrap();
+    let mut reader_b = DatasetReader::open(&target).unwrap();
+    let snap_b = reader_b.snapshot_dir().to_path_buf();
+
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    // Publish version C (8 games)
+    create_dataset(&target, 8, 300).unwrap();
+    let mut reader_c = DatasetReader::open(&target).unwrap();
+    let snap_c = reader_c.snapshot_dir().to_path_buf();
+
+    // Verify all 3 snapshots are physically distinct
+    assert_ne!(snap_a, snap_b);
+    assert_ne!(snap_b, snap_c);
+    assert_ne!(snap_a, snap_c);
+
+    // Verify reader A retains fidelity to version A
+    assert_eq!(reader_a.total_games(), 4);
+    let g103 = sample_game(103, Collection::MastersOtb, "Carlsen", "Caruana");
+    assert_eq!(
+        reader_a.get_game(g103.metadata.id).unwrap().metadata.id,
+        g103.metadata.id
+    );
+
+    // Verify reader B retains fidelity to version B
+    assert_eq!(reader_b.total_games(), 6);
+    let g205 = sample_game(205, Collection::MastersOtb, "Carlsen", "Caruana");
+    assert_eq!(
+        reader_b.get_game(g205.metadata.id).unwrap().metadata.id,
+        g205.metadata.id
+    );
+
+    // Verify reader C retains fidelity to version C
+    assert_eq!(reader_c.total_games(), 8);
+    let g307 = sample_game(307, Collection::MastersOtb, "Carlsen", "Caruana");
+    assert_eq!(
+        reader_c.get_game(g307.metadata.id).unwrap().metadata.id,
+        g307.metadata.id
+    );
+}
+
+#[test]
+fn test_retention_contract_cleanup_with_live_reader() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("dataset_published");
+
+    // 1. Publish version A (4 games, seed 100)
+    create_dataset(&target, 4, 100).unwrap();
+    let mut reader_a = DatasetReader::open(&target).unwrap();
+
+    // 2. Publish version B (6 games, seed 200)
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    create_dataset(&target, 6, 200).unwrap();
+
+    // 3. Cleanup with keep_versions = 1: keeps active (B) + 1 previous (A)
+    let removed = cleanup_old_versions(&target, 1).unwrap();
+    assert_eq!(removed, 0); // Both A and B are retained
+
+    // Reader A remains 100% functional
+    let g100 = sample_game(100, Collection::MastersOtb, "Carlsen", "Caruana");
+    assert_eq!(
+        reader_a.get_game(g100.metadata.id).unwrap().metadata.id,
+        g100.metadata.id
+    );
+
+    // 4. Publish versions C and D
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    create_dataset(&target, 6, 300).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    create_dataset(&target, 6, 400).unwrap();
+
+    // 5. Cleanup with keep_versions = 1: keeps active (D) + 1 previous (C).
+    // Older versions A and B are now pruned!
+    let removed2 = cleanup_old_versions(&target, 1).unwrap();
+    assert_eq!(removed2, 2); // Versions A and B pruned
+
+    // If reader_a now attempts to open a shard that was not previously opened,
+    // it fails closed with an explicit I/O error (not found), rather than reading corrupt/wrong data
+    let snap_a = reader_a.snapshot_dir().to_path_buf();
+    assert!(
+        !snap_a.exists(),
+        "Snapshot A directory must have been pruned"
+    );
+}
+
+#[test]
+fn test_legacy_dataset_compatibility() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("legacy_dataset");
+
+    // Create an authentic legacy flat dataset (manifest.json, games.idx, shards in root)
+    create_legacy_flat_dataset(&target, 4, 100).unwrap();
+
+    // Verify it is recognized and readable
+    assert!(target.join("manifest.json").is_file());
+    assert!(!target.join("current").exists());
+    assert!(!target.join("versions").exists());
+
+    let mut reader = DatasetReader::open(&target).expect("Legacy flat dataset should open");
+    assert_eq!(reader.total_games(), 4);
+    let g100 = sample_game(100, Collection::MastersOtb, "Carlsen", "Caruana");
+    let retrieved = reader.get_game(g100.metadata.id).unwrap();
+    assert_eq!(retrieved.metadata.id, g100.metadata.id);
+
+    // Deep verification succeeds on legacy flat dataset
+    let v_rep = verify_dataset(&target, true).expect("Legacy flat dataset should pass deep verify");
+    assert!(v_rep.deep_verification_passed);
+}
+
+#[test]
+fn test_legacy_migration_fault_injection_across_all_steps() {
+    let fault_points = [
+        FaultPoint::BeforeLegacyMigrationPrep,
+        FaultPoint::AfterLegacyMigrationDestCreated,
+        FaultPoint::AfterLegacyFirstFileTransfer,
+        FaultPoint::BetweenLegacyFileTransfers,
+        FaultPoint::AfterLegacyCandidateVerify,
+        FaultPoint::BeforeLegacySymlinkSwitch,
+        FaultPoint::AfterLegacySymlinkSwitch,
+        FaultPoint::DuringLegacyCleanup,
+    ];
+
+    for fault in fault_points {
+        let tmp = tempdir().unwrap();
+        let target = tmp.path().join(format!("legacy_migration_{:?}", fault));
+
+        // Create authentic legacy flat dataset
+        create_legacy_flat_dataset(&target, 4, 100).unwrap();
+
+        // Inject fault
+        fault::set_fault_point(Some(fault));
+
+        // Attempt recovery or operation triggering migration: must fail at the fault point
+        let res = recover_dataset(&target);
+        assert!(res.is_err(), "Must fail at fault point {:?}", fault);
+
+        // Reset fault
+        fault::set_fault_point(None);
+
+        // Recover dataset after failure: must recover without data loss!
+        let recovered = recover_dataset(&target)
+            .unwrap_or_else(|e| panic!("Failed to recover at fault point {:?}: {}", fault, e));
+        assert_eq!(recovered, target.join("current"));
+
+        // Deep verification must pass
+        let v_rep = verify_dataset(&target, true).unwrap();
+        assert!(v_rep.deep_verification_passed);
+
+        // Reader must retrieve all games accurately
+        let mut reader = DatasetReader::open(&target).unwrap();
+        assert_eq!(reader.total_games(), 4);
+        let g100 = sample_game(100, Collection::MastersOtb, "Carlsen", "Caruana");
+        let g103 = sample_game(103, Collection::MastersOtb, "Carlsen", "Caruana");
+        assert_eq!(
+            reader.get_game(g100.metadata.id).unwrap().metadata.id,
+            g100.metadata.id
+        );
+        assert_eq!(
+            reader.get_game(g103.metadata.id).unwrap().metadata.id,
+            g103.metadata.id
+        );
+
+        // Repeated recovery must be idempotent
+        let rec2 = recover_dataset(&target).unwrap();
+        assert_eq!(rec2, target.join("current"));
+    }
+}
+
+#[test]
+fn test_legacy_migration_split_state_recovery() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("split_state_dataset");
+
+    // Create authentic legacy flat dataset
+    create_legacy_flat_dataset(&target, 4, 100).unwrap();
+
+    // Artificially simulate an interrupted move where manifest.json was moved to versions/legacy_v0
+    // but games.idx and shards/ were left behind in the root target_dir
+    let versions_dir = target.join("versions");
+    let legacy_v0 = versions_dir.join("legacy_v0");
+    fs::create_dir_all(&legacy_v0).unwrap();
+    fs::rename(
+        target.join("manifest.json"),
+        legacy_v0.join("manifest.json"),
+    )
+    .unwrap();
+
+    // Assert split state
+    assert!(!target.join("manifest.json").exists());
+    assert!(target.join("games.idx").exists());
+    assert!(target.join("shards").exists());
+    assert!(legacy_v0.join("manifest.json").exists());
+    assert!(!legacy_v0.join("games.idx").exists());
+    assert!(!target.join("current").exists());
+
+    // Recover dataset: must consolidate split state, activate legacy_v0, and restore full functionality
+    let recovered = recover_dataset(&target).expect("Split state recovery must succeed");
+    assert_eq!(recovered, target.join("current"));
+
+    // Deep verification must pass
+    let v_rep = verify_dataset(&target, true).unwrap();
+    assert!(v_rep.deep_verification_passed);
+
+    // Retrieve games
+    let mut reader = DatasetReader::open(&target).unwrap();
+    assert_eq!(reader.total_games(), 4);
+    let g100 = sample_game(100, Collection::MastersOtb, "Carlsen", "Caruana");
+    assert_eq!(
+        reader.get_game(g100.metadata.id).unwrap().metadata.id,
+        g100.metadata.id
+    );
 }

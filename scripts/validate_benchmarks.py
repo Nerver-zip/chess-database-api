@@ -122,9 +122,15 @@ def validate_benchmark_file(path):
             p_bytes = data["persistent_storage"].get("total_persistent_bytes")
             sources = data.get("source_archives", [])
             source_size = sum(s.get("size_bytes", 0) for s in sources)
-            if source_size > 0 and data.get("input_size_bytes") == p_bytes and source_size != p_bytes:
+            inp_bytes = data.get("input_size_bytes")
+            if (
+                inp_bytes is not None
+                and inp_bytes == p_bytes
+                and (source_size != p_bytes or source_size == 0)
+            ):
                 raise ValueError(
-                    f"{path}: Physical archive size ({p_bytes}) incorrectly populates source input_size_bytes!"
+                    f"{path}: Physical archive size ({p_bytes}) incorrectly populates source input_size_bytes! "
+                    "When original source size is unknown, input_size_bytes must not disguise archive size."
                 )
     elif b_type == "raw_ingest":
         if import_dur is None or import_dur <= 0:

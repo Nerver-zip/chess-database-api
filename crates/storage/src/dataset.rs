@@ -24,6 +24,15 @@ pub mod fault {
         AfterCurrentSymlinkSwitch,
         FailSyncDirContents,
         FailSyncDirItself,
+        // Legacy migration interruption points
+        BeforeLegacyMigrationPrep,
+        AfterLegacyMigrationDestCreated,
+        AfterLegacyFirstFileTransfer,
+        BetweenLegacyFileTransfers,
+        AfterLegacyCandidateVerify,
+        BeforeLegacySymlinkSwitch,
+        AfterLegacySymlinkSwitch,
+        DuringLegacyCleanup,
     }
 
     thread_local! {
@@ -51,6 +60,14 @@ pub mod fault {
                 FaultPoint::AfterCurrentSymlinkSwitch => "AfterCurrentSymlinkSwitch",
                 FaultPoint::FailSyncDirContents => "FailSyncDirContents",
                 FaultPoint::FailSyncDirItself => "FailSyncDirItself",
+                FaultPoint::BeforeLegacyMigrationPrep => "BeforeLegacyMigrationPrep",
+                FaultPoint::AfterLegacyMigrationDestCreated => "AfterLegacyMigrationDestCreated",
+                FaultPoint::AfterLegacyFirstFileTransfer => "AfterLegacyFirstFileTransfer",
+                FaultPoint::BetweenLegacyFileTransfers => "BetweenLegacyFileTransfers",
+                FaultPoint::AfterLegacyCandidateVerify => "AfterLegacyCandidateVerify",
+                FaultPoint::BeforeLegacySymlinkSwitch => "BeforeLegacySymlinkSwitch",
+                FaultPoint::AfterLegacySymlinkSwitch => "AfterLegacySymlinkSwitch",
+                FaultPoint::DuringLegacyCleanup => "DuringLegacyCleanup",
             };
             if val == match_str {
                 std::process::exit(137);
@@ -404,7 +421,13 @@ impl DatasetWriter {
         fs::create_dir_all(&versions_dir)?;
 
         // If target_dir has a legacy layout without versions/current, migrate it
-        if target_dir.join("manifest.json").is_file() && !target_dir.join("current").exists() {
+        let root_manifest = target_dir.join("manifest.json");
+        let is_flat_legacy = root_manifest.is_file()
+            && !fs::symlink_metadata(&root_manifest)
+                .map(|m| m.file_type().is_symlink())
+                .unwrap_or(false)
+            && !target_dir.join("current").exists();
+        if is_flat_legacy {
             migrate_legacy_dataset(&target_dir)?;
         }
 
@@ -418,6 +441,15 @@ impl DatasetWriter {
                 } else if name_str.starts_with(".current_tmp") || name_str.starts_with(".tmp_link_")
                 {
                     let _ = fs::remove_file(entry.path());
+                }
+            }
+        }
+        if let Ok(entries) = fs::read_dir(&versions_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with(".staging_") {
+                    let _ = fs::remove_dir_all(entry.path());
                 }
             }
         }
@@ -803,6 +835,11 @@ impl DatasetWriter {
 }
 
 /// Reader for a finalized persistent CGB3 dataset.
+///
+/// Guaranteed snapshot consistency: Upon opening, the reader binds to an immutable physical
+/// dataset version snapshot directory (resolved via [`resolve_dataset_snapshot`]). All subsequent
+/// manifest reads, index lookups, and lazy shard loadings are pinned strictly to that physical
+/// directory, even if active-version transitions or new publications occur concurrently.
 pub struct DatasetReader {
     dataset_dir: PathBuf,
     manifest: DatasetManifest,
@@ -813,13 +850,18 @@ pub struct DatasetReader {
 }
 
 impl DatasetReader {
+    /// Opens a dataset for reading, binding exclusively to a single immutable dataset snapshot.
+    ///
+    /// The physical version directory is resolved once at initialization. Even if `current`
+    /// is atomically updated to a newer dataset version later, this reader instance continues
+    /// to observe and decompress from its original version snapshot without version tearing.
     pub fn open(dataset_dir: &Path) -> Result<Self, StorageError> {
-        let effective_dir = resolve_dataset_dir(dataset_dir);
-        let manifest_path = effective_dir.join("manifest.json");
+        let snapshot_dir = resolve_dataset_snapshot(dataset_dir)?;
+        let manifest_path = snapshot_dir.join("manifest.json");
         if !manifest_path.exists() {
             return Err(StorageError::Decoding(format!(
-                "Dataset directory '{}' is missing manifest.json",
-                dataset_dir.display()
+                "Dataset snapshot directory '{}' is missing manifest.json",
+                snapshot_dir.display()
             )));
         }
 
@@ -827,16 +869,21 @@ impl DatasetReader {
         let manifest: DatasetManifest = serde_json::from_slice(&manifest_bytes)
             .map_err(|e| StorageError::Decoding(format!("Invalid manifest.json: {}", e)))?;
 
-        let lookup_path = effective_dir.join(&manifest.lookup_table.filename);
+        let lookup_path = snapshot_dir.join(&manifest.lookup_table.filename);
         let lookup_reader = GameLookupReader::open(&lookup_path)?;
 
         Ok(DatasetReader {
-            dataset_dir: effective_dir,
+            dataset_dir: snapshot_dir,
             manifest,
             lookup_reader,
             open_shards: HashMap::new(),
             cached_block: None,
         })
+    }
+
+    /// Returns the immutable physical snapshot directory this reader is pinned to.
+    pub fn snapshot_dir(&self) -> &Path {
+        &self.dataset_dir
     }
 
     pub fn manifest(&self) -> &DatasetManifest {
@@ -1011,13 +1058,17 @@ pub struct VerificationReport {
 }
 
 /// Comprehensive dataset verification command logic.
+///
+/// Guaranteed snapshot consistency: resolves the dataset to its immutable physical version
+/// directory at startup and performs all index checksum, shard checksum, accounting, and
+/// block-decompression checks against that single pinned snapshot.
 pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationReport, StorageError> {
-    let effective_dir = resolve_dataset_dir(dataset_dir);
-    let reader = DatasetReader::open(&effective_dir)?;
+    let snapshot_dir = resolve_dataset_snapshot(dataset_dir)?;
+    let reader = DatasetReader::open(&snapshot_dir)?;
     let manifest = reader.manifest().clone();
 
     // 1. Verify lookup file SHA-256
-    let lookup_path = effective_dir.join(&manifest.lookup_table.filename);
+    let lookup_path = snapshot_dir.join(&manifest.lookup_table.filename);
     let actual_lookup_sha256 = compute_file_sha256(&lookup_path)?;
     if actual_lookup_sha256 != manifest.lookup_table.sha256 {
         return Err(StorageError::Decoding(format!(
@@ -1028,7 +1079,7 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
 
     // 2. Verify all shard file SHA-256 checksums and headers
     for shard_meta in &manifest.shards {
-        let shard_path = effective_dir.join("shards").join(&shard_meta.filename);
+        let shard_path = snapshot_dir.join("shards").join(&shard_meta.filename);
         let actual_shard_sha256 = compute_file_sha256(&shard_path)?;
         if actual_shard_sha256 != shard_meta.sha256 {
             return Err(StorageError::Decoding(format!(
@@ -1116,7 +1167,7 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
         // D. Decompress every block in every shard and verify 1-to-1 mapping to lookup
         let mut physical_game_count = 0u64;
         for shard_meta in &manifest.shards {
-            let shard_path = effective_dir.join("shards").join(&shard_meta.filename);
+            let shard_path = snapshot_dir.join("shards").join(&shard_meta.filename);
             let mut s_reader = ShardReader::open(&shard_path)?;
 
             if s_reader.collection() != manifest.collection {
@@ -1182,42 +1233,131 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
     })
 }
 
+/// Resolves a dataset directory to its immutable physical snapshot directory.
+///
+/// If `dataset_dir/current` exists, resolves it to the physical version directory
+/// (e.g. `<target>/versions/<build_id>`) and validates that `manifest.json` is present.
+/// If `dataset_dir` directly contains `manifest.json` (e.g. legacy flat layout or direct
+/// version path), canonicalizes and validates it.
+///
+/// Once resolved, readers and verifiers bind exclusively to this immutable snapshot directory,
+/// ensuring that subsequent publication transitions or symlink changes do not alter
+/// the dataset snapshot observed by the active reader or verifier.
+pub fn resolve_dataset_snapshot(dataset_dir: &Path) -> Result<PathBuf, StorageError> {
+    if !dataset_dir.exists() {
+        return Err(StorageError::Decoding(format!(
+            "Dataset directory '{}' does not exist",
+            dataset_dir.display()
+        )));
+    }
+
+    let current = dataset_dir.join("current");
+    if fs::symlink_metadata(&current).is_ok() || current.exists() {
+        if let Ok(canonical) = fs::canonicalize(&current) {
+            if canonical.join("manifest.json").exists() {
+                return Ok(canonical);
+            }
+        }
+    }
+
+    let manifest = dataset_dir.join("manifest.json");
+    if manifest.exists() {
+        let canonical = fs::canonicalize(dataset_dir).unwrap_or_else(|_| dataset_dir.to_path_buf());
+        if canonical.join("manifest.json").exists() {
+            return Ok(canonical);
+        }
+    }
+
+    Err(StorageError::Decoding(format!(
+        "Dataset directory '{}' is missing manifest.json (neither current/manifest.json nor manifest.json found)",
+        dataset_dir.display()
+    )))
+}
+
 /// Resolves a dataset directory path to its active data directory,
 /// supporting both versioned layouts (`target/current`) and legacy flat directories.
 pub fn resolve_dataset_dir(dataset_dir: &Path) -> PathBuf {
-    let current = dataset_dir.join("current");
-    if current.join("manifest.json").exists() {
-        current
-    } else {
-        dataset_dir.to_path_buf()
-    }
+    resolve_dataset_snapshot(dataset_dir).unwrap_or_else(|_| dataset_dir.to_path_buf())
 }
 
 fn migrate_legacy_dataset(target_dir: &Path) -> Result<(), StorageError> {
+    fault::trigger_if(fault::FaultPoint::BeforeLegacyMigrationPrep)?;
     let versions_dir = target_dir.join("versions");
     fs::create_dir_all(&versions_dir)?;
-    let legacy_dir = versions_dir.join("legacy_v0");
-    if !legacy_dir.exists() {
-        fs::create_dir_all(&legacy_dir)?;
-        for item in ["manifest.json", "games.idx", "shards"] {
-            let src = target_dir.join(item);
-            let dst = legacy_dir.join(item);
-            if src.exists() {
-                fs::rename(&src, &dst)?;
+
+    let now_nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let staging_id = format!(".staging_legacy_{}_{}", std::process::id(), now_nanos);
+    let staging_dir = versions_dir.join(&staging_id);
+    if staging_dir.exists() {
+        let _ = fs::remove_dir_all(&staging_dir);
+    }
+    fs::create_dir_all(&staging_dir)?;
+    fs::create_dir_all(staging_dir.join("shards"))?;
+
+    fault::trigger_if(fault::FaultPoint::AfterLegacyMigrationDestCreated)?;
+
+    // 1. Copy manifest.json (preserving source in target_dir)
+    let src_manifest = target_dir.join("manifest.json");
+    if src_manifest.exists() {
+        fs::copy(&src_manifest, staging_dir.join("manifest.json"))?;
+    }
+    fault::trigger_if(fault::FaultPoint::AfterLegacyFirstFileTransfer)?;
+
+    // 2. Copy games.idx (preserving source in target_dir)
+    let src_lookup = target_dir.join("games.idx");
+    if src_lookup.exists() {
+        fs::copy(&src_lookup, staging_dir.join("games.idx"))?;
+    }
+    fault::trigger_if(fault::FaultPoint::BetweenLegacyFileTransfers)?;
+
+    // 3. Copy shards (preserving source in target_dir)
+    let src_shards = target_dir.join("shards");
+    if src_shards.is_dir() {
+        for entry in fs::read_dir(&src_shards)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() {
+                let fname = entry.file_name();
+                fs::copy(&path, staging_dir.join("shards").join(&fname))?;
             }
         }
-        #[cfg(unix)]
-        {
-            let tmp_link = target_dir.join(format!(".current_tmp_{}", std::process::id()));
-            let _ = fs::remove_file(&tmp_link);
-            symlink("versions/legacy_v0", &tmp_link)?;
-            fs::rename(&tmp_link, target_dir.join("current"))?;
-        }
-        ensure_root_symlinks(target_dir)?;
-        sync_dir_contents(&legacy_dir)?;
-        sync_dir_itself(&versions_dir)?;
-        sync_dir_itself(target_dir)?;
     }
+
+    // 4. Synchronize staged contents to durable storage
+    sync_dir_contents(&staging_dir)?;
+
+    // 5. Verify staging candidate before activation
+    verify_dataset(&staging_dir, false)?;
+    fault::trigger_if(fault::FaultPoint::AfterLegacyCandidateVerify)?;
+
+    // 6. Rename staged candidate to versions/legacy_v0
+    let legacy_dir = versions_dir.join("legacy_v0");
+    if legacy_dir.exists() {
+        let _ = fs::remove_dir_all(&legacy_dir);
+    }
+    fs::rename(&staging_dir, &legacy_dir)?;
+    sync_dir_contents(&legacy_dir)?;
+    sync_dir_itself(&versions_dir)?;
+
+    // 7. Atomic symlink activation
+    fault::trigger_if(fault::FaultPoint::BeforeLegacySymlinkSwitch)?;
+    #[cfg(unix)]
+    {
+        let tmp_link = target_dir.join(format!(".current_tmp_{}", std::process::id()));
+        let _ = fs::remove_file(&tmp_link);
+        symlink("versions/legacy_v0", &tmp_link)?;
+        fs::rename(&tmp_link, target_dir.join("current"))?;
+    }
+    fault::trigger_if(fault::FaultPoint::AfterLegacySymlinkSwitch)?;
+
+    // 8. Cleanup/symlink step: replace root files with convenience symlinks
+    fault::trigger_if(fault::FaultPoint::DuringLegacyCleanup)?;
+    ensure_root_symlinks(target_dir)?;
+    sync_dir_itself(target_dir)?;
+
     Ok(())
 }
 
@@ -1230,11 +1370,16 @@ fn ensure_root_symlinks(target_dir: &Path) -> Result<(), StorageError> {
             ("shards", "current/shards"),
         ] {
             let link_path = target_dir.join(link_name);
-            let needs_link = match fs::symlink_metadata(&link_path) {
-                Ok(meta) => !meta.file_type().is_symlink(),
-                Err(_) => true,
+            let is_symlink = match fs::symlink_metadata(&link_path) {
+                Ok(meta) => meta.file_type().is_symlink(),
+                Err(_) => false,
             };
-            if needs_link {
+            if !is_symlink {
+                if link_path.is_dir() {
+                    let _ = fs::remove_dir_all(&link_path);
+                } else if link_path.exists() {
+                    let _ = fs::remove_file(&link_path);
+                }
                 let tmp_link =
                     target_dir.join(format!(".tmp_link_{}_{}", link_name, std::process::id()));
                 let _ = fs::remove_file(&tmp_link);
@@ -1247,7 +1392,8 @@ fn ensure_root_symlinks(target_dir: &Path) -> Result<(), StorageError> {
 }
 
 /// Safe, deterministic, and idempotent recovery procedure for datasets.
-/// Detects interrupted publications, cleans up stale staging data,
+/// Detects interrupted publications and interrupted legacy migrations across every state,
+/// cleans up stale staging data, restores missing pieces from split states,
 /// and restores the active 'current' version safely.
 pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
     if !target_dir.exists() {
@@ -1269,6 +1415,18 @@ pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
             }
         }
     }
+    let versions_dir = target_dir.join("versions");
+    if versions_dir.is_dir() {
+        if let Ok(entries) = fs::read_dir(&versions_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with(".staging_") {
+                    let _ = fs::remove_dir_all(entry.path());
+                }
+            }
+        }
+    }
 
     // 2. Check if current symlink exists and is valid
     let current_path = target_dir.join("current");
@@ -1278,8 +1436,58 @@ pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
         false
     };
 
-    // 3. Inspect versions directory
-    let versions_dir = target_dir.join("versions");
+    if current_is_valid {
+        ensure_root_symlinks(target_dir)?;
+        sync_dir_itself(target_dir)?;
+        return Ok(current_path);
+    }
+
+    // 3. Check for partial legacy split states (e.g. from prior aborted legacy migration where files were moved or split)
+    let legacy_dir = versions_dir.join("legacy_v0");
+    if legacy_dir.is_dir() {
+        let leg_manifest = legacy_dir.join("manifest.json");
+        let leg_lookup = legacy_dir.join("games.idx");
+        let leg_shards = legacy_dir.join("shards");
+
+        let root_manifest = target_dir.join("manifest.json");
+        let root_lookup = target_dir.join("games.idx");
+        let root_shards = target_dir.join("shards");
+
+        if !leg_lookup.exists() && root_lookup.is_file() {
+            let _ = fs::copy(&root_lookup, &leg_lookup);
+        }
+        if !leg_shards.exists() && root_shards.is_dir() {
+            let _ = fs::create_dir_all(&leg_shards);
+            if let Ok(entries) = fs::read_dir(&root_shards) {
+                for entry in entries.flatten() {
+                    let _ = fs::copy(entry.path(), leg_shards.join(entry.file_name()));
+                }
+            }
+        }
+        if !leg_manifest.exists() && root_manifest.is_file() {
+            let _ = fs::copy(&root_manifest, &leg_manifest);
+        }
+        if !root_manifest.exists() && leg_manifest.is_file() {
+            let _ = fs::copy(&leg_manifest, &root_manifest);
+        }
+
+        if verify_dataset(&legacy_dir, false).is_ok() {
+            #[cfg(unix)]
+            {
+                let tmp_link = target_dir.join(format!(".current_tmp_{}", std::process::id()));
+                let _ = fs::remove_file(&tmp_link);
+                symlink("versions/legacy_v0", &tmp_link)?;
+                fs::rename(&tmp_link, target_dir.join("current"))?;
+            }
+            ensure_root_symlinks(target_dir)?;
+            sync_dir_itself(target_dir)?;
+            return Ok(target_dir.join("current"));
+        } else {
+            let _ = fs::remove_dir_all(&legacy_dir);
+        }
+    }
+
+    // 4. Inspect versions directory for latest valid version
     if versions_dir.is_dir() {
         let mut candidates = Vec::new();
         if let Ok(entries) = fs::read_dir(&versions_dir) {
@@ -1294,15 +1502,8 @@ pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
                 }
             }
         }
-        // Sort newest first
         candidates.sort_by_key(|a| std::cmp::Reverse(a.1));
 
-        if current_is_valid {
-            ensure_root_symlinks(target_dir)?;
-            return Ok(current_path);
-        }
-
-        // If current is missing or invalid, find the latest verified candidate
         for (cand, _) in candidates {
             if verify_dataset(&cand, false).is_ok() {
                 let version_name = cand.file_name().unwrap();
@@ -1318,10 +1519,16 @@ pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
         }
     }
 
-    // 4. Check if target_dir has a valid legacy layout
-    if target_dir.join("manifest.json").is_file() && verify_dataset(target_dir, false).is_ok() {
-        migrate_legacy_dataset(target_dir)?;
-        return Ok(target_dir.join("current"));
+    // 5. Check if target_dir has a valid legacy flat layout
+    let root_manifest = target_dir.join("manifest.json");
+    if root_manifest.is_file() {
+        let is_sym = fs::symlink_metadata(&root_manifest)
+            .map(|m| m.file_type().is_symlink())
+            .unwrap_or(false);
+        if !is_sym && verify_dataset(target_dir, false).is_ok() {
+            migrate_legacy_dataset(target_dir)?;
+            return Ok(target_dir.join("current"));
+        }
     }
 
     Err(StorageError::Integrity(format!(
@@ -1332,6 +1539,16 @@ pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
 
 /// Separated maintenance cleanup: removes older superseded versions while preserving
 /// the active published version and the most recent `keep_versions` previous versions.
+///
+/// ### Reader Retention Contract:
+/// - **Active Version Invariant:** The currently active published version (`current`) is never removed.
+/// - **Configurable History Window:** Callers specify `keep_versions` to retain the N most recent
+///   superseded versions on disk, providing a grace period for active concurrent readers.
+/// - **Fail-Closed on Pruned Versions:** Readers pinned to older versions that have been pruned
+///   will encounter an explicit [`StorageError::Io`] (e.g. `NotFound`) if they attempt to lazily
+///   open an un-cached shard from a deleted version, preventing silent cross-version data mixing.
+/// - **Quiescence / Maintenance Recommendation:** Deployments should size `keep_versions` to comfortably
+///   exceed expected reader process lifetimes, or run cleanup during quiescent maintenance windows.
 pub fn cleanup_old_versions(
     target_dir: &Path,
     keep_versions: usize,
