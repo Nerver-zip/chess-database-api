@@ -33,6 +33,13 @@ pub mod fault {
         BeforeLegacySymlinkSwitch,
         AfterLegacySymlinkSwitch,
         DuringLegacyCleanup,
+        // Recovery-specific fault injection points
+        FailRecoveryCopyManifest,
+        FailRecoveryCopyLookup,
+        FailRecoveryCopyShard,
+        FailRecoveryCreateDestDir,
+        FailRecoverySyncReconstructed,
+        FailCreateRootSymlink,
     }
 
     thread_local! {
@@ -68,6 +75,12 @@ pub mod fault {
                 FaultPoint::BeforeLegacySymlinkSwitch => "BeforeLegacySymlinkSwitch",
                 FaultPoint::AfterLegacySymlinkSwitch => "AfterLegacySymlinkSwitch",
                 FaultPoint::DuringLegacyCleanup => "DuringLegacyCleanup",
+                FaultPoint::FailRecoveryCopyManifest => "FailRecoveryCopyManifest",
+                FaultPoint::FailRecoveryCopyLookup => "FailRecoveryCopyLookup",
+                FaultPoint::FailRecoveryCopyShard => "FailRecoveryCopyShard",
+                FaultPoint::FailRecoveryCreateDestDir => "FailRecoveryCreateDestDir",
+                FaultPoint::FailRecoverySyncReconstructed => "FailRecoverySyncReconstructed",
+                FaultPoint::FailCreateRootSymlink => "FailCreateRootSymlink",
             };
             if val == match_str {
                 std::process::exit(137);
@@ -88,6 +101,8 @@ pub struct SourceArchiveMetadata {
     pub sha256: Option<String>,
     pub size_bytes: u64,
     pub license: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checksum_verified: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -1361,6 +1376,18 @@ fn migrate_legacy_dataset(target_dir: &Path) -> Result<(), StorageError> {
     Ok(())
 }
 
+fn is_real_file(path: &Path) -> bool {
+    fs::symlink_metadata(path)
+        .map(|m| !m.file_type().is_symlink() && m.file_type().is_file())
+        .unwrap_or(false)
+}
+
+fn is_real_dir(path: &Path) -> bool {
+    fs::symlink_metadata(path)
+        .map(|m| !m.file_type().is_symlink() && m.file_type().is_dir())
+        .unwrap_or(false)
+}
+
 fn ensure_root_symlinks(target_dir: &Path) -> Result<(), StorageError> {
     #[cfg(unix)]
     {
@@ -1370,21 +1397,39 @@ fn ensure_root_symlinks(target_dir: &Path) -> Result<(), StorageError> {
             ("shards", "current/shards"),
         ] {
             let link_path = target_dir.join(link_name);
-            let is_symlink = match fs::symlink_metadata(&link_path) {
-                Ok(meta) => meta.file_type().is_symlink(),
-                Err(_) => false,
-            };
-            if !is_symlink {
-                if link_path.is_dir() {
-                    let _ = fs::remove_dir_all(&link_path);
-                } else if link_path.exists() {
-                    let _ = fs::remove_file(&link_path);
+            let target_path = Path::new(target);
+
+            // If it's already a symlink pointing to the expected target, nothing to do
+            if let Ok(existing_target) = fs::read_link(&link_path) {
+                if existing_target == target_path {
+                    continue;
                 }
-                let tmp_link =
-                    target_dir.join(format!(".tmp_link_{}_{}", link_name, std::process::id()));
-                let _ = fs::remove_file(&tmp_link);
-                symlink(target, &tmp_link)?;
-                let _ = fs::rename(&tmp_link, &link_path);
+            }
+
+            fault::trigger_if(fault::FaultPoint::FailCreateRootSymlink)?;
+
+            let tmp_link =
+                target_dir.join(format!(".tmp_link_{}_{}", link_name, std::process::id()));
+            let _ = fs::remove_file(&tmp_link);
+            symlink(target, &tmp_link)?;
+
+            // If link_path is a real directory (not a symlink), rename over it will fail on POSIX with EISDIR/ENOTEMPTY.
+            // Safely back it up first, perform atomic rename, and then clean up backup.
+            if is_real_dir(&link_path) {
+                let backup_path =
+                    target_dir.join(format!(".backup_{}_{}", link_name, std::process::id()));
+                let _ = fs::remove_dir_all(&backup_path);
+                fs::rename(&link_path, &backup_path)?;
+                if let Err(e) = fs::rename(&tmp_link, &link_path) {
+                    // Restore backup on failure
+                    let _ = fs::rename(&backup_path, &link_path);
+                    let _ = fs::remove_file(&tmp_link);
+                    return Err(StorageError::Io(e));
+                }
+                fs::remove_dir_all(&backup_path)?;
+            } else {
+                // If it's a file or existing symlink, atomic POSIX rename replaces it safely
+                fs::rename(&tmp_link, &link_path)?;
             }
         }
     }
@@ -1408,7 +1453,7 @@ pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
         for entry in entries.flatten() {
             let name = entry.file_name();
             let name_str = name.to_string_lossy();
-            if name_str.starts_with(".staging_") {
+            if name_str.starts_with(".staging_") || name_str.starts_with(".backup_") {
                 let _ = fs::remove_dir_all(entry.path());
             } else if name_str.starts_with(".current_tmp") || name_str.starts_with(".tmp_link_") {
                 let _ = fs::remove_file(entry.path());
@@ -1453,23 +1498,59 @@ pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
         let root_lookup = target_dir.join("games.idx");
         let root_shards = target_dir.join("shards");
 
-        if !leg_lookup.exists() && root_lookup.is_file() {
-            let _ = fs::copy(&root_lookup, &leg_lookup);
+        // Reconstruct lookup index if split
+        if !is_real_file(&leg_lookup) && is_real_file(&root_lookup) {
+            fault::trigger_if(fault::FaultPoint::FailRecoveryCopyLookup)?;
+            fs::copy(&root_lookup, &leg_lookup)?;
+        } else if !is_real_file(&root_lookup) && is_real_file(&leg_lookup) {
+            fault::trigger_if(fault::FaultPoint::FailRecoveryCopyLookup)?;
+            fs::copy(&leg_lookup, &root_lookup)?;
         }
-        if !leg_shards.exists() && root_shards.is_dir() {
-            let _ = fs::create_dir_all(&leg_shards);
-            if let Ok(entries) = fs::read_dir(&root_shards) {
-                for entry in entries.flatten() {
-                    let _ = fs::copy(entry.path(), leg_shards.join(entry.file_name()));
+
+        // Reconstruct shards if split
+        if is_real_dir(&root_shards) {
+            if !leg_shards.exists() {
+                fault::trigger_if(fault::FaultPoint::FailRecoveryCreateDestDir)?;
+                fs::create_dir_all(&leg_shards)?;
+            }
+            for entry in fs::read_dir(&root_shards)? {
+                let entry = entry?;
+                let path = entry.path();
+                if is_real_file(&path) {
+                    let dest = leg_shards.join(entry.file_name());
+                    if !dest.exists() {
+                        fault::trigger_if(fault::FaultPoint::FailRecoveryCopyShard)?;
+                        fs::copy(&path, &dest)?;
+                    }
                 }
             }
         }
-        if !leg_manifest.exists() && root_manifest.is_file() {
-            let _ = fs::copy(&root_manifest, &leg_manifest);
+        if is_real_dir(&leg_shards) && is_real_dir(&root_shards) {
+            for entry in fs::read_dir(&leg_shards)? {
+                let entry = entry?;
+                let path = entry.path();
+                if is_real_file(&path) {
+                    let dest = root_shards.join(entry.file_name());
+                    if !dest.exists() {
+                        fault::trigger_if(fault::FaultPoint::FailRecoveryCopyShard)?;
+                        fs::copy(&path, &dest)?;
+                    }
+                }
+            }
         }
-        if !root_manifest.exists() && leg_manifest.is_file() {
-            let _ = fs::copy(&leg_manifest, &root_manifest);
+
+        // Reconstruct manifest if split
+        if !is_real_file(&leg_manifest) && is_real_file(&root_manifest) {
+            fault::trigger_if(fault::FaultPoint::FailRecoveryCopyManifest)?;
+            fs::copy(&root_manifest, &leg_manifest)?;
         }
+        if !is_real_file(&root_manifest) && is_real_file(&leg_manifest) {
+            fault::trigger_if(fault::FaultPoint::FailRecoveryCopyManifest)?;
+            fs::copy(&leg_manifest, &root_manifest)?;
+        }
+
+        fault::trigger_if(fault::FaultPoint::FailRecoverySyncReconstructed)?;
+        sync_dir_contents(&legacy_dir)?;
 
         if verify_dataset(&legacy_dir, false).is_ok() {
             #[cfg(unix)]
@@ -1483,7 +1564,16 @@ pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
             sync_dir_itself(target_dir)?;
             return Ok(target_dir.join("current"));
         } else {
-            let _ = fs::remove_dir_all(&legacy_dir);
+            // NEVER delete legacy_dir or any surviving files!
+            if verify_dataset(target_dir, false).is_ok() {
+                migrate_legacy_dataset(target_dir)?;
+                return Ok(target_dir.join("current"));
+            }
+            return Err(StorageError::Integrity(format!(
+                "Failed to recover dataset in '{}': reconstructed legacy_v0 at '{}' failed verification; artifacts preserved safely without deletion",
+                target_dir.display(),
+                legacy_dir.display()
+            )));
         }
     }
 

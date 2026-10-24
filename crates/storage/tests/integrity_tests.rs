@@ -88,6 +88,7 @@ fn build_test_dataset(target_dir: &Path, count: usize) -> Result<(), StorageErro
         sha256: None,
         size_bytes: 1024,
         license: "CC0".into(),
+        checksum_verified: None,
     };
 
     writer.finalize(stats, vec![source])?;

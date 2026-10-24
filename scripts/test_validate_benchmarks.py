@@ -206,6 +206,45 @@ class TestValidateBenchmarks(unittest.TestCase):
         finally:
             os.remove(temp_path)
 
+    def test_verified_status_dataset_archive_without_checksum_verified_is_rejected(self):
+        """Historical dataset with valid SHA-256 but no checksum_verified proof cannot claim 'verified'."""
+        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+            archive_data = json.load(f)
+
+        corrupt = copy.deepcopy(archive_data)
+        corrupt["provenance_status"] = "verified"
+        corrupt["source_archives"][0]["sha256"] = "a" * 64
+        corrupt["source_archives"][0].pop("checksum_verified", None)
+
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(corrupt, f)
+            temp_path = f.name
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                validate_benchmark_file(temp_path)
+            self.assertIn("lacks physical build-time verification proof", str(ctx.exception))
+        finally:
+            os.remove(temp_path)
+
+    def test_verified_status_dataset_archive_with_checksum_verified_passes(self):
+        """Dataset archive with valid SHA-256 and checksum_verified=True passes when claiming 'verified'."""
+        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+            archive_data = json.load(f)
+
+        valid = copy.deepcopy(archive_data)
+        valid["provenance_status"] = "verified"
+        valid["source_archives"][0]["sha256"] = "a" * 64
+        valid["source_archives"][0]["checksum_verified"] = True
+
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(valid, f)
+            temp_path = f.name
+        try:
+            res = validate_benchmark_file(temp_path)
+            self.assertEqual(res["provenance_status"], "verified")
+        finally:
+            os.remove(temp_path)
+
     def test_physical_archive_bytes_as_input_size_is_rejected(self):
         """Condition 9: Conflating total persistent bytes with input size is rejected."""
         with open("benchmarks/results/pr02_scale_elite_100k.json") as f:

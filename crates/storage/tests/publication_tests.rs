@@ -93,6 +93,7 @@ fn create_dataset(
         sha256: None,
         size_bytes: 1024,
         license: "CC0".into(),
+        checksum_verified: None,
     };
 
     writer.finalize(stats, vec![source])?;
@@ -852,5 +853,243 @@ fn test_legacy_migration_split_state_recovery() {
     assert_eq!(
         reader.get_game(g100.metadata.id).unwrap().metadata.id,
         g100.metadata.id
+    );
+}
+
+#[test]
+fn test_recovery_preserves_sole_surviving_manifest_on_copy_failure() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("sole_manifest_dataset");
+
+    // 1. Create authentic legacy flat dataset
+    create_legacy_flat_dataset(&target, 4, 100).unwrap();
+
+    // 2. Set up the exact reproduction scenario:
+    // dataset/
+    //   games.idx
+    //   shards/
+    //   versions/
+    //     legacy_v0/
+    //       manifest.json
+    let versions_dir = target.join("versions");
+    let legacy_v0 = versions_dir.join("legacy_v0");
+    fs::create_dir_all(&legacy_v0).unwrap();
+    fs::rename(
+        target.join("manifest.json"),
+        legacy_v0.join("manifest.json"),
+    )
+    .unwrap();
+
+    let manifest_bytes = fs::read(legacy_v0.join("manifest.json")).unwrap();
+    assert!(!target.join("manifest.json").exists());
+    assert!(target.join("games.idx").exists());
+    assert!(target.join("shards").exists());
+    assert!(legacy_v0.join("manifest.json").exists());
+    assert!(!legacy_v0.join("games.idx").exists());
+    assert!(!target.join("current").exists());
+
+    // 3. Inject fault: failure copying manifest back to root during recovery
+    fault::set_fault_point(Some(FaultPoint::FailRecoveryCopyManifest));
+
+    // 4. Run recovery: MUST fail cleanly
+    let err = recover_dataset(&target).unwrap_err();
+    assert!(
+        err.to_string().contains("FailRecoveryCopyManifest"),
+        "Unexpected error: {}",
+        err
+    );
+
+    // 5. CRITICAL INVARIANT: The sole surviving manifest MUST NOT be deleted!
+    assert!(
+        legacy_v0.join("manifest.json").exists(),
+        "CRITICAL BUG: Sole surviving manifest in legacy_v0 was deleted by recovery failure!"
+    );
+    assert_eq!(
+        fs::read(legacy_v0.join("manifest.json")).unwrap(),
+        manifest_bytes,
+        "Sole surviving manifest content was altered or corrupted"
+    );
+    assert!(
+        target.join("games.idx").exists(),
+        "games.idx was deleted by recovery failure"
+    );
+    assert!(
+        target.join("shards").exists(),
+        "shards directory was deleted by recovery failure"
+    );
+
+    // 6. Clear fault injection
+    fault::set_fault_point(None);
+
+    // 7. Retry recovery: MUST succeed and restore the dataset completely
+    let recovered = recover_dataset(&target).expect("Recovery after fault clearance must succeed");
+    assert_eq!(recovered, target.join("current"));
+
+    // 8. Deep verification must pass
+    let v_rep = verify_dataset(&target, true).unwrap();
+    assert!(v_rep.deep_verification_passed);
+
+    // 9. DatasetReader retrieves all games accurately
+    let mut reader = DatasetReader::open(&target).unwrap();
+    assert_eq!(reader.total_games(), 4);
+    let g100 = sample_game(100, Collection::MastersOtb, "Carlsen", "Caruana");
+    let g103 = sample_game(103, Collection::MastersOtb, "Carlsen", "Caruana");
+    assert_eq!(
+        reader.get_game(g100.metadata.id).unwrap().metadata.id,
+        g100.metadata.id
+    );
+    assert_eq!(
+        reader.get_game(g103.metadata.id).unwrap().metadata.id,
+        g103.metadata.id
+    );
+
+    // 10. Repeated recovery must be idempotent
+    let rec2 = recover_dataset(&target).unwrap();
+    assert_eq!(rec2, target.join("current"));
+}
+
+#[test]
+fn test_recovery_filesystem_failure_injection_suite() {
+    let fault_points = [
+        FaultPoint::FailRecoveryCreateDestDir,
+        FaultPoint::FailRecoveryCopyLookup,
+        FaultPoint::FailRecoveryCopyShard,
+        FaultPoint::FailRecoverySyncReconstructed,
+        FaultPoint::FailCreateRootSymlink,
+    ];
+
+    for fault in fault_points {
+        let tmp = tempdir().unwrap();
+        let target = tmp.path().join(format!("fault_{:?}", fault));
+
+        // Create authentic legacy flat dataset
+        create_legacy_flat_dataset(&target, 4, 100).unwrap();
+
+        // Create interrupted split state
+        let versions_dir = target.join("versions");
+        let legacy_v0 = versions_dir.join("legacy_v0");
+        fs::create_dir_all(&legacy_v0).unwrap();
+        fs::rename(
+            target.join("manifest.json"),
+            legacy_v0.join("manifest.json"),
+        )
+        .unwrap();
+
+        let manifest_bytes = fs::read(legacy_v0.join("manifest.json")).unwrap();
+
+        // Inject fault
+        fault::set_fault_point(Some(fault));
+
+        // Recovery must fail and propagate error
+        let err = match recover_dataset(&target) {
+            Err(e) => e,
+            Ok(_) => panic!("Fault {:?} must fail recovery", fault),
+        };
+        assert!(
+            err.to_string().contains(&format!("{:?}", fault)),
+            "Error for {:?} was: {}",
+            fault,
+            err
+        );
+
+        // Crucial invariant: artifacts are never destroyed on failure
+        assert!(
+            legacy_v0.join("manifest.json").exists(),
+            "Manifest was destroyed at fault {:?}",
+            fault
+        );
+        assert_eq!(
+            fs::read(legacy_v0.join("manifest.json")).unwrap(),
+            manifest_bytes
+        );
+        assert!(
+            target.join("games.idx").exists() || legacy_v0.join("games.idx").exists(),
+            "games.idx was lost completely at fault {:?}",
+            fault
+        );
+
+        // Clear fault
+        fault::set_fault_point(None);
+
+        // Retry recovery: must succeed
+        let recovered = recover_dataset(&target)
+            .unwrap_or_else(|e| panic!("Recovery failed after clearing {:?}: {}", fault, e));
+        assert_eq!(recovered, target.join("current"));
+
+        // Deep verification
+        let v_rep = verify_dataset(&target, true).unwrap();
+        assert!(v_rep.deep_verification_passed);
+
+        // Verify game retrieval
+        let mut reader = DatasetReader::open(&target).unwrap();
+        assert_eq!(reader.total_games(), 4);
+        let g100 = sample_game(100, Collection::MastersOtb, "Carlsen", "Caruana");
+        assert_eq!(
+            reader.get_game(g100.metadata.id).unwrap().metadata.id,
+            g100.metadata.id
+        );
+
+        // Idempotency
+        let rec2 = recover_dataset(&target).unwrap();
+        assert_eq!(rec2, target.join("current"));
+    }
+}
+
+#[test]
+fn test_recovery_preserves_artifacts_on_verification_failure() {
+    let tmp = tempdir().unwrap();
+    let target = tmp.path().join("corrupted_recovery_dataset");
+
+    // 1. Create flat dataset
+    create_legacy_flat_dataset(&target, 4, 100).unwrap();
+
+    // 2. Corrupt a shard in root so verification will fail
+    let shards_dir = target.join("shards");
+    let mut shard_entries: Vec<_> = fs::read_dir(&shards_dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .collect();
+    shard_entries.sort();
+    let corrupted_shard = &shard_entries[0];
+    use std::io::Write;
+    let mut f = fs::OpenOptions::new()
+        .write(true)
+        .open(corrupted_shard)
+        .unwrap();
+    f.write_all(b"GARBAGE_HEADER_CORRUPT").unwrap();
+    drop(f);
+
+    // 3. Move manifest to legacy_v0
+    let versions_dir = target.join("versions");
+    let legacy_v0 = versions_dir.join("legacy_v0");
+    fs::create_dir_all(&legacy_v0).unwrap();
+    fs::rename(
+        target.join("manifest.json"),
+        legacy_v0.join("manifest.json"),
+    )
+    .unwrap();
+
+    // 4. Run recovery: verification fails
+    let err = recover_dataset(&target).unwrap_err();
+    assert!(
+        err.to_string().contains("failed verification"),
+        "Unexpected error: {}",
+        err
+    );
+    assert!(
+        err.to_string()
+            .contains("artifacts preserved safely without deletion"),
+        "Unexpected error: {}",
+        err
+    );
+
+    // 5. Assert legacy_v0 was NOT deleted!
+    assert!(
+        legacy_v0.exists(),
+        "CRITICAL: legacy_v0 was deleted despite containing recovery data!"
+    );
+    assert!(
+        legacy_v0.join("manifest.json").exists(),
+        "manifest.json was destroyed!"
     );
 }

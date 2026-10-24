@@ -152,10 +152,16 @@ def validate_benchmark_file(path):
                     f"{path}: Invalid SHA-256 in source_archives[{s_idx}]: {h!r}. "
                     "Placeholders or non-hex hashes are strictly rejected."
                 )
-        if prov_status == "verified" and h is None:
-            raise ValueError(
-                f"{path}: Provenance marked as 'verified', but source_archives[{s_idx}] lacks sha256."
-            )
+        if prov_status == "verified":
+            if h is None:
+                raise ValueError(
+                    f"{path}: Provenance marked as 'verified', but source_archives[{s_idx}] lacks sha256."
+                )
+            if b_type == "dataset_archive" and source.get("checksum_verified") is not True:
+                raise ValueError(
+                    f"{path}: Provenance marked as 'verified', but source_archives[{s_idx}] "
+                    "lacks physical build-time verification proof (checksum_verified is not True)."
+                )
 
     # 3. Depth structures and physical sizes
     prev_pos = -1

@@ -197,6 +197,7 @@ fn test_dataset_writer_reader_multi_block_multi_shard_and_retrieval() {
         sha256: None,
         size_bytes: 5000,
         license: "CC0".into(),
+        checksum_verified: None,
     }];
 
     let manifest = writer.finalize(stats, sources).unwrap();

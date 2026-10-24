@@ -765,6 +765,7 @@ fn run_build(opts: BuildOptions) -> Result<()> {
                 (0, None)
             };
 
+            let is_verified = verified_sha256.is_some();
             resolved_inputs.push(s.path.clone());
             source_metas.push(SourceArchiveMetadata {
                 filename: s
@@ -777,6 +778,7 @@ fn run_build(opts: BuildOptions) -> Result<()> {
                 sha256: verified_sha256,
                 size_bytes: size,
                 license: s.license.unwrap_or_else(|| "Unknown".into()),
+                checksum_verified: Some(is_verified),
             });
         }
     }
@@ -786,7 +788,8 @@ fn run_build(opts: BuildOptions) -> Result<()> {
             if p.as_os_str() != "-" && !p.exists() {
                 anyhow::bail!("Source input file '{}' does not exist", p.display());
             }
-            let (size, verified_sha256, fname) = if p.as_os_str() != "-" && p.exists() {
+            let (size, verified_sha256, fname, is_verified) = if p.as_os_str() != "-" && p.exists()
+            {
                 let file_size = std::fs::metadata(&p)?.len();
                 let actual_hash = compute_file_sha256(&p)
                     .with_context(|| format!("Failed to compute SHA-256 for {}", p.display()))?;
@@ -795,9 +798,9 @@ fn run_build(opts: BuildOptions) -> Result<()> {
                     .unwrap_or_default()
                     .to_string_lossy()
                     .to_string();
-                (file_size, Some(actual_hash.to_lowercase()), filename)
+                (file_size, Some(actual_hash.to_lowercase()), filename, true)
             } else {
-                (0, None, "<stdin>".to_string())
+                (0, None, "<stdin>".to_string(), false)
             };
 
             source_metas.push(SourceArchiveMetadata {
@@ -806,6 +809,7 @@ fn run_build(opts: BuildOptions) -> Result<()> {
                 sha256: verified_sha256,
                 size_bytes: size,
                 license: "Unknown".into(),
+                checksum_verified: Some(is_verified),
             });
             resolved_inputs.push(p);
         }
@@ -1241,9 +1245,10 @@ fn run_benchmarks(
                 .to_string_lossy()
                 .to_string(),
             url: None,
-            sha256: computed_sha256,
+            sha256: computed_sha256.clone(),
             size_bytes: input_size,
             license: "CC0".into(),
+            checksum_verified: Some(computed_sha256.is_some()),
         }],
         raw_pgn_bytes: total_raw_pgn_bytes,
         raw_bytes_per_game: raw_per_game,
@@ -1437,9 +1442,12 @@ fn run_bench_dataset(
         .join(", ");
     let source_size: u64 = manifest.source_archives.iter().map(|s| s.size_bytes).sum();
 
-    let all_have_sha = !manifest.source_archives.is_empty()
-        && manifest.source_archives.iter().all(|s| s.sha256.is_some());
-    let prov_status = if all_have_sha {
+    let all_verified = !manifest.source_archives.is_empty()
+        && manifest
+            .source_archives
+            .iter()
+            .all(|s| s.sha256.is_some() && s.checksum_verified == Some(true));
+    let prov_status = if all_verified {
         "verified".to_string()
     } else {
         "declared_unverified".to_string()
@@ -2601,5 +2609,92 @@ mod tests {
         assert!(p_storage.is_object());
         let total_p_bytes = p_storage["total_persistent_bytes"].as_u64().unwrap();
         assert!(total_p_bytes > 0);
+    }
+
+    #[test]
+    fn test_provenance_semantics_new_build_vs_historical() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let fixture_path = std::path::Path::new(manifest_dir)
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("fixtures")
+            .join("stage_a_validation.pgn");
+
+        if !fixture_path.exists() {
+            return;
+        }
+
+        let tmp = tempfile::tempdir().unwrap();
+        let dataset_dir = tmp.path().join("dataset_prov");
+        let bench_out = tmp.path().join("bench_reports");
+
+        // 1. Newly built dataset with physically verified local file
+        run_build(BuildOptions {
+            manifest: None,
+            input: vec![fixture_path.clone()],
+            collection: CollectionArg::MastersOtb,
+            output: dataset_dir.clone(),
+            max_games: Some(10),
+            block_capacity: 4,
+            max_games_per_shard: 8,
+            zstd_level: 3,
+            dedupe_mode: DedupeModeArg::Disk,
+        })
+        .unwrap();
+
+        let reader = DatasetReader::open(&dataset_dir).unwrap();
+        assert_eq!(
+            reader.manifest().source_archives[0].checksum_verified,
+            Some(true)
+        );
+        assert!(reader.manifest().source_archives[0].sha256.is_some());
+        drop(reader);
+
+        // Benchmark report for new build must be "verified"
+        run_bench_dataset(&dataset_dir, &bench_out, "bench_prov_new", 5).unwrap();
+        let report_file = bench_out.join("bench_prov_new.json");
+        let report_val: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&report_file).unwrap()).unwrap();
+        assert_eq!(report_val["provenance_status"].as_str(), Some("verified"));
+
+        // 2. Historical dataset where checksum_verified is None (uncertainty preserved)
+        let resolved = codb_storage::resolve_dataset_snapshot(&dataset_dir).unwrap();
+        let manifest_file = resolved.join("manifest.json");
+        let mut manifest: codb_storage::DatasetManifest =
+            serde_json::from_slice(&std::fs::read(&manifest_file).unwrap()).unwrap();
+        manifest.source_archives[0].checksum_verified = None;
+        std::fs::write(
+            &manifest_file,
+            serde_json::to_string_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+
+        run_bench_dataset(&dataset_dir, &bench_out, "bench_prov_historical", 5).unwrap();
+        let report_file_hist = bench_out.join("bench_prov_historical.json");
+        let report_val_hist: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&report_file_hist).unwrap()).unwrap();
+        assert_eq!(
+            report_val_hist["provenance_status"].as_str(),
+            Some("declared_unverified")
+        );
+
+        // 3. Dataset where checksum_verified is Some(false)
+        manifest.source_archives[0].checksum_verified = Some(false);
+        std::fs::write(
+            &manifest_file,
+            serde_json::to_string_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+
+        run_bench_dataset(&dataset_dir, &bench_out, "bench_prov_unverified", 5).unwrap();
+        let report_file_unv = bench_out.join("bench_prov_unverified.json");
+        let report_val_unv: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&report_file_unv).unwrap()).unwrap();
+        assert_eq!(
+            report_val_unv["provenance_status"].as_str(),
+            Some("declared_unverified")
+        );
     }
 }
