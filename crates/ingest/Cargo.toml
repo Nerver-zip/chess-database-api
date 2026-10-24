@@ -7,6 +7,7 @@ repository.workspace = true
 
 [dependencies]
 codb-core.workspace = true
+codb-curate.workspace = true
 shakmaty.workspace = true
 pgn-reader.workspace = true
 zstd.workspace = true

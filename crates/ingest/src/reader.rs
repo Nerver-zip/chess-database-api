@@ -23,6 +23,8 @@ pub enum IngestError {
     NonStandardStartingPosition(String),
     #[error("Malformed PGN: {0}")]
     MalformedPgn(String),
+    #[error("Rejected by curation policy: {0}")]
+    RejectedByPolicy(String),
 }
 
 #[derive(Default, Debug)]
@@ -185,6 +187,7 @@ pub struct GameMovetext {
 pub struct ShakmatyGameVisitor {
     pub collection: Collection,
     pub next_id: u64,
+    pub early_policy_filter: bool,
 }
 
 impl ShakmatyGameVisitor {
@@ -192,7 +195,13 @@ impl ShakmatyGameVisitor {
         ShakmatyGameVisitor {
             collection,
             next_id: starting_id,
+            early_policy_filter: false,
         }
+    }
+
+    pub fn with_early_policy_filter(mut self, enabled: bool) -> Self {
+        self.early_policy_filter = enabled;
+        self
     }
 }
 
@@ -333,6 +342,76 @@ impl Visitor for ShakmatyGameVisitor {
                     return ControlFlow::Break(Err(IngestError::NonStandardStartingPosition(
                         fen.clone(),
                     )));
+                }
+            }
+        }
+
+        if self.early_policy_filter {
+            match self.collection {
+                Collection::EliteOnline => {
+                    if let Some(ev) = &tags.event {
+                        let ev_lower = ev.to_ascii_lowercase();
+                        if ev_lower.contains("bullet") || ev_lower.contains("ultrabullet") {
+                            return ControlFlow::Break(Err(IngestError::RejectedByPolicy(
+                                "Bullet".into(),
+                            )));
+                        }
+                    }
+                    if let Some(tc) = &tags.time_control {
+                        if codb_curate::policy::is_bullet_time_control(tc) {
+                            return ControlFlow::Break(Err(IngestError::RejectedByPolicy(
+                                "Bullet TC".into(),
+                            )));
+                        }
+                    }
+                    match (tags.white_elo, tags.black_elo) {
+                        (Some(w), Some(b)) => {
+                            if !((w >= 2200 && b >= 2200)
+                                || (w >= 2400 && b >= 2000)
+                                || (b >= 2400 && w >= 2000))
+                            {
+                                return ControlFlow::Break(Err(IngestError::RejectedByPolicy(
+                                    "Below rating threshold".into(),
+                                )));
+                            }
+                        }
+                        _ => {
+                            return ControlFlow::Break(Err(IngestError::RejectedByPolicy(
+                                "Missing rating".into(),
+                            )));
+                        }
+                    }
+                }
+                Collection::MastersOtb => {
+                    let has_historical = tags
+                        .date
+                        .as_deref()
+                        .and_then(|d| {
+                            d.split(['.', '-'])
+                                .next()
+                                .and_then(|y| y.parse::<u16>().ok())
+                        })
+                        .is_some_and(|y| y < 1970);
+
+                    if !has_historical {
+                        match (tags.white_elo, tags.black_elo) {
+                            (Some(w), Some(b)) => {
+                                if !((w >= 2200 && b >= 2200)
+                                    || (w >= 2400 && b >= 2000)
+                                    || (b >= 2400 && w >= 2000))
+                                {
+                                    return ControlFlow::Break(Err(IngestError::RejectedByPolicy(
+                                        "Below rating threshold".into(),
+                                    )));
+                                }
+                            }
+                            _ => {
+                                return ControlFlow::Break(Err(IngestError::RejectedByPolicy(
+                                    "Missing rating post-1970".into(),
+                                )));
+                            }
+                        }
+                    }
                 }
             }
         }

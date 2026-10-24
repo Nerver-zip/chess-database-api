@@ -110,6 +110,53 @@ impl CompactMove {
         };
         format!("{}{}{}", from, to, promo)
     }
+
+    /// Resolves this CompactMove into a legal Shakmaty Move on the provided position.
+    pub fn to_shakmaty_move(self, board: &shakmaty::Chess) -> Option<shakmaty::Move> {
+        use shakmaty::{Move, Position, Role, Square};
+        let from = Square::new(self.from_sq() as u32);
+        let to = Square::new(self.to_sq() as u32);
+        let promo = self.promotion_piece().map(|p| match p {
+            1 => Role::Knight,
+            2 => Role::Bishop,
+            3 => Role::Rook,
+            4 => Role::Queen,
+            _ => Role::Queen,
+        });
+
+        board.legal_moves().into_iter().find(|cand| match *cand {
+            Move::Normal {
+                from: f,
+                to: t,
+                promotion,
+                ..
+            } => f == from && t == to && promotion == promo,
+            Move::EnPassant { from: f, to: t } => f == from && t == to,
+            Move::Castle { king, rook } => {
+                let to_sq = if rook.file() > king.file() {
+                    if king.rank() == shakmaty::Rank::First {
+                        Square::G1
+                    } else {
+                        Square::G8
+                    }
+                } else if king.rank() == shakmaty::Rank::First {
+                    Square::C1
+                } else {
+                    Square::C8
+                };
+                king == from && to_sq == to
+            }
+            _ => false,
+        })
+    }
+}
+
+/// Computes a canonical, 128-bit collision-resistant `PositionKey` from a Shakmaty Chess position.
+pub fn compute_position_key(pos: &shakmaty::Chess) -> PositionKey {
+    use shakmaty::zobrist::Zobrist128;
+    use shakmaty::{EnPassantMode, Position};
+    let zobrist: Zobrist128 = pos.zobrist_hash(EnPassantMode::Legal);
+    PositionKey(zobrist.0)
 }
 
 fn sq_to_str(sq: u8) -> String {
@@ -139,6 +186,27 @@ impl PositionKey {
 
     pub fn to_hex(self) -> String {
         format!("{:032x}", self.0)
+    }
+}
+
+/// Identifies the physical location of a stored game within a persistent sharded dataset:
+/// shard index, compressed block index within that shard, and game offset within the block.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
+)]
+pub struct GameLocation {
+    pub shard_id: u16,
+    pub block_index: u32,
+    pub game_index_in_block: u16,
+}
+
+impl GameLocation {
+    pub fn new(shard_id: u16, block_index: u32, game_index_in_block: u16) -> Self {
+        GameLocation {
+            shard_id,
+            block_index,
+            game_index_in_block,
+        }
     }
 }
 
@@ -343,6 +411,11 @@ mod tests {
             &moves,
         );
         assert_eq!(id1, id2);
+
+        // Test GameLocation ordering and construction
+        let loc1 = GameLocation::new(0, 5, 12);
+        let loc2 = GameLocation::new(0, 5, 13);
+        assert!(loc1 < loc2);
 
         // Different collection or moves produces different ID
         let id3 = compute_stable_game_id(

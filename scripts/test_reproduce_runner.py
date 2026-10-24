@@ -33,7 +33,7 @@ class TestReproduceRunner(unittest.TestCase):
             0,
             f"--ci mode failed with code {res.returncode}:\n{res.stderr}",
         )
-        self.assertIn("PR-01 CI Benchmark Validation Summary", res.stdout)
+        self.assertIn("CI Benchmark Validation Summary", res.stdout)
         self.assertIn("Overall Status:          SUCCESS", res.stdout)
 
     def test_all_mode_fails_closed_when_data_missing(self):

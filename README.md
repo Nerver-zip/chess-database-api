@@ -1,7 +1,7 @@
 # Chess Openings DB (`codb`)
 
-> **Status: Research & Feasibility Milestone (PR-01 Complete)**  
-> This repository contains the foundational research, prototypes, and empirical benchmarks establishing the technical, legal, and storage feasibility of an independent chess game database and Opening Explorer engine.
+> **Status: Storage Engineering & Empirical Scale Validation Milestone (PR-02 Complete)**  
+> This repository contains the scalable persistent game storage pipeline, bounded-memory streaming ingestion engine, modern Elite Online empirical validation, and empirical scale benchmarks for an independent chess game database and Opening Explorer engine.
 
 A high-performance, compact, and reproducible chess game database and position-centric indexing engine written in Rust. The system curates, deduplicates, compresses, and indexes high-quality chess games to power a position-based Opening Explorer through a lightweight, reusable API.
 
@@ -11,16 +11,27 @@ A high-performance, compact, and reproducible chess game database and position-c
 
 > **Can we build a reliable, reproducible, publicly redistributable chess database containing millions of high-quality games, with full game retrieval and position-based opening statistics, within approximately 10 GB of deployed storage?**
 
-### Conclusion: **Preliminary Feasibility Supported — Full-Scale Validation Pending**
+### Conclusion: **Feasibility Supported (Conditional on Depth Slicing & Scaling Margins)**
 
-Based on reproducible measurements across 117,616 real Lichess Official Broadcast games (`22,265` accepted after curation and prefix-verified deduplication) and 121,332 Lichess Rated games:
-- **Directly Measured in PR-01 ($N \le 20{,}000$ accepted games):**
-  - **Compact Game Storage (`CGB3`):** **205.5–211.3 bytes/game** (`208.2 B/game` at $N = 20{,}000$, a **5.16×** compression ratio over exported PGN) with 100% round-trip fidelity across all supported canonical and provenance fields (`Date`/`UTCDate`, `GameURL`, `BroadcastURL`, `Site`, `Event`, `Round`, `ECO`, `TimeControl`, `Players`, `Elo`, `Result`, `FEN`, and legal moves).
-  - **Position Indexing (`CODB_CPI` v2 vs. SQLite):** Measured directly at Depths **20, 30, 40, and 60**. Persistent `.cpi` files consume **20.26–21.57 bytes per unique position** (including sparse index directories), which is **7.2× to 9.4× smaller on disk than SQLite**.
-  - **Query Latency (Warm OS Page Cache, 2,000 Stratified Queries):** On-disk `.cpi` lookups execute in **13.1–14.0 µs (p50)** and **23.7–29.0 µs (p99)** on NVMe storage, and in-memory lookups execute in **0.82–1.14 µs (p50)**, with verified semantic equivalence against SQLite.
-- **Modeled Full-Scale Projections (15 Million Games Capacity Target — Option B):**
-  - Slicing **Masters OTB (5M capacity ceiling) to Depth 40** and **Elite Online (10M target) to Depth 30** projects to **~6.52 GB core payload + ~0.44 GB ancillary deployment overhead = ~6.96 GB baseline** (**5.95 GB optimistic** to **8.82 GB conservative** under bounded sensitivity scenarios), remaining below the 10 GB ceiling.
-  - **Explicit Caveats for PR-02:** Projections from $N = 20{,}000$ to 5M–10M games represent a $250\times$–$500\times$ extrapolation; Elite Online projections currently use Masters OTB scaling parameters as an unvalidated proxy (as the tested `2013-01` Lichess archive had `0` accepted games under `EliteOnlinePolicy`); and the initial legally approved Masters OTB release from Lichess Broadcasts + Public Domain archives will be ~300k–500k curated games (< 0.45 GB), with 5M serving as a long-term architectural capacity target.
+Based on reproducible measurements across 117,616 real Lichess Official Broadcast games (22,265 accepted after curation and prefix-verified deduplication) and over 5,000,000 modern Lichess Standard Rated games (up to 100,000 accepted games curated across 2024–2026 archives):
+
+- **Bounded-Memory Streaming Pipeline (PR-02):**
+  - **$O(1)$ RAM Scaling:** Eliminates whole-corpus memory retention during ingestion by streaming directly through validation, disk-backed deduplication, and compressed persistent CGB3 shards. Peak RAM stays strictly below **30 MB RSS** even when processing millions of games.
+  - **High Throughput:** Reaches **~25,000 games/sec** on local streams and **3,000–4,000 games/sec** on piped network streams with full legal move validation.
+- **Persistent Sharded Storage (`CGB3` Container):**
+  - **Masters OTB:** **~208 bytes/game** in CGB3 blocks (5.16× compression ratio over PGN) with 100% round-trip fidelity across all supported canonical and provenance fields.
+  - **Elite Online:** **~178–181 bytes/game** in CGB3 blocks (~15% more compact than Masters OTB due to typical online game lengths).
+  - **Sharding & Global Index:** Encoded in `shard_XXXX.cgb3` with a 16-byte fixed-record `games.idx` memory-mapped binary search table.
+  - **Random Retrieval Latency:** Retrieves individual games by 64-bit ID in **698 µs (p50)**, **773 µs (p95)**, and **863 µs (p99)** across 100k-game persistent archives.
+- **Empirical Position Diversity & Scaling (Heaps' Law):**
+  - **Online Diversity:** Elite Online exhibits **~40% higher position diversity** at Depth 20 and **~20% higher diversity** at Depth 30 than Masters OTB, accurately reflecting diverse online opening repertoires vs. classical grandmaster theory.
+  - **Dual-Corpus Scaling Fits:** Masters OTB ($\alpha_{D40} = 0.9293$, $k = 49.88$, $R^2 = 0.99998$) and Elite Online ($\alpha_{D30} = 0.9293$, $k = 37.63$, $R^2 = 0.99999$).
+- **Recalibrated 15-Million-Game Deployment Projections (Option B):**
+  - Slicing **Masters OTB (5M games) to Depth 40** and **Elite Online (10M games) to Depth 30** projects to:
+    - **Baseline:** **7.47 GB** (Core payloads: 1.04 GB Masters games + 1.81 GB Elite games + 1.72 GB Masters D40 index + 2.45 GB Elite D30 index + 0.44 GB ancillary overhead).
+    - **Optimistic Scenario:** **6.28 GB**.
+    - **Conservative Scenario:** **9.66 GB** (incorporating sensitivity margins, leaving **340 MB / 3.4%** headroom against the 10 GB limit).
+  - **Conclusion & Risk Factors:** Feasibility is **conditional** upon enforcing Depth 30 slicing for Elite Online (extending to Depth 40 pushes conservative storage to 12.16 GB, violating budget). Additional risk factors include compression degradation at scale and position uniqueness in long endgame transposition chains.
 
 ---
 
@@ -65,10 +76,43 @@ chess-openings-db/
 │   │   ├── feasibility-report.md
 │   │   └── api-contract.md
 │   └── adr/        # Architecture Decision Records
-│       └── 0001-initial-architecture.md
+│       ├── 0001-initial-architecture.md
+│       └── 0002-bounded-ingestion-and-persistent-cgb3-archive.md
 ├── fixtures/       # Deterministic PGN test fixtures and edge-case suites
 ├── benchmarks/     # Automated benchmark scripts and machine-readable results
 └── .github/        # GitHub Actions CI workflow
+```
+
+---
+
+## CLI Usage (`codb`)
+
+### 1. Build Persistent Curated Dataset
+Stream large PGN or PGN.zst sources directly into compressed, sharded CGB3 archives:
+```bash
+./target/release/codb build \
+    --input data/masters_combined.pgn.zst \
+    --collection masters-otb \
+    --output data/builds/masters-otb-20k \
+    --max-games 20000
+```
+
+### 2. Verify Dataset Integrity
+Verify block checksums, manifest accounting, and optional deep decompression of every move sequence:
+```bash
+./target/release/codb verify --dataset data/builds/masters-otb-20k --deep
+```
+
+### 3. Inspect Dataset Structure
+Inspect shard layout, total retained games, and physical byte density:
+```bash
+./target/release/codb inspect --dataset data/builds/masters-otb-20k
+```
+
+### 4. Retrieve Game by Stable ID
+Random access lookup in sub-millisecond page-cache time:
+```bash
+./target/release/codb get-game --dataset data/builds/masters-otb-20k --id 1234567890
 ```
 
 ---
@@ -114,6 +158,7 @@ Machine-readable JSON reports are written to `benchmarks/results/`.
 - [Benchmark Reproduction & Methodology Guide](docs/research/benchmark-reproduction.md)
 - [Future API Contract & Decoupling](docs/research/api-contract.md)
 - [ADR-0001: Initial Architecture Decisions](docs/adr/0001-initial-architecture.md)
+- [ADR-0002: Bounded-Memory Ingestion, CGB3 Sharding & Global Game Lookup](docs/adr/0002-bounded-ingestion-and-persistent-cgb3-archive.md)
 
 ---
 

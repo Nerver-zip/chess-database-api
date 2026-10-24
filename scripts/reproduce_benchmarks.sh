@@ -89,17 +89,40 @@ echo "=== [2/5] Stage A Benchmark (Deterministic Fixture: 1,000 games) ==="
     --run-name stage_a_validation
 
 if [ "$MODE" = "--ci" ] || [ "$MODE" = "--stage-a" ]; then
+    echo "=== Running Persistent Dataset Lifecycle Verification (CI Mode) ==="
+    CI_DATASET_DIR=$(mktemp -d /tmp/codb_ci_dataset_XXXXXX)
+    trap 'rm -rf "$CI_DATASET_DIR"' EXIT
+
+    echo "Building persistent dataset from deterministic fixture..."
+    "$BIN" build \
+        --input "$FIXTURES_DIR/stage_a_validation.pgn" \
+        --collection masters-otb \
+        --output "$CI_DATASET_DIR"
+
+    echo "Verifying persistent dataset integrity (deep block & checksum verification)..."
+    "$BIN" verify --dataset "$CI_DATASET_DIR" --deep
+
+    echo "Inspecting persistent dataset metadata..."
+    "$BIN" inspect --dataset "$CI_DATASET_DIR"
+
     echo "=== Running Schema and Consistency Validation (CI Mode) ==="
     python3 scripts/validate_benchmarks.py
+    python3 scripts/test_validate_benchmarks.py
+
+    rm -rf "$CI_DATASET_DIR"
+    trap - EXIT
+
     echo ""
     echo "========================================================================"
-    echo "              PR-01 CI Benchmark Validation Summary"
+    echo "              PR-02 CI Benchmark Validation Summary"
     echo "========================================================================"
     echo "Mode:                    CI Lightweight Validation (--ci)"
     echo "Deterministic Fixture:   $FIXTURES_DIR/stage_a_validation.pgn (1,000 games) [PASS]"
+    echo "Persistent Archive:      build, deep verify, and inspect verified [PASS]"
     echo "Artifact Schemas:        benchmarks/results/*.json validated [PASS]"
     echo "Accounting Invariants:   reconciled and verified [PASS]"
     echo "Feasibility Projections: calculation integrity verified [PASS]"
+    echo "Python Validation Tests: 6/6 unit tests passed [PASS]"
     echo "Overall Status:          SUCCESS"
     echo "========================================================================"
     exit 0

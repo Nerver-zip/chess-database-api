@@ -1,5 +1,5 @@
 {
-  "methodology_note": "Parameters are fitted via OLS log-linear regression across 5 nested cumulative prefixes (N=1,000 to N=20,000 accepted Masters OTB games). Because prefixes are nested and N=5M..10M is a 250x-500x extrapolation beyond the measured domain, bounds are presented as sensitivity scenarios (+/- delta_alpha and +15% bytes/pos margin) rather than formal statistical confidence intervals. Elite Online projections use Masters OTB scaling parameters as an unvalidated proxy because the 2013-01 Lichess sample had 0 accepted games under EliteOnlinePolicy.",
+  "methodology_note": "PR-02 Calibrated Model: Parameters are fitted via OLS log-linear regression across separate empirical Masters OTB (N=1k..20k) and Elite Online (N=1k..50k+) corpora. Empirical measurements reveal that Elite Online games are 15% more compact in game storage (~181 B/game vs ~208 B/game) but exhibit higher opening position diversity at Depth 20-30 due to diverse online opening repertoires compared to classical Master tournament theory. Option B projects the 15M target (5M Masters D40 + 10M Elite D30) at 7.47 GB baseline (6.28 GB optimistic, 9.66 GB conservative). Feasibility is conditional: while baseline and optimistic models are well within the 10 GB limit, the conservative scenario leaves 340 MB (3.4%) headroom.",
   "parameters": {
     "depth_20": {
       "k": 44.29,
@@ -33,49 +33,77 @@
       "r2": 0.999993,
       "measured_bytes_per_pos_at_20k": 20.26
     },
-    "game_bytes_codb_mean": 208.8,
-    "game_bytes_codb_at_20k": 208.16,
+    "elite_online": {
+      "depth_20": {
+        "k": 33.71,
+        "alpha_ols": 0.8668,
+        "in_sample_slope_std_err": 0.004,
+        "sensitivity_delta_alpha": 0.015,
+        "r2": 0.999935,
+        "measured_bytes_per_pos_at_max": 21.03
+      },
+      "depth_30": {
+        "k": 37.63,
+        "alpha_ols": 0.9293,
+        "in_sample_slope_std_err": 0.0015,
+        "sensitivity_delta_alpha": 0.015,
+        "r2": 0.999992,
+        "measured_bytes_per_pos_at_max": 20.38
+      },
+      "depth_40": {
+        "k": 45.55,
+        "alpha_ols": 0.9512,
+        "in_sample_slope_std_err": 0.001,
+        "sensitivity_delta_alpha": 0.015,
+        "r2": 0.999997,
+        "measured_bytes_per_pos_at_max": 20.05
+      },
+      "depth_60": {
+        "k": 61.49,
+        "alpha_ols": 0.967,
+        "in_sample_slope_std_err": 0.0012,
+        "sensitivity_delta_alpha": 0.015,
+        "r2": 0.999995,
+        "measured_bytes_per_pos_at_max": 19.77
+      }
+    },
+    "game_bytes_codb_masters_at_20k": 208.16,
+    "game_bytes_codb_elite_at_50k": 180.7,
     "sqlite_multiplier_vs_cpi_at_d40": 7.75
   },
   "deployed_storage_inventory_15m_gb": {
     "measured_extrapolated_game_blocks_5m_masters": 1.04,
-    "proxy_extrapolated_game_blocks_10m_elite": 2.08,
-    "total_core_game_blocks_15m": 3.12,
+    "empirical_extrapolated_game_blocks_10m_elite": 1.81,
+    "total_core_game_blocks_15m": 2.85,
     "estimated_cgb_block_directory_framing": 0.001,
-    "estimated_game_id_lookup_table_12b_per_game": 0.18,
+    "estimated_game_id_lookup_table_16b_per_game": 0.24,
     "estimated_provenance_manifests": 0.005,
-    "estimated_filesystem_alignment_margin": 0.254,
+    "estimated_filesystem_alignment_margin": 0.194,
     "total_ancillary_deployment_overhead": 0.44
   },
   "budget_scenarios_gb": {
     "option_a_depth_20_both": {
       "masters_index_d20_baseline": 0.23,
-      "elite_index_d20_proxy_baseline": 0.39,
-      "core_payload_baseline": 3.74,
-      "deployed_total_baseline": 4.18,
-      "deployed_total_conservative": 4.85
+      "elite_index_d20_baseline": 0.83,
+      "core_payload_baseline": 3.9,
+      "deployed_total_baseline": 4.34,
+      "deployed_total_conservative": 5.14
     },
     "option_b_recommended_d40_masters_d30_elite": {
       "masters_index_d40_baseline": 1.72,
-      "elite_index_d30_proxy_baseline": 1.67,
-      "core_payload_baseline": 6.52,
-      "deployed_total_optimistic": 5.95,
-      "deployed_total_baseline": 6.96,
-      "deployed_total_conservative": 8.82
+      "elite_index_d30_proxy_baseline": 2.45,
+      "elite_index_d30_empirical_baseline": 2.45,
+      "core_payload_baseline": 7.03,
+      "deployed_total_optimistic": 6.28,
+      "deployed_total_baseline": 7.47,
+      "deployed_total_conservative": 9.66
     },
     "option_c_depth_40_both": {
       "masters_index_d40_baseline": 1.72,
-      "elite_index_d40_proxy_baseline": 3.28,
-      "core_payload_baseline": 8.13,
-      "deployed_total_baseline": 8.57,
-      "deployed_total_conservative": 11.18
-    },
-    "option_d_depth_60_both": {
-      "masters_index_d60_baseline": 3.36,
-      "elite_index_d60_proxy_baseline": 6.52,
-      "core_payload_baseline": 13.0,
-      "deployed_total_baseline": 13.44,
-      "deployed_total_conservative": 18.29
+      "elite_index_d40_baseline": 4.16,
+      "core_payload_baseline": 8.73,
+      "deployed_total_baseline": 9.17,
+      "deployed_total_conservative": 12.16
     }
   }
 }
