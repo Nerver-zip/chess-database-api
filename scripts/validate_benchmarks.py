@@ -102,6 +102,55 @@ def validate_benchmark_file(path):
             f"{path}: Invalid completion_status: {data['completion_status']}"
         )
 
+    # 2b. Benchmark timing semantics & disambiguation
+    b_type = data.get("benchmark_type", "raw_ingest")
+    import_dur = data.get("import_duration_secs")
+    reload_dur = data.get("archive_reload_duration_secs")
+
+    if b_type == "dataset_archive":
+        if import_dur is not None:
+            raise ValueError(
+                f"{path}: Ambiguous benchmark semantics! 'import_duration_secs' must not be populated "
+                "for dataset_archive benchmarks. Use 'archive_reload_duration_secs'."
+            )
+        if reload_dur is None or reload_dur <= 0:
+            raise ValueError(
+                f"{path}: 'archive_reload_duration_secs' must be positive for dataset_archive."
+            )
+        # Check byte accounting
+        if "persistent_storage" in data:
+            p_bytes = data["persistent_storage"].get("total_persistent_bytes")
+            sources = data.get("source_archives", [])
+            source_size = sum(s.get("size_bytes", 0) for s in sources)
+            if source_size > 0 and data.get("input_size_bytes") == p_bytes and source_size != p_bytes:
+                raise ValueError(
+                    f"{path}: Physical archive size ({p_bytes}) incorrectly populates source input_size_bytes!"
+                )
+    elif b_type == "raw_ingest":
+        if import_dur is None or import_dur <= 0:
+            raise ValueError(
+                f"{path}: 'import_duration_secs' must be positive for raw_ingest benchmark."
+            )
+        if reload_dur is not None:
+            raise ValueError(
+                f"{path}: 'archive_reload_duration_secs' must not be set for raw_ingest benchmark."
+            )
+
+    # 2c. Cryptographic hash & provenance integrity
+    prov_status = data.get("provenance_status")
+    for s_idx, source in enumerate(data.get("source_archives", [])):
+        h = source.get("sha256")
+        if h is not None:
+            if not isinstance(h, str) or len(h) != 64 or not all(c in "0123456789abcdefABCDEF" for c in h):
+                raise ValueError(
+                    f"{path}: Invalid SHA-256 in source_archives[{s_idx}]: {h!r}. "
+                    "Placeholders or non-hex hashes are strictly rejected."
+                )
+        if prov_status == "verified" and h is None:
+            raise ValueError(
+                f"{path}: Provenance marked as 'verified', but source_archives[{s_idx}] lacks sha256."
+            )
+
     # 3. Depth structures and physical sizes
     prev_pos = -1
     for d_key in DEPTH_KEYS:

@@ -4,7 +4,7 @@ use codb_core::{
 };
 use codb_storage::{
     compute_file_sha256, verify_dataset, DatasetWriter, DatasetWriterConfig, GameLookupEntry,
-    GameLookupWriter, SourceArchiveMetadata, StorageError,
+    GameLookupReader, GameLookupWriter, SourceArchiveMetadata, StagingCatalog, StorageError,
 };
 use std::fs;
 use std::path::Path;
@@ -260,6 +260,136 @@ fn test_deep_verification_detects_count_mismatch_between_manifest_and_lookup() {
     assert!(
         err_msg.contains("Lookup entry count") || err_msg.contains("does not match manifest"),
         "Expected entry count mismatch error, got: {}",
+        err_msg
+    );
+}
+
+#[test]
+fn test_staging_catalog_query_plans_have_zero_temp_btree() {
+    let tmp = tempdir().unwrap();
+    let db_path = tmp.path().join("catalog.sqlite");
+    let catalog = StagingCatalog::create(db_path).unwrap();
+
+    let plans = catalog.explain_lookup_query_plans().unwrap();
+    assert_eq!(
+        plans.len(),
+        2,
+        "Expected 2 query plans for the two-pass scan"
+    );
+
+    for (idx, plan) in plans.iter().enumerate() {
+        println!("Plan {}: {}", idx + 1, plan);
+        // Assert that the plan uses the primary key index
+        assert!(
+            plan.contains("USING INTEGER PRIMARY KEY") || plan.contains("PRIMARY KEY"),
+            "Pass {} query plan must use INTEGER PRIMARY KEY, got: {}",
+            idx + 1,
+            plan
+        );
+        // Assert that NO in-memory sort or temp b-tree is used
+        assert!(
+            !plan.contains("TEMP B-TREE") && !plan.contains("USE TEMP"),
+            "Pass {} query plan must NOT use temporary b-tree, got: {}",
+            idx + 1,
+            plan
+        );
+        assert!(
+            !plan.contains("SCAN TABLE"),
+            "Pass {} query plan must NOT perform full unindexed table scan, got: {}",
+            idx + 1,
+            plan
+        );
+    }
+}
+
+#[test]
+fn test_lookup_unsigned_ordering_across_signed_i64_boundary() {
+    let tmp = tempdir().unwrap();
+    let db_path = tmp.path().join("catalog.sqlite");
+    let mut catalog = StagingCatalog::create(db_path).unwrap();
+
+    // Critical boundary values spanning both sides of signed 64-bit integer
+    let test_ids: Vec<u64> = vec![
+        0,
+        1,
+        42,
+        (i64::MAX as u64) - 1,
+        i64::MAX as u64,
+        (i64::MAX as u64) + 1, // i64::MIN in SQLite signed representation
+        (i64::MAX as u64) + 2,
+        u64::MAX - 100,
+        u64::MAX - 1,
+        u64::MAX,
+    ];
+
+    // Insert out of order to verify sorting is strictly enforced
+    let insert_order = vec![
+        (i64::MAX as u64) + 1,
+        0,
+        u64::MAX,
+        42,
+        (i64::MAX as u64) - 1,
+        1,
+        u64::MAX - 1,
+        i64::MAX as u64,
+        u64::MAX - 100,
+        (i64::MAX as u64) + 2,
+    ];
+
+    for (idx, &id) in insert_order.iter().enumerate() {
+        catalog.insert_entry(id, 0, 0, idx as u16).unwrap();
+    }
+
+    assert_eq!(catalog.count_active_games().unwrap(), test_ids.len() as u64);
+
+    let idx_path = tmp.path().join("games.idx");
+    let (_, file_size_bytes, sha256) = catalog
+        .write_lookup_file(idx_path.clone(), Collection::MastersOtb)
+        .unwrap();
+
+    assert_eq!(
+        file_size_bytes,
+        32 + (test_ids.len() as u64 * 16) + 32,
+        "File size must equal header (32) + entries (N*16) + footer (32)"
+    );
+    assert!(!sha256.is_empty());
+
+    // Open with GameLookupReader and verify strictly increasing unsigned order
+    let reader = GameLookupReader::open(&idx_path).unwrap();
+    assert_eq!(reader.entry_count(), test_ids.len() as u64);
+
+    for (i, &expected_id) in test_ids.iter().enumerate() {
+        let entry = reader.get_entry(i).unwrap();
+        assert_eq!(
+            entry.game_id, expected_id,
+            "Entry at index {} must match strictly sorted unsigned value",
+            i
+        );
+
+        // Verify random-access binary search finds every boundary ID
+        let locs = reader.find_locations(expected_id);
+        assert_eq!(
+            locs.len(),
+            1,
+            "Binary search must find exact match for ID {}",
+            expected_id
+        );
+    }
+}
+
+#[test]
+fn test_staging_catalog_rejects_duplicate_game_id() {
+    let tmp = tempdir().unwrap();
+    let db_path = tmp.path().join("catalog.sqlite");
+    let mut catalog = StagingCatalog::create(db_path).unwrap();
+
+    catalog.insert_entry(12345, 0, 0, 0).unwrap();
+    let duplicate_res = catalog.insert_entry(12345, 0, 0, 1);
+    assert!(duplicate_res.is_err());
+    let err_msg = format!("{}", duplicate_res.unwrap_err());
+    assert!(
+        err_msg.contains("Game ID collision") || err_msg.contains("already exists"),
+        "Expected collision error, got: {}",
         err_msg
     );
 }

@@ -6,9 +6,59 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
+
 use crate::format::{export_to_pgn, GameBlock, StorageError};
 use crate::lookup::{GameLookupReader, GameLookupWriter};
 use crate::shard::{BlockDescriptor, ShardReader, ShardWriter};
+
+pub mod fault {
+    use std::cell::RefCell;
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum FaultPoint {
+        BeforeStagingVerify,
+        AfterStagingVerifyBeforeVersionMove,
+        BeforeCurrentSymlinkSwitch,
+        AfterCurrentSymlinkSwitch,
+        FailSyncDirContents,
+        FailSyncDirItself,
+    }
+
+    thread_local! {
+        static ACTIVE_FAULT: RefCell<Option<FaultPoint>> = const { RefCell::new(None) };
+    }
+
+    pub fn set_fault_point(point: Option<FaultPoint>) {
+        ACTIVE_FAULT.with(|f| *f.borrow_mut() = point);
+    }
+
+    pub fn trigger_if(point: FaultPoint) -> Result<(), crate::format::StorageError> {
+        let should_fail = ACTIVE_FAULT.with(|f| *f.borrow() == Some(point));
+        if should_fail {
+            return Err(crate::format::StorageError::Io(std::io::Error::other(
+                format!("Injected publication fault at {:?}", point),
+            )));
+        }
+        if let Ok(val) = std::env::var("CODB_CRASH_AT") {
+            let match_str = match point {
+                FaultPoint::BeforeStagingVerify => "BeforeStagingVerify",
+                FaultPoint::AfterStagingVerifyBeforeVersionMove => {
+                    "AfterStagingVerifyBeforeVersionMove"
+                }
+                FaultPoint::BeforeCurrentSymlinkSwitch => "BeforeCurrentSymlinkSwitch",
+                FaultPoint::AfterCurrentSymlinkSwitch => "AfterCurrentSymlinkSwitch",
+                FaultPoint::FailSyncDirContents => "FailSyncDirContents",
+                FaultPoint::FailSyncDirItself => "FailSyncDirItself",
+            };
+            if val == match_str {
+                std::process::exit(137);
+            }
+        }
+        Ok(())
+    }
+}
 
 pub const DEFAULT_BLOCK_CAPACITY: usize = 512;
 pub const DEFAULT_MAX_GAMES_PER_SHARD: usize = 500_000;
@@ -97,19 +147,19 @@ impl Default for DatasetWriterConfig {
     }
 }
 
-struct StagingCatalog {
+pub struct StagingCatalog {
     conn: rusqlite::Connection,
     db_path: PathBuf,
 }
 
 impl StagingCatalog {
-    fn create(path: PathBuf) -> Result<Self, StorageError> {
+    pub fn create(path: PathBuf) -> Result<Self, StorageError> {
         let conn = rusqlite::Connection::open(&path)?;
         conn.execute_batch(
             "PRAGMA synchronous = NORMAL;
              PRAGMA journal_mode = WAL;
-             PRAGMA temp_store = MEMORY;
-             PRAGMA cache_size = -16000;
+             PRAGMA temp_store = FILE;
+             PRAGMA cache_size = -4096;
              CREATE TABLE active_games (
                  game_id INTEGER PRIMARY KEY,
                  shard_id INTEGER NOT NULL,
@@ -129,7 +179,32 @@ impl StagingCatalog {
         })
     }
 
-    fn insert_locations(
+    pub fn insert_entry(
+        &mut self,
+        game_id: u64,
+        shard_id: u16,
+        block_index: u32,
+        game_index: u16,
+    ) -> Result<(), StorageError> {
+        let res = self.conn.execute(
+            "INSERT INTO active_games (game_id, shard_id, block_index, game_index) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![game_id as i64, shard_id, block_index, game_index],
+        );
+        match res {
+            Ok(_) => Ok(()),
+            Err(rusqlite::Error::SqliteFailure(err, _))
+                if err.code == rusqlite::ffi::ErrorCode::ConstraintViolation =>
+            {
+                Err(StorageError::Integrity(format!(
+                    "Game ID collision in dataset: stable ID {} already exists for an active game",
+                    game_id
+                )))
+            }
+            Err(e) => Err(StorageError::Database(e.to_string())),
+        }
+    }
+
+    pub fn insert_locations(
         &mut self,
         shard_id: u16,
         block_index: u32,
@@ -158,7 +233,7 @@ impl StagingCatalog {
         Ok(())
     }
 
-    fn mark_tombstone(&mut self, game_id: u64) -> Result<bool, StorageError> {
+    pub fn mark_tombstone(&mut self, game_id: u64) -> Result<bool, StorageError> {
         let tx = self.conn.transaction()?;
         let loc: Option<(u16, u32, u16)> = match tx.query_row(
             "SELECT shard_id, block_index, game_index FROM active_games WHERE game_id = ?1",
@@ -186,14 +261,14 @@ impl StagingCatalog {
         }
     }
 
-    fn has_tombstones(&self) -> Result<bool, StorageError> {
+    pub fn has_tombstones(&self) -> Result<bool, StorageError> {
         let count: i64 = self
             .conn
             .query_row("SELECT COUNT(*) FROM tombstones", [], |r| r.get(0))?;
         Ok(count > 0)
     }
 
-    fn is_tombstoned(
+    pub fn is_tombstoned(
         &self,
         shard_id: u16,
         block_index: u32,
@@ -207,7 +282,7 @@ impl StagingCatalog {
         Ok(count > 0)
     }
 
-    fn tombstoned_shards(&self) -> Result<Vec<u16>, StorageError> {
+    pub fn tombstoned_shards(&self) -> Result<Vec<u16>, StorageError> {
         let mut stmt = self
             .conn
             .prepare("SELECT DISTINCT shard_id FROM tombstones ORDER BY shard_id ASC")?;
@@ -219,13 +294,13 @@ impl StagingCatalog {
         Ok(shards)
     }
 
-    fn clear_tombstones_for_shard(&mut self, shard_id: u16) -> Result<(), StorageError> {
+    pub fn clear_tombstones_for_shard(&mut self, shard_id: u16) -> Result<(), StorageError> {
         self.conn
             .execute("DELETE FROM tombstones WHERE shard_id = ?1", [shard_id])?;
         Ok(())
     }
 
-    fn update_game_location(
+    pub fn update_game_location(
         &mut self,
         game_id: u64,
         shard_id: u16,
@@ -239,23 +314,27 @@ impl StagingCatalog {
         Ok(())
     }
 
-    fn count_active_games(&self) -> Result<u64, StorageError> {
+    pub fn count_active_games(&self) -> Result<u64, StorageError> {
         let count: i64 = self
             .conn
             .query_row("SELECT COUNT(*) FROM active_games", [], |r| r.get(0))?;
         Ok(count as u64)
     }
 
-    fn write_lookup_file(
+    pub fn write_lookup_file(
         &self,
         dest_path: PathBuf,
         collection: Collection,
     ) -> Result<(PathBuf, u64, String), StorageError> {
         let count = self.count_active_games()?;
-        let mut stmt = self.conn.prepare(
-            "SELECT game_id, shard_id, block_index, game_index FROM active_games ORDER BY (game_id >= 0) DESC, game_id ASC",
+        let mut pos_stmt = self.conn.prepare(
+            "SELECT game_id, shard_id, block_index, game_index FROM active_games WHERE game_id >= 0 ORDER BY game_id ASC",
         )?;
-        let rows = stmt.query_map([], |r| {
+        let mut neg_stmt = self.conn.prepare(
+            "SELECT game_id, shard_id, block_index, game_index FROM active_games WHERE game_id < 0 ORDER BY game_id ASC",
+        )?;
+
+        let map_row = |r: &rusqlite::Row| {
             let gid: i64 = r.get(0)?;
             let sid: u16 = r.get(1)?;
             let bidx: u32 = r.get(2)?;
@@ -263,13 +342,37 @@ impl StagingCatalog {
             Ok(crate::lookup::GameLookupEntry::new(
                 gid as u64, sid, bidx, gidx,
             ))
-        })?;
+        };
 
-        let entry_iter = rows.map(|res| res.map_err(|e| StorageError::Database(e.to_string())));
+        let pos_rows = pos_stmt.query_map([], map_row)?;
+        let neg_rows = neg_stmt.query_map([], map_row)?;
+
+        let entry_iter = pos_rows
+            .chain(neg_rows)
+            .map(|res| res.map_err(|e| StorageError::Database(e.to_string())));
+
         GameLookupWriter::write_from_iter(dest_path, collection, count, entry_iter)
     }
 
-    fn destroy(self) {
+    pub fn explain_lookup_query_plans(&self) -> Result<Vec<String>, StorageError> {
+        let mut plans = Vec::new();
+        for q in [
+            "EXPLAIN QUERY PLAN SELECT game_id, shard_id, block_index, game_index FROM active_games WHERE game_id >= 0 ORDER BY game_id ASC",
+            "EXPLAIN QUERY PLAN SELECT game_id, shard_id, block_index, game_index FROM active_games WHERE game_id < 0 ORDER BY game_id ASC",
+        ] {
+            let mut stmt = self.conn.prepare(q)?;
+            let rows = stmt.query_map([], |r| {
+                let detail: String = r.get(3)?;
+                Ok(detail)
+            })?;
+            for r in rows {
+                plans.push(r?);
+            }
+        }
+        Ok(plans)
+    }
+
+    pub fn destroy(self) {
         let path = self.db_path.clone();
         drop(self.conn);
         let _ = fs::remove_file(&path);
@@ -293,6 +396,32 @@ pub struct DatasetWriter {
 
 impl DatasetWriter {
     pub fn new(target_dir: PathBuf, config: DatasetWriterConfig) -> Result<Self, StorageError> {
+        if let Some(parent) = target_dir.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::create_dir_all(&target_dir)?;
+        let versions_dir = target_dir.join("versions");
+        fs::create_dir_all(&versions_dir)?;
+
+        // If target_dir has a legacy layout without versions/current, migrate it
+        if target_dir.join("manifest.json").is_file() && !target_dir.join("current").exists() {
+            migrate_legacy_dataset(&target_dir)?;
+        }
+
+        // Clean up any stale staging directories or temporary symlinks from previously aborted runs
+        if let Ok(entries) = fs::read_dir(&target_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with(".staging_") {
+                    let _ = fs::remove_dir_all(entry.path());
+                } else if name_str.starts_with(".current_tmp") || name_str.starts_with(".tmp_link_")
+                {
+                    let _ = fs::remove_file(entry.path());
+                }
+            }
+        }
+
         let staging_id = format!(
             "build_{}_{}_{}",
             config.collection,
@@ -302,10 +431,7 @@ impl DatasetWriter {
                 .map(|d| d.as_nanos())
                 .unwrap_or(0)
         );
-        let staging_dir = target_dir
-            .parent()
-            .unwrap_or_else(|| Path::new("."))
-            .join(format!(".staging_{}", staging_id));
+        let staging_dir = target_dir.join(format!(".staging_{}", staging_id));
 
         if staging_dir.exists() {
             fs::remove_dir_all(&staging_dir)?;
@@ -497,15 +623,18 @@ impl DatasetWriter {
             )));
         }
 
+        let now_nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+
         let manifest = DatasetManifest {
             manifest_version: 1,
             dataset_build_id: format!(
-                "codb-{}-{}",
+                "codb-{}-{}-{}",
                 self.config.collection,
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_secs())
-                    .unwrap_or(0)
+                now_nanos,
+                std::process::id()
             ),
             collection: self.config.collection,
             build_timestamp: chrono_iso8601_now(),
@@ -534,54 +663,50 @@ impl DatasetWriter {
         fs::write(&manifest_path, manifest_json)?;
 
         // Synchronize all files in staging directory before verification and publication
+        fault::trigger_if(fault::FaultPoint::FailSyncDirContents)?;
         sync_dir_contents(&self.staging_dir)?;
 
         // Self-verify staging build before publication
+        fault::trigger_if(fault::FaultPoint::BeforeStagingVerify)?;
         verify_dataset(&self.staging_dir, true)?;
+        fault::trigger_if(fault::FaultPoint::AfterStagingVerifyBeforeVersionMove)?;
 
         // Safe publication protocol:
-        // Never delete the target dataset before the replacement is verified!
-        if let Some(parent) = self.target_dir.parent() {
-            fs::create_dir_all(parent)?;
+        // Move verified staging build to target_dir/versions/<dataset_build_id>
+        let versions_dir = self.target_dir.join("versions");
+        fs::create_dir_all(&versions_dir)?;
+        let version_dir = versions_dir.join(&manifest.dataset_build_id);
+        if version_dir.exists() {
+            fs::remove_dir_all(&version_dir)?;
+        }
+        fs::rename(&self.staging_dir, &version_dir)?;
+
+        sync_dir_contents(&version_dir)?;
+        sync_dir_itself(&versions_dir)?;
+
+        // Atomic active-version transition
+        fault::trigger_if(fault::FaultPoint::BeforeCurrentSymlinkSwitch)?;
+        #[cfg(unix)]
+        {
+            let tmp_link = self
+                .target_dir
+                .join(format!(".current_tmp_{}", std::process::id()));
+            let _ = fs::remove_file(&tmp_link);
+            symlink(
+                Path::new("versions").join(&manifest.dataset_build_id),
+                &tmp_link,
+            )?;
+            fs::rename(&tmp_link, self.target_dir.join("current"))?;
         }
 
-        if self.target_dir.exists() {
-            let backup_dir = self
-                .staging_dir
-                .parent()
-                .unwrap_or_else(|| Path::new("."))
-                .join(format!(
-                    ".backup_{}_{}",
-                    self.target_dir
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy(),
-                    std::process::id()
-                ));
+        fault::trigger_if(fault::FaultPoint::AfterCurrentSymlinkSwitch)?;
 
-            if backup_dir.exists() {
-                let _ = fs::remove_dir_all(&backup_dir);
-            }
+        // Ensure convenience root symlinks
+        ensure_root_symlinks(&self.target_dir)?;
 
-            // Move target_dir to backup_dir
-            fs::rename(&self.target_dir, &backup_dir)?;
-
-            // Move staging_dir to target_dir
-            if let Err(e) = fs::rename(&self.staging_dir, &self.target_dir) {
-                // Failure recovery: restore previous valid dataset
-                let _ = fs::rename(&backup_dir, &self.target_dir);
-                return Err(StorageError::Io(e));
-            }
-
-            // Successfully published new dataset: clean up backup directory
-            let _ = fs::remove_dir_all(&backup_dir);
-        } else {
-            fs::rename(&self.staging_dir, &self.target_dir)?;
-        }
-
-        if let Some(parent) = self.target_dir.parent() {
-            sync_dir_itself(parent);
-        }
+        // Fsync target directory itself so link changes are durable on disk
+        fault::trigger_if(fault::FaultPoint::FailSyncDirItself)?;
+        sync_dir_itself(&self.target_dir)?;
 
         Ok(manifest)
     }
@@ -689,7 +814,8 @@ pub struct DatasetReader {
 
 impl DatasetReader {
     pub fn open(dataset_dir: &Path) -> Result<Self, StorageError> {
-        let manifest_path = dataset_dir.join("manifest.json");
+        let effective_dir = resolve_dataset_dir(dataset_dir);
+        let manifest_path = effective_dir.join("manifest.json");
         if !manifest_path.exists() {
             return Err(StorageError::Decoding(format!(
                 "Dataset directory '{}' is missing manifest.json",
@@ -701,11 +827,11 @@ impl DatasetReader {
         let manifest: DatasetManifest = serde_json::from_slice(&manifest_bytes)
             .map_err(|e| StorageError::Decoding(format!("Invalid manifest.json: {}", e)))?;
 
-        let lookup_path = dataset_dir.join(&manifest.lookup_table.filename);
+        let lookup_path = effective_dir.join(&manifest.lookup_table.filename);
         let lookup_reader = GameLookupReader::open(&lookup_path)?;
 
         Ok(DatasetReader {
-            dataset_dir: dataset_dir.to_path_buf(),
+            dataset_dir: effective_dir,
             manifest,
             lookup_reader,
             open_shards: HashMap::new(),
@@ -886,11 +1012,12 @@ pub struct VerificationReport {
 
 /// Comprehensive dataset verification command logic.
 pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationReport, StorageError> {
-    let reader = DatasetReader::open(dataset_dir)?;
+    let effective_dir = resolve_dataset_dir(dataset_dir);
+    let reader = DatasetReader::open(&effective_dir)?;
     let manifest = reader.manifest().clone();
 
     // 1. Verify lookup file SHA-256
-    let lookup_path = dataset_dir.join(&manifest.lookup_table.filename);
+    let lookup_path = effective_dir.join(&manifest.lookup_table.filename);
     let actual_lookup_sha256 = compute_file_sha256(&lookup_path)?;
     if actual_lookup_sha256 != manifest.lookup_table.sha256 {
         return Err(StorageError::Decoding(format!(
@@ -901,7 +1028,7 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
 
     // 2. Verify all shard file SHA-256 checksums and headers
     for shard_meta in &manifest.shards {
-        let shard_path = dataset_dir.join("shards").join(&shard_meta.filename);
+        let shard_path = effective_dir.join("shards").join(&shard_meta.filename);
         let actual_shard_sha256 = compute_file_sha256(&shard_path)?;
         if actual_shard_sha256 != shard_meta.sha256 {
             return Err(StorageError::Decoding(format!(
@@ -989,7 +1116,7 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
         // D. Decompress every block in every shard and verify 1-to-1 mapping to lookup
         let mut physical_game_count = 0u64;
         for shard_meta in &manifest.shards {
-            let shard_path = dataset_dir.join("shards").join(&shard_meta.filename);
+            let shard_path = effective_dir.join("shards").join(&shard_meta.filename);
             let mut s_reader = ShardReader::open(&shard_path)?;
 
             if s_reader.collection() != manifest.collection {
@@ -1055,25 +1182,231 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
     })
 }
 
-fn sync_dir_contents(dir: &Path) -> Result<(), StorageError> {
-    if let Ok(entries) = fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let p = entry.path();
-            if p.is_file() {
-                if let Ok(f) = File::open(&p) {
-                    let _ = f.sync_all();
-                }
-            } else if p.is_dir() {
-                let _ = sync_dir_contents(&p);
+/// Resolves a dataset directory path to its active data directory,
+/// supporting both versioned layouts (`target/current`) and legacy flat directories.
+pub fn resolve_dataset_dir(dataset_dir: &Path) -> PathBuf {
+    let current = dataset_dir.join("current");
+    if current.join("manifest.json").exists() {
+        current
+    } else {
+        dataset_dir.to_path_buf()
+    }
+}
+
+fn migrate_legacy_dataset(target_dir: &Path) -> Result<(), StorageError> {
+    let versions_dir = target_dir.join("versions");
+    fs::create_dir_all(&versions_dir)?;
+    let legacy_dir = versions_dir.join("legacy_v0");
+    if !legacy_dir.exists() {
+        fs::create_dir_all(&legacy_dir)?;
+        for item in ["manifest.json", "games.idx", "shards"] {
+            let src = target_dir.join(item);
+            let dst = legacy_dir.join(item);
+            if src.exists() {
+                fs::rename(&src, &dst)?;
             }
         }
+        #[cfg(unix)]
+        {
+            let tmp_link = target_dir.join(format!(".current_tmp_{}", std::process::id()));
+            let _ = fs::remove_file(&tmp_link);
+            symlink("versions/legacy_v0", &tmp_link)?;
+            fs::rename(&tmp_link, target_dir.join("current"))?;
+        }
+        ensure_root_symlinks(target_dir)?;
+        sync_dir_contents(&legacy_dir)?;
+        sync_dir_itself(&versions_dir)?;
+        sync_dir_itself(target_dir)?;
     }
-    sync_dir_itself(dir);
     Ok(())
 }
 
-fn sync_dir_itself(dir: &Path) {
-    if let Ok(f) = File::open(dir) {
-        let _ = f.sync_all();
+fn ensure_root_symlinks(target_dir: &Path) -> Result<(), StorageError> {
+    #[cfg(unix)]
+    {
+        for (link_name, target) in [
+            ("manifest.json", "current/manifest.json"),
+            ("games.idx", "current/games.idx"),
+            ("shards", "current/shards"),
+        ] {
+            let link_path = target_dir.join(link_name);
+            let needs_link = match fs::symlink_metadata(&link_path) {
+                Ok(meta) => !meta.file_type().is_symlink(),
+                Err(_) => true,
+            };
+            if needs_link {
+                let tmp_link =
+                    target_dir.join(format!(".tmp_link_{}_{}", link_name, std::process::id()));
+                let _ = fs::remove_file(&tmp_link);
+                symlink(target, &tmp_link)?;
+                let _ = fs::rename(&tmp_link, &link_path);
+            }
+        }
     }
+    Ok(())
+}
+
+/// Safe, deterministic, and idempotent recovery procedure for datasets.
+/// Detects interrupted publications, cleans up stale staging data,
+/// and restores the active 'current' version safely.
+pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
+    if !target_dir.exists() {
+        return Err(StorageError::Integrity(format!(
+            "Dataset directory '{}' does not exist",
+            target_dir.display()
+        )));
+    }
+
+    // 1. Clean up any leftover temporary symlinks and staging directories
+    if let Ok(entries) = fs::read_dir(target_dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.starts_with(".staging_") {
+                let _ = fs::remove_dir_all(entry.path());
+            } else if name_str.starts_with(".current_tmp") || name_str.starts_with(".tmp_link_") {
+                let _ = fs::remove_file(entry.path());
+            }
+        }
+    }
+
+    // 2. Check if current symlink exists and is valid
+    let current_path = target_dir.join("current");
+    let current_is_valid = if current_path.exists() {
+        verify_dataset(&current_path, false).is_ok()
+    } else {
+        false
+    };
+
+    // 3. Inspect versions directory
+    let versions_dir = target_dir.join("versions");
+    if versions_dir.is_dir() {
+        let mut candidates = Vec::new();
+        if let Ok(entries) = fs::read_dir(&versions_dir) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    let meta = p.metadata();
+                    let mtime = meta
+                        .and_then(|m| m.modified())
+                        .unwrap_or(std::time::UNIX_EPOCH);
+                    candidates.push((p, mtime));
+                }
+            }
+        }
+        // Sort newest first
+        candidates.sort_by_key(|a| std::cmp::Reverse(a.1));
+
+        if current_is_valid {
+            ensure_root_symlinks(target_dir)?;
+            return Ok(current_path);
+        }
+
+        // If current is missing or invalid, find the latest verified candidate
+        for (cand, _) in candidates {
+            if verify_dataset(&cand, false).is_ok() {
+                let version_name = cand.file_name().unwrap();
+                let tmp_link = target_dir.join(format!(".current_tmp_{}", std::process::id()));
+                let _ = fs::remove_file(&tmp_link);
+                #[cfg(unix)]
+                symlink(Path::new("versions").join(version_name), &tmp_link)?;
+                fs::rename(&tmp_link, target_dir.join("current"))?;
+                ensure_root_symlinks(target_dir)?;
+                sync_dir_itself(target_dir)?;
+                return Ok(target_dir.join("current"));
+            }
+        }
+    }
+
+    // 4. Check if target_dir has a valid legacy layout
+    if target_dir.join("manifest.json").is_file() && verify_dataset(target_dir, false).is_ok() {
+        migrate_legacy_dataset(target_dir)?;
+        return Ok(target_dir.join("current"));
+    }
+
+    Err(StorageError::Integrity(format!(
+        "Failed to recover dataset in '{}': no valid dataset version found",
+        target_dir.display()
+    )))
+}
+
+/// Separated maintenance cleanup: removes older superseded versions while preserving
+/// the active published version and the most recent `keep_versions` previous versions.
+pub fn cleanup_old_versions(
+    target_dir: &Path,
+    keep_versions: usize,
+) -> Result<usize, StorageError> {
+    let versions_dir = target_dir.join("versions");
+    if !versions_dir.is_dir() {
+        return Ok(0);
+    }
+
+    // Find the currently active version name so we NEVER delete it!
+    let active_version_name = if let Ok(target) = fs::read_link(target_dir.join("current")) {
+        target.file_name().map(|n| n.to_string_lossy().to_string())
+    } else {
+        None
+    };
+
+    let mut versions = Vec::new();
+    for entry in fs::read_dir(&versions_dir)?.flatten() {
+        let p = entry.path();
+        if p.is_dir() {
+            let meta = p.metadata();
+            let mtime = meta
+                .and_then(|m| m.modified())
+                .unwrap_or(std::time::UNIX_EPOCH);
+            let name = p.file_name().unwrap().to_string_lossy().to_string();
+            let is_active = active_version_name.as_deref() == Some(&name);
+            versions.push((p, mtime, is_active));
+        }
+    }
+
+    // Sort newest first
+    versions.sort_by_key(|a| std::cmp::Reverse(a.1));
+
+    let mut removed = 0;
+    let mut kept_previous = 0;
+    for (path, _, is_active) in versions {
+        if is_active {
+            // Never remove active version
+            continue;
+        }
+        if kept_previous < keep_versions {
+            kept_previous += 1;
+        } else {
+            fs::remove_dir_all(&path)?;
+            removed += 1;
+        }
+    }
+    sync_dir_itself(&versions_dir)?;
+    Ok(removed)
+}
+
+/// Synchronizes a directory's entries to persistent storage and propagates I/O errors.
+pub fn sync_dir_itself(dir: &Path) -> Result<(), StorageError> {
+    let f = File::open(dir)?;
+    f.sync_all()?;
+    Ok(())
+}
+
+/// Recursively synchronizes all file contents in a directory tree, skipping symlinks,
+/// and propagates any I/O errors immediately.
+pub fn sync_dir_contents(dir: &Path) -> Result<(), StorageError> {
+    let entries = fs::read_dir(dir)?;
+    for entry in entries {
+        let entry = entry?;
+        let p = entry.path();
+        let file_type = entry.file_type()?;
+        if file_type.is_symlink() {
+            continue;
+        } else if file_type.is_file() {
+            let f = File::open(&p)?;
+            f.sync_all()?;
+        } else if file_type.is_dir() {
+            sync_dir_contents(&p)?;
+        }
+    }
+    sync_dir_itself(dir)?;
+    Ok(())
 }

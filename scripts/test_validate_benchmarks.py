@@ -151,6 +151,80 @@ class TestValidateBenchmarks(unittest.TestCase):
         finally:
             os.remove(temp_path2)
 
+    def test_dataset_archive_with_import_duration_fails(self):
+        """Condition 6: Ambiguous import_duration on dataset_archive is rejected."""
+        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+            archive_data = json.load(f)
+
+        corrupt = copy.deepcopy(archive_data)
+        corrupt["import_duration_secs"] = 0.1544  # Ambiguous duplicate duration!
+
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(corrupt, f)
+            temp_path = f.name
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                validate_benchmark_file(temp_path)
+            self.assertIn("Ambiguous benchmark semantics", str(ctx.exception))
+        finally:
+            os.remove(temp_path)
+
+    def test_placeholder_sha256_is_rejected(self):
+        """Condition 7: Placeholder strings as cryptographic hashes are rejected."""
+        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+            archive_data = json.load(f)
+
+        corrupt = copy.deepcopy(archive_data)
+        corrupt["source_archives"][0]["sha256"] = "streamed-external-source"
+
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(corrupt, f)
+            temp_path = f.name
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                validate_benchmark_file(temp_path)
+            self.assertIn("Invalid SHA-256 in source_archives", str(ctx.exception))
+        finally:
+            os.remove(temp_path)
+
+    def test_verified_status_without_hash_is_rejected(self):
+        """Condition 8: Provenance claim 'verified' without valid hash is rejected."""
+        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+            archive_data = json.load(f)
+
+        corrupt = copy.deepcopy(archive_data)
+        corrupt["provenance_status"] = "verified"  # Claiming verified without sha256!
+        corrupt["source_archives"][0]["sha256"] = None
+
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(corrupt, f)
+            temp_path = f.name
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                validate_benchmark_file(temp_path)
+            self.assertIn("lacks sha256", str(ctx.exception))
+        finally:
+            os.remove(temp_path)
+
+    def test_physical_archive_bytes_as_input_size_is_rejected(self):
+        """Condition 9: Conflating total persistent bytes with input size is rejected."""
+        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+            archive_data = json.load(f)
+
+        corrupt = copy.deepcopy(archive_data)
+        # Put total_persistent_bytes (19671343) into input_size_bytes instead of source size
+        corrupt["input_size_bytes"] = corrupt["persistent_storage"]["total_persistent_bytes"]
+
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(corrupt, f)
+            temp_path = f.name
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                validate_benchmark_file(temp_path)
+            self.assertIn("incorrectly populates source input_size_bytes", str(ctx.exception))
+        finally:
+            os.remove(temp_path)
+
 
 if __name__ == "__main__":
     unittest.main()

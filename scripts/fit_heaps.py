@@ -192,13 +192,40 @@ total_games_15m_cons = ((5_000_000 * (m_bpg * 1.10)) + (10_000_000 * (e_bpg * 1.
 
 deployed_ancillary_overhead_gb = 0.44
 
+opt_b_baseline = round(
+    total_games_15m_base
+    + deployed_ancillary_overhead_gb
+    + project_masters_index_gb("depth_40", 5_000_000, "baseline")
+    + project_elite_index_gb("depth_30", 10_000_000, "baseline"),
+    2,
+)
+opt_b_optimistic = round(
+    total_games_15m_base * 0.95
+    + deployed_ancillary_overhead_gb
+    + project_masters_index_gb("depth_40", 5_000_000, "optimistic")
+    + project_elite_index_gb("depth_30", 10_000_000, "optimistic"),
+    2,
+)
+opt_b_conservative = round(
+    total_games_15m_cons
+    + deployed_ancillary_overhead_gb
+    + project_masters_index_gb("depth_40", 5_000_000, "conservative")
+    + project_elite_index_gb("depth_30", 10_000_000, "conservative"),
+    2,
+)
+
+headroom_gb = round(10.0 - opt_b_conservative, 2)
+headroom_pct = round((headroom_gb / 10.0) * 100, 1)
+
 output_json = {
     "methodology_note": (
         "PR-02 Calibrated Model: Parameters are fitted via OLS log-linear regression across separate empirical "
-        "Masters OTB (N=1k..20k) and Elite Online (N=1k..50k+) corpora. Empirical measurements reveal that Elite Online "
-        "games are 15% more compact in game storage (~180 B/game vs ~208 B/game) but exhibit higher opening position "
+        f"Masters OTB (N=1k..20k) and Elite Online (N=1k..50k+) corpora. Empirical measurements reveal that Elite Online "
+        f"games are 15% more compact in game storage (~{e_bpg:.0f} B/game vs ~{m_bpg:.0f} B/game) but exhibit higher opening position "
         "diversity at Depth 20-30 due to diverse online opening repertoires compared to classical Master tournament theory. "
-        "Option B projects the 15M target (5M Masters D40 + 10M Elite D30) at ~6.44 GB baseline (~8.22 GB conservative)."
+        f"Option B projects the 15M target (5M Masters D40 + 10M Elite D30) at {opt_b_baseline:.2f} GB baseline "
+        f"({opt_b_optimistic:.2f} GB optimistic, {opt_b_conservative:.2f} GB conservative). Feasibility is conditional: while baseline "
+        f"and optimistic models are well within the 10 GB limit, the conservative scenario leaves {int(headroom_gb * 1000)} MB ({headroom_pct}%) headroom."
     ),
     "parameters": {
         **fits_masters,

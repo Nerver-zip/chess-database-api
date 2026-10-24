@@ -23,10 +23,10 @@ Building upon PR-01's research foundations, PR-02 transformed the system into a 
    - Elite Online exhibits **~40% higher position diversity** at Depth 20 and **~20% higher diversity** at Depth 30 than Masters OTB, validating that online repertoires branch more widely than classical grandmaster tournament play.
 
 3. **Recalibrated 15-Million-Game Deployment Projections (Option B):**
-   - Applying independent Heaps' Law models ($\alpha = 0.9293$ for Masters OTB D40; $\alpha = 0.8878$ for Elite Online D30) to the 15,000,000-game capacity target (5M Masters OTB + 10M Elite Online):
-     - **Core Payload:** **7.06 GB** (1.04 GB Masters games + 1.80 GB Elite games + 1.72 GB Masters D40 index + 2.50 GB Elite D30 index).
+   - Applying independent Heaps' Law models ($\alpha = 0.9293$ for Masters OTB D40; $\alpha = 0.9293$ for Elite Online D30) to the 15,000,000-game capacity target (5M Masters OTB + 10M Elite Online):
+     - **Core Payload:** **7.03 GB** (1.04 GB Masters games + 1.81 GB Elite games + 1.72 GB Masters D40 index + 2.45 GB Elite D30 index).
      - **Ancillary Deployment Overhead:** **0.44 GB** (shard headers, global `games.idx` lookup index, manifest checksums, and filesystem alignment slack).
-     - **Total Deployed Footprint (Option B):** **7.50 GB baseline** (**6.44 GB optimistic** to **9.71 GB conservative**), remaining comfortably below the 10 GB envelope under all tested scenarios.
+     - **Total Deployed Footprint (Option B):** **7.47 GB baseline** (**6.28 GB optimistic** to **9.66 GB conservative**). Feasibility is **conditional**: while baseline and optimistic projections are comfortably within budget, the conservative scenario leaves narrow headroom of **340 MB (3.4%)** against the 10 GB limit.
 
 ---
 

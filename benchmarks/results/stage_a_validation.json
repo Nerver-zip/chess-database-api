@@ -1,4 +1,8 @@
 {
+  "schema_version": "2.0.0",
+  "benchmark_type": "raw_ingest",
+  "provenance_status": "verified",
+  "reproduction_status": "reproducible_from_source",
   "run_name": "stage_a_validation",
   "collection": "masters-otb",
   "input_file": "fixtures/stage_a_validation.pgn",
@@ -17,16 +21,16 @@
   "is_reconciled": true,
   "retained_matches_accepted": true,
   "transpositions_distinct": 986,
-  "import_duration_secs": 0.013061884,
-  "import_throughput_games_sec": 76558.63426746096,
-  "import_throughput_mb_sec": 28.698846200134682,
-  "raw_ingest_duration_secs": 0.013061884,
-  "raw_ingest_throughput_games_sec": 76558.63426746096,
+  "import_duration_secs": 0.012742289,
+  "import_throughput_games_sec": 78478.83531757913,
+  "import_throughput_mb_sec": 29.41865468598303,
+  "raw_ingest_duration_secs": 0.012742289,
+  "raw_ingest_throughput_games_sec": 78478.83531757913,
   "source_archives": [
     {
       "filename": "stage_a_validation.pgn",
       "url": null,
-      "sha256": null,
+      "sha256": "29baf2939593b2c6ba8b9f534d9f7c3891b11e04fa40f1388fc0dbe6817f0dcf",
       "size_bytes": 374861,
       "license": "CC0"
     }
@@ -46,7 +50,7 @@
     "cpi_sparse_directory_bytes": 34,
     "immutable_index_size_bytes": 4652,
     "sqlite_index_size_bytes": 74168,
-    "index_build_duration_secs": 0.029338289
+    "index_build_duration_secs": 0.029356689
   },
   "depth_30": {
     "depth_plies": 30,
@@ -56,7 +60,7 @@
     "cpi_sparse_directory_bytes": 68,
     "immutable_index_size_bytes": 6883,
     "sqlite_index_size_bytes": 98888,
-    "index_build_duration_secs": 0.040667481
+    "index_build_duration_secs": 0.041668709
   },
   "depth_40": {
     "depth_plies": 40,
@@ -66,7 +70,7 @@
     "cpi_sparse_directory_bytes": 68,
     "immutable_index_size_bytes": 7816,
     "sqlite_index_size_bytes": 103008,
-    "index_build_duration_secs": 0.046606343
+    "index_build_duration_secs": 0.04693399
   },
   "depth_60": {
     "depth_plies": 60,
@@ -76,7 +80,7 @@
     "cpi_sparse_directory_bytes": 68,
     "immutable_index_size_bytes": 7816,
     "sqlite_index_size_bytes": 103008,
-    "index_build_duration_secs": 0.048556976
+    "index_build_duration_secs": 0.047381507
   },
   "query_latency_us": {
     "cache_regime": "warm_os_page_cache",
@@ -87,14 +91,14 @@
     "transposition_keys_sampled": 400,
     "miss_keys_sampled": 400,
     "semantic_equivalence_verified": true,
-    "sqlite_disk_p50_us": 4.329,
-    "sqlite_disk_p95_us": 5.175,
-    "sqlite_disk_p99_us": 5.601,
-    "cpi_disk_p50_us": 7.916,
-    "cpi_disk_p95_us": 8.792,
-    "cpi_disk_p99_us": 17.255,
-    "cpi_in_memory_p50_us": 0.344,
-    "cpi_in_memory_p95_us": 0.546,
-    "cpi_in_memory_p99_us": 0.572
+    "sqlite_disk_p50_us": 4.258,
+    "sqlite_disk_p95_us": 5.096,
+    "sqlite_disk_p99_us": 7.092,
+    "cpi_disk_p50_us": 7.828,
+    "cpi_disk_p95_us": 8.8,
+    "cpi_disk_p99_us": 9.486,
+    "cpi_in_memory_p50_us": 0.349,
+    "cpi_in_memory_p95_us": 0.554,
+    "cpi_in_memory_p99_us": 0.755
   }
 }

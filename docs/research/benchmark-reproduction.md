@@ -148,11 +148,29 @@ Enforces that every artifact strictly complies with the schema, accounting recon
 
 ---
 
-## 5. PR-02 Persistent Dataset Pipeline & Validation
+## 5. PR-02 Persistent Dataset Pipeline, Provenance & Validation
 
 PR-02 introduces the production-ready persistent CGB3 storage pipeline with sharding, global memory-mapped indexing, and bounded-memory ingestion.
 
-### 5.1 Building a Persistent Sharded Dataset
+### 5.1 Benchmark Timing Semantics & Schema 2.0.0
+
+Benchmark artifacts generated under PR-02 use Schema 2.0.0 to strictly disambiguate raw source ingestion from persistent archive reload:
+
+- **Raw Ingestion Benchmarks (`codb bench`, `benchmark_type: "raw_ingest"`):**
+  Measures the complete end-to-end ingestion pipeline: streaming decompression, Shakmaty PGN legal move replay, policy curation, SQLite deduplication, and block compression.
+  Metrics: `import_duration_secs`, `import_throughput_games_sec`, `import_throughput_mb_sec`.
+
+- **Persistent Archive Reload Benchmarks (`codb bench-dataset`, `benchmark_type: "dataset_archive"`):**
+  Measures reloading games from an already-finalized, persistent CGB3 dataset container into memory for indexing and random-access query evaluation.
+  Metrics: `archive_reload_duration_secs`, `archive_reload_throughput_games_sec`, `archive_reload_throughput_mb_sec`.
+  `import_duration_secs` is explicitly omitted (`null`) to prevent conflating archive reload latency with raw source ingestion throughput.
+
+- **Source Provenance Classification:**
+  - `verified`: Source file exists locally and its SHA-256 hash has been independently verified against the manifest.
+  - `declared_unverified`: Source metadata (URL, file name, size) was declared at ingestion time (e.g., piped via stdin from a remote source), but the complete source SHA-256 was not independently verified.
+  - Placeholder strings (such as `"streamed-external-source"`) are strictly rejected. When an independent checksum is unavailable, `sha256` is recorded as `null` with `provenance_status: "declared_unverified"`.
+
+### 5.2 Building a Persistent Sharded Dataset
 ```bash
 # Example: Build persistent Masters OTB dataset
 ./target/release/codb build \
@@ -170,23 +188,43 @@ curl -sL https://database.lichess.org/standard/lichess_db_standard_rated_2025-01
       --max-games 50000
 ```
 
-### 5.2 Deep Verification of Shards, Hashes, and Lookups
+### 5.3 Deep Verification of Shards, Hashes, and Lookups
 ```bash
 # Verify dataset manifest, SHA-256 hashes, lookup table, and decompress all blocks
 ./target/release/codb verify --dataset data/builds/elite-online-50k --deep
 ```
 
-### 5.3 Inspecting Dataset Structure and Accounting
+### 5.4 Inspecting Dataset Structure and Accounting
 ```bash
 ./target/release/codb inspect --dataset data/builds/elite-online-50k
 ```
 
-### 5.4 Benchmarking Random Game Retrieval
+### 5.5 Benchmarking Random Game Retrieval and Archive Reload
 ```bash
 ./target/release/codb bench-dataset \
   --dataset data/builds/elite-online-50k \
   --run-name pr02_scale_elite_50k \
+  --output-dir benchmarks/results \
   --samples 2000
+```
+
+### 5.6 Capturing Resource & Memory Metrics (Peak RSS)
+Peak memory (Resident Set Size) during persistent builds can be reproducibly captured via kernel `getrusage` (or `/usr/bin/time -v` when available):
+```bash
+python3 -c "
+import subprocess, resource, time
+cmd = ['./target/release/codb', 'build', '--input', 'data/masters_combined.pgn.zst', '--collection', 'masters-otb', '--output', '/tmp/test_build', '--max-games', '20000']
+start = time.time()
+res = subprocess.run(cmd, capture_output=True)
+dur = time.time() - start
+usage = resource.getrusage(resource.RUSAGE_CHILDREN)
+print(f'Elapsed: {dur:.2f}s, Peak RSS: {usage.ru_maxrss} KB ({usage.ru_maxrss/1024:.2f} MB)')
+"
+```
+
+### 5.7 Validating Benchmark Artifacts
+```bash
+python3 scripts/validate_benchmarks.py
 ```
 
 ---

@@ -1,8 +1,12 @@
 {
+  "schema_version": "2.0.0",
+  "benchmark_type": "dataset_archive",
+  "provenance_status": "declared_unverified",
+  "reproduction_status": "source_verification_pending",
   "run_name": "pr02_scale_elite_100k",
   "collection": "elite-online",
   "input_file": "-",
-  "input_size_bytes": 19671343,
+  "input_size_bytes": 35200000000,
   "total_encountered": 5108242,
   "accepted_unique": 100000,
   "retained_canonical_games": 100000,
@@ -17,17 +21,17 @@
   "is_reconciled": true,
   "retained_matches_accepted": true,
   "transpositions_distinct": 0,
-  "import_duration_secs": 0.154414647,
-  "import_throughput_games_sec": 647606.9592025166,
-  "import_throughput_mb_sec": 127.39298623659711,
+  "raw_ingest_duration_secs": null,
+  "raw_ingest_throughput_games_sec": null,
   "archive_reload_duration_secs": 0.154414647,
   "archive_reload_throughput_games_sec": 647606.9592025166,
+  "archive_reload_throughput_mb_sec": 127.39298623659711,
   "raw_ingest_note": "Archive reload of 100,000 accepted games from persistent CGB3 shard; raw ingest evaluated 5,108,242 games from lichess_db_standard_rated_2025-01.pgn.zst to accept 100,000 games meeting EliteOnlinePolicy",
   "source_archives": [
     {
       "filename": "lichess_db_standard_rated_2025-01.pgn.zst",
       "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2025-01.pgn.zst",
-      "sha256": "streamed-external-source",
+      "sha256": null,
       "size_bytes": 35200000000,
       "license": "CC0"
     }
