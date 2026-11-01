@@ -121,6 +121,7 @@ if [ "$MODE" = "--ci" ] || [ "$MODE" = "--stage-a" ]; then
     python3 scripts/validate_benchmarks.py
     python3 scripts/test_validate_benchmarks.py
     python3 scripts/test_feasibility_alignment.py
+    python3 scripts/validate_production_cpi_benchmarks.py
 
     rm -rf "$CI_DATASET_DIR"
     trap - EXIT
@@ -246,6 +247,7 @@ done
 echo "=== [5/5] Re-fitting Heaps' Law & Validating Consistency ==="
 python3 scripts/fit_heaps.py
 python3 scripts/validate_benchmarks.py
+python3 scripts/validate_production_cpi_benchmarks.py
 
 echo ""
 echo "========================================================================"

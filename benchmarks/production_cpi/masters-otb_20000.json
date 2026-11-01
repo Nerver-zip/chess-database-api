@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0.0",
+  "benchmark_type": "production_cpi_external_sort",
+  "git_commit": "650f2f7d079fb5d48f1cb734daf42a1295b563a9",
+  "dataset_identity": {
+    "collection": "masters-otb",
+    "game_count_requested": 20000,
+    "input_file": "/home/nerver/Desktop/dev/chess-openings-db/data/masters_combined.pgn.zst",
+    "input_sha256": "1302f9191e4cdd12577aa88357cfc6bb895775aca5114b7e016ae43995ace2e8",
+    "input_size_bytes": 105785315,
+    "published_build_id": "codb-masters-otb-1793504829353837167-667678-e860cb3ad79b845d-cpi-d40",
+    "configuration": {
+      "depth_plies": 40,
+      "memory_limit_mib": 128,
+      "memory_limit_bytes": 134217728,
+      "max_merge_fan_in": 64,
+      "positions_per_block": 64,
+      "zstd_level": 3
+    }
+  },
+  "index_construction": {
+    "games_processed": 20000,
+    "games_indexed": 19898,
+    "excluded_unknown_result_games": 102,
+    "custom_fen_games": 0,
+    "repeated_positions_skipped": 1281,
+    "raw_observations_extracted": 777693,
+    "unique_positions": 491008,
+    "unique_position_move_pairs": 517039,
+    "cpi_block_count": 7672,
+    "runs_generated": 1,
+    "merge_passes": 1,
+    "build_duration_secs": 1.2251,
+    "throughput_games_per_sec": 16324.75,
+    "peak_process_rss_kib": 34188,
+    "peak_process_rss_bytes": 35008512,
+    "peak_process_rss_mib": 33.39,
+    "rss_budget_enforced": true,
+    "peak_temporary_disk_bytes": 15511222,
+    "final_cpi_size_bytes": 10642422,
+    "cpi_bytes_per_unique_position": 21.675,
+    "cpi_bytes_per_game": 534.849,
+    "verification_duration_secs": 0.1019,
+    "verification_passed": true
+  },
+  "storage_accounting": {
+    "initial_cgb3_dataset_bytes": 4486023,
+    "final_deployed_dataset_bytes": 19615048,
+    "final_cpi_bytes": 10642422,
+    "temporary_external_sort_peak_bytes": 15511222,
+    "peak_total_disk_usage_bytes": 30639667
+  },
+  "query_performance": {
+    "warm_cache": {
+      "p50_latency_us": 1445.3,
+      "p95_latency_us": 1659.1,
+      "p99_latency_us": 1957.0,
+      "sample_size": 70,
+      "methodology": "Repeated queries across common opening move sequences (e4, d4, c4, Nf3) over pre-warmed OS file buffer cache"
+    },
+    "cold_cache_end_to_end": {
+      "p50_latency_us": 1441.1,
+      "p95_latency_us": 1765.8,
+      "p99_latency_us": 1765.8,
+      "sample_size": 5,
+      "methodology": "Separate subprocess invocation per query measuring full CLI startup, dataset resolution, mmap, binary search, and JSON formatting"
+    },
+    "index_open_included_in_query_timing": true
+  }
+}

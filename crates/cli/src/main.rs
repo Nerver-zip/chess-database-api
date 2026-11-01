@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::hint::black_box;
-use std::io::{BufReader, Cursor, Read};
+use std::io::{BufReader, BufWriter, Cursor, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -251,6 +251,21 @@ enum Commands {
         /// Number of random ID retrieval lookups to measure (default: 10,000)
         #[arg(long, default_value = "10000")]
         random_lookups: usize,
+    },
+
+    /// Export games from a persistent dataset to PGN format (stdout or file, optional .zst)
+    Export {
+        /// Dataset directory path containing manifest.json
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// Output PGN path (defaults to stdout; if ends with .zst, applies zstd compression)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Maximum games to export
+        #[arg(long)]
+        max_games: Option<usize>,
     },
 }
 
@@ -696,6 +711,14 @@ fn main() -> Result<()> {
         } => {
             run_bench_dataset(&dataset, &output_dir, &run_name, random_lookups)?;
         }
+
+        Commands::Export {
+            dataset,
+            output,
+            max_games,
+        } => {
+            run_export(&dataset, output.as_deref(), max_games)?;
+        }
     }
 
     Ok(())
@@ -1032,6 +1055,48 @@ fn run_get_game(dataset: &Path, id: u64, format: FormatArg) -> Result<()> {
         }
         Err(err) => Err(anyhow::anyhow!("Storage error retrieving game: {}", err)),
     }
+}
+
+fn run_export(dataset: &Path, output: Option<&Path>, max_games: Option<usize>) -> Result<()> {
+    let reader = DatasetReader::open(dataset)
+        .with_context(|| format!("Failed to open dataset at {}", dataset.display()))?;
+
+    let writer: Box<dyn Write> = match output {
+        Some(path) => {
+            let file = File::create(path)
+                .with_context(|| format!("Failed to create output file {}", path.display()))?;
+            let buf = BufWriter::new(file);
+            if path.extension().and_then(|s| s.to_str()) == Some("zst") {
+                Box::new(zstd::Encoder::new(buf, 3)?.auto_finish())
+            } else {
+                Box::new(buf)
+            }
+        }
+        None => Box::new(BufWriter::new(std::io::stdout())),
+    };
+    let mut writer = writer;
+
+    let mut count = 0usize;
+    let limit = max_games.unwrap_or(usize::MAX);
+
+    for game_res in reader.iter_games()? {
+        if count >= limit {
+            break;
+        }
+        let game = game_res?;
+        let pgn_text =
+            export_to_pgn(&game).map_err(|e| anyhow::anyhow!("PGN serialization error: {}", e))?;
+        writer.write_all(pgn_text.as_bytes())?;
+        writer.write_all(b"\n\n")?;
+        count += 1;
+    }
+    writer.flush()?;
+    eprintln!(
+        "Exported {} games from dataset {}",
+        count,
+        dataset.display()
+    );
+    Ok(())
 }
 
 fn run_inspect(dataset: &Path, json: bool) -> Result<()> {
@@ -2039,13 +2104,19 @@ fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct BuildIndexOutput {
+    published_build_id: String,
     games_processed: u64,
     games_indexed: u64,
     excluded_unknown_result_games: u64,
+    custom_fen_games: u64,
+    repeated_positions_skipped: u64,
+    raw_observations_extracted: u64,
     unique_positions: u64,
     total_move_records: u64,
+    cpi_block_count: u32,
     runs_generated: usize,
     merge_passes: usize,
+    peak_temp_bytes: u64,
     cpi_file_size_bytes: u64,
     cpi_sha256: String,
     duration_ms: u128,
@@ -2093,13 +2164,19 @@ fn run_build_index(opts: BuildIndexOptions<'_>) -> Result<()> {
 
     if opts.json {
         let out = BuildIndexOutput {
+            published_build_id: report.published_build_id.clone(),
             games_processed: report.stats.games_processed,
             games_indexed: report.stats.games_indexed,
             excluded_unknown_result_games: report.stats.excluded_unknown_result_games,
+            custom_fen_games: report.stats.custom_fen_games,
+            repeated_positions_skipped: report.stats.repeated_positions_skipped,
+            raw_observations_extracted: report.stats.raw_observations_extracted,
             unique_positions: report.stats.cpi_metadata.total_positions,
             total_move_records: report.stats.cpi_metadata.total_pairs,
+            cpi_block_count: report.stats.cpi_metadata.block_count,
             runs_generated: report.stats.runs_generated,
             merge_passes: report.stats.merge_passes,
+            peak_temp_bytes: report.stats.peak_temp_bytes,
             cpi_file_size_bytes: report.stats.cpi_metadata.total_file_size,
             cpi_sha256: report.cpi_sha256,
             duration_ms,
