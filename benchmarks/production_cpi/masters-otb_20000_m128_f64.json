@@ -1,0 +1,83 @@
+{
+  "schema_version": "2.0.0",
+  "benchmark_type": "production_cpi_external_sort",
+  "scenario": "scale_default",
+  "git_commit": "8106b019ff60f2b7eff778d451f4f1768618532a",
+  "dataset_identity": {
+    "collection": "masters-otb",
+    "game_count_requested": 20000,
+    "game_count_processed": 20000,
+    "scale_status": "target_reached",
+    "input_file": "data/masters_broadcast_2025-01_2026-09.pgn.zst",
+    "input_sha256": "3b25c49b25ec9612879213efc8ba91192a497ff464e912e0db949b2c7636d288",
+    "input_size_bytes": 387296233,
+    "source_description": "Lichess official broadcasts (CC0), curated by MastersOtbPolicy",
+    "published_build_id": "codb-masters-otb-1793542932514811776-726942-687aa81e27961f74-cpi-d40",
+    "configuration": {
+      "depth_plies": 40,
+      "memory_limit_mib": 128,
+      "memory_limit_bytes": 134217728,
+      "max_merge_fan_in": 64,
+      "positions_per_block": 64,
+      "zstd_level": 3
+    }
+  },
+  "index_construction": {
+    "games_processed": 20000,
+    "games_indexed": 19708,
+    "excluded_unknown_result_games": 292,
+    "custom_fen_games": 0,
+    "repeated_positions_skipped": 1444,
+    "raw_observations_extracted": 770738,
+    "unique_positions": 478226,
+    "unique_position_move_pairs": 503973,
+    "cpi_block_count": 7473,
+    "runs_generated": 1,
+    "merge_passes": 1,
+    "build_duration_secs": 1.1998,
+    "throughput_games_per_sec": 16669.27,
+    "peak_process_rss_kib": 32036,
+    "peak_process_rss_bytes": 32804864,
+    "peak_process_rss_mib": 31.29,
+    "peak_rss_to_limit_ratio": 0.244,
+    "rss_within_configured_limit": true,
+    "sampled_peak_rss_anon_mib": 25.58,
+    "sampled_peak_rss_file_mib": 15.87,
+    "sampled_peak_rss_anon_kib": 26192,
+    "sampled_peak_rss_file_kib": 16248,
+    "rss_sampling_note": "ru_maxrss is the kernel high-water mark of total RSS (anon + file-backed + shmem). Anon/file peaks are sampled from /proc/<pid>/status every ~5 ms and are lower bounds of the true component peaks.",
+    "anon_within_configured_limit": true,
+    "peak_temporary_disk_bytes": 15119242,
+    "final_cpi_size_bytes": 10368307,
+    "cpi_sha256": "507d3db8f47d1b339d290a4836090863e60d25d65e1e691b8ce1d19b9433240f",
+    "cpi_bytes_per_unique_position": 21.681,
+    "cpi_bytes_per_game": 526.096,
+    "verification_duration_secs": 0.0956,
+    "verification_passed": true
+  },
+  "storage_accounting": {
+    "initial_cgb3_dataset_bytes": 4378734,
+    "final_deployed_dataset_bytes": 19126355,
+    "final_cpi_bytes": 10368307,
+    "temporary_external_sort_peak_bytes": 15119242,
+    "peak_total_disk_usage_bytes": 29866283
+  },
+  "query_performance": {
+    "warm_cache": {
+      "p50_latency_us": 1621.9,
+      "p95_latency_us": 2067.9,
+      "p99_latency_us": 2626.9,
+      "sample_size": 70,
+      "methodology": "Repeated `codb query` subprocess invocations over common opening move sequences (e4, d4, c4, Nf3) after the CPI file was recently written/read (OS page cache warm). Includes process launch and index open."
+    },
+    "fresh_process_cold_start": {
+      "p50_latency_us": 1588.6,
+      "p95_latency_us": 2001.9,
+      "p99_latency_us": 2001.9,
+      "sample_size": 5,
+      "methodology": "First five queries, each in a new subprocess (full CLI startup, dataset resolution, mmap, binary search, JSON formatting). The OS page cache is NOT invalidated, so this is cold-start / fresh-process latency, not cold-cache latency."
+    },
+    "os_page_cache_invalidated": false,
+    "index_open_included_in_query_timing": true
+  }
+}

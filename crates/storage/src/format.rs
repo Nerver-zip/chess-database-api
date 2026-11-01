@@ -27,11 +27,22 @@ pub enum StorageError {
     Integrity(String),
     #[error("Database error in storage catalog: {0}")]
     Database(String),
+    #[error("Dataset lock conflict: {0}")]
+    Lock(String),
 }
 
 impl From<rusqlite::Error> for StorageError {
     fn from(err: rusqlite::Error) -> Self {
         StorageError::Database(err.to_string())
+    }
+}
+
+impl From<codb_index::position::IndexError> for StorageError {
+    fn from(err: codb_index::position::IndexError) -> Self {
+        match err {
+            codb_index::position::IndexError::Io(io_err) => StorageError::Io(io_err),
+            other => StorageError::Integrity(other.to_string()),
+        }
     }
 }
 

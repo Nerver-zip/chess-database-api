@@ -1,7 +1,7 @@
 # Chess Openings DB (`codb`)
 
-> **Status: Storage Engineering & Empirical Scale Validation Milestone (PR-02 Complete)**  
-> This repository contains the scalable persistent game storage pipeline, bounded-memory streaming ingestion engine, modern Elite Online empirical validation, and empirical scale benchmarks for an independent chess game database and Opening Explorer engine.
+> **Status: Production Position Index (CPI), Bounded-Memory External Sorting & Opening Explorer Queries Milestone (PR-03)**  
+> This repository contains the scalable persistent game storage pipeline, bounded-memory external sorting position indexer (CPI v2), atomic dataset publication engine, and functional Opening Explorer query CLI for an independent chess game database.
 
 A high-performance, compact, and reproducible chess game database and position-centric indexing engine written in Rust. The system curates, deduplicates, compresses, and indexes high-quality chess games to power a position-based Opening Explorer through a lightweight, reusable API.
 
@@ -28,10 +28,10 @@ Based on reproducible measurements across 117,616 real Lichess Official Broadcas
   - **Dual-Corpus Scaling Fits:** Masters OTB ($\alpha_{D40} = 0.9293$, $k = 49.88$, $R^2 = 0.99998$) and Elite Online ($\alpha_{D30} = 0.9293$, $k = 37.63$, $R^2 = 0.99999$).
 - **Recalibrated 15-Million-Game Deployment Projections (Option B):**
   - Slicing **Masters OTB (5M games) to Depth 40** and **Elite Online (10M games) to Depth 30** projects to:
-    - **Baseline:** **7.47 GB** (Core payloads: 1.04 GB Masters games + 1.81 GB Elite games + 1.72 GB Masters D40 index + 2.45 GB Elite D30 index + 0.44 GB ancillary overhead).
-    - **Optimistic Scenario:** **6.28 GB**.
-    - **Conservative Scenario:** **9.66 GB** (incorporating sensitivity margins, leaving **340 MB / 3.4%** headroom against the 10 GB limit).
-  - **Conclusion & Risk Factors:** Feasibility is **conditional** upon enforcing Depth 30 slicing for Elite Online (extending to Depth 40 pushes conservative storage to 12.16 GB, violating budget). Additional risk factors include compression degradation at scale and position uniqueness in long endgame transposition chains.
+    - **Baseline:** **7.68 GB** (Core payloads: 1.04 GB Masters games + 1.80 GB Elite games + 1.79 GB Masters D40 index + 2.60 GB Elite D30 index + 0.44 GB ancillary overhead).
+    - **Optimistic Scenario:** **6.44 GB**.
+    - **Conservative Scenario:** **9.98 GB** (incorporating sensitivity margins and production CPI density, leaving **20 MB / 0.2%** headroom against the 10 GB limit).
+  - **Conclusion & Risk Factors:** Feasibility is **conditional** upon enforcing Depth 30 slicing for Elite Online (extending to Depth 40 pushes conservative storage to 12.26 GB, violating budget). Additional risk factors include compression degradation at scale, position uniqueness in long endgame transposition chains, and narrow conservative headroom under production CPI density.
 
 ---
 
@@ -77,7 +77,8 @@ chess-openings-db/
 │   │   └── api-contract.md
 │   └── adr/        # Architecture Decision Records
 │       ├── 0001-initial-architecture.md
-│       └── 0002-bounded-ingestion-and-persistent-cgb3-archive.md
+│       ├── 0002-bounded-ingestion-and-persistent-cgb3-archive.md
+│       └── 0003-production-cpi-index.md
 ├── fixtures/       # Deterministic PGN test fixtures and edge-case suites
 ├── benchmarks/     # Automated benchmark scripts and machine-readable results
 └── .github/        # GitHub Actions CI workflow
@@ -97,19 +98,45 @@ Stream large PGN or PGN.zst sources directly into compressed, sharded CGB3 archi
     --max-games 20000
 ```
 
-### 2. Verify Dataset Integrity
-Verify block checksums, manifest accounting, and optional deep decompression of every move sequence:
+### 2. Build Production Position Index (CPI)
+Construct a compressed, randomly accessible position index from a completed dataset using bounded-memory external sorting:
+```bash
+./target/release/codb build-index \
+    --dataset data/builds/masters-otb-20k \
+    --depth-plies 40 \
+    --collection masters-otb \
+    --memory-limit-mib 128 \
+    --json
+```
+
+### 3. Query Opening Explorer
+Query opening statistics and candidate next moves by move sequence or FEN:
+```bash
+# Query by move sequence (SAN or UCI, comma or space delimited):
+./target/release/codb query \
+    --dataset data/builds/masters-otb-20k \
+    --moves "e4,e5,Nf3" \
+    --json
+
+# Query by orthodox legal FEN:
+./target/release/codb query \
+    --dataset data/builds/masters-otb-20k \
+    --fen "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2"
+```
+
+### 4. Verify Dataset Integrity
+Verify block checksums, manifest accounting, game lookup table, and CPI position index:
 ```bash
 ./target/release/codb verify --dataset data/builds/masters-otb-20k --deep
 ```
 
-### 3. Inspect Dataset Structure
-Inspect shard layout, total retained games, and physical byte density:
+### 5. Inspect Dataset Structure
+Inspect shard layout, total retained games, CPI index metadata, and physical byte density:
 ```bash
-./target/release/codb inspect --dataset data/builds/masters-otb-20k
+./target/release/codb inspect --dataset data/builds/masters-otb-20k --json
 ```
 
-### 4. Retrieve Game by Stable ID
+### 6. Retrieve Game by Stable ID
 Random access lookup in sub-millisecond page-cache time:
 ```bash
 ./target/release/codb get-game --dataset data/builds/masters-otb-20k --id 1234567890
@@ -159,6 +186,7 @@ Machine-readable JSON reports are written to `benchmarks/results/`.
 - [Future API Contract & Decoupling](docs/research/api-contract.md)
 - [ADR-0001: Initial Architecture Decisions](docs/adr/0001-initial-architecture.md)
 - [ADR-0002: Bounded-Memory Ingestion, CGB3 Sharding & Global Game Lookup](docs/adr/0002-bounded-ingestion-and-persistent-cgb3-archive.md)
+- [ADR-0003: Production CPI Index, Bounded-Memory External Sorting & Explorer Queries](docs/adr/0003-production-cpi-index.md)
 
 ---
 

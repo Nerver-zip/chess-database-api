@@ -133,6 +133,49 @@ ETag: "game-1048220-v1"
 
 ---
 
+### 2.3 CLI & Native Rust Query Contract (`codb query`)
+
+For local-first integrations, scripting, and offline verification, the CLI directly implements the Opening Explorer query engine:
+
+#### CLI Syntax
+```bash
+# Query by move sequence (SAN or UCI, comma or whitespace separated)
+codb query --dataset <PATH> --moves "e4,e5,Nf3" [--json]
+
+# Query by orthodox legal FEN
+codb query --dataset <PATH> --fen "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2" [--json]
+
+# Legacy standalone index query (backward compatible)
+codb query --index <PATH_TO_CPI> --moves "e4" [--json]
+```
+
+#### JSON Output Structure
+```json
+{
+  "position_key": "463b96181691fc9c0000000000000000",
+  "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2",
+  "total_games": 24510,
+  "white_wins": 9804,
+  "draws": 10294,
+  "black_wins": 4412,
+  "moves": [
+    {
+      "uci": "g1f3",
+      "san": "Nf3",
+      "white_wins": 5420,
+      "draws": 5610,
+      "black_wins": 2170,
+      "total": 13200,
+      "white_win_pct": 41.1,
+      "draw_pct": 42.5,
+      "black_win_pct": 16.4
+    }
+  ]
+}
+```
+
+---
+
 ## 3. Operational Deployment Alternatives
 
 | Operational Model | Infrastructure Requirements | Hosting Cost | Cold Start / Latency | Offline Feasibility in Evalis |

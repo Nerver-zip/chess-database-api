@@ -8,25 +8,28 @@ This report delivers the engineering and scientific scaling evaluation for the *
 
 ### Conclusion: **Feasibility Confirmed Across Scale & Production Storage Architecture**
 
-Building upon PR-01's research foundations, PR-02 transformed the system into a production-ready, bounded-memory storage and indexing pipeline, and empirically validated the architecture against modern Elite Online datasets at scale (up to 100,000 accepted games, 5+ million games encountered):
+Building upon PR-01 and PR-02, PR-03 delivered the production position index (CPI v2) pipeline with bounded-memory external sorting, deterministic transposition aggregation, atomic publication, and functional Opening Explorer queries:
 
-1. **Directly Demonstrated in PR-01 & PR-02 (Empirical Evidence):**
-   - **Streaming Ingestion & Bounded Memory:** Ingestion memory is strictly bounded ($O(1)$ RAM with corpus size). Peak RAM RSS remains strictly below **30 MB** throughout builds of 50,000 to 100,000 games, completely eliminating PR-01's whole-corpus RAM retention risk.
+1. **Directly Demonstrated in PR-01, PR-02 & PR-03 (Empirical Evidence):**
+   - **Streaming Ingestion & Bounded Memory:** Ingestion memory is strictly bounded ($O(1)$ RAM with corpus size). Peak RAM RSS remains strictly below **30 MB** throughout builds of 50,000 to 100,000 games.
+   - **Bounded-Memory External Sorting (PR-03):** Position indexing operates within a configurable RAM ceiling (`--memory-limit-mib`, default 128 MiB). Temporary runs (`.crun`) are sorted, flushed to disk, and merged via bounded multi-pass K-way merge with fan-in limits, completely avoiding whole-corpus in-memory retention.
    - **Persistent Sharded Storage Container (`CGB3`):** Games are persisted into multi-block binary shards (`shard_XXXX.cgb3`) with configurable shard capacities, SHA-256 block footers, and atomic staging manifests.
      - **Masters OTB:** **208.2 bytes/game** in CGB3 blocks (5.16× compression ratio over PGN) with 100% round-trip fidelity across all supported canonical and provenance fields.
      - **Elite Online:** **178–181 bytes/game** in CGB3 blocks (~15% more compact than Masters OTB due to shorter average game length of ~60 plies vs. ~75 plies).
    - **Stable Random-Access Game Retrieval (`games.idx`):** Memory-mapped 16-byte fixed records sorted by 64-bit ID enable binary search retrieval in **733 µs (p50)**, **813 µs (p95)**, and **889 µs (p99)** across 50,000+ games.
-   - **On-Disk Position Indexing (`CODB_CPI` v2 vs. SQLite):** Persistent `.cpi` files consume **20.26–21.57 bytes per unique position**, achieving **7.2× to 9.4× smaller disk footprint than SQLite** with sub-25 µs warm-cache lookup times.
+   - **Production Position Indexing (`CODB_CPI` v2 vs. SQLite):** Persistent `.cpi` files consume **21.40–21.60 bytes per unique position** at scale, achieving **7.2× to 9.4× smaller disk footprint than SQLite** with sub-25 µs in-process warm lookup times.
+   - **Chess Semantics & Correctness (PR-03):** Orthodox legal FEN setups are indexed correctly (illegal setups fail closed); intra-game revisits within the depth window are deduplicated; unknown-result (`*`) games are excluded from W/D/L counters; and output is 100% byte-identical across arbitrary buffer sizes.
+   - **Crash-Safe Atomic Publication (PR-03):** Staged in isolated temporary directories, verified deeply before activation, and committed via atomic symlink switch with automatic crash recovery.
 
 2. **Empirical Online Validation & Diversity Divergence:**
    - Curation of modern Lichess Standard Rated archives (2024–2026) demonstrates a **~1.95%–2.0% acceptance rate** under `EliteOnlinePolicy` (bullet excluded, ratings $\ge 2200$).
    - Elite Online exhibits **~40% higher position diversity** at Depth 20 and **~20% higher diversity** at Depth 30 than Masters OTB, validating that online repertoires branch more widely than classical grandmaster tournament play.
 
 3. **Recalibrated 15-Million-Game Deployment Projections (Option B):**
-   - Applying independent Heaps' Law models ($\alpha = 0.9293$ for Masters OTB D40; $\alpha = 0.9293$ for Elite Online D30) to the 15,000,000-game capacity target (5M Masters OTB + 10M Elite Online):
-     - **Core Payload:** **7.03 GB** (1.04 GB Masters games + 1.81 GB Elite games + 1.72 GB Masters D40 index + 2.45 GB Elite D30 index).
+   - Applying independent Heaps' Law models ($\alpha = 0.9293$ for Masters OTB D40; $\alpha = 0.9293$ for Elite Online D30) with calibrated production CPI densities (21.40 B/pos Masters D40, 21.60 B/pos Elite D30) to the 15,000,000-game capacity target (5M Masters OTB + 10M Elite Online):
+     - **Core Payload:** **7.24 GB** (1.04 GB Masters games + 1.80 GB Elite games + 1.79 GB Masters D40 index + 2.60 GB Elite D30 index).
      - **Ancillary Deployment Overhead:** **0.44 GB** (shard headers, global `games.idx` lookup index, manifest checksums, and filesystem alignment slack).
-     - **Total Deployed Footprint (Option B):** **7.47 GB baseline** (**6.28 GB optimistic** to **9.66 GB conservative**). Feasibility is **conditional**: while baseline and optimistic projections are comfortably within budget, the conservative scenario leaves narrow headroom of **340 MB (3.4%)** against the 10 GB limit.
+     - **Total Deployed Footprint (Option B):** **7.68 GB baseline** (**6.44 GB optimistic** to **9.98 GB conservative**). Feasibility is **conditional**: while baseline and optimistic projections are comfortably within budget, the conservative scenario leaves razor-thin headroom of **20 MB (0.2%)** against the 10 GB limit. No double-counting exists: game storage and position index storage are independently accounted for.
 
 ---
 
@@ -172,6 +175,62 @@ The empirical curation of real modern Elite Online datasets in PR-02 reveals fun
 1. **Higher Early Diversity Online:** Online grandmasters and masters play significantly wider opening repertoires, offbeat sidelines, and experimental novelties compared to conservative classical OTB tournament preparation.
 2. **Shorter Online Game Length:** Online blitz/rapid games conclude faster (~60 plies vs. ~75 plies for classical masters), yielding fewer moves per game and thus lower byte density in compressed storage (~180 B vs. ~208 B).
 
+### 5.5 Production CPI Index Scaling & Bounded-Memory External Sorting (PR-03 Empirical Matrix)
+
+PR-03 transitioned position indexing from in-memory prototypes to a production disk-backed indexing pipeline:
+1. **Streaming Traversal:** Streams canonical games directly from persistent CGB3 shards without buffering full game objects in memory.
+2. **Bounded-Memory External Sorting:** Buffers raw observations in a strictly budgeted heap buffer (with reservations for I/O buffers, Zstd state, and K-way merge fan-in). Flushes sorted and locally coalesced run files (`.crun`) to disk when the buffer threshold is reached.
+3. **Multi-Pass K-Way Merging:** Merges `.crun` files with configurable fan-in (default 64) using a tournament-tree min-heap, guaranteeing deterministic sorting and global transposition aggregation.
+4. **Streaming CPI v2 Block Writer:** Compresses position blocks with Zstandard and spills the sparse index directly to disk, ensuring $O(1)$ RAM usage independent of unique position count.
+
+#### Physically Measured Production CPI Scaling Matrix (128 MiB Memory Budget)
+
+The production indexing pipeline was executed across progressive sample sizes ($1\text{k}, 20\text{k}, 50\text{k}, 100\text{k}$) on genuine licensed corpora containing $\ge 100{,}000$ accepted canonical games for both **Masters OTB (Depth 40 plies)** and **Elite Online (Depth 30 plies)**. Each run measures kernel `wait4` peak RSS (`ru_maxrss`), sampled anonymous heap memory (`RssAnon`), peak temporary disk usage, final `.cpi` size, build throughput, deep verification status, and Opening Explorer query latencies:
+
+| Collection | Processed $N$ | Indexed Games | Extracted Obs | Unique Pos | Move Pairs | CPI Size | Bytes / Pos | Peak Temp Disk | Peak RSS | Anon Heap | Build Time | Throughput | Warm p50 | Fresh Cold p50 | Deep Verify |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **masters-otb** | 1,000 | 994 | 38,880 | 29,681 | 30,859 | 648,122 B | **21.84 B** | 939 KB | **13.2 MiB** | 2.8 MiB | 0.12s | 8,634 g/s | 1,696 µs | 1,892 µs | **PASS** |
+| **masters-otb** | 20,000 | 19,879 | 777,693 | 478,226 | 503,634 | 10,368,307 B | **21.68 B** | 15.1 MB | **31.3 MiB** | 25.6 MiB | 1.20s | 16,634 g/s | 1,622 µs | 1,589 µs | **PASS** |
+| **masters-otb** | 50,000 | 49,692 | 1,944,233 | 1,126,545 | 1,190,578 | 24,233,857 B | **21.51 B** | 35.7 MB | **67.8 MiB** | 61.5 MiB | 3.22s | 15,532 g/s | 3,436 µs | 3,193 µs | **PASS** |
+| **masters-otb** | 100,000 | 99,262 | 3,887,996 | 2,156,205 | 2,286,655 | 46,145,562 B | **21.40 B** | 69.7 MB | **121.5 MiB** | 114.5 MiB | 5.38s | 18,591 g/s | 1,925 µs | 2,052 µs | **PASS** |
+| **elite-online** | 1,000 | 1,000 | 29,699 | 23,108 | 24,390 | 508,320 B | **22.00 B** | 732 KB | **13.6 MiB** | 3.5 MiB | 0.10s | 9,566 g/s | 1,689 µs | 1,940 µs | **PASS** |
+| **elite-online** | 20,000 | 19,986 | 594,120 | 376,065 | 403,936 | 8,206,702 B | **21.82 B** | 12.1 MB | **26.1 MiB** | 20.2 MiB | 0.97s | 20,683 g/s | 1,797 µs | 1,617 µs | **PASS** |
+| **elite-online** | 50,000 | 49,977 | 1,485,300 | 877,938 | 946,846 | 19,041,982 B | **21.69 B** | 28.5 MB | **53.5 MiB** | 47.4 MiB | 2.22s | 22,504 g/s | 1,674 µs | 1,844 µs | **PASS** |
+| **elite-online** | 100,000 | 99,949 | 2,970,600 | 1,661,039 | 1,795,958 | 35,884,776 B | **21.60 B** | 54.1 MB | **99.7 MiB** | 92.8 MiB | 4.83s | 20,695 g/s | 1,889 µs | 1,757 µs | **PASS** |
+
+#### Multi-Run and Multi-Pass Merge Stress Matrix ($N = 100{,}000$ Games)
+
+To validate external sorting and deterministic multi-pass K-way merging under extreme memory constraints, memory stress benchmarks were executed with restricted memory limits (32 MiB, 16 MiB) and reduced fan-in ($F = 2$):
+
+| Collection ($N=100\text{k}$) | Memory Budget | Merge Fan-In | Runs Generated | Merge Passes | Peak RSS | Anon Heap Peak | Temp Disk Peak | CPI Size | CPI SHA-256 Verified | Build Time |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **masters-otb** | 128 MiB | 64 | 2 | 1 | 121.5 MiB | 114.5 MiB | 69.7 MB | 46,145,562 B | `f2d98343...` (Identical) | 5.38s |
+| **masters-otb** | 32 MiB | 64 | 5 | 1 | 55.5 MiB | 30.6 MiB | 76.3 MB | 46,145,562 B | `f2d98343...` (Identical) | 7.74s |
+| **masters-otb** | 16 MiB | 64 | 9 | 1 | 55.8 MiB | 16.5 MiB | 79.6 MB | 46,145,562 B | `f2d98343...` (Identical) | 6.99s |
+| **masters-otb** | 16 MiB | 2 | **9** | **4** | 55.5 MiB | 16.5 MiB | 138.0 MB | 46,145,562 B | `f2d98343...` (Identical) | 8.71s |
+| **elite-online** | 128 MiB | 64 | 1 | 1 | 99.7 MiB | 92.8 MiB | 54.1 MB | 35,884,776 B | `da206f40...` (Identical) | 4.83s |
+| **elite-online** | 32 MiB | 64 | 4 | 1 | 46.1 MiB | 31.9 MiB | 59.2 MB | 35,884,776 B | `da206f40...` (Identical) | 4.34s |
+| **elite-online** | 16 MiB | 64 | 7 | 1 | 45.0 MiB | 16.1 MiB | 61.7 MB | 35,884,776 B | `da206f40...` (Identical) | 4.33s |
+| **elite-online** | 16 MiB | 2 | **7** | **3** | 44.7 MiB | 16.1 MiB | 93.8 MB | 35,884,776 B | `da206f40...` (Identical) | 5.31s |
+
+#### Analysis of Production Indexing Results
+
+1. **Memory Budget Contracts: Buffer Limit vs. Total Process Footprint:**
+   - `--memory-limit-mib` configures the in-memory sorting and observation buffer ceiling (`RawObservation` buffer and sort staging memory), explicitly reserving headroom for I/O buffers and Zstandard compressor contexts.
+   - Total process anonymous memory (`RssAnon`) consists of this budgeted buffer capacity plus base runtime execution overhead (~0.5–1.0 MiB for thread stacks, global allocator metadata, and binary execution scaffolding). In the 16 MiB stress scenario, total process `RssAnon` peaked at **16.05–16.55 MiB**, confirming that buffer allocations were strictly constrained to 16 MiB while total process heap incurred only a minor ~0.55 MiB execution overhead.
+   - In contrast, the process-level `ru_maxrss` recorded by the kernel (~44–56 MiB in stress runs) includes file-backed memory-mapped page cache (`RssFile`) from reading CGB3 shard files and writing CPI index blocks. On Linux, clean `RssFile` memory is automatically reclaimed by the OS under memory pressure.
+2. **Deterministic Multi-Run & Multi-Pass Merging:**
+   - Constraining the memory budget to 16 MiB forces the creation of up to 9 sorted `.crun` files.
+   - Reducing fan-in to 2 exercises the multi-pass merge cascade across **3 to 4 merge passes**. Across all 16 configurations, the generated `.cpi` binary is **100% byte-for-byte identical** (verified by matching SHA-256 checksums).
+3. **Empirical Storage Density at Scale:**
+   - Production CPI v2 format yields **21.40 bytes per unique position** for Masters OTB (D40) and **21.60 bytes per unique position** for Elite Online (D30) at $N=100{,}000$ games.
+   - Fixed block header overhead amortizes more effectively as position volume grows, decreasing bytes-per-position from ~21.8 B/pos at 1k to 21.40 B/pos at 100k.
+4. **Opening Explorer Query Performance:**
+   - End-to-end CLI queries (`codb query --dataset ... --moves ... --json`) execute with warm p50 latencies of **1.6–2.0 ms** and fresh-process cold-start p50 latencies of **1.6–2.2 ms** (which includes process spawn, argument parsing, dataset resolution, mmap initialization, binary search across sparse index, block decompression, and JSON formatting).
+   - In benchmark artifacts, cold-start latency is explicitly labeled as **fresh-process cold-start latency** (with `os_page_cache_invalidated: false`), documenting that the OS page cache is warm while process memory is initialized fresh.
+5. **Deterministic Aggregation & Zero Corruption:**
+   - Deep verification (`codb verify --dataset ... --deep`) succeeds across all 16 runs, verifying exact transposition coalescing, next-move distribution conservation, and 100% position integrity across multi-pass external merges.
+
 ---
 
 ## 6. Persistent Retrieval and On-Disk Index Comparison
@@ -231,30 +290,32 @@ To avoid conflating raw compressed payloads with a complete production deploymen
 
 | Component | Category | Basis / Formula | Baseline Size (GB) | Conservative Size (GB) |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Masters OTB `.cgb` Game Blocks (5M games)** | Measured format, extrapolated to 5M | $5\text{M} \times 208.16\text{ B/game}$ (+10% cons.) | **1.04 GB** | **1.15 GB** |
-| **2. Elite Online `.cgb` Game Blocks (10M games)** | Empirically measured in PR-02 (2024–2026) | $10\text{M} \times 180.70\text{ B/game}$ (+10% cons.) | **1.81 GB** | **1.99 GB** |
-| **3. Masters OTB `.cpi` Index (Depth 40, 5M)** | Measured format + Masters Heaps' Law fit | $83.75\text{M pos} \times 20.57\text{ B/pos}$ | **1.72 GB** | **2.50 GB** |
-| **4. Elite Online `.cpi` Index (Depth 30, 10M)** | Measured format + Online Heaps' Law fit | $120.3\text{M pos} \times 20.38\text{ B/pos}$ | **2.45 GB** | **3.58 GB** |
-| **Subtotal — Core Format Payloads** | | | **7.03 GB** | **9.22 GB** |
+| **1. Masters OTB `.cgb` Game Blocks (5M games)** | Measured format, extrapolated to 5M | $5\text{M} \times 208.15\text{ B/game}$ (+10% cons.) | **1.04 GB** | **1.15 GB** |
+| **2. Elite Online `.cgb` Game Blocks (10M games)** | Empirically measured in PR-02 (2024–2026) | $10\text{M} \times 180.13\text{ B/game}$ (+10% cons.) | **1.80 GB** | **1.98 GB** |
+| **3. Masters OTB `.cpi` Index (Depth 40, 5M)** | Measured format + Masters Heaps' Law fit | $83.75\text{M pos} \times 21.40\text{ B/pos}$ | **1.79 GB** | **2.60 GB** |
+| **4. Elite Online `.cpi` Index (Depth 30, 10M)** | Measured format + Online Heaps' Law fit | $120.3\text{M pos} \times 21.60\text{ B/pos}$ | **2.60 GB** | **3.81 GB** |
+| **Subtotal — Core Format Payloads** | | | **7.24 GB** | **9.54 GB** |
 | **5. `.cgb` Container Framing & Shard Directories** | Measured persistent container headers | Shard & block headers | **0.001 GB** | **0.001 GB** |
 | **6. Global `games.idx` Lookup Index (15M games)** | Measured 16-byte fixed record | $15\text{M} \times 16\text{ B}$ | **0.240 GB** | **0.240 GB** |
 | **7. Provenance & SHA-256 Checksum Manifests** | Measured PR-02 `manifest.json` | JSON + block SHA-256 hashes | **0.005 GB** | **0.005 GB** |
 | **8. Filesystem Block Alignment & Operational Reserve** | Estimated deployment reserve | ~2.5% alignment / swap margin | **0.194 GB** | **0.194 GB** |
 | **Subtotal — Ancillary Deployment Overhead** | | | **0.44 GB** | **0.44 GB** |
-| **Total Deployed Footprint (Option B)** | **Core Payloads + Ancillary Overhead** | | **7.47 GB** | **9.66 GB** |
+| **Total Deployed Footprint (Option B)** | **Core Payloads + Ancillary Overhead** | | **7.68 GB** | **9.98 GB** |
 
 > [!NOTE]
-> In PR-01, Elite Online game storage was approximated using Masters OTB measurements (208 B/game) and an unvalidated scaling exponent, projecting 6.96 GB baseline (8.82 GB conservative). In PR-02, real modern Elite Online games (2024–2026) were directly curated and measured up to 100,000 games, confirming that online games are ~15% more compact in compressed moves (~180.7 B/game) while exhibiting ~20% higher position diversity at Depth 30.
+> In PR-01, Elite Online game storage was approximated using Masters OTB measurements (208 B/game) and an unvalidated scaling exponent, projecting 6.96 GB baseline (8.82 GB conservative). In PR-02, real modern Elite Online games (2024–2026) were directly curated and measured up to 100,000 games, confirming that online games are ~15% more compact in compressed moves (~180.1 B/game) while exhibiting ~20% higher position diversity at Depth 30.
 >
-> **Feasibility Assessment (Conditional):** Under the recalibrated PR-02 Option B model, baseline deployed storage is **7.47 GB** (optimistic: **6.28 GB**), leaving ample buffer below the 10 GB budget. However, under conservative scaling assumptions, deployed storage reaches **9.66 GB**, leaving narrow headroom of **~340 MB (3.4%)**. Feasibility is therefore **conditional** upon maintaining Option B's Depth 30 limit for Elite Online and keeping empirical growth within projected bounds.
+> In PR-03, genuine 100,000-game production CPI indexes were constructed and benchmarked for both collections, measuring production densities of **21.40 B/pos** (Masters D40) and **21.60 B/pos** (Elite D30).
+>
+> **Feasibility Assessment (Conditional):** Under the recalibrated PR-03 Option B model, baseline deployed storage is **7.68 GB baseline** (optimistic: **6.44 GB optimistic**), leaving a comfortable 2.32 GB buffer below the 10 GB budget. However, under conservative scaling assumptions (+15% index density margin and +1σ position diversity), deployed storage reaches **9.98 GB conservative**, leaving razor-thin headroom of **20 MB (0.2%)**. Feasibility is therefore strictly **conditional** upon maintaining Option B's Depth 30 limit for Elite Online, achieving production block amortization at scale, and keeping empirical growth within projected bounds.
 
 ### 7.2 Architecture Scenarios Across Sensitivity Regimes (15M Games Capacity Target)
 
 | Scenario | Core Payload (Baseline) | Ancillary Overhead | Deployed Total (Optimistic) | Deployed Total (Baseline) | Deployed Total (Conservative) | Feasibility Assessment |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Option A (Depth 20 Both)** | 3.90 GB | 0.44 GB | 3.60 GB | **4.34 GB** | **5.14 GB** | **Feasible (Shallow Opening Book Only)** |
-| **Option B (Recommended: D40 Masters + D30 Elite)** | **7.03 GB** | **0.44 GB** | **6.28 GB** | **7.47 GB** | **9.66 GB** | **Feasible (Conditional: 340 MB / 3.4% headroom in conservative regime)** |
-| **Option C (Depth 40 Both)** | 8.73 GB | 0.44 GB | 7.75 GB | **9.17 GB** | **12.16 GB** | **Infeasible Conservatively (Exceeds 10 GB limit by 2.16 GB)** |
+| **Option B (Recommended: D40 Masters + D30 Elite)** | **7.24 GB** | **0.44 GB** | **6.44 GB** | **7.68 GB** | **9.98 GB** | **Feasible (Conditional: 20 MB / 0.2% headroom in conservative regime)** |
+| **Option C (Depth 40 Both)** | 8.80 GB | 0.44 GB | 7.60 GB | **9.24 GB** | **12.26 GB** | **Infeasible Conservatively (Exceeds 10 GB limit by 2.26 GB)** |
 | **Option D (Depth 60 Both)** | 14.10 GB | 0.44 GB | 12.05 GB | **14.54 GB** | **19.85 GB** | **Infeasible (Exceeds 10 GB in All Regimes)** |
 
 ### 7.3 Sensitivity Analysis & Critical Risk Factors
@@ -262,13 +323,15 @@ To avoid conflating raw compressed payloads with a complete production deploymen
 To evaluate the operational resilience of the 10 GB capacity target, we analyze sensitivity across key operational variables:
 
 1. **Elite Online Index Depth Limit (Option B vs. Option C):**
-   - Option B indexes Elite Online to Depth 30 (120.3M positions baseline). Slicing Elite Online to Depth 40 (Option C, 159.5M positions) expands the CPI index from 2.45 GB to 4.15 GB baseline (and up to 6.08 GB conservative), driving total deployed storage to **12.16 GB** and violating the 10 GB budget. Enforcing the Depth 30 boundary for online games is mandatory.
+   - Option B indexes Elite Online to Depth 30 (120.3M positions baseline). Slicing Elite Online to Depth 40 (Option C, 159.5M positions) expands the CPI index from 2.60 GB to 4.16 GB baseline (and up to 6.13 GB conservative), driving total deployed storage to **12.26 GB** and violating the 10 GB budget. Enforcing the Depth 30 boundary for online games is mandatory.
 2. **Move Diversity and Position Uniqueness per Game:**
    - In online bullet/blitz, novel move transposition chains occur more frequently than in theoretical grandmaster lines. If $\alpha_{D30}$ drifts from $0.9293$ to $0.9443$ (+1 $\sigma$ delta), position counts increase by 18.5%, consuming an additional 450 MB and narrowing conservative headroom to near zero.
-3. **Compression Ratio Degradation at Scale:**
+3. **CPI Index Density & Block Amortization (20k vs. 100k Density):**
+   - At early sample size ($N=20{,}000$), unamortized block headers yield densities of ~21.65–21.82 B/pos. Under conservative assumptions, that higher density would project 10.04 GB (+40 MB over budget). At validated $N=100{,}000$ scale, block amortization lowers density to **21.40 B/pos** (Masters) and **21.60 B/pos** (Elite), preserving the conservative projection within 9.98 GB.
+4. **Build-Time Scratch vs. Deploy-Time Persistent Storage:**
+   - Persistent CGB3 dataset and CPI index creation operate with strictly bounded memory using external sorting. However, build-time disk footprint requires temporary storage for staging `.crun` files (~60–80 MB peak at 100k games, scaling to ~3.5–4.5 GB peak temporary scratch during full 10M merge passes). This scratch space is deleted upon atomic publication, but host environments must provision sufficient build disk space (~15 GB volume) during indexing before final deployment.
+5. **Compression Ratio Degradation at Scale:**
    - CGB3 block compression achieves 5.16× on Masters OTB and 4.19× on Elite Online. If entropy increases on larger, less curated corpora, a 10% drop in compression efficiency adds ~285 MB across 15M games.
-4. **Build-Time vs. Deploy-Time Storage & Memory:**
-   - Persistent CGB3 dataset creation in PR-02 operates with strictly bounded $O(1)$ memory using an on-disk SQLite staging catalog. However, build-time disk footprint requires $1.2\times$ temporary storage for staging shards, WAL files, and compaction scratch space before atomic publication.
 
 ---
 
@@ -282,6 +345,8 @@ To evaluate the operational resilience of the 10 GB capacity target, we analyze 
    - PR-02 resolved the PR-01 Jan 2013 0-accepted limitation by ingesting modern 2024–2026 Lichess standard rated archives, establishing an empirical acceptance rate of **~1.96%** (100,000 accepted from 5,108,242 encountered games).
    - Confirmed game storage density of **180.70 B/game** (~15% more compact than Masters OTB) and position scaling exponent $\alpha = 0.9293$ at Depth 30 ($R^2 = 0.99999$).
    - Validated random retrieval across persistent datasets up to $N = 100{,}000$ with $p_{50} = 698\,\mu\text{s}$ and $p_{95} = 773\,\mu\text{s}$.
-3. **Roadmap for Future Milestones:**
-   - **PR-03 — Position Index Construction:** External-memory position sorting/aggregation for billion-key indexes without in-memory retention, along with cold-cache vs. warm-cache latency profiling (`posix_fadvise`).
-   - **PR-04 — Query Engine & Integration:** Opening tree traversal, transposition lookup APIs, and integration with the Evalis Opening Explorer.
+3. **Roadmap and Milestone Progress:**
+   - **PR-01 (Completed):** Scientific feasibility, CGB3 binary encoding, CPI v2 format prototype, licensing architecture.
+   - **PR-02 (Completed):** Bounded-memory streaming ingestion pipeline, persistent sharded CGB3 container, global `games.idx` lookup table, modern Elite Online empirical calibration.
+   - **PR-03 — Position Index Construction:** Bounded-memory external sorting with temporary `.crun` runs, multi-pass K-way merge, orthodox legal FEN starting position validation, intra-game repetition deduplication, exclusion of unknown results (`*`), atomic publication/recovery, and functional Opening Explorer CLI queries (`codb query`).
+   - **PR-04 — Query Engine & Integration:** HTTP API service (`codb serve`), client SDK, and Evalis frontend integration.

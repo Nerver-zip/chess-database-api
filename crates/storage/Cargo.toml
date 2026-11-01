@@ -7,6 +7,7 @@ repository.workspace = true
 
 [dependencies]
 codb-core.workspace = true
+codb-index.workspace = true
 shakmaty.workspace = true
 zstd.workspace = true
 serde.workspace = true
@@ -17,6 +18,8 @@ thiserror.workspace = true
 tracing.workspace = true
 sha2.workspace = true
 rusqlite.workspace = true
+libc.workspace = true
+rand.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
