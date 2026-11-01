@@ -27,6 +27,8 @@ pub enum StorageError {
     Integrity(String),
     #[error("Database error in storage catalog: {0}")]
     Database(String),
+    #[error("Dataset lock conflict: {0}")]
+    Lock(String),
 }
 
 impl From<rusqlite::Error> for StorageError {

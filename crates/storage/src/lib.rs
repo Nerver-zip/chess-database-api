@@ -2,10 +2,12 @@
 
 pub mod dataset;
 pub mod format;
+pub mod lock;
 pub mod lookup;
 pub mod shard;
 
 pub use dataset::*;
 pub use format::*;
+pub use lock::*;
 pub use lookup::*;
 pub use shard::*;

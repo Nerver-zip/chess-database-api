@@ -17,6 +17,7 @@ use std::path::{Path, PathBuf};
 use std::os::unix::fs::symlink;
 
 use crate::format::{export_to_pgn, GameBlock, StorageError};
+use crate::lock::{extract_pid_from_staging_name, is_process_alive, DatasetLock, StagingLock};
 use crate::lookup::{GameLookupReader, GameLookupWriter};
 use crate::shard::{BlockDescriptor, ShardReader, ShardWriter};
 
@@ -494,6 +495,8 @@ pub struct DatasetWriter {
     current_block: GameBlock,
     catalog: StagingCatalog,
     total_retained_games: u64,
+    _dataset_lock: DatasetLock,
+    _staging_lock: StagingLock,
 }
 
 impl DatasetWriter {
@@ -502,6 +505,8 @@ impl DatasetWriter {
             fs::create_dir_all(parent)?;
         }
         fs::create_dir_all(&target_dir)?;
+        let dataset_lock = DatasetLock::try_acquire_exclusive(&target_dir)?;
+
         let versions_dir = target_dir.join("versions");
         fs::create_dir_all(&versions_dir)?;
 
@@ -516,44 +521,33 @@ impl DatasetWriter {
             migrate_legacy_dataset(&target_dir)?;
         }
 
-        // Clean up any stale staging directories or temporary symlinks from previously aborted runs
-        if let Ok(entries) = fs::read_dir(&target_dir) {
-            for entry in entries.flatten() {
-                let name = entry.file_name();
-                let name_str = name.to_string_lossy();
-                if name_str.starts_with(".staging_") {
-                    let _ = fs::remove_dir_all(entry.path());
-                } else if name_str.starts_with(".current_tmp") || name_str.starts_with(".tmp_link_")
-                {
-                    let _ = fs::remove_file(entry.path());
-                }
-            }
-        }
-        if let Ok(entries) = fs::read_dir(&versions_dir) {
-            for entry in entries.flatten() {
-                let name = entry.file_name();
-                let name_str = name.to_string_lossy();
-                if name_str.starts_with(".staging_") {
-                    let _ = fs::remove_dir_all(entry.path());
-                }
-            }
-        }
+        // Clean up only truly stale staging directories or temporary symlinks from previously aborted runs
+        clean_stale_staging_directories(&target_dir);
+        clean_stale_staging_directories(&versions_dir);
+        cleanup_reconstruct_temps(&target_dir);
+        cleanup_reconstruct_temps(&versions_dir);
 
+        let nonce: u64 = rand::random();
         let staging_id = format!(
-            "build_{}_{}_{}",
+            "build_{}_{}_{}_{:016x}",
             config.collection,
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_nanos())
-                .unwrap_or(0)
+                .unwrap_or(0),
+            nonce
         );
         let staging_dir = target_dir.join(format!(".staging_{}", staging_id));
 
         if staging_dir.exists() {
-            fs::remove_dir_all(&staging_dir)?;
+            return Err(StorageError::Integrity(format!(
+                "Staging directory '{}' already exists",
+                staging_dir.display()
+            )));
         }
         fs::create_dir_all(&staging_dir)?;
+        let staging_lock = StagingLock::acquire(&staging_dir)?;
         fs::create_dir_all(staging_dir.join("shards"))?;
 
         let catalog_path = staging_dir.join("staging_catalog.sqlite");
@@ -570,6 +564,8 @@ impl DatasetWriter {
             current_block: GameBlock::new(collection),
             catalog,
             total_retained_games: 0,
+            _dataset_lock: dataset_lock,
+            _staging_lock: staging_lock,
         })
     }
 
@@ -744,14 +740,16 @@ impl DatasetWriter {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or(0);
+        let nonce: u64 = rand::random();
 
         let manifest = DatasetManifest {
             manifest_version: 1,
             dataset_build_id: format!(
-                "codb-{}-{}-{}",
+                "codb-{}-{}-{}-{:016x}",
                 self.config.collection,
                 now_nanos,
-                std::process::id()
+                std::process::id(),
+                nonce
             ),
             collection: self.config.collection,
             build_timestamp: chrono_iso8601_now(),
@@ -795,7 +793,10 @@ impl DatasetWriter {
         fs::create_dir_all(&versions_dir)?;
         let version_dir = versions_dir.join(&manifest.dataset_build_id);
         if version_dir.exists() {
-            fs::remove_dir_all(&version_dir)?;
+            return Err(StorageError::Integrity(format!(
+                "Published version directory '{}' already exists: refusing to overwrite immutable version",
+                version_dir.display()
+            )));
         }
         fs::rename(&self.staging_dir, &version_dir)?;
 
@@ -2660,6 +2661,47 @@ fn cleanup_reconstruct_temps(dir: &Path) {
     }
 }
 
+/// Safely cleans up stale/orphaned staging directories, skipping any active staging directory
+/// protected by an advisory lock or owned by a currently running process.
+fn clean_stale_staging_directories(dir: &Path) {
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.starts_with(".staging_") {
+                // 1. Check if staging directory has an active advisory flock
+                if StagingLock::is_staging_locked(&path) {
+                    tracing::debug!(
+                        "Skipping actively locked staging directory: {}",
+                        path.display()
+                    );
+                    continue;
+                }
+                // 2. If no staging lock file exists yet, check if an external creator process is still alive
+                let lock_file = path.join(".staging.lock");
+                if !lock_file.exists() {
+                    if let Some(pid) = extract_pid_from_staging_name(&name_str) {
+                        if pid != std::process::id() && is_process_alive(pid) {
+                            tracing::debug!(
+                                "Skipping newly created staging directory owned by active process {}: {}",
+                                pid,
+                                path.display()
+                            );
+                            continue;
+                        }
+                    }
+                }
+                // Neither actively locked nor belonging to a concurrent process initialization: safe to remove
+                let _ = fs::remove_dir_all(&path);
+            }
+        }
+    }
+}
+
 /// Safe, deterministic, and idempotent recovery procedure for datasets.
 /// Detects interrupted publications and interrupted legacy migrations across every state,
 /// cleans up stale staging data, restores missing pieces from split states,
@@ -2672,20 +2714,15 @@ pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
         )));
     }
 
+    // Coordinate recovery with dataset-scoped process lock
+    let _ds_lock = DatasetLock::try_acquire_exclusive(target_dir)?;
+
     // 1. Reconcile any unrestored or redundant backup directories safely
     reconcile_and_recover_backups(target_dir)?;
 
-    // 2. Clean up abandoned temporary symlinks, temporary reconstruction files, and staging directories
+    // 2. Clean up abandoned temporary symlinks, temporary reconstruction files, and stale staging directories
     cleanup_reconstruct_temps(target_dir);
-    if let Ok(entries) = fs::read_dir(target_dir) {
-        for entry in entries.flatten() {
-            let name = entry.file_name();
-            let name_str = name.to_string_lossy();
-            if name_str.starts_with(".staging_") {
-                let _ = fs::remove_dir_all(entry.path());
-            }
-        }
-    }
+    clean_stale_staging_directories(target_dir);
     let versions_dir = target_dir.join("versions");
     if versions_dir.is_dir() {
         cleanup_reconstruct_temps(&versions_dir);
@@ -2694,15 +2731,7 @@ pub fn recover_dataset(target_dir: &Path) -> Result<PathBuf, StorageError> {
             cleanup_reconstruct_temps(&legacy_dir);
             cleanup_reconstruct_temps(&legacy_dir.join("shards"));
         }
-        if let Ok(entries) = fs::read_dir(&versions_dir) {
-            for entry in entries.flatten() {
-                let name = entry.file_name();
-                let name_str = name.to_string_lossy();
-                if name_str.starts_with(".staging_") {
-                    let _ = fs::remove_dir_all(entry.path());
-                }
-            }
-        }
+        clean_stale_staging_directories(&versions_dir);
     }
     cleanup_reconstruct_temps(&target_dir.join("shards"));
 
@@ -3121,6 +3150,9 @@ pub fn build_dataset_position_index(
         )));
     }
 
+    // Coordinate dataset mutations with dataset-scoped process lock
+    let _ds_lock = DatasetLock::try_acquire_exclusive(dataset_dir)?;
+
     // If the dataset is still in legacy flat layout (no `current` symlink, real `manifest.json` at root),
     // migrate it to the versioned layout first so CPI publication operates on immutable versioned snapshots.
     let current_link = dataset_dir.join("current");
@@ -3175,11 +3207,19 @@ pub fn build_dataset_position_index(
         .map(|d| d.as_nanos())
         .unwrap_or(0);
     let pid = std::process::id();
-    let staging_dir = versions_dir.join(format!(".staging_index_{}_{}", pid, now_nanos));
+    let nonce: u64 = rand::random();
+    let staging_dir = versions_dir.join(format!(
+        ".staging_index_{}_{}_{:016x}",
+        pid, now_nanos, nonce
+    ));
     if staging_dir.exists() {
-        fs::remove_dir_all(&staging_dir)?;
+        return Err(StorageError::Integrity(format!(
+            "Staging directory '{}' already exists",
+            staging_dir.display()
+        )));
     }
     fs::create_dir_all(&staging_dir)?;
+    let _staging_lock = StagingLock::acquire(&staging_dir)?;
     fs::create_dir_all(staging_dir.join("shards"))?;
 
     let run_staging_dir = staging_dir.join(".runs");
@@ -3288,8 +3328,8 @@ pub fn build_dataset_position_index(
         .saturating_add(cpi_size_bytes);
 
     let new_build_id = format!(
-        "codb-{}-{}-{}-cpi-d{}",
-        src_manifest.collection, now_nanos, pid, depth_plies
+        "codb-{}-{}-{}-{:016x}-cpi-d{}",
+        src_manifest.collection, now_nanos, pid, nonce, depth_plies
     );
 
     let pos_index_meta = PositionIndexMetadata {
@@ -3344,7 +3384,10 @@ pub fn build_dataset_position_index(
 
     let version_dir = versions_dir.join(&new_build_id);
     if version_dir.exists() {
-        fs::remove_dir_all(&version_dir)?;
+        return Err(StorageError::Integrity(format!(
+            "Published version directory '{}' already exists: refusing to overwrite immutable version",
+            version_dir.display()
+        )));
     }
     fs::rename(&staging_dir, &version_dir)?;
     sync_dir_contents(&version_dir)?;
