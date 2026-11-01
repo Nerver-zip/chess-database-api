@@ -18,12 +18,16 @@ README_PATH = os.path.join(ROOT_DIR, "README.md")
 
 STALE_PATTERNS = [
     "7.50 GB",
-    "6.44 GB",
+    "6.44 GB baseline",
     "9.71 GB",
     "7.06 GB",
     "0.8878",
     "8.22 GB",
     "comfortably below the 10 GB envelope under all tested scenarios",
+    "7.47 GB baseline",
+    "6.28 GB optimistic",
+    "9.66 GB conservative",
+    "340 MB",
 ]
 
 
@@ -43,17 +47,17 @@ def check_document_consistency(feasibility_text, readme_text, projections):
     optimistic = opt_b.get("deployed_total_optimistic")
     conservative = opt_b.get("deployed_total_conservative")
 
-    if baseline != 7.47 or optimistic != 6.28 or conservative != 9.66:
+    if baseline != 7.68 or optimistic != 6.44 or conservative != 9.98:
         raise ValueError(
             f"Invalid Option B figures: baseline={baseline}, opt={optimistic}, cons={conservative}"
         )
 
     # 2. Methodology note consistency
     note = projections.get("methodology_note", "")
-    if "7.47 GB baseline" not in note or "6.28 GB optimistic" not in note or "9.66 GB conservative" not in note:
+    if "7.68 GB baseline" not in note or "6.44 GB optimistic" not in note or "9.98 GB conservative" not in note:
         raise ValueError("methodology_note does not match Option B calculated scenario totals")
-    if "340 MB (3.4%) headroom" not in note:
-        raise ValueError("methodology_note missing explicit 340 MB (3.4%) headroom note")
+    if "20 MB (0.2%) headroom" not in note:
+        raise ValueError("methodology_note missing explicit 20 MB (0.2%) headroom note")
 
     # 3. Parameter consistency
     d30_elite_alpha = projections.get("parameters", {}).get("elite_online", {}).get("depth_30", {}).get("alpha_ols")
@@ -69,11 +73,11 @@ def check_document_consistency(feasibility_text, readme_text, projections):
 
     # 5. Check presence of authoritative numbers and conditional feasibility in feasibility report
     required_feasibility_strings = [
-        "7.47 GB baseline",
-        "6.28 GB optimistic",
-        "9.66 GB conservative",
-        "7.03 GB",
-        "340 MB",
+        "7.68 GB baseline",
+        "6.44 GB optimistic",
+        "9.98 GB conservative",
+        "7.24 GB",
+        "20 MB",
         "conditional",
     ]
     for req in required_feasibility_strings:
@@ -82,10 +86,10 @@ def check_document_consistency(feasibility_text, readme_text, projections):
 
     # 6. Check presence in README
     required_readme_strings = [
-        "7.47 GB",
-        "6.28 GB",
-        "9.66 GB",
-        "340 MB",
+        "7.68 GB",
+        "6.44 GB",
+        "9.98 GB",
+        "20 MB",
         "conditional",
     ]
     for req in required_readme_strings:
@@ -114,14 +118,14 @@ class TestFeasibilityAlignment(unittest.TestCase):
 
     def test_negative_stale_baseline_fails(self):
         """Negative test: injecting stale 7.50 GB baseline causes failure."""
-        bad_feasibility = self.feasibility_text.replace("7.47 GB baseline", "7.50 GB baseline")
+        bad_feasibility = self.feasibility_text.replace("7.68 GB baseline", "7.50 GB baseline")
         with self.assertRaises(ValueError) as ctx:
             check_document_consistency(bad_feasibility, self.readme_text, self.projections)
         self.assertIn("7.50", str(ctx.exception))
 
     def test_negative_stale_conservative_fails(self):
         """Negative test: injecting stale 9.71 GB conservative causes failure."""
-        bad_feasibility = self.feasibility_text.replace("9.66 GB conservative", "9.71 GB conservative")
+        bad_feasibility = self.feasibility_text.replace("9.98 GB conservative", "9.71 GB conservative")
         with self.assertRaises(ValueError) as ctx:
             check_document_consistency(bad_feasibility, self.readme_text, self.projections)
         self.assertIn("9.71", str(ctx.exception))

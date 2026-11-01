@@ -1,5 +1,5 @@
 {
-  "methodology_note": "PR-02 Calibrated Model: Parameters are fitted via OLS log-linear regression across separate empirical Masters OTB (N=1k..20k) and Elite Online (N=1k..50k+) corpora. Empirical measurements reveal that Elite Online games are 15% more compact in game storage (~181 B/game vs ~208 B/game) but exhibit higher opening position diversity at Depth 20-30 due to diverse online opening repertoires compared to classical Master tournament theory. Option B projects the 15M target (5M Masters D40 + 10M Elite D30) at 7.47 GB baseline (6.28 GB optimistic, 9.66 GB conservative). Feasibility is conditional: while baseline and optimistic models are well within the 10 GB limit, the conservative scenario leaves 340 MB (3.4%) headroom.",
+  "methodology_note": "PR-02 Calibrated Model: Parameters are fitted via OLS log-linear regression across separate empirical Masters OTB (N=1k..20k) and Elite Online (N=1k..50k+) corpora. Empirical measurements reveal that Elite Online games are 15% more compact in game storage (~181 B/game vs ~208 B/game) but exhibit higher opening position diversity at Depth 20-30 due to diverse online opening repertoires compared to classical Master tournament theory. Option B projects the 15M target (5M Masters D40 + 10M Elite D30) at 7.68 GB baseline (6.44 GB optimistic, 9.98 GB conservative). Feasibility is conditional: while baseline and optimistic models are well within the 10 GB limit, the conservative scenario leaves 20 MB (0.2%) headroom.",
   "parameters": {
     "depth_20": {
       "k": 44.29,
@@ -23,7 +23,7 @@
       "in_sample_slope_std_err": 0.0021,
       "sensitivity_delta_alpha": 0.015,
       "r2": 0.999985,
-      "measured_bytes_per_pos_at_20k": 20.57
+      "measured_bytes_per_pos_at_20k": 21.4
     },
     "depth_60": {
       "k": 64.88,
@@ -48,7 +48,7 @@
         "in_sample_slope_std_err": 0.0015,
         "sensitivity_delta_alpha": 0.015,
         "r2": 0.999992,
-        "measured_bytes_per_pos_at_max": 20.38
+        "measured_bytes_per_pos_at_max": 21.6
       },
       "depth_40": {
         "k": 45.55,
@@ -90,20 +90,20 @@
       "deployed_total_conservative": 5.14
     },
     "option_b_recommended_d40_masters_d30_elite": {
-      "masters_index_d40_baseline": 1.72,
-      "elite_index_d30_proxy_baseline": 2.45,
-      "elite_index_d30_empirical_baseline": 2.45,
-      "core_payload_baseline": 7.03,
-      "deployed_total_optimistic": 6.28,
-      "deployed_total_baseline": 7.47,
-      "deployed_total_conservative": 9.66
+      "masters_index_d40_baseline": 1.79,
+      "elite_index_d30_proxy_baseline": 2.6,
+      "elite_index_d30_empirical_baseline": 2.6,
+      "core_payload_baseline": 7.24,
+      "deployed_total_optimistic": 6.44,
+      "deployed_total_baseline": 7.68,
+      "deployed_total_conservative": 9.98
     },
     "option_c_depth_40_both": {
-      "masters_index_d40_baseline": 1.72,
+      "masters_index_d40_baseline": 1.79,
       "elite_index_d40_baseline": 4.16,
-      "core_payload_baseline": 8.73,
-      "deployed_total_baseline": 9.17,
-      "deployed_total_conservative": 12.16
+      "core_payload_baseline": 8.8,
+      "deployed_total_baseline": 9.24,
+      "deployed_total_conservative": 12.26
     }
   }
 }

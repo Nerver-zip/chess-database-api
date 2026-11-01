@@ -67,7 +67,8 @@ In [`crates/storage/src/dataset.rs`](../../crates/storage/src/dataset.rs), [`bui
 
 ## Consequences
 
-- **Positive**: Memory usage during position index generation is strictly bounded to `--memory-limit-mib` (default 128 MiB).
-- **Positive**: Index generation is 100% deterministic and byte-identical across arbitrary buffer sizes and merge fan-ins.
-- **Positive**: Storage projections confirm the combined 15-million-game dataset (5M Masters D40 + 10M Elite D30) fits comfortably within the 10 GB limit (~7.47 GB baseline, ~9.66 GB conservative) with zero double-counting.
+- **Positive**: Memory usage during position index generation is strictly bounded: `--memory-limit-mib` bounds indexer-allocated anonymous heap memory (`RssAnon`), reserving headroom for I/O buffers and Zstandard compression state. Kernel `ru_maxrss` additionally measures clean, reclaimable file-backed page cache (`RssFile`) from reading CGB3 datasets and writing CPI index blocks.
+- **Positive**: Index generation is 100% deterministic and byte-identical across arbitrary buffer sizes and merge fan-ins, verified by matching SHA-256 checksums across single-pass and multi-pass external merges up to $N = 100{,}000$ games.
+- **Positive**: Query benchmarks measure sub-2.5 ms latencies for end-to-end CLI queries, distinguishing fresh-process cold-start latency (with warm OS page cache and fresh process memory) from in-process warm queries (sub-25 µs).
+- **Positive**: Storage projections calibrated with genuine 100k production CPI densities (21.40 B/pos for Masters D40, 21.60 B/pos for Elite D30) confirm the combined 15-million-game dataset (5M Masters D40 + 10M Elite D30) fits within the 10 GB budget: **7.68 GB baseline**, **6.44 GB optimistic**, and **9.98 GB conservative** (leaving conditional headroom of 20 MB / 0.2%).
 - **Positive**: Atomic symlink activation ensures non-disruptive, crash-safe publication and zero-downtime queries for concurrent readers.

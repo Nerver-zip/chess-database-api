@@ -99,6 +99,14 @@ b_per_pos_masters = {
     "depth_60": round(m20k[8] / m20k[4], 2),
 }
 
+# PR-03 Production CPI Calibration: Use measured density from genuine 100k benchmarks
+prod_masters_path = "benchmarks/production_cpi/masters-otb_100000_m128_f64.json"
+if os.path.exists(prod_masters_path):
+    with open(prod_masters_path) as pf:
+        prod_m = json.load(pf)
+        b_per_pos_masters["depth_40"] = round(prod_m["index_construction"]["cpi_bytes_per_unique_position"], 2)
+        print(f"  [PR-03] Calibrated Depth 40 Masters CPI density from 100k production benchmark: {b_per_pos_masters['depth_40']:.2f} B/pos")
+
 for idx, (key, label) in enumerate([
     ("depth_20", "Depth 20"),
     ("depth_30", "Depth 30"),
@@ -128,6 +136,14 @@ b_per_pos_elite = {
     "depth_40": round(e_last[7] / e_last[3], 2),
     "depth_60": round(e_last[8] / e_last[4], 2),
 }
+
+# PR-03 Production CPI Calibration: Use measured density from genuine 100k benchmarks
+prod_elite_path = "benchmarks/production_cpi/elite-online_100000_m128_f64.json"
+if os.path.exists(prod_elite_path):
+    with open(prod_elite_path) as pf:
+        prod_e = json.load(pf)
+        b_per_pos_elite["depth_30"] = round(prod_e["index_construction"]["cpi_bytes_per_unique_position"], 2)
+        print(f"  [PR-03] Calibrated Depth 30 Elite CPI density from 100k production benchmark: {b_per_pos_elite['depth_30']:.2f} B/pos")
 
 for idx, (key, label) in enumerate([
     ("depth_20", "Depth 20"),
