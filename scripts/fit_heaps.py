@@ -326,6 +326,13 @@ output_json = {
                 + project_elite_index_gb("depth_40", 10_000_000, "baseline"),
                 2,
             ),
+            "deployed_total_optimistic": round(
+                total_games_15m_base * 0.95
+                + deployed_ancillary_overhead_gb
+                + project_masters_index_gb("depth_40", 5_000_000, "optimistic")
+                + project_elite_index_gb("depth_40", 10_000_000, "optimistic"),
+                2,
+            ),
             "deployed_total_baseline": round(
                 total_games_15m_base
                 + deployed_ancillary_overhead_gb

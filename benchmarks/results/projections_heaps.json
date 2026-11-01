@@ -102,6 +102,7 @@
       "masters_index_d40_baseline": 1.79,
       "elite_index_d40_baseline": 4.16,
       "core_payload_baseline": 8.8,
+      "deployed_total_optimistic": 7.6,
       "deployed_total_baseline": 9.24,
       "deployed_total_conservative": 12.26
     }

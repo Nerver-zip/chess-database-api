@@ -31,7 +31,7 @@ Based on reproducible measurements across 117,616 real Lichess Official Broadcas
     - **Baseline:** **7.68 GB** (Core payloads: 1.04 GB Masters games + 1.80 GB Elite games + 1.79 GB Masters D40 index + 2.60 GB Elite D30 index + 0.44 GB ancillary overhead).
     - **Optimistic Scenario:** **6.44 GB**.
     - **Conservative Scenario:** **9.98 GB** (incorporating sensitivity margins and production CPI density, leaving **20 MB / 0.2%** headroom against the 10 GB limit).
-  - **Conclusion & Risk Factors:** Feasibility is **conditional** upon enforcing Depth 30 slicing for Elite Online (extending to Depth 40 pushes conservative storage to 12.16 GB, violating budget). Additional risk factors include compression degradation at scale, position uniqueness in long endgame transposition chains, and narrow conservative headroom under production CPI density.
+  - **Conclusion & Risk Factors:** Feasibility is **conditional** upon enforcing Depth 30 slicing for Elite Online (extending to Depth 40 pushes conservative storage to 12.26 GB, violating budget). Additional risk factors include compression degradation at scale, position uniqueness in long endgame transposition chains, and narrow conservative headroom under production CPI density.
 
 ---
 

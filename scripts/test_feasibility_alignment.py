@@ -28,6 +28,8 @@ STALE_PATTERNS = [
     "6.28 GB optimistic",
     "9.66 GB conservative",
     "340 MB",
+    "9.17 GB",
+    "12.16 GB",
 ]
 
 
