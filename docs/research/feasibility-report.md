@@ -288,10 +288,5 @@ To evaluate the operational resilience of the 10 GB capacity target, we analyze 
 3. **Roadmap and Milestone Progress:**
    - **PR-01 (Completed):** Scientific feasibility, CGB3 binary encoding, CPI v2 format prototype, licensing architecture.
    - **PR-02 (Completed):** Bounded-memory streaming ingestion pipeline, persistent sharded CGB3 container, global `games.idx` lookup table, modern Elite Online empirical calibration.
-   - **PR-03 (Completed):** Production Position Index (CPI v2) pipeline:
-     - Bounded-memory external sorting with temporary `.crun` runs and multi-pass K-way merge.
-     - Strict chess semantics: orthodox legal FEN starting position support, intra-game repetition deduplication, and exclusion of unknown result (`*`) games from W/D/L counters.
-     - Byte-for-byte determinism across arbitrary memory limits and fan-in settings.
-     - Atomic publication and recovery integration: isolated staging, deep CPI verification, atomic current symlink activation, and root symlink maintenance.
-     - Functional Opening Explorer CLI queries (`codb query`) supporting move sequences (SAN/UCI) and direct FEN queries.
-   - **PR-04 (Next):** HTTP API service (`codb serve`), client SDK, and Evalis frontend integration.
+   - **PR-03 — Position Index Construction:** Bounded-memory external sorting with temporary `.crun` runs, multi-pass K-way merge, orthodox legal FEN starting position validation, intra-game repetition deduplication, exclusion of unknown results (`*`), atomic publication/recovery, and functional Opening Explorer CLI queries (`codb query`).
+   - **PR-04 — Query Engine & Integration:** HTTP API service (`codb serve`), client SDK, and Evalis frontend integration.
