@@ -8,15 +8,18 @@ This report delivers the engineering and scientific scaling evaluation for the *
 
 ### Conclusion: **Feasibility Confirmed Across Scale & Production Storage Architecture**
 
-Building upon PR-01's research foundations, PR-02 transformed the system into a production-ready, bounded-memory storage and indexing pipeline, and empirically validated the architecture against modern Elite Online datasets at scale (up to 100,000 accepted games, 5+ million games encountered):
+Building upon PR-01 and PR-02, PR-03 delivered the production position index (CPI v2) pipeline with bounded-memory external sorting, deterministic transposition aggregation, atomic publication, and functional Opening Explorer queries:
 
-1. **Directly Demonstrated in PR-01 & PR-02 (Empirical Evidence):**
-   - **Streaming Ingestion & Bounded Memory:** Ingestion memory is strictly bounded ($O(1)$ RAM with corpus size). Peak RAM RSS remains strictly below **30 MB** throughout builds of 50,000 to 100,000 games, completely eliminating PR-01's whole-corpus RAM retention risk.
+1. **Directly Demonstrated in PR-01, PR-02 & PR-03 (Empirical Evidence):**
+   - **Streaming Ingestion & Bounded Memory:** Ingestion memory is strictly bounded ($O(1)$ RAM with corpus size). Peak RAM RSS remains strictly below **30 MB** throughout builds of 50,000 to 100,000 games.
+   - **Bounded-Memory External Sorting (PR-03):** Position indexing operates within a configurable RAM ceiling (`--memory-limit-mib`, default 128 MiB). Temporary runs (`.crun`) are sorted, flushed to disk, and merged via bounded multi-pass K-way merge with fan-in limits, completely avoiding whole-corpus in-memory retention.
    - **Persistent Sharded Storage Container (`CGB3`):** Games are persisted into multi-block binary shards (`shard_XXXX.cgb3`) with configurable shard capacities, SHA-256 block footers, and atomic staging manifests.
      - **Masters OTB:** **208.2 bytes/game** in CGB3 blocks (5.16× compression ratio over PGN) with 100% round-trip fidelity across all supported canonical and provenance fields.
      - **Elite Online:** **178–181 bytes/game** in CGB3 blocks (~15% more compact than Masters OTB due to shorter average game length of ~60 plies vs. ~75 plies).
    - **Stable Random-Access Game Retrieval (`games.idx`):** Memory-mapped 16-byte fixed records sorted by 64-bit ID enable binary search retrieval in **733 µs (p50)**, **813 µs (p95)**, and **889 µs (p99)** across 50,000+ games.
-   - **On-Disk Position Indexing (`CODB_CPI` v2 vs. SQLite):** Persistent `.cpi` files consume **20.26–21.57 bytes per unique position**, achieving **7.2× to 9.4× smaller disk footprint than SQLite** with sub-25 µs warm-cache lookup times.
+   - **Production Position Indexing (`CODB_CPI` v2 vs. SQLite):** Persistent `.cpi` files consume **20.26–21.57 bytes per unique position**, achieving **7.2× to 9.4× smaller disk footprint than SQLite** with sub-25 µs warm-cache lookup times.
+   - **Chess Semantics & Correctness (PR-03):** Orthodox legal FEN setups are indexed correctly (illegal setups fail closed); intra-game revisits within the depth window are deduplicated; unknown-result (`*`) games are excluded from W/D/L counters; and output is 100% byte-identical across arbitrary buffer sizes.
+   - **Crash-Safe Atomic Publication (PR-03):** Staged in isolated temporary directories, verified deeply before activation, and committed via atomic symlink switch with automatic crash recovery.
 
 2. **Empirical Online Validation & Diversity Divergence:**
    - Curation of modern Lichess Standard Rated archives (2024–2026) demonstrates a **~1.95%–2.0% acceptance rate** under `EliteOnlinePolicy` (bullet excluded, ratings $\ge 2200$).
@@ -26,7 +29,7 @@ Building upon PR-01's research foundations, PR-02 transformed the system into a 
    - Applying independent Heaps' Law models ($\alpha = 0.9293$ for Masters OTB D40; $\alpha = 0.9293$ for Elite Online D30) to the 15,000,000-game capacity target (5M Masters OTB + 10M Elite Online):
      - **Core Payload:** **7.03 GB** (1.04 GB Masters games + 1.81 GB Elite games + 1.72 GB Masters D40 index + 2.45 GB Elite D30 index).
      - **Ancillary Deployment Overhead:** **0.44 GB** (shard headers, global `games.idx` lookup index, manifest checksums, and filesystem alignment slack).
-     - **Total Deployed Footprint (Option B):** **7.47 GB baseline** (**6.28 GB optimistic** to **9.66 GB conservative**). Feasibility is **conditional**: while baseline and optimistic projections are comfortably within budget, the conservative scenario leaves narrow headroom of **340 MB (3.4%)** against the 10 GB limit.
+     - **Total Deployed Footprint (Option B):** **7.47 GB baseline** (**6.28 GB optimistic** to **9.66 GB conservative**). Feasibility is **conditional**: while baseline and optimistic projections are comfortably within budget, the conservative scenario leaves narrow headroom of **340 MB (3.4%)** against the 10 GB limit. No double-counting exists: game storage and position index storage are independently accounted for.
 
 ---
 
@@ -282,6 +285,13 @@ To evaluate the operational resilience of the 10 GB capacity target, we analyze 
    - PR-02 resolved the PR-01 Jan 2013 0-accepted limitation by ingesting modern 2024–2026 Lichess standard rated archives, establishing an empirical acceptance rate of **~1.96%** (100,000 accepted from 5,108,242 encountered games).
    - Confirmed game storage density of **180.70 B/game** (~15% more compact than Masters OTB) and position scaling exponent $\alpha = 0.9293$ at Depth 30 ($R^2 = 0.99999$).
    - Validated random retrieval across persistent datasets up to $N = 100{,}000$ with $p_{50} = 698\,\mu\text{s}$ and $p_{95} = 773\,\mu\text{s}$.
-3. **Roadmap for Future Milestones:**
-   - **PR-03 — Position Index Construction:** External-memory position sorting/aggregation for billion-key indexes without in-memory retention, along with cold-cache vs. warm-cache latency profiling (`posix_fadvise`).
-   - **PR-04 — Query Engine & Integration:** Opening tree traversal, transposition lookup APIs, and integration with the Evalis Opening Explorer.
+3. **Roadmap and Milestone Progress:**
+   - **PR-01 (Completed):** Scientific feasibility, CGB3 binary encoding, CPI v2 format prototype, licensing architecture.
+   - **PR-02 (Completed):** Bounded-memory streaming ingestion pipeline, persistent sharded CGB3 container, global `games.idx` lookup table, modern Elite Online empirical calibration.
+   - **PR-03 (Completed):** Production Position Index (CPI v2) pipeline:
+     - Bounded-memory external sorting with temporary `.crun` runs and multi-pass K-way merge.
+     - Strict chess semantics: orthodox legal FEN starting position support, intra-game repetition deduplication, and exclusion of unknown result (`*`) games from W/D/L counters.
+     - Byte-for-byte determinism across arbitrary memory limits and fan-in settings.
+     - Atomic publication and recovery integration: isolated staging, deep CPI verification, atomic current symlink activation, and root symlink maintenance.
+     - Functional Opening Explorer CLI queries (`codb query`) supporting move sequences (SAN/UCI) and direct FEN queries.
+   - **PR-04 (Next):** HTTP API service (`codb serve`), client SDK, and Evalis frontend integration.

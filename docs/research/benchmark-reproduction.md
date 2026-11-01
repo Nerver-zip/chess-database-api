@@ -229,7 +229,48 @@ python3 scripts/validate_benchmarks.py
 
 ---
 
-## 6. Deterministic vs. Hardware-Dependent Metrics
+## 6. PR-03 Production Position Index Construction & Explorer Queries
+
+PR-03 introduces bounded-memory external sorting, deterministic position aggregation, atomic publication, and functional Opening Explorer queries.
+
+### 6.1 Building Production Position Index (`codb build-index`)
+Build an immutable, compressed CPI v2 position index on top of an existing finalized dataset:
+```bash
+./target/release/codb build-index \
+  --dataset data/builds/masters-otb-20k \
+  --depth-plies 40 \
+  --collection masters-otb \
+  --memory-limit-mib 128 \
+  --max-merge-fan-in 64 \
+  --positions-per-block 64 \
+  --zstd-level 3 \
+  --json
+```
+
+### 6.2 Querying the Opening Explorer (`codb query`)
+Perform functional opening explorer queries against completed datasets:
+```bash
+# Query by move sequence from initial board:
+./target/release/codb query \
+  --dataset data/builds/masters-otb-20k \
+  --moves "e4,e5,Nf3" \
+  --json
+
+# Query by legal orthodox FEN:
+./target/release/codb query \
+  --dataset data/builds/masters-otb-20k \
+  --fen "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2"
+```
+
+### 6.3 Verifying Dataset with Position Index (`codb verify --deep`)
+Deep verification validates shard checksums, lookup table, CPI header magic, block decompression, CRC32, and manifest SHA-256:
+```bash
+./target/release/codb verify --dataset data/builds/masters-otb-20k --deep
+```
+
+---
+
+## 7. Deterministic vs. Hardware-Dependent Metrics
 
 When reproducing benchmarks on different hardware environments:
 

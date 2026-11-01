@@ -21,18 +21,19 @@
   "is_reconciled": true,
   "retained_matches_accepted": true,
   "transpositions_distinct": 986,
-  "import_duration_secs": 0.013475052,
-  "import_throughput_games_sec": 74211.21640198494,
-  "import_throughput_mb_sec": 27.81889079166448,
-  "raw_ingest_duration_secs": 0.013475052,
-  "raw_ingest_throughput_games_sec": 74211.21640198494,
+  "import_duration_secs": 0.010873749,
+  "import_throughput_games_sec": 91964.60208893915,
+  "import_throughput_mb_sec": 34.47394270366182,
+  "raw_ingest_duration_secs": 0.010873749,
+  "raw_ingest_throughput_games_sec": 91964.60208893915,
   "source_archives": [
     {
       "filename": "stage_a_validation.pgn",
       "url": null,
       "sha256": "29baf2939593b2c6ba8b9f534d9f7c3891b11e04fa40f1388fc0dbe6817f0dcf",
       "size_bytes": 374861,
-      "license": "CC0"
+      "license": "CC0",
+      "checksum_verified": true
     }
   ],
   "raw_pgn_bytes": 373862,
@@ -50,7 +51,7 @@
     "cpi_sparse_directory_bytes": 34,
     "immutable_index_size_bytes": 4652,
     "sqlite_index_size_bytes": 74168,
-    "index_build_duration_secs": 0.029007226
+    "index_build_duration_secs": 0.034332196
   },
   "depth_30": {
     "depth_plies": 30,
@@ -60,7 +61,7 @@
     "cpi_sparse_directory_bytes": 68,
     "immutable_index_size_bytes": 6883,
     "sqlite_index_size_bytes": 98888,
-    "index_build_duration_secs": 0.041521205
+    "index_build_duration_secs": 0.048081787
   },
   "depth_40": {
     "depth_plies": 40,
@@ -70,7 +71,7 @@
     "cpi_sparse_directory_bytes": 68,
     "immutable_index_size_bytes": 7816,
     "sqlite_index_size_bytes": 103008,
-    "index_build_duration_secs": 0.047130827
+    "index_build_duration_secs": 0.055168413
   },
   "depth_60": {
     "depth_plies": 60,
@@ -80,7 +81,7 @@
     "cpi_sparse_directory_bytes": 68,
     "immutable_index_size_bytes": 7816,
     "sqlite_index_size_bytes": 103008,
-    "index_build_duration_secs": 0.047372857
+    "index_build_duration_secs": 0.054842713
   },
   "query_latency_us": {
     "cache_regime": "warm_os_page_cache",
@@ -91,14 +92,14 @@
     "transposition_keys_sampled": 400,
     "miss_keys_sampled": 400,
     "semantic_equivalence_verified": true,
-    "sqlite_disk_p50_us": 4.201,
-    "sqlite_disk_p95_us": 5.054,
-    "sqlite_disk_p99_us": 5.725,
-    "cpi_disk_p50_us": 7.938,
-    "cpi_disk_p95_us": 8.921,
-    "cpi_disk_p99_us": 20.909,
-    "cpi_in_memory_p50_us": 0.34,
-    "cpi_in_memory_p95_us": 0.539,
-    "cpi_in_memory_p99_us": 0.558
+    "sqlite_disk_p50_us": 3.852,
+    "sqlite_disk_p95_us": 4.764,
+    "sqlite_disk_p99_us": 6.415,
+    "cpi_disk_p50_us": 11.568,
+    "cpi_disk_p95_us": 12.162,
+    "cpi_disk_p99_us": 14.188,
+    "cpi_in_memory_p50_us": 0.407,
+    "cpi_in_memory_p95_us": 0.626,
+    "cpi_in_memory_p99_us": 0.899
   }
 }

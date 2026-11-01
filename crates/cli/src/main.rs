@@ -175,16 +175,62 @@ enum Commands {
         run_name: String,
     },
 
-    /// Query the Opening Explorer index for a position by FEN or initial board
-    Query {
+    /// Build a production CPI position index from a persistent dataset snapshot
+    BuildIndex {
+        /// Dataset directory path containing manifest.json
         #[arg(short, long)]
-        index: PathBuf,
+        dataset: PathBuf,
 
+        /// Maximum indexing depth in plies (default: 40 for masters-otb, 30 for elite-online)
+        #[arg(long)]
+        depth_plies: Option<usize>,
+
+        /// Expected collection name (masters-otb or elite-online)
+        #[arg(short, long)]
+        collection: Option<CollectionArg>,
+
+        /// Memory limit in MiB for in-memory position buffering (default: 128)
+        #[arg(long, default_value = "128")]
+        memory_limit_mib: usize,
+
+        /// Maximum fan-in for run merges (default: 64)
+        #[arg(long, default_value = "64")]
+        max_merge_fan_in: usize,
+
+        /// Positions per compressed block in CPI (default: 64)
+        #[arg(long, default_value = "64")]
+        positions_per_block: usize,
+
+        /// Zstandard compression level (default: 3)
+        #[arg(long, default_value = "3")]
+        zstd_level: i32,
+
+        /// Output machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Query the Opening Explorer index for a position by FEN or move sequence
+    Query {
+        /// Dataset directory path containing manifest.json and positions.cpi
+        #[arg(short, long)]
+        dataset: Option<PathBuf>,
+
+        /// Standalone CPI index file path (deprecated, use --dataset)
+        #[arg(short, long)]
+        index: Option<PathBuf>,
+
+        /// Direct FEN string query (orthodox legal positions only)
         #[arg(short, long)]
         fen: Option<String>,
 
+        /// Move sequence from start position (e.g., "e4,e5,Nf3" or "e2e4 e7e5 g1f3")
         #[arg(short, long)]
         moves: Option<String>,
+
+        /// Output machine-readable JSON
+        #[arg(long)]
+        json: bool,
     },
 
     /// Benchmark an existing persistent dataset: random game retrieval latencies,
@@ -604,8 +650,42 @@ fn main() -> Result<()> {
             run_benchmarks(&input, collection.into(), max_games, &output_dir, &run_name)?;
         }
 
-        Commands::Query { index, fen, moves } => {
-            run_query(&index, fen.as_deref(), moves.as_deref())?;
+        Commands::BuildIndex {
+            dataset,
+            depth_plies,
+            collection,
+            memory_limit_mib,
+            max_merge_fan_in,
+            positions_per_block,
+            zstd_level,
+            json,
+        } => {
+            run_build_index(BuildIndexOptions {
+                dataset: &dataset,
+                depth_plies,
+                expected_collection: collection.map(Into::into),
+                memory_limit_mib,
+                max_merge_fan_in,
+                positions_per_block,
+                zstd_level,
+                json,
+            })?;
+        }
+
+        Commands::Query {
+            dataset,
+            index,
+            fen,
+            moves,
+            json,
+        } => {
+            run_query(
+                dataset.as_deref(),
+                index.as_deref(),
+                fen.as_deref(),
+                moves.as_deref(),
+                json,
+            )?;
         }
 
         Commands::BenchDataset {
@@ -1026,6 +1106,22 @@ fn run_inspect(dataset: &Path, json: bool) -> Result<()> {
             .accounting
             .verify_retained_count(manifest.total_games as usize)
     );
+    if let Some(ref cpi) = manifest.position_index {
+        println!("Position Index (CPI):");
+        println!("  Filename:          {}", cpi.filename);
+        println!("  Depth (plies):     {}", cpi.indexed_depth_plies);
+        println!("  Unique Positions:  {}", cpi.unique_positions);
+        println!("  Total Move Records:{}", cpi.unique_position_move_pairs);
+        println!(
+            "  File Size:         {:.2} MB ({} bytes)",
+            cpi.file_size_bytes as f64 / 1_000_000.0,
+            cpi.file_size_bytes
+        );
+        println!(
+            "  Games Indexed:     {} (Excluded unknown result: {})",
+            cpi.games_indexed, cpi.excluded_unknown_result_games
+        );
+    }
     println!("========================================================================");
     Ok(())
 }
@@ -1053,6 +1149,13 @@ fn run_verify(dataset: &Path, deep: bool) -> Result<()> {
         "Deep Game Verification:   {}",
         report.deep_verification_passed
     );
+    if let Some(cpi_present) = report.position_index_present {
+        println!("Position Index Present:   {}", cpi_present);
+        println!(
+            "Position Index Verified:  {}",
+            report.position_index_verified.unwrap_or(false)
+        );
+    }
     println!("Elapsed Time:             {:.2}s", elapsed);
     println!("Result: SUCCESS [PASS]");
     Ok(())
@@ -1934,58 +2037,295 @@ fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
     })
 }
 
-fn run_query(index_path: &Path, fen: Option<&str>, moves_str: Option<&str>) -> Result<()> {
+#[derive(Serialize, Deserialize, Debug)]
+struct BuildIndexOutput {
+    games_processed: u64,
+    games_indexed: u64,
+    excluded_unknown_result_games: u64,
+    unique_positions: u64,
+    total_move_records: u64,
+    runs_generated: usize,
+    merge_passes: usize,
+    cpi_file_size_bytes: u64,
+    cpi_sha256: String,
+    duration_ms: u128,
+}
+
+#[derive(Debug, Clone)]
+struct BuildIndexOptions<'a> {
+    dataset: &'a Path,
+    depth_plies: Option<usize>,
+    expected_collection: Option<Collection>,
+    memory_limit_mib: usize,
+    max_merge_fan_in: usize,
+    positions_per_block: usize,
+    zstd_level: i32,
+    json: bool,
+}
+
+fn run_build_index(opts: BuildIndexOptions<'_>) -> Result<()> {
+    let start = Instant::now();
+    let memory_limit_bytes = opts.memory_limit_mib.saturating_mul(1024 * 1024);
+
+    let config = codb_storage::DatasetIndexConfig {
+        depth_plies: opts.depth_plies,
+        expected_collection: opts.expected_collection,
+        memory_limit_bytes,
+        max_merge_fan_in: opts.max_merge_fan_in,
+        positions_per_block: opts.positions_per_block,
+        zstd_level: opts.zstd_level,
+    };
+
+    let report =
+        codb_storage::build_dataset_position_index(opts.dataset, config).with_context(|| {
+            format!(
+                "Failed to build position index for dataset at {}",
+                opts.dataset.display()
+            )
+        })?;
+    let duration_ms = start.elapsed().as_millis();
+
+    if opts.json {
+        let out = BuildIndexOutput {
+            games_processed: report.stats.games_processed,
+            games_indexed: report.stats.games_indexed,
+            excluded_unknown_result_games: report.stats.excluded_unknown_result_games,
+            unique_positions: report.stats.cpi_metadata.total_positions,
+            total_move_records: report.stats.cpi_metadata.total_pairs,
+            runs_generated: report.stats.runs_generated,
+            merge_passes: report.stats.merge_passes,
+            cpi_file_size_bytes: report.stats.cpi_metadata.total_file_size,
+            cpi_sha256: report.cpi_sha256,
+            duration_ms,
+        };
+        println!("{}", serde_json::to_string_pretty(&out)?);
+    } else {
+        println!("========================================================================");
+        println!("                   CODB Position Index Construction                     ");
+        println!("========================================================================");
+        println!("Dataset Directory:    {}", report.dataset_dir);
+        println!("Published Build ID:   {}", report.published_build_id);
+        println!("Collection:           {}", report.collection);
+        println!("Indexing Depth:       {} plies", report.indexed_depth_plies);
+        println!("Memory Limit:         {} MiB", opts.memory_limit_mib);
+        println!("Runs Generated:       {}", report.stats.runs_generated);
+        println!("Merge Passes:         {}", report.stats.merge_passes);
+        println!("Games Processed:      {}", report.stats.games_processed);
+        println!("Games Indexed:        {}", report.stats.games_indexed);
+        println!(
+            "Unknown Result (*):   {}",
+            report.stats.excluded_unknown_result_games
+        );
+        println!(
+            "Unique Positions:     {}",
+            report.stats.cpi_metadata.total_positions
+        );
+        println!(
+            "Total Move Records:   {}",
+            report.stats.cpi_metadata.total_pairs
+        );
+        println!(
+            "CPI File Size:        {:.2} MB ({} bytes)",
+            report.stats.cpi_metadata.total_file_size as f64 / 1_000_000.0,
+            report.stats.cpi_metadata.total_file_size
+        );
+        println!("CPI SHA-256:          {}", report.cpi_sha256);
+        println!("Duration:             {} ms", duration_ms);
+        println!("Result: SUCCESS [PASS]");
+        println!("========================================================================");
+    }
+    Ok(())
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct QueryOutput {
+    position_key: String,
+    fen: String,
+    total_games: u64,
+    white_wins: u64,
+    draws: u64,
+    black_wins: u64,
+    moves: Vec<QueryCandidateMove>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct QueryCandidateMove {
+    uci: String,
+    san: String,
+    white_wins: u64,
+    draws: u64,
+    black_wins: u64,
+    total: u64,
+    white_win_pct: f64,
+    draw_pct: f64,
+    black_win_pct: f64,
+}
+
+fn parse_and_apply_moves(board: &mut Chess, moves_str: &str) -> Result<()> {
+    let tokens: Vec<&str> = moves_str
+        .split(|c: char| c == ',' || c.is_whitespace())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    for token in tokens {
+        // Try parsing as SAN first
+        let played_move = if let Ok(san) = shakmaty::san::San::from_ascii(token.as_bytes()) {
+            san.to_move(board).ok()
+        } else if let Ok(san_plus) = shakmaty::san::SanPlus::from_ascii(token.as_bytes()) {
+            san_plus.san.to_move(board).ok()
+        } else {
+            None
+        };
+
+        let m = match played_move {
+            Some(m) => m,
+            None => {
+                let uci: UciMove = token
+                    .parse()
+                    .with_context(|| format!("Invalid move token: '{}'", token))?;
+                uci.to_move(board)
+                    .map_err(|e| anyhow::anyhow!("Illegal move '{}': {:?}", token, e))?
+            }
+        };
+
+        board.play_unchecked(m);
+    }
+    Ok(())
+}
+
+fn run_query(
+    dataset: Option<&Path>,
+    index: Option<&Path>,
+    fen: Option<&str>,
+    moves_str: Option<&str>,
+    json: bool,
+) -> Result<()> {
     let mut board = Chess::default();
     if let Some(f) = fen {
-        let parsed_fen: shakmaty::fen::Fen = f.parse().context("Invalid FEN")?;
+        let parsed_fen: shakmaty::fen::Fen = f.parse().context("Invalid FEN syntax")?;
         board = parsed_fen
             .into_position(shakmaty::CastlingMode::Standard)
             .map_err(|e| anyhow::anyhow!("Illegal FEN position: {:?}", e))?;
     }
     if let Some(m_list) = moves_str {
-        for uci in m_list.split_whitespace() {
-            let uci_move: UciMove = uci.parse().context("Invalid UCI move")?;
-            let m = uci_move
-                .to_move(&board)
-                .map_err(|e| anyhow::anyhow!("Illegal move: {:?}", e))?;
-            board.play_unchecked(m);
-        }
+        parse_and_apply_moves(&mut board, m_list)?;
     }
-    let key = compute_position_key(&board);
-    println!("Canonical PositionKey: {}", key.to_hex());
 
-    if index_path.exists() {
-        let disk_idx = DiskPositionIndex::open(index_path)?;
-        if let Some(stats) = disk_idx.query(key)? {
+    let key = compute_position_key(&board);
+    let fen_string =
+        shakmaty::fen::Fen::from_position(&board, shakmaty::EnPassantMode::Legal).to_string();
+
+    let maybe_stats = if let Some(ds_path) = dataset {
+        let reader = DatasetReader::open(ds_path)
+            .with_context(|| format!("Failed to open dataset at {}", ds_path.display()))?;
+        reader.query_position(key)?
+    } else if let Some(idx_path) = index {
+        if !idx_path.exists() {
+            anyhow::bail!("Index file {} does not exist", idx_path.display());
+        }
+        let disk_idx = DiskPositionIndex::open(idx_path)
+            .with_context(|| format!("Failed to open CPI index at {}", idx_path.display()))?;
+        disk_idx.query(key)?
+    } else {
+        anyhow::bail!("Either --dataset <PATH> or --index <PATH> must be specified");
+    };
+
+    let (total_games, white_wins, draws, black_wins, candidate_moves) =
+        if let Some(stats) = maybe_stats {
+            let mut moves_out = Vec::with_capacity(stats.moves.len());
+            for m in stats.moves {
+                let total = m.white_wins + m.draws + m.black_wins;
+                let white_win_pct = if total > 0 {
+                    ((m.white_wins as f64 * 1000.0 / total as f64).round()) / 10.0
+                } else {
+                    0.0
+                };
+                let draw_pct = if total > 0 {
+                    ((m.draws as f64 * 1000.0 / total as f64).round()) / 10.0
+                } else {
+                    0.0
+                };
+                let black_win_pct = if total > 0 {
+                    ((m.black_wins as f64 * 1000.0 / total as f64).round()) / 10.0
+                } else {
+                    0.0
+                };
+                let san = if let Ok(uci_m) = m.uci.parse::<UciMove>() {
+                    if let Ok(legal_m) = uci_m.to_move(&board) {
+                        shakmaty::san::SanPlus::from_move(board.clone(), legal_m).to_string()
+                    } else {
+                        m.uci.clone()
+                    }
+                } else {
+                    m.uci.clone()
+                };
+                moves_out.push(QueryCandidateMove {
+                    uci: m.uci,
+                    san,
+                    white_wins: m.white_wins as u64,
+                    draws: m.draws as u64,
+                    black_wins: m.black_wins as u64,
+                    total: total as u64,
+                    white_win_pct,
+                    draw_pct,
+                    black_win_pct,
+                });
+            }
+            moves_out.sort_by(|a, b| b.total.cmp(&a.total).then_with(|| a.uci.cmp(&b.uci)));
+            (
+                stats.total_games as u64,
+                stats.white_wins as u64,
+                stats.draws as u64,
+                stats.black_wins as u64,
+                moves_out,
+            )
+        } else {
+            (0, 0, 0, 0, Vec::new())
+        };
+
+    if json {
+        let out = QueryOutput {
+            position_key: key.to_hex(),
+            fen: fen_string,
+            total_games,
+            white_wins,
+            draws,
+            black_wins,
+            moves: candidate_moves,
+        };
+        println!("{}", serde_json::to_string_pretty(&out)?);
+    } else {
+        println!("Canonical PositionKey: {}", key.to_hex());
+        println!("FEN:                   {}", fen_string);
+        if total_games > 0 {
             println!("Opening Explorer results for {}:", key.to_hex());
-            println!("  Total games: {}", stats.total_games);
+            println!("  Total games: {}", total_games);
             println!(
                 "  White wins:  {} ({:.1}%)",
-                stats.white_wins,
-                stats.white_wins as f64 * 100.0 / stats.total_games.max(1) as f64
+                white_wins,
+                white_wins as f64 * 100.0 / total_games.max(1) as f64
             );
             println!(
                 "  Draws:       {} ({:.1}%)",
-                stats.draws,
-                stats.draws as f64 * 100.0 / stats.total_games.max(1) as f64
+                draws,
+                draws as f64 * 100.0 / total_games.max(1) as f64
             );
             println!(
                 "  Black wins:  {} ({:.1}%)",
-                stats.black_wins,
-                stats.black_wins as f64 * 100.0 / stats.total_games.max(1) as f64
+                black_wins,
+                black_wins as f64 * 100.0 / total_games.max(1) as f64
             );
-            println!("  Candidate moves ({}):", stats.moves.len());
-            for m in &stats.moves {
+            println!("  Candidate moves ({}):", candidate_moves.len());
+            for m in &candidate_moves {
                 println!(
-                    "    {} - {} games (W: {}, D: {}, B: {})",
-                    m.uci, m.total_games, m.white_wins, m.draws, m.black_wins
+                    "    {:5} ({:5}) - {:6} games (W: {:5.1}%, D: {:5.1}%, B: {:5.1}%)",
+                    m.uci, m.san, m.total, m.white_win_pct, m.draw_pct, m.black_win_pct
                 );
             }
         } else {
-            println!("Position not found in index {}.", index_path.display());
+            println!("Position not found in index.");
         }
-    } else {
-        println!("Index file {} does not exist.", index_path.display());
     }
     Ok(())
 }
@@ -2696,5 +3036,116 @@ mod tests {
             report_val_unv["provenance_status"].as_str(),
             Some("declared_unverified")
         );
+    }
+
+    #[test]
+    fn test_cli_build_index_query_and_inspect_verify_e2e() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let fixture_path = std::path::Path::new(manifest_dir)
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("fixtures")
+            .join("stage_a_validation.pgn");
+
+        if !fixture_path.exists() {
+            return;
+        }
+
+        let tmp = tempfile::tempdir().unwrap();
+        let dataset_dir = tmp.path().join("cpi_cli_test_dataset");
+
+        // 1. Build initial CGB3 dataset with 25 games
+        run_build(BuildOptions {
+            manifest: None,
+            input: vec![fixture_path.clone()],
+            collection: CollectionArg::MastersOtb,
+            output: dataset_dir.clone(),
+            max_games: Some(25),
+            block_capacity: 4,
+            max_games_per_shard: 8,
+            zstd_level: 3,
+            dedupe_mode: DedupeModeArg::Disk,
+        })
+        .unwrap();
+
+        // 2. Before build-index: inspect JSON shows position_index: null
+        let pre_reader = DatasetReader::open(&dataset_dir).unwrap();
+        assert!(pre_reader.manifest().position_index.is_none());
+        let pre_manifest_json = serde_json::to_string(pre_reader.manifest()).unwrap();
+        assert!(pre_manifest_json.contains(r#""position_index":null"#));
+        drop(pre_reader);
+
+        // 3. Collection mismatch must fail closed
+        let mismatch_res = run_build_index(BuildIndexOptions {
+            dataset: &dataset_dir,
+            depth_plies: Some(40),
+            expected_collection: Some(Collection::EliteOnline),
+            memory_limit_mib: 64,
+            max_merge_fan_in: 4,
+            positions_per_block: 16,
+            zstd_level: 3,
+            json: false,
+        });
+        assert!(
+            mismatch_res.is_err(),
+            "Collection mismatch must fail closed"
+        );
+
+        // 4. Build index with production settings
+        run_build_index(BuildIndexOptions {
+            dataset: &dataset_dir,
+            depth_plies: Some(40),
+            expected_collection: Some(Collection::MastersOtb),
+            memory_limit_mib: 64,
+            max_merge_fan_in: 4,
+            positions_per_block: 16,
+            zstd_level: 3,
+            json: true, // Test JSON output code path
+        })
+        .unwrap();
+
+        // 5. Inspect and verify after build-index
+        run_inspect(&dataset_dir, false).unwrap();
+        run_inspect(&dataset_dir, true).unwrap();
+        run_verify(&dataset_dir, true).unwrap();
+
+        let post_reader = DatasetReader::open(&dataset_dir).unwrap();
+        let cpi_meta = post_reader.manifest().position_index.as_ref().unwrap();
+        assert!(cpi_meta.unique_positions > 0);
+        assert!(cpi_meta.unique_position_move_pairs > 0);
+        assert_eq!(cpi_meta.indexed_depth_plies, 40);
+        drop(post_reader);
+
+        // 6. Query with --dataset and --moves (SAN with commas)
+        run_query(Some(&dataset_dir), None, None, Some("e4,e5,Nf3"), true).unwrap();
+
+        // 7. Query with --dataset and --moves (UCI with whitespace)
+        run_query(
+            Some(&dataset_dir),
+            None,
+            None,
+            Some("e2e4 e7e5 g1f3"),
+            false,
+        )
+        .unwrap();
+
+        // 8. Query root position
+        run_query(Some(&dataset_dir), None, None, None, true).unwrap();
+
+        // 9. Backward compatibility: query standalone --index path
+        let cpi_path = dataset_dir.join("positions.cpi");
+        assert!(cpi_path.exists());
+        run_query(None, Some(&cpi_path), None, Some("e4"), true).unwrap();
+
+        // 10. Query with orthodox legal FEN
+        let orthodox_fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2";
+        run_query(Some(&dataset_dir), None, Some(orthodox_fen), None, true).unwrap();
+
+        // 11. Query with illegal FEN must return error (fail closed)
+        let illegal_fen = "8/8/8/8/8/8/8/8 w - - 0 1"; // No kings
+        let err_fen = run_query(Some(&dataset_dir), None, Some(illegal_fen), None, true);
+        assert!(err_fen.is_err(), "Illegal FEN must fail closed");
     }
 }
