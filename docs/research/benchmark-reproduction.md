@@ -263,7 +263,7 @@ Perform functional opening explorer queries against completed datasets:
 ```
 
 ### 6.3 Verifying Dataset with Position Index (`codb verify --deep`)
-Deep verification validates shard checksums, lookup table, CPI header magic, block decompression, CRC32, and manifest SHA-256:
+Deep verification validates shard checksums, lookup table, CPI header magic, block decompression, structural bounds, and manifest SHA-256:
 ```bash
 ./target/release/codb verify --dataset data/builds/masters-otb-20k --deep
 ```

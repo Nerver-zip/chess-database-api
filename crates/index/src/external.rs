@@ -352,9 +352,20 @@ impl ExternalPositionIndexer {
         }
         fs::create_dir_all(staging_dir)?;
 
-        // Budget 32 bytes per RawObservation (24 bytes struct + allocation/coalescing headroom),
-        // with a minimum of 1 record so arbitrarily small test budgets work deterministically.
-        let max_buffer_records = (config.memory_limit_bytes / 32).max(1);
+        // Explicitly partition configured memory ceiling into:
+        // 1. Observation buffer for in-memory RawObservations (std::mem::size_of::<RawObservation>() = 32 bytes).
+        // 2. Headroom reserved for fixed runtime overhead (I/O buffers for run writers and readers,
+        //    zstd compression buffers, allocation margin, and heap structures).
+        // For production budgets (>= 16 MiB), reserve min(16 MiB, budget / 8).
+        // For smaller test budgets (< 16 MiB), reserve a fractional proportion with a minimum of 1 record.
+        let reserved_bytes = if config.memory_limit_bytes >= 16 * 1024 * 1024 {
+            (config.memory_limit_bytes / 8).min(16 * 1024 * 1024)
+        } else {
+            (config.memory_limit_bytes / 4).max(std::mem::size_of::<RawObservation>())
+        };
+        let observation_budget_bytes = config.memory_limit_bytes.saturating_sub(reserved_bytes);
+        let max_buffer_records =
+            (observation_budget_bytes / std::mem::size_of::<RawObservation>()).max(1);
         let initial_cap = max_buffer_records.min(262_144);
 
         Ok(Self {
@@ -433,12 +444,17 @@ impl ExternalPositionIndexer {
             ));
         }
 
-        // Sort in-place by (PositionKey, CompactMove)
+        // Sort in-place by (PositionKey, CompactMove) without allocating
         self.buffer
             .sort_unstable_by_key(|obs| (obs.key, obs.compact_move));
 
-        // Coalesce identical (key, compact_move) observations
-        let mut coalesced: Vec<RunRecord> = Vec::new();
+        let run_idx = self.run_paths.len();
+        let run_path = self.staging_dir.join(format!("run_{:06}.crun", run_idx));
+        let mut writer = RunWriter::create(&run_path)?;
+
+        // Coalesce identical (key, compact_move) observations and stream directly into RunWriter.
+        // Draining self.buffer in-place prevents allocating an intermediate Vec<RunRecord>.
+        let mut current_record: Option<RunRecord> = None;
         for obs in self.buffer.drain(..) {
             let (w_inc, d_inc, b_inc) = match obs.result {
                 GameResult::WhiteWins => (1u32, 0u32, 0u32),
@@ -447,25 +463,27 @@ impl ExternalPositionIndexer {
                 GameResult::Star => continue,
             };
 
-            if let Some(last) = coalesced.last_mut() {
-                if last.key == obs.key && last.compact_move == obs.compact_move {
-                    last.white_wins = last
+            if let Some(ref mut cur) = current_record {
+                if cur.key == obs.key && cur.compact_move == obs.compact_move {
+                    cur.white_wins = cur
                         .white_wins
                         .checked_add(w_inc)
                         .ok_or_else(|| IndexError::Overflow("Run white_wins overflow".into()))?;
-                    last.draws = last
+                    cur.draws = cur
                         .draws
                         .checked_add(d_inc)
                         .ok_or_else(|| IndexError::Overflow("Run draws overflow".into()))?;
-                    last.black_wins = last
+                    cur.black_wins = cur
                         .black_wins
                         .checked_add(b_inc)
                         .ok_or_else(|| IndexError::Overflow("Run black_wins overflow".into()))?;
                     continue;
+                } else {
+                    writer.write_record(cur)?;
                 }
             }
 
-            coalesced.push(RunRecord {
+            current_record = Some(RunRecord {
                 key: obs.key,
                 compact_move: obs.compact_move,
                 white_wins: w_inc,
@@ -474,16 +492,16 @@ impl ExternalPositionIndexer {
             });
         }
 
-        if coalesced.is_empty() {
+        if let Some(ref cur) = current_record {
+            writer.write_record(cur)?;
+        }
+
+        if writer.record_count == 0 {
+            // Nothing was written (e.g. only Star games), cleanup empty run file
+            let _ = fs::remove_file(&run_path);
             return Ok(());
         }
 
-        let run_idx = self.run_paths.len();
-        let run_path = self.staging_dir.join(format!("run_{:06}.crun", run_idx));
-        let mut writer = RunWriter::create(&run_path)?;
-        for rec in &coalesced {
-            writer.write_record(rec)?;
-        }
         let run_bytes = writer.finish()?;
 
         self.current_temp_bytes = self.current_temp_bytes.saturating_add(run_bytes);
@@ -609,7 +627,13 @@ impl ExternalPositionIndexer {
     ) -> Result<CpiMetadata, IndexError> {
         let file = File::create(output_cpi_path)?;
         let buf_writer = BufWriter::with_capacity(256 * 1024, file);
-        let mut cpi_writer = StreamingCpiWriter::new(buf_writer, positions_per_block, zstd_level)?;
+        let temp_sparse_dir = output_cpi_path.parent();
+        let mut cpi_writer = StreamingCpiWriter::new_with_temp_dir(
+            buf_writer,
+            positions_per_block,
+            zstd_level,
+            temp_sparse_dir,
+        )?;
 
         let mut current_key: Option<u128> = None;
         let mut current_moves: Vec<(CompactMove, u32, u32, u32)> = Vec::new();
@@ -1161,5 +1185,80 @@ mod tests {
         assert_eq!(q_ext.entries[0].1.to_uci(), "a7a8q");
         assert_eq!(n_ext.entries[0].1.to_uci(), "a7a8n");
         assert_ne!(q_ext.entries[0].1, n_ext.entries[0].1);
+    }
+
+    #[test]
+    fn test_memory_limit_configurations_and_spilling() {
+        let corpus = sample_corpus();
+        let dir = tempfile::tempdir().unwrap();
+
+        // 1. Minimum production budget: 16 MiB
+        let p_16m = dir.path().join("out_16m.cpi");
+        let mut indexer_16m = ExternalPositionIndexer::new(
+            &dir.path().join("staging_16m"),
+            ExternalIndexConfig {
+                max_plies: 40,
+                memory_limit_bytes: 16 * 1024 * 1024,
+                max_merge_fan_in: 4,
+                positions_per_block: 4,
+                zstd_level: 3,
+                fault_point: None,
+            },
+        )
+        .unwrap();
+        for g in &corpus {
+            indexer_16m.push_game(g).unwrap();
+        }
+        let stats_16m = indexer_16m.finish(&p_16m).unwrap();
+
+        // 2. Intermediate budget: 64 MiB
+        let p_64m = dir.path().join("out_64m.cpi");
+        let mut indexer_64m = ExternalPositionIndexer::new(
+            &dir.path().join("staging_64m"),
+            ExternalIndexConfig {
+                max_plies: 40,
+                memory_limit_bytes: 64 * 1024 * 1024,
+                max_merge_fan_in: 4,
+                positions_per_block: 4,
+                zstd_level: 3,
+                fault_point: None,
+            },
+        )
+        .unwrap();
+        for g in &corpus {
+            indexer_64m.push_game(g).unwrap();
+        }
+        let stats_64m = indexer_64m.finish(&p_64m).unwrap();
+
+        // 3. Smallest test budget (forcing multiple runs and intermediate merge passes)
+        let p_tiny = dir.path().join("out_tiny.cpi");
+        let mut indexer_tiny = ExternalPositionIndexer::new(
+            &dir.path().join("staging_tiny"),
+            ExternalIndexConfig {
+                max_plies: 40,
+                memory_limit_bytes: 64, // forces 1 record per buffer
+                max_merge_fan_in: 2,
+                positions_per_block: 4,
+                zstd_level: 3,
+                fault_point: None,
+            },
+        )
+        .unwrap();
+        for g in &corpus {
+            indexer_tiny.push_game(g).unwrap();
+        }
+        let stats_tiny = indexer_tiny.finish(&p_tiny).unwrap();
+
+        // Verify byte-for-byte identity of CPI artifacts across all memory budgets
+        let bytes_16m = fs::read(&p_16m).unwrap();
+        let bytes_64m = fs::read(&p_64m).unwrap();
+        let bytes_tiny = fs::read(&p_tiny).unwrap();
+
+        assert_eq!(bytes_16m, bytes_64m);
+        assert_eq!(bytes_16m, bytes_tiny);
+        assert_eq!(stats_16m.cpi_metadata, stats_64m.cpi_metadata);
+        assert_eq!(stats_16m.cpi_metadata, stats_tiny.cpi_metadata);
+        assert!(stats_tiny.runs_generated > 1);
+        assert!(stats_tiny.merge_passes > 1);
     }
 }

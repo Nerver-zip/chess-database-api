@@ -1,11 +1,12 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
 use codb_core::{CompactMove, GameResult, ParsedGame, PositionKey};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use shakmaty::fen::Fen;
 use shakmaty::{CastlingMode, Chess, Position};
 use std::collections::{BTreeMap, HashSet};
-use std::io::{Cursor, Seek, SeekFrom, Write};
+use std::fs::File;
+use std::io::{BufWriter, Cursor, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use thiserror::Error;
 
@@ -479,7 +480,8 @@ pub struct StreamingCpiWriter<W: Write + Seek> {
     writer: W,
     pos_per_block: usize,
     zstd_level: i32,
-    sparse_index: Vec<BlockIndexEntry>,
+    sparse_writer: BufWriter<File>,
+    block_count: u32,
     block_uncompressed: Vec<u8>,
     current_block_positions: u16,
     current_block_first_key: u128,
@@ -489,10 +491,15 @@ pub struct StreamingCpiWriter<W: Write + Seek> {
 }
 
 impl<W: Write + Seek> StreamingCpiWriter<W> {
-    pub fn new(
+    pub fn new(writer: W, positions_per_block: usize, zstd_level: i32) -> Result<Self, IndexError> {
+        Self::new_with_temp_dir(writer, positions_per_block, zstd_level, None)
+    }
+
+    pub fn new_with_temp_dir(
         mut writer: W,
         positions_per_block: usize,
         zstd_level: i32,
+        temp_dir: Option<&Path>,
     ) -> Result<Self, IndexError> {
         let pos_per_block = if positions_per_block == 0 {
             DEFAULT_POSITIONS_PER_BLOCK
@@ -511,11 +518,18 @@ impl<W: Write + Seek> StreamingCpiWriter<W> {
         let header_placeholder = [0u8; HEADER_SIZE];
         writer.write_all(&header_placeholder)?;
 
+        let sparse_file = match temp_dir {
+            Some(dir) => tempfile::tempfile_in(dir)?,
+            None => tempfile::tempfile()?,
+        };
+        let sparse_writer = BufWriter::with_capacity(64 * 1024, sparse_file);
+
         Ok(StreamingCpiWriter {
             writer,
             pos_per_block,
             zstd_level,
-            sparse_index: Vec::new(),
+            sparse_writer,
+            block_count: 0,
             block_uncompressed: Vec::with_capacity(pos_per_block * 36),
             current_block_positions: 0,
             current_block_first_key: 0,
@@ -657,13 +671,17 @@ impl<W: Write + Seek> StreamingCpiWriter<W> {
         let file_offset = self.writer.stream_position()?;
         self.writer.write_all(&compressed)?;
 
-        self.sparse_index.push(BlockIndexEntry {
-            first_key: self.current_block_first_key,
-            file_offset,
-            compressed_len,
-            uncompressed_len,
-            num_positions: self.current_block_positions,
-        });
+        self.sparse_writer
+            .write_u128::<BigEndian>(self.current_block_first_key)?;
+        self.sparse_writer.write_u64::<BigEndian>(file_offset)?;
+        self.sparse_writer.write_u32::<BigEndian>(compressed_len)?;
+        self.sparse_writer
+            .write_u32::<BigEndian>(uncompressed_len)?;
+        self.sparse_writer
+            .write_u16::<BigEndian>(self.current_block_positions)?;
+        self.block_count = self.block_count.checked_add(1).ok_or_else(|| {
+            IndexError::Overflow("CPI sparse block count exceeds u32::MAX".into())
+        })?;
 
         self.block_uncompressed.clear();
         self.current_block_positions = 0;
@@ -677,17 +695,23 @@ impl<W: Write + Seek> StreamingCpiWriter<W> {
             self.flush_current_block()?;
         }
 
-        let block_count = u32::try_from(self.sparse_index.len())
-            .map_err(|_| IndexError::Overflow("CPI sparse block count exceeds u32::MAX".into()))?;
+        self.sparse_writer.flush()?;
+        let mut sparse_file = self
+            .sparse_writer
+            .into_inner()
+            .map_err(|e| IndexError::Io(e.into_error()))?;
+        sparse_file.seek(SeekFrom::Start(0))?;
 
         let sparse_index_offset = self.writer.stream_position()?;
-        for entry in &self.sparse_index {
-            self.writer.write_u128::<BigEndian>(entry.first_key)?;
-            self.writer.write_u64::<BigEndian>(entry.file_offset)?;
-            self.writer.write_u32::<BigEndian>(entry.compressed_len)?;
-            self.writer.write_u32::<BigEndian>(entry.uncompressed_len)?;
-            self.writer.write_u16::<BigEndian>(entry.num_positions)?;
+        let mut copy_buf = [0u8; 64 * 1024];
+        loop {
+            let n = sparse_file.read(&mut copy_buf)?;
+            if n == 0 {
+                break;
+            }
+            self.writer.write_all(&copy_buf[..n])?;
         }
+
         let total_file_size = self.writer.stream_position()?;
         let sparse_index_len = total_file_size - sparse_index_offset;
 
@@ -699,7 +723,7 @@ impl<W: Write + Seek> StreamingCpiWriter<W> {
             .write_u32::<BigEndian>(self.pos_per_block as u32)?;
         self.writer.write_u64::<BigEndian>(self.total_positions)?;
         self.writer.write_u64::<BigEndian>(self.total_pairs)?;
-        self.writer.write_u32::<BigEndian>(block_count)?;
+        self.writer.write_u32::<BigEndian>(self.block_count)?;
         self.writer.write_u32::<BigEndian>(0)?; // reserved 4 bytes
         self.writer.write_u64::<BigEndian>(sparse_index_offset)?;
         self.writer.write_u64::<BigEndian>(sparse_index_len)?;
@@ -712,7 +736,7 @@ impl<W: Write + Seek> StreamingCpiWriter<W> {
         Ok(CpiMetadata {
             total_positions: self.total_positions,
             total_pairs: self.total_pairs,
-            block_count,
+            block_count: self.block_count,
             total_file_size,
         })
     }
@@ -748,7 +772,8 @@ pub struct CpiVerificationSummary {
 pub struct DiskPositionIndex {
     mmap: memmap2::Mmap,
     pos_per_block: u32,
-    sparse_index: Vec<BlockIndexEntry>,
+    sparse_index_offset: u64,
+    block_count: u32,
     total_positions: u64,
     total_pairs: u64,
 }
@@ -850,7 +875,6 @@ impl DiskPositionIndex {
             }
         }
 
-        let mut sparse_index = Vec::with_capacity(block_count as usize);
         let mut idx_cursor = Cursor::new(
             &mmap[sparse_index_offset as usize..(sparse_index_offset + sparse_index_len) as usize],
         );
@@ -909,14 +933,6 @@ impl DiskPositionIndex {
             sum_block_positions = sum_block_positions
                 .checked_add(num_positions as u64)
                 .ok_or_else(|| IndexError::InvalidFormat("Block position sum overflow".into()))?;
-
-            sparse_index.push(BlockIndexEntry {
-                first_key,
-                file_offset,
-                compressed_len,
-                uncompressed_len,
-                num_positions,
-            });
         }
 
         if expected_block_offset != sparse_index_offset {
@@ -935,7 +951,8 @@ impl DiskPositionIndex {
         Ok(DiskPositionIndex {
             mmap,
             pos_per_block,
-            sparse_index,
+            sparse_index_offset,
+            block_count,
             total_positions,
             total_pairs,
         })
@@ -950,7 +967,7 @@ impl DiskPositionIndex {
     }
 
     pub fn block_count(&self) -> usize {
-        self.sparse_index.len()
+        self.block_count as usize
     }
 
     pub fn positions_per_block(&self) -> u32 {
@@ -961,10 +978,39 @@ impl DiskPositionIndex {
         self.mmap.len() as u64
     }
 
-    fn decompress_block_bytes(&self, block_idx: usize) -> Result<Vec<u8>, IndexError> {
-        let block_entry = self.sparse_index.get(block_idx).ok_or_else(|| {
-            IndexError::InvalidFormat(format!("Block index {} out of bounds", block_idx))
-        })?;
+    pub fn get_block_entry(&self, block_idx: usize) -> Result<BlockIndexEntry, IndexError> {
+        if block_idx >= self.block_count as usize {
+            return Err(IndexError::InvalidFormat(format!(
+                "Block index {} out of bounds (block_count={})",
+                block_idx, self.block_count
+            )));
+        }
+        let offset = self.sparse_index_offset as usize + block_idx * CPI_SPARSE_ENTRY_SIZE;
+        let slice = &self.mmap[offset..offset + CPI_SPARSE_ENTRY_SIZE];
+        let first_key = BigEndian::read_u128(&slice[0..16]);
+        let file_offset = BigEndian::read_u64(&slice[16..24]);
+        let compressed_len = BigEndian::read_u32(&slice[24..28]);
+        let uncompressed_len = BigEndian::read_u32(&slice[28..32]);
+        let num_positions = BigEndian::read_u16(&slice[32..34]);
+        Ok(BlockIndexEntry {
+            first_key,
+            file_offset,
+            compressed_len,
+            uncompressed_len,
+            num_positions,
+        })
+    }
+
+    fn first_key_at(&self, block_idx: usize) -> u128 {
+        let offset = self.sparse_index_offset as usize + block_idx * CPI_SPARSE_ENTRY_SIZE;
+        BigEndian::read_u128(&self.mmap[offset..offset + 16])
+    }
+
+    fn decompress_block_bytes(
+        &self,
+        block_idx: usize,
+    ) -> Result<(BlockIndexEntry, Vec<u8>), IndexError> {
+        let block_entry = self.get_block_entry(block_idx)?;
         let start = usize::try_from(block_entry.file_offset)
             .map_err(|_| IndexError::InvalidFormat("Block offset exceeds usize".into()))?;
         let len = block_entry.compressed_len as usize;
@@ -996,7 +1042,7 @@ impl DiskPositionIndex {
             )));
         }
 
-        Ok(decompressed)
+        Ok((block_entry, decompressed))
     }
 
     /// Validates a single block's full internal structure and optionally extracts `target_key`.
@@ -1006,10 +1052,13 @@ impl DiskPositionIndex {
         block_idx: usize,
         target_key: Option<PositionKey>,
     ) -> Result<(u64, u128, Option<PositionStats>), IndexError> {
-        let block_entry = &self.sparse_index[block_idx];
-        let next_block_first_key = self.sparse_index.get(block_idx + 1).map(|e| e.first_key);
+        let (block_entry, decompressed) = self.decompress_block_bytes(block_idx)?;
+        let next_block_first_key = if block_idx + 1 < self.block_count as usize {
+            Some(self.first_key_at(block_idx + 1))
+        } else {
+            None
+        };
 
-        let decompressed = self.decompress_block_bytes(block_idx)?;
         if decompressed.len() < 2 {
             return Err(IndexError::InvalidFormat(format!(
                 "CPI block {} too short for position count",
@@ -1187,17 +1236,24 @@ impl DiskPositionIndex {
     }
 
     pub fn query(&self, key: PositionKey) -> Result<Option<PositionStats>, IndexError> {
-        if self.sparse_index.is_empty() || key.0 < self.sparse_index[0].first_key {
+        if self.block_count == 0 || key.0 < self.first_key_at(0) {
             return Ok(None);
         }
 
-        let idx = self
-            .sparse_index
-            .partition_point(|entry| entry.first_key <= key.0);
-        if idx == 0 {
+        let mut left = 0;
+        let mut right = self.block_count as usize;
+        while left < right {
+            let mid = left + (right - left) / 2;
+            if self.first_key_at(mid) <= key.0 {
+                left = mid + 1;
+            } else {
+                right = mid;
+            }
+        }
+        if left == 0 {
             return Ok(None);
         }
-        let block_idx = idx - 1;
+        let block_idx = left - 1;
         let (_, _, found) = self.scan_and_validate_block(block_idx, Some(key))?;
         Ok(found)
     }
@@ -1208,9 +1264,9 @@ impl DiskPositionIndex {
         let mut total_pairs_verified = 0u64;
         let mut prev_block_last_key: Option<u128> = None;
 
-        for block_idx in 0..self.sparse_index.len() {
+        for block_idx in 0..self.block_count as usize {
             if let Some(prev_last) = prev_block_last_key {
-                let first_key = self.sparse_index[block_idx].first_key;
+                let first_key = self.first_key_at(block_idx);
                 if first_key <= prev_last {
                     return Err(IndexError::InvalidFormat(format!(
                         "Cross-block key order violation between block {} ({:032x}) and block {} ({:032x})",
@@ -1238,7 +1294,7 @@ impl DiskPositionIndex {
         Ok(CpiVerificationSummary {
             total_positions: self.total_positions,
             total_pairs: self.total_pairs,
-            blocks_verified: self.sparse_index.len() as u32,
+            blocks_verified: self.block_count,
             total_file_size: self.mmap.len() as u64,
         })
     }

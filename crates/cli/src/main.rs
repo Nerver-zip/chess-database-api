@@ -2064,6 +2064,12 @@ struct BuildIndexOptions<'a> {
 }
 
 fn run_build_index(opts: BuildIndexOptions<'_>) -> Result<()> {
+    if opts.memory_limit_mib < 16 {
+        anyhow::bail!(
+            "Memory limit must be at least 16 MiB to accommodate runtime merge overhead and I/O buffers (got {} MiB)",
+            opts.memory_limit_mib
+        );
+    }
     let start = Instant::now();
     let memory_limit_bytes = opts.memory_limit_mib.saturating_mul(1024 * 1024);
 
@@ -3091,6 +3097,22 @@ mod tests {
         assert!(
             mismatch_res.is_err(),
             "Collection mismatch must fail closed"
+        );
+
+        // 3b. Memory limit < 16 MiB must fail closed
+        let small_mem_res = run_build_index(BuildIndexOptions {
+            dataset: &dataset_dir,
+            depth_plies: Some(40),
+            expected_collection: Some(Collection::MastersOtb),
+            memory_limit_mib: 8,
+            max_merge_fan_in: 4,
+            positions_per_block: 16,
+            zstd_level: 3,
+            json: false,
+        });
+        assert!(
+            small_mem_res.is_err(),
+            "Unreasonably small memory budget (< 16 MiB) must fail closed"
         );
 
         // 4. Build index with production settings
