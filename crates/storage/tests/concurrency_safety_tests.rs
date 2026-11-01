@@ -119,6 +119,7 @@ fn test_two_simultaneous_index_build_attempts_fail_closed() {
             positions_per_block: 16,
             zstd_level: 3,
             expected_collection: Some(Collection::MastersOtb),
+            build_id_override: None,
         },
     );
 
@@ -145,6 +146,7 @@ fn test_two_simultaneous_index_build_attempts_fail_closed() {
             positions_per_block: 16,
             zstd_level: 3,
             expected_collection: Some(Collection::MastersOtb),
+            build_id_override: None,
         },
     )
     .unwrap();
@@ -201,38 +203,88 @@ fn test_dataset_version_collision_fails_closed_without_overwriting() {
     let ds_dir = dir.path().join("dataset");
     build_test_dataset(&ds_dir, 10);
 
-    // Pre-create conflicting version directory in versions/
+    // Run a first real index build that publishes an immutable version with a known ID.
+    let colliding_id = "codb-collision-regression-version".to_string();
+    let first = build_dataset_position_index(
+        &ds_dir,
+        DatasetIndexConfig {
+            depth_plies: Some(10),
+            build_id_override: Some(colliding_id.clone()),
+            ..Default::default()
+        },
+    )
+    .expect("first publication must succeed");
+    assert_eq!(first.published_build_id, colliding_id);
+
     let versions_dir = ds_dir.join("versions");
-    let collision_dir = versions_dir.join("collision_version_test");
-    fs::create_dir_all(&collision_dir).unwrap();
-    fs::write(collision_dir.join("protected_file.txt"), b"IMMUTABLE_DATA").unwrap();
+    let version_dir = versions_dir.join(&colliding_id);
+    assert!(version_dir.is_dir());
 
-    // Attempting to publish or rename into an existing version must fail closed
-    let version_dir = collision_dir.clone();
-    assert!(version_dir.exists());
-
-    // Verify fail closed behavior: when destination exists, error is returned
-    let check = if version_dir.exists() {
-        Err(StorageError::Integrity(format!(
-            "Published version directory '{}' already exists: refusing to overwrite immutable version",
-            version_dir.display()
-        )))
-    } else {
-        Ok(())
+    // Fingerprint every file of the immutable published version.
+    let fingerprint = |root: &Path| -> Vec<(String, Vec<u8>)> {
+        let mut out: Vec<(String, Vec<u8>)> = fs::read_dir(root)
+            .unwrap()
+            .filter_map(|e| {
+                let e = e.unwrap();
+                let p = e.path();
+                if p.is_file() {
+                    Some((
+                        e.file_name().to_string_lossy().into_owned(),
+                        fs::read(&p).unwrap(),
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        out.sort();
+        out
     };
+    let before = fingerprint(&version_dir);
+    let current_before = fs::read_link(ds_dir.join("current")).unwrap();
 
-    match check {
+    // Second real publication forced to produce the SAME build ID must fail closed.
+    let second = build_dataset_position_index(
+        &ds_dir,
+        DatasetIndexConfig {
+            depth_plies: Some(10),
+            build_id_override: Some(colliding_id.clone()),
+            ..Default::default()
+        },
+    );
+    match second {
         Err(StorageError::Integrity(msg)) => {
-            assert!(msg.contains("refusing to overwrite immutable version"));
+            assert!(
+                msg.contains("refusing to overwrite immutable version"),
+                "unexpected integrity message: {}",
+                msg
+            );
         }
         other => panic!("Expected StorageError::Integrity, got: {:?}", other),
     }
 
-    // Protected data is 100% intact
+    // Published version is byte-identical, `current` is unchanged, dataset still verifies.
+    assert_eq!(fingerprint(&version_dir), before);
     assert_eq!(
-        fs::read(collision_dir.join("protected_file.txt")).unwrap(),
-        b"IMMUTABLE_DATA"
+        fs::read_link(ds_dir.join("current")).unwrap(),
+        current_before
     );
+    verify_dataset(&ds_dir, true).expect("dataset must remain valid after rejected collision");
+
+    // Recoverability: recovery cleans the abandoned staging directory and keeps the version.
+    recover_dataset(&ds_dir).unwrap();
+    assert!(version_dir.is_dir());
+    let leftovers: Vec<_> = fs::read_dir(&versions_dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|n| n.starts_with(".staging_"))
+        .collect();
+    assert!(
+        leftovers.is_empty(),
+        "stale staging not cleaned: {:?}",
+        leftovers
+    );
+    verify_dataset(&ds_dir, true).unwrap();
 }
 
 #[test]
@@ -275,6 +327,7 @@ fn test_snapshot_readers_operate_concurrently_during_build_and_publication() {
             positions_per_block: 8,
             zstd_level: 3,
             expected_collection: Some(Collection::MastersOtb),
+            build_id_override: None,
         },
     )
     .unwrap();

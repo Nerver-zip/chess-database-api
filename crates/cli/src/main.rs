@@ -2151,6 +2151,7 @@ fn run_build_index(opts: BuildIndexOptions<'_>) -> Result<()> {
         max_merge_fan_in: opts.max_merge_fan_in,
         positions_per_block: opts.positions_per_block,
         zstd_level: opts.zstd_level,
+        build_id_override: None,
     };
 
     let report =

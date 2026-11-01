@@ -3069,6 +3069,11 @@ pub struct DatasetIndexConfig {
     pub positions_per_block: usize,
     /// Zstd compression level for CPI blocks.
     pub zstd_level: i32,
+    /// Test seam: force the published build ID (normally nanosecond timestamp + PID + random nonce)
+    /// so regression tests can deterministically provoke a version-directory collision through the
+    /// real publication path. Leave `None` in production.
+    #[doc(hidden)]
+    pub build_id_override: Option<String>,
 }
 
 impl Default for DatasetIndexConfig {
@@ -3080,6 +3085,7 @@ impl Default for DatasetIndexConfig {
             max_merge_fan_in: DEFAULT_MAX_MERGE_FAN_IN,
             positions_per_block: DEFAULT_POSITIONS_PER_BLOCK,
             zstd_level: DEFAULT_CPI_ZSTD_LEVEL,
+            build_id_override: None,
         }
     }
 }
@@ -3327,10 +3333,12 @@ pub fn build_dataset_position_index(
         .saturating_add(src_manifest.lookup_table.file_size_bytes)
         .saturating_add(cpi_size_bytes);
 
-    let new_build_id = format!(
-        "codb-{}-{}-{}-{:016x}-cpi-d{}",
-        src_manifest.collection, now_nanos, pid, nonce, depth_plies
-    );
+    let new_build_id = config.build_id_override.clone().unwrap_or_else(|| {
+        format!(
+            "codb-{}-{}-{}-{:016x}-cpi-d{}",
+            src_manifest.collection, now_nanos, pid, nonce, depth_plies
+        )
+    });
 
     let pos_index_meta = PositionIndexMetadata {
         filename: "positions.cpi".into(),

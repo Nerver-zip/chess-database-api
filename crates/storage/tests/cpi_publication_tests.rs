@@ -310,6 +310,7 @@ fn test_cpi_publication_verification_and_fault_injection_recovery() {
                 positions_per_block: 4,
                 zstd_level: 3,
                 expected_collection: Some(Collection::MastersOtb),
+                build_id_override: None,
             },
         );
         fault::set_fault_point(None);
@@ -349,6 +350,7 @@ fn test_cpi_publication_verification_and_fault_injection_recovery() {
             positions_per_block: 4,
             zstd_level: 3,
             expected_collection: Some(Collection::MastersOtb),
+            build_id_override: None,
         },
     );
     fault::set_fault_point(None);
