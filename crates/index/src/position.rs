@@ -1570,4 +1570,13 @@ mod tests {
         let missing = PositionKey(0x99999999999999999999999999999999);
         assert!(disk_idx.query(missing).unwrap().is_none());
     }
+
+    #[test]
+    fn test_cpi_format_constants_and_layout() {
+        assert_eq!(CPI_HEADER_SIZE, 64, "CPI header must be exactly 64 bytes");
+        assert_eq!(
+            CPI_SPARSE_ENTRY_SIZE, 34,
+            "CPI sparse index entry must be exactly 34 bytes (16B first key + 8B offset + 8B length + 2B pairs)"
+        );
+    }
 }

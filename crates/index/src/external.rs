@@ -971,6 +971,62 @@ mod tests {
     }
 
     #[test]
+    fn test_memory_budget_compliance_16_32_64_128_mib() {
+        let games = sample_corpus();
+        let dir = tempfile::tempdir().unwrap();
+
+        let budgets_mib = [16, 32, 64, 128];
+        let mut baseline_hash: Option<[u8; 32]> = None;
+        let mut baseline_bytes: Option<Vec<u8>> = None;
+
+        for &mib in &budgets_mib {
+            let staging = dir.path().join(format!("staging_{}_mib", mib));
+            let cpi_path = dir.path().join(format!("out_{}_mib.cpi", mib));
+            let cfg = ExternalIndexConfig {
+                max_plies: 40,
+                memory_limit_bytes: mib * 1024 * 1024,
+                max_merge_fan_in: 64,
+                positions_per_block: 64,
+                zstd_level: 3,
+                fault_point: None,
+            };
+
+            let mut indexer = ExternalPositionIndexer::new(&staging, cfg).unwrap();
+            for g in &games {
+                indexer.push_game(g).unwrap();
+            }
+            indexer.finish(&cpi_path).unwrap();
+
+            // Verify integrity
+            let disk_idx = DiskPositionIndex::open(&cpi_path).unwrap();
+            let summary = disk_idx.verify_integrity().unwrap();
+            assert!(summary.total_positions > 0);
+
+            let bytes = fs::read(&cpi_path).unwrap();
+            let mut hasher = Sha256::new();
+            hasher.update(&bytes);
+            let hash: [u8; 32] = hasher.finalize().into();
+
+            if let Some(ref base_h) = baseline_hash {
+                assert_eq!(
+                    &hash, base_h,
+                    "Memory budget {} MiB produced different CPI SHA-256 than baseline!",
+                    mib
+                );
+                assert_eq!(
+                    &bytes,
+                    baseline_bytes.as_ref().unwrap(),
+                    "Memory budget {} MiB produced different CPI bytes than baseline!",
+                    mib
+                );
+            } else {
+                baseline_hash = Some(hash);
+                baseline_bytes = Some(bytes);
+            }
+        }
+    }
+
+    #[test]
     fn test_corrupted_run_file_rejected_fail_closed() {
         let dir = tempfile::tempdir().unwrap();
         let run_path = dir.path().join("test.crun");
