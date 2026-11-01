@@ -1,4 +1,11 @@
-use codb_core::{Collection, IngestionStats, ParsedGame};
+use codb_core::{Collection, IngestionStats, ParsedGame, PositionKey};
+use codb_index::external::{
+    ExternalIndexConfig, ExternalIndexFaultPoint, ExternalIndexStats, ExternalPositionIndexer,
+    DEFAULT_CPI_ZSTD_LEVEL, DEFAULT_MAX_MERGE_FAN_IN, DEFAULT_MEMORY_LIMIT_BYTES,
+};
+use codb_index::position::{
+    DiskPositionIndex, PositionStats, CPI_VERSION, DEFAULT_POSITIONS_PER_BLOCK,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -52,6 +59,13 @@ pub mod fault {
         FailRedundancyCheckEnumeration,
         FailRemainingEntriesEnumeration,
         FailReconcileEntriesEnumeration,
+        // CPI Index construction & publication fault points
+        IndexBeforeCpiCompletion,
+        IndexDuringRunGeneration,
+        IndexDuringExternalMerge,
+        IndexAfterCpiBeforeVerify,
+        IndexAfterVerifyBeforeActivation,
+        IndexAfterCurrentSymlinkSwitch,
     }
 
     thread_local! {
@@ -106,6 +120,12 @@ pub mod fault {
                 FaultPoint::FailRedundancyCheckEnumeration => "FailRedundancyCheckEnumeration",
                 FaultPoint::FailRemainingEntriesEnumeration => "FailRemainingEntriesEnumeration",
                 FaultPoint::FailReconcileEntriesEnumeration => "FailReconcileEntriesEnumeration",
+                FaultPoint::IndexBeforeCpiCompletion => "IndexBeforeCpiCompletion",
+                FaultPoint::IndexDuringRunGeneration => "IndexDuringRunGeneration",
+                FaultPoint::IndexDuringExternalMerge => "IndexDuringExternalMerge",
+                FaultPoint::IndexAfterCpiBeforeVerify => "IndexAfterCpiBeforeVerify",
+                FaultPoint::IndexAfterVerifyBeforeActivation => "IndexAfterVerifyBeforeActivation",
+                FaultPoint::IndexAfterCurrentSymlinkSwitch => "IndexAfterCurrentSymlinkSwitch",
             };
             if val == match_str {
                 std::process::exit(137);
@@ -157,6 +177,29 @@ pub struct FileChecksumMetadata {
     pub entry_count: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PositionIndexMetadata {
+    pub filename: String,
+    pub format_version: String,
+    pub file_size_bytes: u64,
+    pub sha256: String,
+    pub indexed_depth_plies: usize,
+    pub positions_per_block: usize,
+    pub zstd_level: i32,
+    pub unique_positions: u64,
+    pub unique_position_move_pairs: u64,
+    pub block_count: u32,
+    pub games_processed: u64,
+    pub games_indexed: u64,
+    pub excluded_unknown_result_games: u64,
+    #[serde(default)]
+    pub custom_fen_games: u64,
+    #[serde(default)]
+    pub repeated_positions_skipped: u64,
+    #[serde(default)]
+    pub raw_observations_extracted: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DatasetManifest {
     pub manifest_version: u32,
@@ -174,6 +217,8 @@ pub struct DatasetManifest {
     pub lookup_table: FileChecksumMetadata,
     pub total_physical_bytes: u64,
     pub is_complete: bool,
+    #[serde(default)]
+    pub position_index: Option<PositionIndexMetadata>,
 }
 
 pub struct DatasetWriterConfig {
@@ -726,6 +771,7 @@ impl DatasetWriter {
             },
             total_physical_bytes,
             is_complete: true,
+            position_index: None,
         };
 
         // Write manifest.json in staging directory
@@ -1003,6 +1049,229 @@ impl DatasetReader {
         let game = self.get_game(game_id)?;
         export_to_pgn(&game)
     }
+
+    /// Opens the persistent CPI v2 position index associated with this pinned dataset snapshot,
+    /// if present in `manifest.position_index`.
+    pub fn open_position_index(&self) -> Result<Option<DiskPositionIndex>, StorageError> {
+        if let Some(ref cpi_meta) = self.manifest.position_index {
+            let cpi_path = self.dataset_dir.join(&cpi_meta.filename);
+            let idx = DiskPositionIndex::open(&cpi_path)?;
+            Ok(Some(idx))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Queries the persistent CPI v2 position index in this dataset snapshot for `key`.
+    /// Returns `Err` if the dataset has no published position index.
+    pub fn query_position(&self, key: PositionKey) -> Result<Option<PositionStats>, StorageError> {
+        let idx = self.open_position_index()?.ok_or_else(|| {
+            StorageError::Decoding(format!(
+                "Dataset at '{}' does not contain a published position index (positions.cpi); run 'codb build-index' first",
+                self.dataset_dir.display()
+            ))
+        })?;
+        Ok(idx.query(key)?)
+    }
+
+    /// Returns a bounded-memory, snapshot-consistent streaming iterator over all active
+    /// canonical games in the dataset in deterministic `(shard_id, block_index, game_index)` order.
+    ///
+    /// ### Guarantees:
+    /// 1. **Pinned Snapshot Consistency:** Operates exclusively against the immutable physical version
+    ///    directory pinned when [`DatasetReader::open`] was called.
+    /// 2. **Bounded Memory:** Holds at most one open [`ShardReader`] and one decompressed [`GameBlock`]
+    ///    in memory at any time.
+    /// 3. **Canonical Active-Game Verification:** Verifies that every yielded game's physical
+    ///    `(shard_id, block_index, game_index_in_block)` matches an active entry in `games.idx`,
+    ///    and verifies per-shard and total dataset game counts upon completion.
+    pub fn iter_games(&self) -> Result<DatasetGameIterator<'_>, StorageError> {
+        DatasetGameIterator::new(self)
+    }
+}
+
+/// Bounded-memory sequential game iterator over a pinned [`DatasetReader`] snapshot.
+pub struct DatasetGameIterator<'a> {
+    reader: &'a DatasetReader,
+    sorted_shards: Vec<ShardMetadata>,
+    next_shard_idx: usize,
+    active_shard: Option<(ShardMetadata, ShardReader, u32, u64)>,
+    current_block_idx: u32,
+    current_game_idx_in_block: u16,
+    current_block_games: std::vec::IntoIter<ParsedGame>,
+    total_yielded: u64,
+    finished: bool,
+}
+
+impl<'a> DatasetGameIterator<'a> {
+    fn new(reader: &'a DatasetReader) -> Result<Self, StorageError> {
+        if reader.lookup_reader.collection() != reader.manifest.collection {
+            return Err(StorageError::Integrity(format!(
+                "Collection mismatch between manifest ({}) and lookup table ({})",
+                reader.manifest.collection,
+                reader.lookup_reader.collection()
+            )));
+        }
+        if reader.lookup_reader.entry_count() != reader.manifest.total_games {
+            return Err(StorageError::Integrity(format!(
+                "Lookup table entry count ({}) != manifest total_games ({})",
+                reader.lookup_reader.entry_count(),
+                reader.manifest.total_games
+            )));
+        }
+
+        let mut sorted_shards = reader.manifest.shards.clone();
+        sorted_shards.sort_by_key(|s| s.shard_id);
+
+        let sum_shard_games: u64 = sorted_shards.iter().map(|s| s.game_count).sum();
+        if sum_shard_games != reader.manifest.total_games {
+            return Err(StorageError::Integrity(format!(
+                "Sum of shard game counts ({}) != manifest total_games ({})",
+                sum_shard_games, reader.manifest.total_games
+            )));
+        }
+
+        Ok(Self {
+            reader,
+            sorted_shards,
+            next_shard_idx: 0,
+            active_shard: None,
+            current_block_idx: 0,
+            current_game_idx_in_block: 0,
+            current_block_games: Vec::new().into_iter(),
+            total_yielded: 0,
+            finished: false,
+        })
+    }
+
+    fn step_next(&mut self) -> Result<Option<ParsedGame>, StorageError> {
+        loop {
+            if let Some(game) = self.current_block_games.next() {
+                let g_idx = self.current_game_idx_in_block;
+                self.current_game_idx_in_block = self
+                    .current_game_idx_in_block
+                    .checked_add(1)
+                    .ok_or_else(|| StorageError::Integrity("Block game index overflow".into()))?;
+
+                let (ref shard_meta, _, _, ref mut shard_yielded) =
+                    self.active_shard.as_mut().ok_or_else(|| {
+                        StorageError::Integrity(
+                            "Internal iterator state missing active shard".into(),
+                        )
+                    })?;
+
+                if game.metadata.collection != self.reader.manifest.collection {
+                    return Err(StorageError::Integrity(format!(
+                        "Game {} in shard {} has collection {}, expected {}",
+                        game.metadata.id,
+                        shard_meta.shard_id,
+                        game.metadata.collection,
+                        self.reader.manifest.collection
+                    )));
+                }
+
+                // Verify that this physical slot is the canonical active location in games.idx
+                let locs = self.reader.lookup_reader.find_locations(game.metadata.id);
+                let is_canonical_active = locs.iter().any(|loc| {
+                    loc.shard_id == shard_meta.shard_id
+                        && loc.block_index == self.current_block_idx
+                        && loc.game_index_in_block == g_idx
+                });
+                if !is_canonical_active {
+                    return Err(StorageError::Integrity(format!(
+                        "Non-canonical or unindexed game ID {} encountered at shard {} block {} slot {}",
+                        game.metadata.id, shard_meta.shard_id, self.current_block_idx, g_idx
+                    )));
+                }
+
+                *shard_yielded += 1;
+                self.total_yielded += 1;
+                return Ok(Some(game));
+            }
+
+            // Current block exhausted; advance to next block in active shard if available
+            if let Some((ref shard_meta, ref mut s_reader, ref mut next_block_idx, shard_yielded)) =
+                self.active_shard
+            {
+                if *next_block_idx < s_reader.block_count() {
+                    let b_idx = *next_block_idx;
+                    *next_block_idx += 1;
+                    let games = s_reader.decompress_block(b_idx)?;
+                    self.current_block_idx = b_idx;
+                    self.current_game_idx_in_block = 0;
+                    self.current_block_games = games.into_iter();
+                    continue;
+                } else {
+                    // Shard finished: verify shard game count matches manifest
+                    if shard_yielded != shard_meta.game_count {
+                        return Err(StorageError::Integrity(format!(
+                            "Shard '{}' yielded {} games, but manifest declares {}",
+                            shard_meta.filename, shard_yielded, shard_meta.game_count
+                        )));
+                    }
+                    self.active_shard = None;
+                }
+            }
+
+            // Advance to next shard
+            if self.next_shard_idx < self.sorted_shards.len() {
+                let shard_meta = self.sorted_shards[self.next_shard_idx].clone();
+                self.next_shard_idx += 1;
+                let shard_path = self
+                    .reader
+                    .dataset_dir
+                    .join("shards")
+                    .join(&shard_meta.filename);
+                let s_reader = ShardReader::open(&shard_path)?;
+                if s_reader.collection() != self.reader.manifest.collection {
+                    return Err(StorageError::Integrity(format!(
+                        "Shard '{}' collection '{}' != manifest collection '{}'",
+                        shard_meta.filename,
+                        s_reader.collection(),
+                        self.reader.manifest.collection
+                    )));
+                }
+                if s_reader.block_count() != shard_meta.block_count {
+                    return Err(StorageError::Integrity(format!(
+                        "Shard '{}' block_count ({}) != manifest block_count ({})",
+                        shard_meta.filename,
+                        s_reader.block_count(),
+                        shard_meta.block_count
+                    )));
+                }
+                self.active_shard = Some((shard_meta, s_reader, 0, 0));
+                continue;
+            }
+
+            // All shards exhausted: verify total yielded games matches manifest.total_games
+            if self.total_yielded != self.reader.manifest.total_games {
+                return Err(StorageError::Integrity(format!(
+                    "Dataset traversal yielded {} games, expected manifest total_games {}",
+                    self.total_yielded, self.reader.manifest.total_games
+                )));
+            }
+            self.finished = true;
+            return Ok(None);
+        }
+    }
+}
+
+impl<'a> Iterator for DatasetGameIterator<'a> {
+    type Item = Result<ParsedGame, StorageError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            return None;
+        }
+        match self.step_next() {
+            Ok(Some(game)) => Some(Ok(game)),
+            Ok(None) => None,
+            Err(e) => {
+                self.finished = true;
+                Some(Err(e))
+            }
+        }
+    }
 }
 
 pub fn compute_file_sha256(path: &Path) -> Result<String, StorageError> {
@@ -1094,6 +1363,14 @@ pub struct VerificationReport {
     pub checksums_valid: bool,
     pub accounting_reconciled: bool,
     pub deep_verification_passed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position_index_present: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position_index_verified: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unique_positions: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unique_position_move_pairs: Option<u64>,
     pub status: String,
 }
 
@@ -1140,6 +1417,115 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
             "Manifest accounting invariants failed reconciliation check".into(),
         ));
     }
+
+    // 3b. Verify optional CPI position index if present in manifest (or reject undeclared positions.cpi)
+    let (
+        position_index_present,
+        position_index_verified,
+        unique_positions,
+        unique_position_move_pairs,
+    ) = if let Some(ref cpi_meta) = manifest.position_index {
+        let cpi_path = snapshot_dir.join(&cpi_meta.filename);
+        if !cpi_path.is_file() {
+            return Err(StorageError::Integrity(format!(
+                "Dataset manifest declares position_index '{}', but file is missing in snapshot '{}'",
+                cpi_meta.filename,
+                snapshot_dir.display()
+            )));
+        }
+        let actual_cpi_size = fs::metadata(&cpi_path)?.len();
+        if actual_cpi_size != cpi_meta.file_size_bytes {
+            return Err(StorageError::Integrity(format!(
+                "CPI '{}' size mismatch: actual {} bytes, manifest {} bytes",
+                cpi_meta.filename, actual_cpi_size, cpi_meta.file_size_bytes
+            )));
+        }
+        let actual_cpi_sha256 = compute_file_sha256(&cpi_path)?;
+        if !actual_cpi_sha256.eq_ignore_ascii_case(&cpi_meta.sha256) {
+            return Err(StorageError::Decoding(format!(
+                "CPI '{}' checksum mismatch: calculated {}, manifest {}",
+                cpi_meta.filename, actual_cpi_sha256, cpi_meta.sha256
+            )));
+        }
+        if cpi_meta.games_processed != manifest.total_games {
+            return Err(StorageError::Integrity(format!(
+                "CPI games_processed ({}) != manifest total_games ({})",
+                cpi_meta.games_processed, manifest.total_games
+            )));
+        }
+        if cpi_meta
+            .games_indexed
+            .checked_add(cpi_meta.excluded_unknown_result_games)
+            != Some(cpi_meta.games_processed)
+        {
+            return Err(StorageError::Integrity(format!(
+                "CPI game accounting mismatch: games_indexed ({}) + excluded_unknown_result_games ({}) != games_processed ({})",
+                cpi_meta.games_indexed,
+                cpi_meta.excluded_unknown_result_games,
+                cpi_meta.games_processed
+            )));
+        }
+
+        let shards_bytes: u64 = manifest.shards.iter().map(|s| s.file_size_bytes).sum();
+        let expected_physical = shards_bytes
+            .saturating_add(manifest.lookup_table.file_size_bytes)
+            .saturating_add(cpi_meta.file_size_bytes);
+        if manifest.total_physical_bytes != expected_physical {
+            return Err(StorageError::Integrity(format!(
+                "Manifest total_physical_bytes ({}) != sum of shards + lookup + CPI ({})",
+                manifest.total_physical_bytes, expected_physical
+            )));
+        }
+
+        let disk_idx = DiskPositionIndex::open(&cpi_path)?;
+        if disk_idx.total_positions() != cpi_meta.unique_positions {
+            return Err(StorageError::Integrity(format!(
+                "CPI header total_positions ({}) != manifest unique_positions ({})",
+                disk_idx.total_positions(),
+                cpi_meta.unique_positions
+            )));
+        }
+        if disk_idx.total_pairs() != cpi_meta.unique_position_move_pairs {
+            return Err(StorageError::Integrity(format!(
+                "CPI header total_pairs ({}) != manifest unique_position_move_pairs ({})",
+                disk_idx.total_pairs(),
+                cpi_meta.unique_position_move_pairs
+            )));
+        }
+        if disk_idx.block_count() as u32 != cpi_meta.block_count {
+            return Err(StorageError::Integrity(format!(
+                "CPI sparse block_count ({}) != manifest block_count ({})",
+                disk_idx.block_count(),
+                cpi_meta.block_count
+            )));
+        }
+        if disk_idx.positions_per_block() as usize != cpi_meta.positions_per_block {
+            return Err(StorageError::Integrity(format!(
+                "CPI header positions_per_block ({}) != manifest positions_per_block ({})",
+                disk_idx.positions_per_block(),
+                cpi_meta.positions_per_block
+            )));
+        }
+
+        if deep {
+            disk_idx.verify_integrity()?;
+        }
+
+        (
+            Some(true),
+            Some(true),
+            Some(cpi_meta.unique_positions),
+            Some(cpi_meta.unique_position_move_pairs),
+        )
+    } else {
+        if snapshot_dir.join("positions.cpi").exists() {
+            return Err(StorageError::Integrity(format!(
+                "Undeclared positions.cpi found in snapshot '{}' while manifest.position_index is None",
+                snapshot_dir.display()
+            )));
+        }
+        (None, None, None, None)
+    };
 
     // 4. Optional deep verification: exact 1-to-1 mapping between physical storage and lookup index
     let deep_passed = if deep {
@@ -1269,6 +1655,10 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
         checksums_valid: true,
         accounting_reconciled,
         deep_verification_passed: deep_passed,
+        position_index_present,
+        position_index_verified,
+        unique_positions,
+        unique_position_move_pairs,
         status: "PASS".into(),
     })
 }
@@ -1722,6 +2112,30 @@ fn ensure_root_symlinks(target_dir: &Path) -> Result<(), StorageError> {
                 // If it's a file or existing symlink, atomic POSIX rename replaces it safely
                 fs::rename(&tmp_link, &link_path)?;
             }
+        }
+
+        // Optional convenience symlink for positions.cpi when present in current version
+        let cpi_link_path = target_dir.join("positions.cpi");
+        let cpi_target = Path::new("current/positions.cpi");
+        if target_dir.join(cpi_target).exists() {
+            let already_valid = fs::read_link(&cpi_link_path)
+                .map(|existing| existing == cpi_target)
+                .unwrap_or(false);
+            if !already_valid {
+                fault::trigger_if(fault::FaultPoint::FailCreateRootSymlink)?;
+                let tmp_link =
+                    target_dir.join(format!(".tmp_link_positions.cpi_{}", std::process::id()));
+                if tmp_link.exists() || fs::symlink_metadata(&tmp_link).is_ok() {
+                    fs::remove_file(&tmp_link)?;
+                }
+                symlink(cpi_target, &tmp_link)?;
+                fs::rename(&tmp_link, &cpi_link_path)?;
+            }
+        } else if fs::symlink_metadata(&cpi_link_path)
+            .map(|m| m.file_type().is_symlink())
+            .unwrap_or(false)
+        {
+            let _ = fs::remove_file(&cpi_link_path);
         }
     }
     Ok(())
@@ -2609,4 +3023,360 @@ pub fn sync_dir_contents(dir: &Path) -> Result<(), StorageError> {
     }
     sync_dir_itself(dir)?;
     Ok(())
+}
+
+/// Configuration for building and atomically publishing a CPI v2 position index on an existing CGB3 dataset.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatasetIndexConfig {
+    /// Maximum plies per game to extract (if `None`, defaults to 40 for `masters-otb` and 30 for `elite-online`).
+    pub depth_plies: Option<usize>,
+    /// Optional collection assertion; if provided and mismatched with the dataset manifest, fails closed.
+    pub expected_collection: Option<Collection>,
+    /// Approximate memory ceiling in bytes for external sorting buffers.
+    pub memory_limit_bytes: usize,
+    /// Maximum merge fan-in during external K-way merge (>= 2).
+    pub max_merge_fan_in: usize,
+    /// Positions per compressed CPI block.
+    pub positions_per_block: usize,
+    /// Zstd compression level for CPI blocks.
+    pub zstd_level: i32,
+}
+
+impl Default for DatasetIndexConfig {
+    fn default() -> Self {
+        Self {
+            depth_plies: None,
+            expected_collection: None,
+            memory_limit_bytes: DEFAULT_MEMORY_LIMIT_BYTES,
+            max_merge_fan_in: DEFAULT_MAX_MERGE_FAN_IN,
+            positions_per_block: DEFAULT_POSITIONS_PER_BLOCK,
+            zstd_level: DEFAULT_CPI_ZSTD_LEVEL,
+        }
+    }
+}
+
+/// Detailed report produced after building and publishing a dataset position index.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatasetIndexBuildReport {
+    pub dataset_dir: String,
+    pub previous_build_id: String,
+    pub published_build_id: String,
+    pub collection: String,
+    pub indexed_depth_plies: usize,
+    pub memory_limit_bytes: usize,
+    pub max_merge_fan_in: usize,
+    pub stats: ExternalIndexStats,
+    pub cpi_sha256: String,
+    pub total_physical_bytes: u64,
+}
+
+fn link_or_copy_verified_file(
+    src: &Path,
+    dst: &Path,
+    expected_size: u64,
+    expected_sha256: &str,
+) -> Result<(), StorageError> {
+    let meta = fs::metadata(src)?;
+    if meta.len() != expected_size {
+        return Err(StorageError::Integrity(format!(
+            "Source artifact '{}' size mismatch: expected {}, got {}",
+            src.display(),
+            expected_size,
+            meta.len()
+        )));
+    }
+    let actual_sha = compute_file_sha256(src)?;
+    if !actual_sha.eq_ignore_ascii_case(expected_sha256) {
+        return Err(StorageError::Integrity(format!(
+            "Source artifact '{}' SHA-256 mismatch: expected {}, got {}",
+            src.display(),
+            expected_sha256,
+            actual_sha
+        )));
+    }
+
+    if dst.exists() {
+        fs::remove_file(dst)?;
+    }
+
+    // Reuse immutable CGB3 shard / lookup artifact via hard link when on the same filesystem,
+    // falling back to a full copy across filesystems.
+    if fs::hard_link(src, dst).is_err() {
+        fs::copy(src, dst)?;
+    }
+    Ok(())
+}
+
+/// Builds a persistent CPI v2 position index from a pinned CGB3 dataset snapshot using bounded-memory
+/// external sorting, verifies the resulting index and dataset candidate, and atomically publishes
+/// a new immutable dataset version (`versions/<build_id>` -> `current`).
+pub fn build_dataset_position_index(
+    dataset_dir: &Path,
+    config: DatasetIndexConfig,
+) -> Result<DatasetIndexBuildReport, StorageError> {
+    if !dataset_dir.exists() {
+        return Err(StorageError::Decoding(format!(
+            "Dataset directory '{}' does not exist",
+            dataset_dir.display()
+        )));
+    }
+
+    // If the dataset is still in legacy flat layout (no `current` symlink, real `manifest.json` at root),
+    // migrate it to the versioned layout first so CPI publication operates on immutable versioned snapshots.
+    let current_link = dataset_dir.join("current");
+    let root_manifest = dataset_dir.join("manifest.json");
+    if !current_link.exists()
+        && fs::symlink_metadata(&current_link).is_err()
+        && is_real_file(&root_manifest)
+    {
+        migrate_legacy_dataset(dataset_dir)?;
+    }
+
+    // 1. Pin and verify the source dataset snapshot
+    let src_snapshot = resolve_dataset_snapshot(dataset_dir)?;
+    verify_dataset(&src_snapshot, false)?;
+
+    let reader = DatasetReader::open(&src_snapshot)?;
+    let src_manifest = reader.manifest().clone();
+
+    if let Some(expected_col) = config.expected_collection {
+        if src_manifest.collection != expected_col {
+            return Err(StorageError::Integrity(format!(
+                "Collection mismatch: dataset collection is '{}', but '--collection {}' was specified",
+                src_manifest.collection, expected_col
+            )));
+        }
+    }
+
+    let depth_plies = config.depth_plies.unwrap_or(match src_manifest.collection {
+        Collection::MastersOtb => 40,
+        Collection::EliteOnline => 30,
+    });
+    if depth_plies == 0 {
+        return Err(StorageError::Encoding("depth_plies must be >= 1".into()));
+    }
+
+    // Map storage-level fault points or CODB_CRASH_AT env var to ExternalPositionIndexer fault hooks
+    let ext_fault = if fault::is_fault_active(fault::FaultPoint::IndexDuringRunGeneration) {
+        Some(ExternalIndexFaultPoint::DuringRunGeneration)
+    } else if fault::is_fault_active(fault::FaultPoint::IndexDuringExternalMerge) {
+        Some(ExternalIndexFaultPoint::DuringExternalMerge)
+    } else if fault::is_fault_active(fault::FaultPoint::IndexBeforeCpiCompletion) {
+        Some(ExternalIndexFaultPoint::BeforeCpiCompletion)
+    } else {
+        None
+    };
+
+    let versions_dir = dataset_dir.join("versions");
+    fs::create_dir_all(&versions_dir)?;
+
+    let now_nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let pid = std::process::id();
+    let staging_dir = versions_dir.join(format!(".staging_index_{}_{}", pid, now_nanos));
+    if staging_dir.exists() {
+        fs::remove_dir_all(&staging_dir)?;
+    }
+    fs::create_dir_all(&staging_dir)?;
+    fs::create_dir_all(staging_dir.join("shards"))?;
+
+    let run_staging_dir = staging_dir.join(".runs");
+    fs::create_dir_all(&run_staging_dir)?;
+
+    let ext_config = ExternalIndexConfig {
+        max_plies: depth_plies,
+        memory_limit_bytes: config.memory_limit_bytes,
+        max_merge_fan_in: config.max_merge_fan_in,
+        positions_per_block: config.positions_per_block,
+        zstd_level: config.zstd_level,
+        fault_point: None,
+    };
+
+    let mut indexer = ExternalPositionIndexer::new(&run_staging_dir, ext_config)?;
+    let mut streamed_games = 0u64;
+
+    for game_res in reader.iter_games()? {
+        let game = game_res?;
+        indexer.push_game(&game)?;
+        streamed_games += 1;
+
+        if streamed_games == 1 && ext_fault == Some(ExternalIndexFaultPoint::DuringRunGeneration) {
+            fault::trigger_if(fault::FaultPoint::IndexDuringRunGeneration)?;
+        }
+    }
+
+    if ext_fault == Some(ExternalIndexFaultPoint::DuringRunGeneration) {
+        fault::trigger_if(fault::FaultPoint::IndexDuringRunGeneration)?;
+    }
+    if streamed_games != src_manifest.total_games {
+        return Err(StorageError::Integrity(format!(
+            "Streamed game count ({}) != source manifest total_games ({})",
+            streamed_games, src_manifest.total_games
+        )));
+    }
+
+    if ext_fault == Some(ExternalIndexFaultPoint::DuringExternalMerge) {
+        fault::trigger_if(fault::FaultPoint::IndexDuringExternalMerge)?;
+    }
+    if ext_fault == Some(ExternalIndexFaultPoint::BeforeCpiCompletion) {
+        // Write a partial/truncated positions.cpi in staging and trigger fault
+        let partial_cpi = staging_dir.join("positions.cpi");
+        fs::write(&partial_cpi, b"CODB_CPI_PARTIAL")?;
+        fault::trigger_if(fault::FaultPoint::IndexBeforeCpiCompletion)?;
+    }
+
+    //Also check env var crash triggers for subprocess crash tests at those 3 points
+    fault::trigger_if(fault::FaultPoint::IndexDuringRunGeneration)?;
+    fault::trigger_if(fault::FaultPoint::IndexDuringExternalMerge)?;
+    fault::trigger_if(fault::FaultPoint::IndexBeforeCpiCompletion)?;
+
+    let staging_cpi_path = staging_dir.join("positions.cpi");
+    let stats = indexer.finish(&staging_cpi_path)?;
+    if run_staging_dir.exists() {
+        fs::remove_dir_all(&run_staging_dir)?;
+    }
+
+    if stats.games_processed != src_manifest.total_games {
+        return Err(StorageError::Integrity(format!(
+            "Indexer games_processed ({}) != manifest total_games ({})",
+            stats.games_processed, src_manifest.total_games
+        )));
+    }
+
+    fault::trigger_if(fault::FaultPoint::IndexAfterCpiBeforeVerify)?;
+
+    // Verify every block and structural invariant of the newly written CPI file before publication
+    let disk_idx = DiskPositionIndex::open(&staging_cpi_path)?;
+    let verify_summary = disk_idx.verify_integrity()?;
+    if verify_summary.total_positions != stats.cpi_metadata.total_positions
+        || verify_summary.total_pairs != stats.cpi_metadata.total_pairs
+    {
+        return Err(StorageError::Integrity(
+            "CPI verification summary mismatch against writer metadata".into(),
+        ));
+    }
+
+    let cpi_sha256 = compute_file_sha256(&staging_cpi_path)?;
+    let cpi_size_bytes = stats.cpi_metadata.total_file_size;
+
+    // Link or copy verified lookup table and CGB3 shards from pinned source snapshot into staging_dir
+    let src_lookup = src_snapshot.join(&src_manifest.lookup_table.filename);
+    let dst_lookup = staging_dir.join(&src_manifest.lookup_table.filename);
+    link_or_copy_verified_file(
+        &src_lookup,
+        &dst_lookup,
+        src_manifest.lookup_table.file_size_bytes,
+        &src_manifest.lookup_table.sha256,
+    )?;
+
+    for shard_meta in &src_manifest.shards {
+        let src_shard = src_snapshot.join("shards").join(&shard_meta.filename);
+        let dst_shard = staging_dir.join("shards").join(&shard_meta.filename);
+        link_or_copy_verified_file(
+            &src_shard,
+            &dst_shard,
+            shard_meta.file_size_bytes,
+            &shard_meta.sha256,
+        )?;
+    }
+
+    let shards_bytes: u64 = src_manifest.shards.iter().map(|s| s.file_size_bytes).sum();
+    let total_physical_bytes = shards_bytes
+        .saturating_add(src_manifest.lookup_table.file_size_bytes)
+        .saturating_add(cpi_size_bytes);
+
+    let new_build_id = format!(
+        "codb-{}-{}-{}-cpi-d{}",
+        src_manifest.collection, now_nanos, pid, depth_plies
+    );
+
+    let pos_index_meta = PositionIndexMetadata {
+        filename: "positions.cpi".into(),
+        format_version: format!("CPI/v{}", CPI_VERSION),
+        file_size_bytes: cpi_size_bytes,
+        sha256: cpi_sha256.clone(),
+        indexed_depth_plies: depth_plies,
+        positions_per_block: disk_idx.positions_per_block() as usize,
+        zstd_level: config.zstd_level,
+        unique_positions: stats.cpi_metadata.total_positions,
+        unique_position_move_pairs: stats.cpi_metadata.total_pairs,
+        block_count: stats.cpi_metadata.block_count,
+        games_processed: stats.games_processed,
+        games_indexed: stats.games_indexed,
+        excluded_unknown_result_games: stats.excluded_unknown_result_games,
+        custom_fen_games: stats.custom_fen_games,
+        repeated_positions_skipped: stats.repeated_positions_skipped,
+        raw_observations_extracted: stats.raw_observations_extracted,
+    };
+
+    let new_manifest = DatasetManifest {
+        manifest_version: src_manifest.manifest_version,
+        dataset_build_id: new_build_id.clone(),
+        collection: src_manifest.collection,
+        build_timestamp: chrono_iso8601_now(),
+        format_version: src_manifest.format_version.clone(),
+        schema_version: src_manifest.schema_version.clone(),
+        source_archives: src_manifest.source_archives.clone(),
+        curation_policy: src_manifest.curation_policy.clone(),
+        deduplication_policy_version: src_manifest.deduplication_policy_version.clone(),
+        accounting: src_manifest.accounting.clone(),
+        total_games: src_manifest.total_games,
+        shards: src_manifest.shards.clone(),
+        lookup_table: src_manifest.lookup_table.clone(),
+        total_physical_bytes,
+        is_complete: true,
+        position_index: Some(pos_index_meta),
+    };
+
+    let manifest_json = serde_json::to_string_pretty(&new_manifest)
+        .map_err(|e| StorageError::Encoding(e.to_string()))?;
+    fs::write(staging_dir.join("manifest.json"), manifest_json)?;
+
+    fault::trigger_if(fault::FaultPoint::FailSyncDirContents)?;
+    sync_dir_contents(&staging_dir)?;
+
+    // Verify full staged dataset candidate before activation
+    verify_dataset(&staging_dir, false)?;
+
+    fault::trigger_if(fault::FaultPoint::IndexAfterVerifyBeforeActivation)?;
+
+    let version_dir = versions_dir.join(&new_build_id);
+    if version_dir.exists() {
+        fs::remove_dir_all(&version_dir)?;
+    }
+    fs::rename(&staging_dir, &version_dir)?;
+    sync_dir_contents(&version_dir)?;
+    sync_dir_itself(&versions_dir)?;
+
+    // Atomic active-version transition
+    fault::trigger_if(fault::FaultPoint::BeforeCurrentSymlinkSwitch)?;
+    #[cfg(unix)]
+    {
+        let tmp_link = dataset_dir.join(format!(".current_tmp_{}", pid));
+        let _ = fs::remove_file(&tmp_link);
+        symlink(Path::new("versions").join(&new_build_id), &tmp_link)?;
+        fs::rename(&tmp_link, dataset_dir.join("current"))?;
+    }
+
+    fault::trigger_if(fault::FaultPoint::IndexAfterCurrentSymlinkSwitch)?;
+    fault::trigger_if(fault::FaultPoint::AfterCurrentSymlinkSwitch)?;
+
+    ensure_root_symlinks(dataset_dir)?;
+    fault::trigger_if(fault::FaultPoint::FailSyncDirItself)?;
+    sync_dir_itself(dataset_dir)?;
+
+    Ok(DatasetIndexBuildReport {
+        dataset_dir: dataset_dir.display().to_string(),
+        previous_build_id: src_manifest.dataset_build_id,
+        published_build_id: new_build_id,
+        collection: src_manifest.collection.to_string(),
+        indexed_depth_plies: depth_plies,
+        memory_limit_bytes: config.memory_limit_bytes,
+        max_merge_fan_in: config.max_merge_fan_in,
+        stats,
+        cpi_sha256,
+        total_physical_bytes,
+    })
 }

@@ -35,6 +35,15 @@ impl From<rusqlite::Error> for StorageError {
     }
 }
 
+impl From<codb_index::position::IndexError> for StorageError {
+    fn from(err: codb_index::position::IndexError) -> Self {
+        match err {
+            codb_index::position::IndexError::Io(io_err) => StorageError::Io(io_err),
+            other => StorageError::Integrity(other.to_string()),
+        }
+    }
+}
+
 /// An entry in the random-access block index.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BlockIndexEntry {
