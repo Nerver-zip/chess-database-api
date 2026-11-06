@@ -1,103 +1,139 @@
 {
-  "timestamp": "2026-11-06T17:31:49Z",
-  "startup_ms": 58.25,
-  "initial_rss_kb": 5804,
-  "peak_rss_kb": 8792,
-  "peak_rss_mb": 8.59,
+  "timestamp": "2026-11-06T18:17:37Z",
+  "corpus_accounting": {
+    "corpus_file": "fixtures/stage_a_validation.pgn",
+    "games_count": 1000,
+    "classification": "fixture_validation_baseline",
+    "scope_notes": "Fast local/CI validation corpus (1,000 games). Production 100,000-game corpora established in ADR-0003 are not committed to git and require local provisioning for full-scale runs."
+  },
+  "server_configuration": {
+    "reader_pool_size": 4,
+    "admin_token_enforced": true,
+    "cors_policy": "restricted_empty_default"
+  },
+  "startup_ms": 58.54,
+  "initial_rss_kb": 6332,
+  "peak_rss_kb": 10096,
+  "peak_rss_mb": 9.86,
   "single_client_latencies": {
     "common_position_e4": {
-      "p50_us": 308.6,
-      "p95_us": 1134.89,
-      "p99_us": 1470.36,
-      "min_us": 212.4,
-      "max_us": 1470.36
+      "p50_us": 361.07,
+      "p95_us": 1369.15,
+      "p99_us": 1864.8,
+      "min_us": 235.55,
+      "max_us": 1864.8
     },
     "common_position_e4_e5": {
-      "p50_us": 239.25,
-      "p95_us": 316.3,
-      "p99_us": 346.03,
-      "min_us": 198.07,
-      "max_us": 346.03
+      "p50_us": 273.85,
+      "p95_us": 423.47,
+      "p99_us": 773.72,
+      "min_us": 219.96,
+      "max_us": 773.72
     },
     "common_position_d4": {
-      "p50_us": 228.13,
-      "p95_us": 295.3,
-      "p99_us": 330.03,
-      "min_us": 200.6,
-      "max_us": 330.03
+      "p50_us": 264.62,
+      "p95_us": 537.05,
+      "p99_us": 1138.6,
+      "min_us": 224.07,
+      "max_us": 1138.6
     },
     "absent_position": {
-      "p50_us": 243.12,
-      "p95_us": 338.14,
-      "p99_us": 456.86,
-      "min_us": 199.67,
-      "max_us": 456.86
+      "p50_us": 291.53,
+      "p95_us": 495.44,
+      "p99_us": 1464.31,
+      "min_us": 221.67,
+      "max_us": 1464.31
     },
     "game_retrieval": {
-      "p50_us": 264.29,
-      "p95_us": 429.4,
-      "p99_us": 1088.66,
-      "min_us": 222.43,
-      "max_us": 1088.66
+      "p50_us": 287.63,
+      "p95_us": 880.47,
+      "p99_us": 2657.95,
+      "min_us": 246.88,
+      "max_us": 2657.95
     }
   },
   "concurrency_scaling": {
     "concurrency_1": {
-      "p50_us": 248.81,
-      "p95_us": 324.79,
-      "p99_us": 378.44,
-      "min_us": 213.18,
-      "max_us": 388.7,
+      "p50_us": 263.72,
+      "p95_us": 376.87,
+      "p99_us": 982.41,
+      "min_us": 215.34,
+      "max_us": 1064.01,
       "concurrency": 1,
       "total_requests": 150,
-      "throughput_rps": 3593.8,
+      "throughput_rps": 3221.2,
       "errors": 0
     },
     "concurrency_4": {
-      "p50_us": 627.1,
-      "p95_us": 1065.77,
-      "p99_us": 1363.68,
-      "min_us": 230.87,
-      "max_us": 1784.5,
+      "p50_us": 662.8,
+      "p95_us": 1140.74,
+      "p99_us": 1652.69,
+      "min_us": 240.42,
+      "max_us": 2026.82,
       "concurrency": 4,
       "total_requests": 600,
-      "throughput_rps": 4923.9,
+      "throughput_rps": 4587.1,
       "errors": 0
     },
     "concurrency_8": {
-      "p50_us": 1336.33,
-      "p95_us": 2447.25,
-      "p99_us": 7175.53,
-      "min_us": 230.57,
-      "max_us": 11743.35,
+      "p50_us": 1415.9,
+      "p95_us": 2452.18,
+      "p99_us": 3443.37,
+      "min_us": 230.64,
+      "max_us": 8161.1,
       "concurrency": 8,
       "total_requests": 1200,
-      "throughput_rps": 4481.5,
+      "throughput_rps": 4478.2,
       "errors": 0
     },
     "concurrency_16": {
-      "p50_us": 2719.54,
-      "p95_us": 5513.77,
-      "p99_us": 10582.9,
-      "min_us": 279.02,
-      "max_us": 15497.92,
+      "p50_us": 2867.61,
+      "p95_us": 5845.24,
+      "p99_us": 9746.07,
+      "min_us": 247.12,
+      "max_us": 13876.59,
       "concurrency": 16,
       "total_requests": 2400,
-      "throughput_rps": 4482.3,
+      "throughput_rps": 4260.3,
       "errors": 0
+    },
+    "concurrency_32": {
+      "p50_us": 12825.54,
+      "p95_us": 35000.76,
+      "p99_us": 49363.37,
+      "min_us": 283.09,
+      "max_us": 77239.05,
+      "concurrency": 32,
+      "total_requests": 4800,
+      "throughput_rps": 1823.0,
+      "errors": 0
+    }
+  },
+  "reader_pool_saturation_contention": {
+    "pool_capacity": 4,
+    "concurrent_workers": 32,
+    "total_requests": 1600,
+    "throughput_rps": 2448.3,
+    "errors": 0,
+    "latencies": {
+      "p50_us": 7354.26,
+      "p95_us": 32540.96,
+      "p99_us": 52065.81,
+      "min_us": 296.9,
+      "max_us": 71877.6
     }
   },
   "reload_test": {
     "reload_status": 200,
-    "reload_duration_ms": 0.78,
-    "concurrent_requests_served": 804,
+    "reload_duration_ms": 3.29,
+    "concurrent_requests_served": 715,
     "errors": 0,
     "latencies": {
-      "p50_us": 329.47,
-      "p95_us": 502.52,
-      "p99_us": 710.11,
-      "min_us": 229.67,
-      "max_us": 7194.34
+      "p50_us": 532.4,
+      "p95_us": 822.45,
+      "p99_us": 993.74,
+      "min_us": 250.74,
+      "max_us": 1510.4
     }
   }
 }

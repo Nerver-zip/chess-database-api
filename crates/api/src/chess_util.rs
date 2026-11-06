@@ -84,6 +84,23 @@ pub fn derive_san(board: &Chess, uci_str: &str) -> String {
     uci_str.to_string()
 }
 
+/// Matches an `If-None-Match` header value against a target ETag per RFC 7232.
+/// Supports wildcard `*`, weak comparison prefixes (`W/`), and comma-separated lists of ETags.
+pub fn if_none_match_matches(header_value: &str, target_etag: &str) -> bool {
+    let clean_target = target_etag.trim().trim_start_matches("W/");
+    for token in header_value.split(',') {
+        let token = token.trim();
+        if token == "*" {
+            return true;
+        }
+        let clean_token = token.trim_start_matches("W/");
+        if clean_token == clean_target {
+            return true;
+        }
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -127,5 +144,17 @@ mod tests {
     fn test_invalid_fen_rejection() {
         let err = parse_fen("invalid_fen_string").unwrap_err();
         assert_eq!(err.error_code(), "invalid_fen");
+    }
+
+    #[test]
+    fn test_if_none_match_matching() {
+        let etag = "\"build_01-100\"";
+        assert!(if_none_match_matches("*", etag));
+        assert!(if_none_match_matches("\"build_01-100\"", etag));
+        assert!(if_none_match_matches("W/\"build_01-100\"", etag));
+        assert!(if_none_match_matches("\"other\", \"build_01-100\"", etag));
+        assert!(if_none_match_matches("\"other\", W/\"build_01-100\"", etag));
+        assert!(!if_none_match_matches("\"other\"", etag));
+        assert!(!if_none_match_matches("\"build_01-200\"", etag));
     }
 }

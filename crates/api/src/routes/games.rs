@@ -1,13 +1,14 @@
 //! Game retrieval endpoint (`GET /v1/collections/{collection}/games/{id}`).
 
+use crate::chess_util::if_none_match_matches;
 use crate::error::ApiError;
 use crate::state::AppState;
 use axum::extract::{Path, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use codb_core::Collection;
-use codb_storage::StorageError;
 use std::sync::Arc;
+use std::time::Duration;
 
 /// Handler for `GET /v1/collections/{collection}/games/{id}`.
 pub async fn get_game_by_id(
@@ -29,14 +30,24 @@ pub async fn get_game_by_id(
 
     // 3. Acquire pinned snapshot
     let snapshot = state.get_snapshot(collection)?;
+
+    // 4. Verify existence in games.idx FIRST per RFC 7232!
+    // Never return 304 Not Modified for a resource that does not exist.
+    if !snapshot.contains_game(game_id) {
+        return Err(ApiError::GameNotFound(
+            game_id,
+            collection.as_str().to_string(),
+        ));
+    }
+
     let etag = format!("\"{}-{}\"", snapshot.manifest.dataset_build_id, game_id);
 
-    // Check conditional request (If-None-Match)
+    // 5. Evaluate conditional request (If-None-Match) against existing resource
     if let Some(if_none_match) = headers
         .get(header::IF_NONE_MATCH)
         .and_then(|v| v.to_str().ok())
     {
-        if if_none_match == etag || if_none_match == "*" {
+        if if_none_match_matches(if_none_match, &etag) {
             return Ok((
                 StatusCode::NOT_MODIFIED,
                 [
@@ -48,34 +59,21 @@ pub async fn get_game_by_id(
         }
     }
 
-    let pool = Arc::clone(&snapshot.reader_pool);
+    // 6. Retrieve game via bounded reader pool
+    let timeout = Duration::from_secs(state.config.reader_pool_timeout_secs);
+    let pgn = snapshot.reader_pool.get_game_pgn(game_id, timeout).await?;
 
-    // 4. Offload blocking shard seek and block decompression to Tokio blocking threadpool
-    let result = tokio::task::spawn_blocking(move || pool.get_game_pgn(game_id))
-        .await
-        .map_err(|e| ApiError::Internal(format!("Worker thread failure: {}", e)))?;
-
-    // 5. Handle retrieval outcome
-    match result {
-        Ok(pgn) => {
-            let response = (
-                [
-                    (
-                        header::CONTENT_TYPE,
-                        "application/x-chess-pgn; charset=utf-8".to_string(),
-                    ),
-                    (header::CACHE_CONTROL, "public, max-age=3600".to_string()),
-                    (header::ETAG, etag),
-                ],
-                pgn,
-            )
-                .into_response();
-            Ok(response)
-        }
-        Err(StorageError::GameNotFound(_)) => Err(ApiError::GameNotFound(
-            game_id,
-            collection.as_str().to_string(),
-        )),
-        Err(e) => Err(ApiError::Storage(format!("Game retrieval failed: {}", e))),
-    }
+    let response = (
+        [
+            (
+                header::CONTENT_TYPE,
+                "application/x-chess-pgn; charset=utf-8".to_string(),
+            ),
+            (header::CACHE_CONTROL, "public, max-age=3600".to_string()),
+            (header::ETAG, etag),
+        ],
+        pgn,
+    )
+        .into_response();
+    Ok(response)
 }

@@ -190,6 +190,9 @@ dataset_dir/
 - **Lock-Free Read Snapshots:** Readers resolve `current` to its target canonical path (e.g., `versions/v1`) and pin open file descriptors. Readers require no locks, will never block on concurrent writes, and see a 100% consistent immutable snapshot even during active publication.
 - **Serialized Mutations via Advisory Flock:** Mutations (`build`, `build-index`, `recover`) acquire an exclusive lock on `.dataset.lock` via `flock(fd, LOCK_EX | LOCK_NB)`. If another mutation process holds the lock, incoming operations fail closed immediately with `StorageError::Lock`.
 - **Atomic Symlink Publication:** New versions are completely staged in `versions/.staging_<pid>_<timestamp>_<nonce>`, verified with deep integrity checks, and published via atomic symlink swap (`rename(temp_symlink, current)`). Readers observing `current` never observe a partial or half-written state.
+- **Bounded HTTP Reader Pool Concurrency:** The HTTP serving layer enforces strict capacity bounds on active CGB3 decompressing readers via an asynchronous semaphore (`tokio::sync::Semaphore`). Requests exceeding pool capacity wait safely without blocking Tokio runtime worker threads. Permits and reader instances are safely recycled or dropped under timeouts and cancellations.
+- **Fail-Closed Snapshot Hot-Reloading:** Dynamic dataset reloads (`POST /v1/admin/reload` or Unix `SIGHUP`) validate replacement candidate snapshots deeply before activation (`verify_dataset` checksum check and CPI index verification). If candidate verification fails, the reload fails closed and the existing active snapshot remains 100% functional.
+- **Administrative Access Control:** Administrative reload endpoints require explicit token authentication (`--admin-token`), reject cross-origin requests (`Origin` header present), and default to restrictive same-origin CORS.
 
 ---
 
@@ -204,6 +207,7 @@ Memory limits are strictly enforced across all components:
 | **CGB3 Storage** | Single active block buffer ($N = 512$ games) flushed to disk | $\approx 2\text{ MB}$ uncompressed block RAM |
 | **Position Indexing** | External merge sort with partitioned `.crun` spill files | Strictly bounded by `--memory-limit-mib` (default 128 MiB) |
 | **Opening Query** | Memory-mapped sparse index ($34\text{ B/entry}$) + single block cache | $< 10\text{ MB}$ query overhead |
+| **HTTP Serving** | Bounded reader pool ($K$ readers $\times 2\text{ MB}$) + memory-mapped CPI/games.idx | $< 30\text{ MB}$ RSS under sustained concurrency |
 
 ---
 

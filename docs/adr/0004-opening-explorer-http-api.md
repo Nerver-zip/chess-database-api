@@ -34,28 +34,37 @@ We introduce a dedicated workspace crate, `codb-api` (`crates/api`), and expose 
 ### 2. State Management & Snapshot Pinning
 The application state (`AppState`) manages dataset handles:
 - **`DatasetSnapshot`**: Encapsulates an active dataset version:
-  - Pinned physical snapshot directory (e.g. `versions/v1`) resolved via `codb_storage::resolve_dataset_snapshot`.
+  - Pinned physical snapshot directory (e.g. `versions/v1`) resolved via `resolve_snapshot_dir`.
   - Parsed `DatasetManifest`.
   - Memory-mapped `DiskPositionIndex` wrapped in `Option<Arc<DiskPositionIndex>>`.
-  - Pooled `DatasetReaderPool` for game decompression.
+  - Memory-mapped `GameLookupReader` for $O(\log N)$ existence checks and location lookups.
+  - Semaphore-bounded `DatasetReaderPool` for game decompression.
 - **Snapshot Pinning**: State stores snapshots in `parking_lot::RwLock<Option<Arc<DatasetSnapshot>>>`. Route handlers acquire the read lock for $< 10\text{ ns}$ to clone the `Arc<DatasetSnapshot>`. The cloned `Arc` pins the physical snapshot directory for the entire lifetime of the request.
-- **Zero-Downtime Reload (`POST /v1/admin/reload`)**:
-  - The reload operation opens, verifies, and prepares replacement snapshots in isolated local variables.
-  - If verification or opening fails, the reload returns an error immediately and leaves the active serving state untouched.
+- **Zero-Downtime Reload (`POST /v1/admin/reload` & `SIGHUP`)**:
+  - The reload operation opens, verifies, and prepares candidate snapshots in isolated local variables offloaded to `spawn_blocking`.
+  - Runs deep validation (`verify_dataset` block checksums + `DiskPositionIndex::verify_integrity`). If verification or opening fails, the reload fails closed (`500 reload_failed`) and leaves the active serving state untouched and fully operational.
   - If successful, the `RwLock` write pointer is updated in nanoseconds. In-flight requests finish cleanly against the prior version, while new requests immediately observe the new version.
+  - Administrative security: `POST /v1/admin/reload` requires authorization via `Bearer <token>` or `X-Admin-Token` matching `--admin-token` / `CODB_ADMIN_TOKEN`. If not configured, the endpoint returns `403 Forbidden`. Cross-origin triggers (`Origin` header present) are rejected with `401 Unauthorized`.
+  - Local operators can also trigger reload via standard Unix `SIGHUP` signal (`kill -HUP <pid>`).
 
-### 3. Concurrency Model: Lock-Free CPI Queries & Worker Threadpool Offloading
-- **Position Queries (`/v1/explorer/position`)**: `DiskPositionIndex` holds a memory-mapped sparse index and compressed block data accessed exclusively via immutable `&self`. Because no interior mutability or locks exist, concurrent requests query `DiskPositionIndex::query` completely lock-free with zero mutex contention, achieving sub-millisecond p50 latencies ($220\text{–}250\ \mu\text{s}$).
-- **Game Retrieval (`/v1/collections/{collection}/games/{id}`)**: Shard reads and Zstd block decompression require file seeking and update a single-block cache. We introduce [`DatasetReaderPool`](../../crates/api/src/state.rs) with RAII `PooledReader` guards. Blocking disk I/O and decompression are executed inside `tokio::task::spawn_blocking`, protecting Tokio's worker threads from starvation.
+### 3. Concurrency Model: Lock-Free CPI Queries & Semaphore-Bounded Reader Pool
+- **Position Queries (`/v1/explorer/position`)**: `DiskPositionIndex` holds a memory-mapped sparse index and compressed block data accessed exclusively via immutable `&self`. Because no interior mutability or locks exist, concurrent requests query `DiskPositionIndex::query` completely lock-free with zero mutex contention, achieving sub-millisecond p50 latencies ($220\text{–}360\ \mu\text{s}$).
+- **Game Retrieval (`/v1/collections/{collection}/games/{id}`)**: Shard reads and Zstd block decompression require file seeking and update a single-block cache. We introduce [`DatasetReaderPool`](../../crates/api/src/state.rs) with strict capacity bounds enforced by an asynchronous semaphore (`tokio::sync::Semaphore`).
+  - Active readers are strictly limited to `reader_pool_size`.
+  - Requests exceeding capacity wait asynchronously up to `reader_pool_timeout_secs` without blocking Tokio worker threads.
+  - Blocking disk I/O and decompression are executed inside `tokio::task::spawn_blocking`, protecting Tokio's worker threads from starvation.
+  - Permits are safely dropped and readers returned to the idle pool upon completion, error, or cancellation.
 
 ### 4. Collection Isolation
 `masters-otb` and `elite-online` datasets are strictly segregated. Routes require an explicit `{collection}` or `?collection=` parameter. Cross-collection game retrieval returns `404 Not Found`.
 
-### 5. Defensive Input Validation & Explicit Rejection
+### 5. Defensive Input Validation, Conditional Caching & Security
 - Exactly one of `fen` or `moves` must be provided. Providing neither or both returns `400 Bad Request`.
 - Move sequences are validated for legality from the standard initial board and capped at a configurable maximum length (default 200 plies).
 - Unsupported parameters (`since_year`, `min_rating`) are explicitly parsed and rejected with `400 Bad Request` (`code: "unsupported_parameter"`).
 - Non-existent positions in a valid index return `200 OK` with `total_games: 0` and empty candidate moves, matching standard chess database conventions.
+- Conforming strictly to RFC 7232, game existence in `games.idx` is verified prior to evaluating `If-None-Match`. Non-existent games return `404 Not Found` rather than evaluating conditional caching or returning `304 Not Modified`.
+- Default CORS configuration is restrictive (empty `allowed_origins`), permitting only same-origin requests unless explicit origins are provided.
 
 ---
 

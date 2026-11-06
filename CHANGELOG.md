@@ -20,7 +20,11 @@ All notable changes to `chess-openings-db` are documented in this file. The proj
     - Returns canonical PGN payload (`application/x-chess-pgn`).
   - Collections metadata endpoint `GET /v1/collections` returning loaded collections, snapshot versions, total games, and CPI index status.
   - Operational health probes: `GET /health` (liveness) and `GET /ready` (readiness).
-  - Administrative reload endpoint `POST /v1/admin/reload`: zero-downtime hot reloading of dataset snapshots in < 1 ms without dropping in-flight requests.
+  - Administrative reload endpoint `POST /v1/admin/reload`: zero-downtime hot reloading of dataset snapshots with authentication token protection (`--admin-token`), cross-origin request rejection, and native Unix `SIGHUP` signal handling.
+  - Fail-closed snapshot replacement validation: candidate snapshots are deeply verified before activation, rejecting corrupted versions with HTTP 500 (`reload_failed`) while preserving active snapshot serving.
+  - Semaphore-bounded reader pool (`DatasetReaderPool`): active readers are strictly bounded by configured capacity via `tokio::sync::Semaphore` with asynchronous timeouts.
+  - RFC 7232 HTTP conditional caching: game existence verified before evaluating `If-None-Match` (returning 404 for missing resources, never 304), with support for weak ETags, wildcards, and comma-separated lists.
+  - Restrictive default CORS policy (same-origin only) with configurable explicit origins.
   - Strict input validation rejecting mutually exclusive parameters (`fen` and `moves`), unsupported parameters (`since_year`, `min_rating` with HTTP 422), and move sequences exceeding ply limits.
   - Standard JSON error envelope with machine-readable error codes (`invalid_collection`, `invalid_fen`, `invalid_moves`, `moves_too_long`, `unsupported_parameter`, `game_not_found`, etc.).
   - Production middleware stack: CORS headers, request timeout (`15s`), and structured tracing.

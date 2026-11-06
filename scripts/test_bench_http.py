@@ -10,7 +10,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bench_http import compute_percentiles, read_process_rss_kb, read_sample_game_ids
+from bench_http import MemorySampler, compute_percentiles, read_process_rss_kb, read_sample_game_ids
 
 
 class TestBenchHttp(unittest.TestCase):
@@ -32,6 +32,15 @@ class TestBenchHttp(unittest.TestCase):
     def test_read_process_rss(self):
         rss = read_process_rss_kb(os.getpid())
         self.assertGreater(rss, 0)
+
+    def test_memory_sampler(self):
+        import time
+
+        sampler = MemorySampler(os.getpid(), sample_interval_s=0.005)
+        sampler.start()
+        time.sleep(0.02)
+        peak = sampler.stop()
+        self.assertGreater(peak, 0)
 
     def test_read_sample_game_ids(self):
         tmp = tempfile.mkdtemp()

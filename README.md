@@ -156,12 +156,14 @@ Random access lookup in sub-millisecond page-cache time:
 ### 7. Run Opening Explorer HTTP Server (`codb serve`)
 Start the high-performance, asynchronous, read-only HTTP query service exposing `/v1/explorer/position`, `/v1/collections/{collection}/games/{id}`, `/v1/collections`, `/health`, and `/ready`:
 ```bash
-# Start server mounting both Masters OTB and Elite Online datasets:
+# Start server mounting datasets with bounded reader pool and admin reload token:
 ./target/release/codb serve \
     --masters-dataset data/builds/masters-otb-100k \
     --elite-dataset data/builds/elite-online-100k \
     --host 127.0.0.1 \
-    --port 8080
+    --port 8080 \
+    --reader-pool-size 4 \
+    --admin-token "your-admin-secret"
 
 # Query opening statistics by SAN move sequence:
 curl -s "http://127.0.0.1:8080/v1/explorer/position?moves=e4,e5,Nf3&collection=masters-otb" | jq .
@@ -178,6 +180,13 @@ curl -s "http://127.0.0.1:8080/v1/collections" | jq .
 # Liveness and readiness health checks:
 curl -s "http://127.0.0.1:8080/health"
 curl -s "http://127.0.0.1:8080/ready"
+
+# Trigger zero-downtime hot-reload after publishing a new dataset version:
+curl -s -X POST "http://127.0.0.1:8080/v1/admin/reload" \
+    -H "Authorization: Bearer your-admin-secret" | jq .
+
+# Or trigger zero-downtime reload locally via standard Unix SIGHUP:
+kill -HUP <pid>
 ```
 
 ---

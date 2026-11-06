@@ -1,6 +1,8 @@
 //! Position query endpoint (`GET /v1/explorer/position`).
 
-use crate::chess_util::{compute_key, derive_san, format_fen, parse_and_apply_moves, parse_fen};
+use crate::chess_util::{
+    compute_key, derive_san, format_fen, if_none_match_matches, parse_and_apply_moves, parse_fen,
+};
 use crate::error::ApiError;
 use crate::models::{CandidateMoveResponse, PositionQuery, PositionResponse};
 use crate::state::AppState;
@@ -126,7 +128,7 @@ pub async fn query_position(
         .get(header::IF_NONE_MATCH)
         .and_then(|v| v.to_str().ok())
     {
-        if if_none_match == etag || if_none_match == "*" {
+        if if_none_match_matches(if_none_match, &etag) {
             return Ok((
                 StatusCode::NOT_MODIFIED,
                 [

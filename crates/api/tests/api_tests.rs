@@ -14,6 +14,9 @@ use codb_storage::{
 };
 use http_body_util::BodyExt;
 use std::path::Path;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::time::Duration;
 use tempfile::tempdir;
 use tower::ServiceExt;
 
@@ -489,6 +492,7 @@ async fn test_snapshot_reload_and_resilience() {
     let config = ServerConfig {
         masters_dataset: Some(masters_dir.clone()),
         elite_dataset: None,
+        admin_token: Some("test-admin-secret".to_string()),
         ..Default::default()
     };
     let state = AppState::new(config).unwrap();
@@ -504,10 +508,11 @@ async fn test_snapshot_reload_and_resilience() {
     let pos_initial: PositionResponse = response_json(resp).await;
     assert_eq!(pos_initial.total_games, 10);
 
-    // Now reload snapshots via admin endpoint
+    // Now reload snapshots via admin endpoint with valid Bearer token
     let reload_req = Request::builder()
         .method(Method::POST)
         .uri("/v1/admin/reload")
+        .header(header::AUTHORIZATION, "Bearer test-admin-secret")
         .body(Body::empty())
         .unwrap();
     let reload_resp = app.clone().oneshot(reload_req).await.unwrap();
@@ -775,4 +780,486 @@ async fn test_etag_and_conditional_caching() {
         .unwrap();
     let resp_game_cached = app.oneshot(req_game_cached).await.unwrap();
     assert_eq!(resp_game_cached.status(), StatusCode::NOT_MODIFIED);
+}
+
+#[tokio::test]
+async fn test_admin_reload_security() {
+    let tmp = tempdir().unwrap();
+    let masters_dir = tmp.path().join("masters");
+    setup_test_dataset(&masters_dir, Collection::MastersOtb, 5);
+
+    // 1. Configured with admin_token: "secret-admin-key"
+    let config = ServerConfig {
+        masters_dataset: Some(masters_dir.clone()),
+        elite_dataset: None,
+        admin_token: Some("secret-admin-key".to_string()),
+        ..Default::default()
+    };
+    let state = AppState::new(config).unwrap();
+    let app = create_router(state);
+
+    // Anonymous request -> 401 Unauthorized
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/admin/reload")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    let err: ErrorEnvelope = response_json(resp).await;
+    assert_eq!(err.error.code, "unauthorized");
+
+    // Invalid Bearer token -> 401 Unauthorized
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/admin/reload")
+        .header(header::AUTHORIZATION, "Bearer wrong-token")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+
+    // Invalid X-Admin-Token -> 401 Unauthorized
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/admin/reload")
+        .header("X-Admin-Token", "wrong-token")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+
+    // Cross-origin request (Origin header present) -> 401 Unauthorized (rejection of cross-origin admin triggers)
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/admin/reload")
+        .header(header::AUTHORIZATION, "Bearer secret-admin-key")
+        .header(header::ORIGIN, "https://malicious-website.com")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+
+    // Valid Bearer token without Origin -> 200 OK
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/admin/reload")
+        .header(header::AUTHORIZATION, "Bearer secret-admin-key")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Valid X-Admin-Token without Origin -> 200 OK
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/admin/reload")
+        .header("X-Admin-Token", "secret-admin-key")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // 2. Configured WITHOUT admin_token (None): endpoint disabled
+    let config_disabled = ServerConfig {
+        masters_dataset: Some(masters_dir),
+        elite_dataset: None,
+        admin_token: None,
+        ..Default::default()
+    };
+    let state_disabled = AppState::new(config_disabled).unwrap();
+    let app_disabled = create_router(state_disabled);
+
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/admin/reload")
+        .header(header::AUTHORIZATION, "Bearer secret-admin-key")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app_disabled.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    let err: ErrorEnvelope = response_json(resp).await;
+    assert_eq!(err.error.code, "admin_disabled");
+}
+
+#[tokio::test]
+async fn test_bounded_reader_pool_capacity() {
+    let tmp = tempdir().unwrap();
+    let masters_dir = tmp.path().join("masters");
+    setup_test_dataset(&masters_dir, Collection::MastersOtb, 10);
+
+    let config = ServerConfig {
+        masters_dataset: Some(masters_dir),
+        elite_dataset: None,
+        reader_pool_size: 2,
+        reader_pool_timeout_secs: 5,
+        ..Default::default()
+    };
+    let state = AppState::new(config).unwrap();
+    let app = create_router(state.clone());
+
+    // Launch 20 concurrent game retrievals
+    let mut handles = Vec::new();
+    for _ in 0..20 {
+        let app_clone = app.clone();
+        handles.push(tokio::spawn(async move {
+            let req = Request::builder()
+                .uri("/v1/collections/masters-otb/games/1")
+                .body(Body::empty())
+                .unwrap();
+            let resp = app_clone.oneshot(req).await.unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+            let body = response_text(resp).await;
+            assert!(body.contains("Grandmaster White 1"));
+        }));
+    }
+
+    for handle in handles {
+        handle.await.unwrap();
+    }
+
+    // Verify bounded capacity invariants
+    let snapshot = state.get_snapshot(Collection::MastersOtb).unwrap();
+    let pool = &snapshot.reader_pool;
+    assert!(
+        pool.peak_active_readers() <= 2,
+        "Peak active readers {} exceeded pool capacity 2",
+        pool.peak_active_readers()
+    );
+    assert_eq!(
+        pool.active_readers(),
+        0,
+        "All reader permits must be released"
+    );
+}
+
+#[tokio::test]
+async fn test_conditional_caching_missing_resource_returns_404() {
+    let tmp = tempdir().unwrap();
+    let masters_dir = tmp.path().join("masters");
+    setup_test_dataset(&masters_dir, Collection::MastersOtb, 5);
+
+    let config = ServerConfig {
+        masters_dataset: Some(masters_dir),
+        elite_dataset: None,
+        ..Default::default()
+    };
+    let state = AppState::new(config).unwrap();
+    let app = create_router(state);
+
+    // 1. Non-existent game with wildcard If-None-Match: * -> MUST return 404 Not Found (RFC 7232)
+    let req = Request::builder()
+        .uri("/v1/collections/masters-otb/games/999999999")
+        .header(header::IF_NONE_MATCH, "*")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+    // 2. Non-existent game with specific If-None-Match -> MUST return 404 Not Found
+    let req = Request::builder()
+        .uri("/v1/collections/masters-otb/games/999999999")
+        .header(header::IF_NONE_MATCH, "\"some-etag\"")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+    // 3. Existing game 1: get its ETag first
+    let req = Request::builder()
+        .uri("/v1/collections/masters-otb/games/1")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let real_etag = resp
+        .headers()
+        .get(header::ETAG)
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    // Existing game with wildcard If-None-Match: * -> returns 304 Not Modified
+    let req = Request::builder()
+        .uri("/v1/collections/masters-otb/games/1")
+        .header(header::IF_NONE_MATCH, "*")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_MODIFIED);
+
+    // Existing game with weak ETag (W/"...") -> returns 304 Not Modified
+    let weak_etag = format!("W/{}", real_etag);
+    let req = Request::builder()
+        .uri("/v1/collections/masters-otb/games/1")
+        .header(header::IF_NONE_MATCH, &weak_etag)
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_MODIFIED);
+
+    // Existing game with comma list containing the matching ETag -> returns 304 Not Modified
+    let list_etag = format!("\"unrelated-tag\", {}", real_etag);
+    let req = Request::builder()
+        .uri("/v1/collections/masters-otb/games/1")
+        .header(header::IF_NONE_MATCH, &list_etag)
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_MODIFIED);
+
+    // Existing game with non-matching ETag -> returns 200 OK
+    let req = Request::builder()
+        .uri("/v1/collections/masters-otb/games/1")
+        .header(header::IF_NONE_MATCH, "\"mismatched-etag\"")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_actual_version_replacement_a_to_b() {
+    let tmp = tempdir().unwrap();
+    let v1_dir = tmp.path().join("masters_v1");
+    let v2_dir = tmp.path().join("masters_v2");
+    setup_test_dataset(&v1_dir, Collection::MastersOtb, 5);
+    setup_test_dataset(&v2_dir, Collection::MastersOtb, 10);
+
+    let active_link = tmp.path().join("masters_active");
+    std::os::unix::fs::symlink(&v1_dir, &active_link).unwrap();
+
+    let config = ServerConfig {
+        masters_dataset: Some(active_link.clone()),
+        elite_dataset: None,
+        admin_token: Some("reload-key".to_string()),
+        ..Default::default()
+    };
+    let state = AppState::new(config).unwrap();
+    let app = create_router(state);
+
+    // Query v1: 5 games
+    let req = Request::builder()
+        .uri("/v1/explorer/position?collection=masters-otb&moves=e4")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let pos_v1: PositionResponse = response_json(resp).await;
+    assert_eq!(pos_v1.total_games, 5);
+
+    // Atomic symlink switch to v2
+    let tmp_link = tmp.path().join("masters_active_tmp");
+    std::os::unix::fs::symlink(&v2_dir, &tmp_link).unwrap();
+    std::fs::rename(&tmp_link, &active_link).unwrap();
+
+    // Authenticated reload
+    let reload_req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/admin/reload")
+        .header(header::AUTHORIZATION, "Bearer reload-key")
+        .body(Body::empty())
+        .unwrap();
+    let reload_resp = app.clone().oneshot(reload_req).await.unwrap();
+    assert_eq!(reload_resp.status(), StatusCode::OK);
+
+    // Query after reload: now reflects v2 (10 games)
+    let req = Request::builder()
+        .uri("/v1/explorer/position?collection=masters-otb&moves=e4")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let pos_v2: PositionResponse = response_json(resp).await;
+    assert_eq!(pos_v2.total_games, 10);
+}
+
+fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ft = entry.file_type()?;
+        if ft.is_dir() {
+            copy_dir_recursive(&entry.path(), &dst.join(entry.file_name()))?;
+        } else if ft.is_symlink() {
+            let target = std::fs::read_link(entry.path())?;
+            std::os::unix::fs::symlink(target, dst.join(entry.file_name()))?;
+        } else {
+            std::fs::copy(entry.path(), dst.join(entry.file_name()))?;
+        }
+    }
+    Ok(())
+}
+
+fn corrupt_cpi_in_dir(dir: &Path) -> bool {
+    let mut found = false;
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_dir() {
+                if corrupt_cpi_in_dir(&p) {
+                    found = true;
+                }
+            } else if p.file_name().is_some_and(|n| n == "positions.cpi") {
+                std::fs::write(&p, b"INVALID_GARBAGE_CPI_DATA_FAILING_MAGIC_AND_INTEGRITY")
+                    .unwrap();
+                found = true;
+            }
+        }
+    }
+    found
+}
+
+#[tokio::test]
+async fn test_corrupted_replacement_rejected() {
+    let tmp = tempdir().unwrap();
+    let v1_dir = tmp.path().join("masters_good");
+    setup_test_dataset(&v1_dir, Collection::MastersOtb, 5);
+
+    let active_link = tmp.path().join("masters_symlink");
+    std::os::unix::fs::symlink(&v1_dir, &active_link).unwrap();
+
+    let config = ServerConfig {
+        masters_dataset: Some(active_link.clone()),
+        elite_dataset: None,
+        admin_token: Some("secret".to_string()),
+        ..Default::default()
+    };
+    let state = AppState::new(config).unwrap();
+    let app = create_router(state);
+
+    // Baseline query succeeds
+    let req = Request::builder()
+        .uri("/v1/explorer/position?collection=masters-otb&moves=e4")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Create a corrupted dataset candidate: copy good dataset and destroy positions.cpi
+    let corrupted_dir = tmp.path().join("masters_corrupted");
+    copy_dir_recursive(&v1_dir, &corrupted_dir).unwrap();
+
+    let found_cpi = corrupt_cpi_in_dir(&corrupted_dir);
+    assert!(found_cpi, "Must have found positions.cpi to corrupt");
+
+    // Atomic symlink switch to corrupted dataset candidate
+    let tmp_link = tmp.path().join("masters_symlink_tmp");
+    std::os::unix::fs::symlink(&corrupted_dir, &tmp_link).unwrap();
+    std::fs::rename(&tmp_link, &active_link).unwrap();
+
+    // Authenticated reload must FAIL CLOSED (HTTP 500 ReloadFailed)
+    let reload_req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/admin/reload")
+        .header(header::AUTHORIZATION, "Bearer secret")
+        .body(Body::empty())
+        .unwrap();
+    let reload_resp = app.clone().oneshot(reload_req).await.unwrap();
+    assert_eq!(reload_resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    let err: ErrorEnvelope = response_json(reload_resp).await;
+    assert_eq!(err.error.code, "reload_failed");
+
+    // CRITICAL: The previous active snapshot was preserved and remains 100% operational!
+    let req = Request::builder()
+        .uri("/v1/explorer/position?collection=masters-otb&moves=e4")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let pos: PositionResponse = response_json(resp).await;
+    assert_eq!(pos.total_games, 5);
+
+    // Game retrieval also continues working on the preserved snapshot
+    let req = Request::builder()
+        .uri("/v1/collections/masters-otb/games/1")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_concurrent_queries_during_version_replacement() {
+    let tmp = tempdir().unwrap();
+    let v1_dir = tmp.path().join("masters_v1");
+    let v2_dir = tmp.path().join("masters_v2");
+    setup_test_dataset(&v1_dir, Collection::MastersOtb, 5);
+    setup_test_dataset(&v2_dir, Collection::MastersOtb, 10);
+
+    let active_link = tmp.path().join("masters_active");
+    std::os::unix::fs::symlink(&v1_dir, &active_link).unwrap();
+
+    let config = ServerConfig {
+        masters_dataset: Some(active_link.clone()),
+        elite_dataset: None,
+        admin_token: Some("token".to_string()),
+        ..Default::default()
+    };
+    let state = AppState::new(config).unwrap();
+    let app = create_router(state);
+
+    // Launch continuous background queries
+    let app_bg = app.clone();
+    let stop_signal = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let stop_clone = Arc::clone(&stop_signal);
+
+    let query_task = tokio::spawn(async move {
+        let mut count = 0;
+        while !stop_clone.load(Ordering::Relaxed) {
+            let req = Request::builder()
+                .uri("/v1/explorer/position?collection=masters-otb&moves=e4")
+                .body(Body::empty())
+                .unwrap();
+            let resp = app_bg.clone().oneshot(req).await.unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+
+            let req_game = Request::builder()
+                .uri("/v1/collections/masters-otb/games/1")
+                .body(Body::empty())
+                .unwrap();
+            let resp_game = app_bg.clone().oneshot(req_game).await.unwrap();
+            assert_eq!(resp_game.status(), StatusCode::OK);
+
+            count += 1;
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        count
+    });
+
+    // While queries are in flight, perform version replacement
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    let tmp_link = tmp.path().join("masters_active_tmp");
+    std::os::unix::fs::symlink(&v2_dir, &tmp_link).unwrap();
+    std::fs::rename(&tmp_link, &active_link).unwrap();
+
+    let reload_req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/admin/reload")
+        .header(header::AUTHORIZATION, "Bearer token")
+        .body(Body::empty())
+        .unwrap();
+    let reload_resp = app.clone().oneshot(reload_req).await.unwrap();
+    assert_eq!(reload_resp.status(), StatusCode::OK);
+
+    // Let more queries run against the new snapshot
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    stop_signal.store(true, Ordering::Relaxed);
+
+    let total_queries = query_task.await.unwrap();
+    assert!(
+        total_queries > 0,
+        "Executed {} concurrent queries during reload",
+        total_queries
+    );
+
+    // Post-reload query sees v2
+    let req = Request::builder()
+        .uri("/v1/explorer/position?collection=masters-otb&moves=e4")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    let pos: PositionResponse = response_json(resp).await;
+    assert_eq!(pos.total_games, 10);
 }

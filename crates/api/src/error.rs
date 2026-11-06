@@ -44,6 +44,18 @@ pub enum ApiError {
     #[error("Game ID {0} was not found in collection '{1}'.")]
     GameNotFound(u64, String),
 
+    #[error("Unauthorized: valid administrative authorization token required.")]
+    Unauthorized,
+
+    #[error("Administrative reload via HTTP is disabled. Configure --admin-token or use local SIGHUP signal.")]
+    AdminDisabled,
+
+    #[error("Reader pool timeout: server is busy and cannot allocate a reader handle.")]
+    PoolTimeout(String),
+
+    #[error("Administrative reload failed: replacement snapshot integrity check was rejected.")]
+    ReloadFailed(String),
+
     #[error("Storage engine error: {0}")]
     Storage(String),
 
@@ -79,6 +91,10 @@ impl ApiError {
             Self::UnsupportedParameter(_) => "unsupported_parameter",
             Self::InvalidGameId(_) => "invalid_game_id",
             Self::GameNotFound(_, _) => "game_not_found",
+            Self::Unauthorized => "unauthorized",
+            Self::AdminDisabled => "admin_disabled",
+            Self::PoolTimeout(_) => "reader_pool_timeout",
+            Self::ReloadFailed(_) => "reload_failed",
             Self::Storage(_) => "storage_error",
             Self::Internal(_) => "internal_error",
         }
@@ -96,13 +112,17 @@ impl ApiError {
             | Self::UnsupportedParameter(_)
             | Self::InvalidGameId(_) => StatusCode::BAD_REQUEST,
 
+            Self::Unauthorized => StatusCode::UNAUTHORIZED,
+            Self::AdminDisabled => StatusCode::FORBIDDEN,
             Self::GameNotFound(_, _) => StatusCode::NOT_FOUND,
 
-            Self::CollectionUnavailable(_) | Self::IndexUnavailable(_) => {
+            Self::CollectionUnavailable(_) | Self::IndexUnavailable(_) | Self::PoolTimeout(_) => {
                 StatusCode::SERVICE_UNAVAILABLE
             }
 
-            Self::Storage(_) | Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::ReloadFailed(_) | Self::Storage(_) | Self::Internal(_) => {
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
         }
     }
 }

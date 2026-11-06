@@ -13,18 +13,21 @@
   - High-performance read-only HTTP service built with Axum 0.8, Tokio, and Tower.
   - Snapshot isolation pinning immutable version directories (`versions/vX/`) with zero lock contention.
   - Lock-free, zero-copy position lookups directly against memory-mapped CPI indexes.
-  - Bounded RAII reader pool for CGB3 game decompression offloaded to Tokio's blocking threadpool.
-  - RFC 7232 HTTP conditional request validation (`ETag`, `If-None-Match`, `304 Not Modified`) and `Cache-Control` headers.
-  - CORS headers exposing `ETag` and permitting `If-None-Match` for web clients.
-  - Zero-downtime hot-reloading (`POST /v1/admin/reload`) executing in under 1 ms under live traffic.
+  - Semaphore-bounded reader pool (`Arc<tokio::sync::Semaphore>`) for CGB3 game decompression offloaded to Tokio's blocking threadpool, strictly capping active readers to configured capacity with asynchronous queue timeouts.
+  - Fail-closed candidate snapshot validation before activation: candidate replacement directories are deeply verified (`verify_dataset` + CPI verification) before atomic pointer replacement, safely rejecting corrupted candidates while preserving active snapshot operation.
+  - RFC 7232 HTTP conditional request validation: game existence in `games.idx` is verified prior to evaluating conditional headers (returning 404 for missing games, never 304). Supports strong ETags, weak ETags (`W/"..."`), wildcards (`*`), and comma-separated tokens.
+  - Secure administrative management: `POST /v1/admin/reload` requires token authentication (`--admin-token` / `CODB_ADMIN_TOKEN`), returns 403 Forbidden when disabled and 401 Unauthorized for missing/invalid tokens, and rejects cross-origin requests. Local administrators can also trigger reloads without network credentials via standard Unix `SIGHUP` (`kill -HUP <pid>`).
+  - Restrictive default CORS policy (empty by default, same-origin only), with explicit origins configurable via `--allowed-origins`.
 - **Benchmark Baseline:**
   - Active production CPI baseline: 16 parameter combination runs in `benchmarks/production_cpi/` validated by `scripts/validate_production_cpi_benchmarks.py`.
   - HTTP API benchmark: `benchmarks/results/http_api_benchmark.json` validated by `scripts/test_bench_http.py`:
-    - Startup time: **52.65 ms**
-    - Memory envelope: **5.57 MB** initial RSS, peaking at **8.49 MB** under full concurrent load (< 30 MB ceiling).
-    - Query latency: Single-client p50 = **227–250 µs**; Game retrieval p50 = **265 µs**.
-    - Concurrency throughput: **> 3,000 req/s** with zero errors across 50 concurrent workers.
-    - Zero-downtime reload: **0.84 ms** reload duration, **805 live requests handled during swap**, **0 errors**.
+    - Corpus accounting: Tested directly on fast validation fixture (`fixtures/stage_a_validation.pgn`, 1,000 games); documents that PR-03 production 100k datasets require local provisioning.
+    - Startup time: **58.54 ms**
+    - Memory envelope: **6.18 MB** initial RSS, continuous sampled peak RSS at **9.86 MB** under full concurrent load (< 30 MB ceiling).
+    - Query latency: Single-client p50 = **264–361 µs**; Game retrieval p50 = **287 µs**.
+    - Concurrency throughput: **4,587 req/s** peak, scaling across 1, 4, 8, 16, and 32 concurrent workers with zero errors.
+    - Reader pool saturation contention: 32 concurrent workers requesting against pool capacity 4 queue safely with zero errors.
+    - Zero-downtime reload: **3.29 ms** reload duration, **715 live requests handled during swap**, **0 errors**.
 
 ---
 
@@ -81,7 +84,7 @@ codb query --dataset <dir> --moves "e4,e5,Nf3" --json
 codb query --dataset <dir> --fen "<fen_string>" --json
 
 # Start Opening Explorer HTTP API daemon
-codb serve --masters-dataset <dir> --elite-dataset <dir> --host 127.0.0.1 --port 8080
+codb serve --masters-dataset <dir> --elite-dataset <dir> --host 127.0.0.1 --port 8080 [--reader-pool-size 4] [--admin-token <token>]
 
 # Verify dataset integrity (block checksums, games.idx, manifest accounting, and CPI index)
 codb verify --dataset <dir> [--deep]
@@ -103,7 +106,7 @@ codb bench --input <file.pgn> --collection <masters-otb|elite-online> --output-d
 All local quality gates pass with zero warnings and zero errors:
 - `cargo fmt --all -- --check`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace`: PASS (all unit, integration, publication crash simulations, and 12 API contract/concurrency tests pass).
+- `cargo test --workspace`: PASS (all unit, integration, publication crash simulations, and 18 API contract, security, and concurrency tests pass).
 - Python test suites (`scripts/test_*.py`): PASS (21/21 in feasibility/validation, 4/4 in reproduce runner, 5/5 in bench_http).
 - Production CPI validator (`scripts/validate_production_cpi_benchmarks.py`): PASS (all 16 artifacts valid).
 - Historical validator (`scripts/validate_benchmarks.py`): PASS (all 18 artifacts and Heaps' projections valid).

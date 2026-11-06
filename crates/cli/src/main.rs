@@ -286,8 +286,8 @@ enum Commands {
         #[arg(short, long, default_value = "8080", env = "CODB_PORT")]
         port: u16,
 
-        /// Allowed CORS origins, comma-separated (e.g. "http://localhost:3000,http://localhost:5173" or "*")
-        #[arg(long, default_value = "*", env = "CODB_ALLOWED_ORIGINS")]
+        /// Allowed CORS origins, comma-separated (e.g. "http://localhost:3000,http://localhost:5173" or "*"). Default is empty (restrictive, same-origin only).
+        #[arg(long, default_value = "", env = "CODB_ALLOWED_ORIGINS")]
         allowed_origins: String,
 
         /// Global request timeout in seconds
@@ -301,6 +301,10 @@ enum Commands {
         /// Capacity of reader pool per dataset snapshot
         #[arg(long, default_value = "16")]
         reader_pool_size: usize,
+
+        /// Optional secret token required for administrative operations (POST /v1/admin/reload)
+        #[arg(long, env = "CODB_ADMIN_TOKEN")]
+        admin_token: Option<String>,
     },
 }
 
@@ -764,6 +768,7 @@ fn main() -> Result<()> {
             request_timeout_secs,
             max_move_plies,
             reader_pool_size,
+            admin_token,
         } => {
             let origins = allowed_origins
                 .split(',')
@@ -780,6 +785,8 @@ fn main() -> Result<()> {
                 request_timeout_secs,
                 max_move_plies,
                 reader_pool_size,
+                reader_pool_timeout_secs: 5,
+                admin_token,
             };
 
             let rt = tokio::runtime::Builder::new_multi_thread()

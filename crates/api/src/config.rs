@@ -21,6 +21,11 @@ pub struct ServerConfig {
     pub max_move_plies: usize,
     /// Maximum capacity of the reader pool per dataset snapshot (default: 16).
     pub reader_pool_size: usize,
+    /// Maximum time in seconds to wait for an available reader from the pool (default: 5 seconds).
+    pub reader_pool_timeout_secs: u64,
+    /// Secret administrative authorization token required for `POST /v1/admin/reload`.
+    /// When None, HTTP reload is disabled (403 Forbidden).
+    pub admin_token: Option<String>,
 }
 
 impl Default for ServerConfig {
@@ -30,10 +35,12 @@ impl Default for ServerConfig {
             elite_dataset: None,
             host: "127.0.0.1".to_string(),
             port: 8080,
-            allowed_origins: vec!["*".to_string()],
+            allowed_origins: Vec::new(), // Restrictive by default (no wildcard)
             request_timeout_secs: 15,
             max_move_plies: 200,
             reader_pool_size: 16,
+            reader_pool_timeout_secs: 5,
+            admin_token: None,
         }
     }
 }

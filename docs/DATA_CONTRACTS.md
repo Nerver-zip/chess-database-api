@@ -358,7 +358,7 @@ Returns summary status and metadata for all datasets loaded in the active server
 }
 ```
 
-### 6.4 Operational Probes & Admin Endpoints
+### 6.4 Operational Probes & Administrative Reload
 
 #### `GET /health`
 Liveness probe. Returns HTTP 200 `{"status": "ok"}` when the HTTP listener is operational.
@@ -367,14 +367,23 @@ Liveness probe. Returns HTTP 200 `{"status": "ok"}` when the HTTP listener is op
 Readiness probe. Returns HTTP 200 `{"status": "ready", "collections": [...]}` when at least one collection dataset is successfully loaded and ready for queries. If no datasets are loaded, returns HTTP 503 Service Unavailable.
 
 #### `POST /v1/admin/reload`
-Triggers an atomic zero-downtime reload of active dataset snapshots from disk (e.g. after a newly published dataset symlink swap). In-flight queries continue executing against existing snapshots without interruption.
+Triggers an authenticated, fail-closed zero-downtime reload of active dataset snapshots from disk.
+
+- **Access Control:** Requires administrative authorization via `Authorization: Bearer <token>` or `X-Admin-Token: <token>` matching `--admin-token` or `CODB_ADMIN_TOKEN`. If no admin token is configured, the endpoint is disabled and returns `HTTP 403 Forbidden` (`admin_disabled`). If the token is missing or invalid, returns `HTTP 401 Unauthorized` (`unauthorized`).
+- **Cross-Origin Protection:** Cross-origin triggers (requests containing an `Origin` header) are strictly rejected with `HTTP 401 Unauthorized` to prevent cross-site request forgery.
+- **Fail-Closed Validation:** Candidate snapshots are deeply verified before activation (`verify_dataset` integrity check + CPI index verification). If verification fails, the replacement is aborted, returning `HTTP 500 Internal Server Error` (`reload_failed`), and existing active snapshots remain untouched and operational.
+- **Concurrent Request Coordination:** Reload operations are serialized using an asynchronous mutex to prevent overlapping reload thrashing.
+- **Response Payload (`application/json`, HTTP 200):**
 ```json
 {
   "status": "reloaded",
   "reloaded_collections": ["masters-otb", "elite-online"],
-  "duration_ms": 0.84
+  "duration_ms": 3.29
 }
 ```
+
+#### Native Unix Signal Reload (`SIGHUP`)
+For local deployments without exposing HTTP administrative credentials, sending `SIGHUP` (`kill -HUP <pid>`) triggers the same atomic verification and reload process asynchronously without requiring network credentials.
 
 ### 6.5 Error Response Envelope
 All error responses adhere to a consistent JSON error schema:
@@ -391,8 +400,6 @@ All error responses adhere to a consistent JSON error schema:
 | Code | HTTP Status | Description |
 | :--- | :--- | :--- |
 | `invalid_collection` | 400 Bad Request | Collection parameter was not `masters-otb` or `elite-online`. |
-| `collection_unavailable`| 503 Service Unavailable | Target collection was not mounted at server startup. |
-| `index_unavailable` | 503 Service Unavailable | Snapshot exists but CPI v2 position index is missing. |
 | `missing_position` | 400 Bad Request | Neither `fen` nor `moves` parameter was supplied. |
 | `ambiguous_position` | 400 Bad Request | Mutually exclusive parameters (`fen` and `moves`) were both supplied. |
 | `invalid_fen` | 400 Bad Request | FEN string could not be parsed or violates chess rules. |
@@ -400,7 +407,13 @@ All error responses adhere to a consistent JSON error schema:
 | `move_sequence_too_long`| 400 Bad Request | Move sequence exceeds configured maximum plies. |
 | `unsupported_parameter`| 400 Bad Request | Query requested unsupported filter parameter (`since_year` or `min_rating`). |
 | `invalid_game_id` | 400 Bad Request | Game ID parameter was not a valid 64-bit unsigned integer. |
+| `unauthorized` | 401 Unauthorized | Missing or invalid admin authorization token, or rejected cross-origin admin request. |
+| `admin_disabled` | 403 Forbidden | Administrative reload endpoint is disabled (no `--admin-token` configured). |
 | `game_not_found` | 404 Not Found | 64-bit game ID does not exist in the collection index. |
+| `collection_unavailable`| 503 Service Unavailable | Target collection was not mounted at server startup. |
+| `index_unavailable` | 503 Service Unavailable | Snapshot exists but CPI v2 position index is missing. |
+| `pool_timeout` | 503 Service Unavailable | Bounded reader pool acquisition timed out under extreme concurrency. |
+| `reload_failed` | 500 Internal Server Error | Candidate dataset snapshot failed pre-activation verification. |
 | `storage_error` | 500 Internal Server Error | Storage engine I/O or decoding failure. |
 | `internal_error` | 500 Internal Server Error | Unexpected internal server or worker thread failure. |
 
@@ -409,11 +422,12 @@ All error responses adhere to a consistent JSON error schema:
 ## 6.6 HTTP Caching & Conditional Requests
 
 The API implements RFC 7232 HTTP conditional validation:
+- **Existence Verification Prior to Evaluation:** Conforming strictly to RFC 7232 Section 3.2, resource existence is verified before conditional headers are evaluated. If a game ID does not exist in `games.idx`, the server immediately returns `HTTP 404 Not Found` rather than evaluating `If-None-Match` or returning `HTTP 304 Not Modified`.
 - **`ETag` Generation:** Derived deterministically from dataset version build ID and request target:
   - Position queries: `"{dataset_build_id}-{position_key_hex}"`
   - Game queries: `"{dataset_build_id}-{game_id}"`
-- **Conditional Requests (`If-None-Match`):** Clients supplying `If-None-Match: <etag>` receive `HTTP 304 Not Modified` with an empty response body when the dataset snapshot has not changed.
+- **Conditional Requests (`If-None-Match`):** Evaluates strong ETags, weak ETags (`W/"..."`), wildcards (`*`), and comma-separated lists. If any tag matches the current resource ETag, returns `HTTP 304 Not Modified` with an empty body.
 - **Cache-Control Headers:**
   - Position and Collections endpoints: `Cache-Control: public, max-age=60`
   - Game retrieval endpoint: `Cache-Control: public, max-age=3600`
-- **CORS Headers:** `ETag`, `Content-Type`, and `Cache-Control` are exposed via `Access-Control-Expose-Headers` for browser clients.
+- **CORS Headers:** Restrictive default: empty (`allowed_origins = []`), allowing same-origin requests only. Configurable via `--allowed-origins <origin>`. When configured, `ETag`, `Content-Type`, and `Cache-Control` are exposed via `Access-Control-Expose-Headers`.
