@@ -3,7 +3,7 @@
 use crate::error::ApiError;
 use crate::state::AppState;
 use axum::extract::{Path, State};
-use axum::http::header;
+use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use codb_core::Collection;
 use codb_storage::StorageError;
@@ -12,6 +12,7 @@ use std::sync::Arc;
 /// Handler for `GET /v1/collections/{collection}/games/{id}`.
 pub async fn get_game_by_id(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     Path((collection_str, id_str)): Path<(String, String)>,
 ) -> Result<Response, ApiError> {
     // 1. Validate collection identifier
@@ -28,6 +29,25 @@ pub async fn get_game_by_id(
 
     // 3. Acquire pinned snapshot
     let snapshot = state.get_snapshot(collection)?;
+    let etag = format!("\"{}-{}\"", snapshot.manifest.dataset_build_id, game_id);
+
+    // Check conditional request (If-None-Match)
+    if let Some(if_none_match) = headers
+        .get(header::IF_NONE_MATCH)
+        .and_then(|v| v.to_str().ok())
+    {
+        if if_none_match == etag || if_none_match == "*" {
+            return Ok((
+                StatusCode::NOT_MODIFIED,
+                [
+                    (header::ETAG, etag),
+                    (header::CACHE_CONTROL, "public, max-age=3600".to_string()),
+                ],
+            )
+                .into_response());
+        }
+    }
+
     let pool = Arc::clone(&snapshot.reader_pool);
 
     // 4. Offload blocking shard seek and block decompression to Tokio blocking threadpool
@@ -42,9 +62,10 @@ pub async fn get_game_by_id(
                 [
                     (
                         header::CONTENT_TYPE,
-                        "application/x-chess-pgn; charset=utf-8",
+                        "application/x-chess-pgn; charset=utf-8".to_string(),
                     ),
-                    (header::CACHE_CONTROL, "public, max-age=3600"),
+                    (header::CACHE_CONTROL, "public, max-age=3600".to_string()),
+                    (header::ETAG, etag),
                 ],
                 pgn,
             )

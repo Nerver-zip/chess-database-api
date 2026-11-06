@@ -5,6 +5,8 @@ use crate::error::ApiError;
 use crate::models::{CandidateMoveResponse, PositionQuery, PositionResponse};
 use crate::state::AppState;
 use axum::extract::{Query, State};
+use axum::http::{header, HeaderMap, StatusCode};
+use axum::response::{IntoResponse, Response};
 use axum::Json;
 use codb_core::Collection;
 use shakmaty::Chess;
@@ -22,8 +24,9 @@ fn calc_pct(part: u64, total: u64) -> f64 {
 /// Handler for `GET /v1/explorer/position`.
 pub async fn query_position(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     Query(query): Query<PositionQuery>,
-) -> Result<Json<PositionResponse>, ApiError> {
+) -> Result<Response, ApiError> {
     // 1. Explicitly reject unsupported query parameters
     if query.since_year.is_some() {
         return Err(ApiError::UnsupportedParameter("since_year".to_string()));
@@ -112,6 +115,29 @@ pub async fn query_position(
         None => (0, 0, 0, 0, Vec::new()),
     };
 
+    let etag = format!(
+        "\"{}-{}\"",
+        snapshot.manifest.dataset_build_id,
+        key.to_hex()
+    );
+
+    // Check conditional request (If-None-Match)
+    if let Some(if_none_match) = headers
+        .get(header::IF_NONE_MATCH)
+        .and_then(|v| v.to_str().ok())
+    {
+        if if_none_match == etag || if_none_match == "*" {
+            return Ok((
+                StatusCode::NOT_MODIFIED,
+                [
+                    (header::ETAG, etag),
+                    (header::CACHE_CONTROL, "public, max-age=60".to_string()),
+                ],
+            )
+                .into_response());
+        }
+    }
+
     let resp = PositionResponse {
         collection: collection.as_str().to_string(),
         dataset_version: snapshot.manifest.dataset_build_id.clone(),
@@ -128,5 +154,13 @@ pub async fn query_position(
         moves: candidate_moves,
     };
 
-    Ok(Json(resp))
+    Ok((
+        StatusCode::OK,
+        [
+            (header::ETAG, etag),
+            (header::CACHE_CONTROL, "public, max-age=60".to_string()),
+        ],
+        Json(resp),
+    )
+        .into_response())
 }

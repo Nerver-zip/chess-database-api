@@ -14,6 +14,8 @@
   - Snapshot isolation pinning immutable version directories (`versions/vX/`) with zero lock contention.
   - Lock-free, zero-copy position lookups directly against memory-mapped CPI indexes.
   - Bounded RAII reader pool for CGB3 game decompression offloaded to Tokio's blocking threadpool.
+  - RFC 7232 HTTP conditional request validation (`ETag`, `If-None-Match`, `304 Not Modified`) and `Cache-Control` headers.
+  - CORS headers exposing `ETag` and permitting `If-None-Match` for web clients.
   - Zero-downtime hot-reloading (`POST /v1/admin/reload`) executing in under 1 ms under live traffic.
 - **Benchmark Baseline:**
   - Active production CPI baseline: 16 parameter combination runs in `benchmarks/production_cpi/` validated by `scripts/validate_production_cpi_benchmarks.py`.
@@ -101,7 +103,7 @@ codb bench --input <file.pgn> --collection <masters-otb|elite-online> --output-d
 All local quality gates pass with zero warnings and zero errors:
 - `cargo fmt --all -- --check`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace`: PASS (all unit, integration, publication crash simulations, and 11 API contract/concurrency tests pass).
+- `cargo test --workspace`: PASS (all unit, integration, publication crash simulations, and 12 API contract/concurrency tests pass).
 - Python test suites (`scripts/test_*.py`): PASS (21/21 in feasibility/validation, 4/4 in reproduce runner, 5/5 in bench_http).
 - Production CPI validator (`scripts/validate_production_cpi_benchmarks.py`): PASS (all 16 artifacts valid).
 - Historical validator (`scripts/validate_benchmarks.py`): PASS (all 18 artifacts and Heaps' projections valid).

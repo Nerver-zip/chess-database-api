@@ -709,3 +709,70 @@ async fn test_cli_and_http_query_equivalence() {
         );
     }
 }
+
+#[tokio::test]
+async fn test_etag_and_conditional_caching() {
+    let tmp = tempdir().unwrap();
+    let masters_dir = tmp.path().join("masters");
+    setup_test_dataset(&masters_dir, Collection::MastersOtb, 5);
+
+    let config = ServerConfig {
+        masters_dataset: Some(masters_dir),
+        elite_dataset: None,
+        ..Default::default()
+    };
+    let state = AppState::new(config).unwrap();
+    let app = create_router(state);
+
+    // 1. Position ETag
+    let req = Request::builder()
+        .uri("/v1/explorer/position?collection=masters-otb&moves=e4")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let etag = resp
+        .headers()
+        .get(header::ETAG)
+        .expect("ETag header present")
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(!etag.is_empty());
+
+    // Conditional position request with matching If-None-Match
+    let req_cached = Request::builder()
+        .uri("/v1/explorer/position?collection=masters-otb&moves=e4")
+        .header(header::IF_NONE_MATCH, &etag)
+        .body(Body::empty())
+        .unwrap();
+    let resp_cached = app.clone().oneshot(req_cached).await.unwrap();
+    assert_eq!(resp_cached.status(), StatusCode::NOT_MODIFIED);
+
+    // 2. Game ETag
+    let game_id = 1u64;
+    let game_uri = format!("/v1/collections/masters-otb/games/{}", game_id);
+    let req_game = Request::builder()
+        .uri(&game_uri)
+        .body(Body::empty())
+        .unwrap();
+    let resp_game = app.clone().oneshot(req_game).await.unwrap();
+    assert_eq!(resp_game.status(), StatusCode::OK);
+    let game_etag = resp_game
+        .headers()
+        .get(header::ETAG)
+        .expect("Game ETag present")
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(!game_etag.is_empty());
+
+    // Conditional game request with matching If-None-Match
+    let req_game_cached = Request::builder()
+        .uri(&game_uri)
+        .header(header::IF_NONE_MATCH, &game_etag)
+        .body(Body::empty())
+        .unwrap();
+    let resp_game_cached = app.oneshot(req_game_cached).await.unwrap();
+    assert_eq!(resp_game_cached.status(), StatusCode::NOT_MODIFIED);
+}

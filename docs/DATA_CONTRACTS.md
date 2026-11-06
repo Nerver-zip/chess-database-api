@@ -254,17 +254,20 @@ Retrieves aggregated opening statistics and candidate legal follow-up moves for 
 - `since_year` / `min_rating` (unsupported): If provided, the request fails with HTTP 422 (`unsupported_parameter`) to prevent silent semantic misinterpretation.
 
 #### Validation Rules
-1. `fen` and `moves` are mutually exclusive. Providing both returns HTTP 422 (`invalid_parameters`).
-2. If neither `fen` nor `moves` is provided, the API evaluates the standard starting position.
-3. FEN inputs must be orthodox and legal (fails with HTTP 422 `invalid_fen`).
-4. Moves must be legal sequentially from the initial board state (fails with HTTP 422 `invalid_moves`).
-5. Move sequences exceeding `--max-move-plies` (default 200 plies) return HTTP 422 (`moves_too_long`).
+1. `fen` and `moves` are mutually exclusive. Providing both returns HTTP 400 (`ambiguous_position`).
+2. If neither `fen` nor `moves` is provided, the API returns HTTP 400 (`missing_position`).
+3. FEN inputs must be orthodox and legal (fails with HTTP 400 `invalid_fen`).
+4. Moves must be legal sequentially from the initial board state (fails with HTTP 400 `invalid_moves`).
+5. Move sequences exceeding `--max-move-plies` (default 200 plies) return HTTP 400 (`move_sequence_too_long`).
+6. Unsupported filter parameters (`since_year`, `min_rating`) return HTTP 400 (`unsupported_parameter`).
 
 #### Response Payload (`application/json`, HTTP 200)
 When the position is present in the CPI index:
 ```json
 {
   "collection": "masters-otb",
+  "dataset_version": "v1_build_20261106",
+  "dataset_freshness": "2026-11-06T12:00:00Z",
   "position_key": "463b96181691fc9c0000000000000000",
   "fen": "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
   "total_games": 24510,
@@ -282,9 +285,9 @@ When the position is present in the CPI index:
       "draws": 5610,
       "black_wins": 2170,
       "total_games": 13200,
-      "white_win_pct": 41.06,
+      "white_win_pct": 41.1,
       "draw_pct": 42.5,
-      "black_win_pct": 16.44
+      "black_win_pct": 16.4
     }
   ]
 }
@@ -388,12 +391,29 @@ All error responses adhere to a consistent JSON error schema:
 | Code | HTTP Status | Description |
 | :--- | :--- | :--- |
 | `invalid_collection` | 400 Bad Request | Collection parameter was not `masters-otb` or `elite-online`. |
-| `invalid_fen` | 422 Unprocessable Content | FEN string could not be parsed or violates chess rules. |
-| `invalid_moves` | 422 Unprocessable Content | Move sequence contains illegal moves or invalid notation. |
-| `invalid_parameters` | 422 Unprocessable Content | Mutually exclusive parameters (`fen` and `moves`) were both supplied. |
-| `moves_too_long` | 422 Unprocessable Content | Move sequence exceeds configured maximum plies. |
-| `unsupported_parameter` | 422 Unprocessable Content | Query requested `since_year` or `min_rating`. |
+| `collection_unavailable`| 503 Service Unavailable | Target collection was not mounted at server startup. |
+| `index_unavailable` | 503 Service Unavailable | Snapshot exists but CPI v2 position index is missing. |
+| `missing_position` | 400 Bad Request | Neither `fen` nor `moves` parameter was supplied. |
+| `ambiguous_position` | 400 Bad Request | Mutually exclusive parameters (`fen` and `moves`) were both supplied. |
+| `invalid_fen` | 400 Bad Request | FEN string could not be parsed or violates chess rules. |
+| `invalid_moves` | 400 Bad Request | Move sequence contains illegal moves or invalid notation. |
+| `move_sequence_too_long`| 400 Bad Request | Move sequence exceeds configured maximum plies. |
+| `unsupported_parameter`| 400 Bad Request | Query requested unsupported filter parameter (`since_year` or `min_rating`). |
+| `invalid_game_id` | 400 Bad Request | Game ID parameter was not a valid 64-bit unsigned integer. |
 | `game_not_found` | 404 Not Found | 64-bit game ID does not exist in the collection index. |
-| `collection_not_loaded`| 404 Not Found | Target collection was not mounted at server startup. |
-| `internal_error` | 500 Internal Server Error | Unexpected internal decompression or index failure. |
-| `service_unavailable` | 503 Service Unavailable | Readiness probe failed (no datasets mounted). |
+| `storage_error` | 500 Internal Server Error | Storage engine I/O or decoding failure. |
+| `internal_error` | 500 Internal Server Error | Unexpected internal server or worker thread failure. |
+
+---
+
+## 6.6 HTTP Caching & Conditional Requests
+
+The API implements RFC 7232 HTTP conditional validation:
+- **`ETag` Generation:** Derived deterministically from dataset version build ID and request target:
+  - Position queries: `"{dataset_build_id}-{position_key_hex}"`
+  - Game queries: `"{dataset_build_id}-{game_id}"`
+- **Conditional Requests (`If-None-Match`):** Clients supplying `If-None-Match: <etag>` receive `HTTP 304 Not Modified` with an empty response body when the dataset snapshot has not changed.
+- **Cache-Control Headers:**
+  - Position and Collections endpoints: `Cache-Control: public, max-age=60`
+  - Game retrieval endpoint: `Cache-Control: public, max-age=3600`
+- **CORS Headers:** `ETag`, `Content-Type`, and `Cache-Control` are exposed via `Access-Control-Expose-Headers` for browser clients.

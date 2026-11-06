@@ -23,7 +23,14 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         CorsLayer::new()
             .allow_origin(Any)
             .allow_methods([Method::GET, Method::POST, Method::OPTIONS, Method::HEAD])
-            .allow_headers([header::CONTENT_TYPE, header::ACCEPT, header::AUTHORIZATION])
+            .allow_headers([
+                header::CONTENT_TYPE,
+                header::ACCEPT,
+                header::AUTHORIZATION,
+                header::IF_NONE_MATCH,
+                header::IF_MATCH,
+            ])
+            .expose_headers([header::ETAG, header::CONTENT_TYPE, header::CACHE_CONTROL])
     } else {
         let valid_origins: Vec<HeaderValue> = state
             .config
@@ -34,7 +41,14 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         CorsLayer::new()
             .allow_origin(valid_origins)
             .allow_methods([Method::GET, Method::POST, Method::OPTIONS, Method::HEAD])
-            .allow_headers([header::CONTENT_TYPE, header::ACCEPT, header::AUTHORIZATION])
+            .allow_headers([
+                header::CONTENT_TYPE,
+                header::ACCEPT,
+                header::AUTHORIZATION,
+                header::IF_NONE_MATCH,
+                header::IF_MATCH,
+            ])
+            .expose_headers([header::ETAG, header::CONTENT_TYPE, header::CACHE_CONTROL])
     };
 
     // 2. Configure Timeout
