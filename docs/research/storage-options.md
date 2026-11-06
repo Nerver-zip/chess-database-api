@@ -1,3 +1,9 @@
+---
+summary: "Historical trade-off study evaluating storage candidates (PGN, RocksDB, SQLite, CGB3)."
+read_when: "Reviewing the rationale for rejecting raw PGN, RocksDB, and SQLite in favor of CGB3."
+status: historical
+---
+
 # Research Track D: Compact Game Storage & Layout Architecture
 
 ## 1. Storage Evaluation & Baselines

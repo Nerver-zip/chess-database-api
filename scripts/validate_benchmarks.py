@@ -2,7 +2,7 @@
 """
 scripts/validate_benchmarks.py — Benchmark schema, accounting, and consistency validator.
 
-Enforces strict verification on all authoritative benchmark artifacts in benchmarks/results/:
+Enforces strict verification on all authoritative benchmark artifacts in benchmarks/results/historical/:
 1. Complete schema compliance and absence of obsolete/unmigrated schema fields.
 2. Ingestion accounting invariants (mutually exclusive category sum and retained==accepted).
 3. Monotonic position-growth and physical size invariants across depth and sample size.
@@ -393,14 +393,19 @@ def validate_projections(proj_path, m20k_data):
 
 
 def main():
-    benchmarks_dir = "benchmarks/results"
+    benchmarks_dir = sys.argv[1] if len(sys.argv) > 1 else (
+        "benchmarks/results/historical" if os.path.exists("benchmarks/results/historical") else "benchmarks/results"
+    )
     all_files = sorted(glob.glob(os.path.join(benchmarks_dir, "*.json")))
     if not all_files:
         print(f"No benchmark files found in {benchmarks_dir}!")
         sys.exit(1)
 
-    # Separate projections file from benchmark outputs
-    benchmark_files = [f for f in all_files if not f.endswith("projections_heaps.json")]
+    # Separate projections file and obsolete prototypes from benchmark outputs
+    benchmark_files = [
+        f for f in all_files
+        if not f.endswith("projections_heaps.json") and not f.endswith("stage_b_masters_otb_07.json")
+    ]
 
     loaded_benchmarks = {}
     for path in benchmark_files:

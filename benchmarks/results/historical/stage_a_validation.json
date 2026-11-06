@@ -21,11 +21,11 @@
   "is_reconciled": true,
   "retained_matches_accepted": true,
   "transpositions_distinct": 986,
-  "import_duration_secs": 0.008431384,
-  "import_throughput_games_sec": 118604.4900813437,
-  "import_throughput_mb_sec": 44.460197756382584,
-  "raw_ingest_duration_secs": 0.008431384,
-  "raw_ingest_throughput_games_sec": 118604.4900813437,
+  "import_duration_secs": 0.012344371,
+  "import_throughput_games_sec": 81008.58277833679,
+  "import_throughput_mb_sec": 30.366958348870106,
+  "raw_ingest_duration_secs": 0.012344371,
+  "raw_ingest_throughput_games_sec": 81008.58277833679,
   "source_archives": [
     {
       "filename": "stage_a_validation.pgn",
@@ -51,7 +51,7 @@
     "cpi_sparse_directory_bytes": 34,
     "immutable_index_size_bytes": 4652,
     "sqlite_index_size_bytes": 74168,
-    "index_build_duration_secs": 0.023929429
+    "index_build_duration_secs": 0.029366582
   },
   "depth_30": {
     "depth_plies": 30,
@@ -61,7 +61,7 @@
     "cpi_sparse_directory_bytes": 68,
     "immutable_index_size_bytes": 6883,
     "sqlite_index_size_bytes": 98888,
-    "index_build_duration_secs": 0.03527932
+    "index_build_duration_secs": 0.041115479
   },
   "depth_40": {
     "depth_plies": 40,
@@ -71,7 +71,7 @@
     "cpi_sparse_directory_bytes": 68,
     "immutable_index_size_bytes": 7816,
     "sqlite_index_size_bytes": 103008,
-    "index_build_duration_secs": 0.041412572
+    "index_build_duration_secs": 0.046569944
   },
   "depth_60": {
     "depth_plies": 60,
@@ -81,7 +81,7 @@
     "cpi_sparse_directory_bytes": 68,
     "immutable_index_size_bytes": 7816,
     "sqlite_index_size_bytes": 103008,
-    "index_build_duration_secs": 0.042435595
+    "index_build_duration_secs": 0.047162269
   },
   "query_latency_us": {
     "cache_regime": "warm_os_page_cache",
@@ -92,14 +92,14 @@
     "transposition_keys_sampled": 400,
     "miss_keys_sampled": 400,
     "semantic_equivalence_verified": true,
-    "sqlite_disk_p50_us": 3.266,
-    "sqlite_disk_p95_us": 4.112,
-    "sqlite_disk_p99_us": 6.13,
-    "cpi_disk_p50_us": 10.145,
-    "cpi_disk_p95_us": 10.633,
-    "cpi_disk_p99_us": 12.458,
-    "cpi_in_memory_p50_us": 0.342,
-    "cpi_in_memory_p95_us": 0.537,
-    "cpi_in_memory_p99_us": 0.882
+    "sqlite_disk_p50_us": 4.219,
+    "sqlite_disk_p95_us": 5.072,
+    "sqlite_disk_p99_us": 7.605,
+    "cpi_disk_p50_us": 10.305,
+    "cpi_disk_p95_us": 10.704,
+    "cpi_disk_p99_us": 18.77,
+    "cpi_in_memory_p50_us": 0.335,
+    "cpi_in_memory_p95_us": 0.53,
+    "cpi_in_memory_p99_us": 0.553
   }
 }

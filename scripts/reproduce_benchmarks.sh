@@ -30,6 +30,10 @@
 
 set -euo pipefail
 
+if [ -d "$HOME/.cargo/bin" ]; then
+    export PATH="$HOME/.cargo/bin:$PATH"
+fi
+
 MODE="${1:---all}"
 
 if [ "$MODE" = "--help" ] || [ "$MODE" = "-h" ]; then
@@ -78,7 +82,7 @@ echo "=== [1/5] Building release binaries ==="
 cargo build --release -p codb-cli
 
 BIN="./target/release/codb"
-RESULTS_DIR="benchmarks/results"
+RESULTS_DIR="benchmarks/results/historical"
 mkdir -p "$RESULTS_DIR"
 
 echo "=== [2/5] Stage A Benchmark (Deterministic Fixture: 1,000 games) ==="
@@ -135,7 +139,7 @@ if [ "$MODE" = "--ci" ] || [ "$MODE" = "--stage-a" ]; then
     echo "Persistent Archive:      build, deep verify, and inspect verified [PASS]"
     echo "Production Position Index: build-index (CPI v2, external sort) verified [PASS]"
     echo "Opening Explorer Query:  functional queries (SAN/UCI/FEN) verified [PASS]"
-    echo "Artifact Schemas:        benchmarks/results/*.json validated [PASS]"
+    echo "Artifact Schemas:        benchmarks/results/historical/*.json validated [PASS]"
     echo "Accounting Invariants:   reconciled and verified [PASS]"
     echo "Feasibility Projections: calculation integrity verified [PASS]"
     echo "Python Validation Tests: unit tests passed [PASS]"
@@ -271,7 +275,7 @@ for pr in "${PROGRESSIVE_COMPLETED[@]}"; do
     echo "  [PASS] $pr"
 done
 echo ""
-echo "Projection Regeneration: [PASS] (benchmarks/results/projections_heaps.json updated)"
+echo "Projection Regeneration: [PASS] (benchmarks/results/historical/projections_heaps.json updated)"
 echo "Artifact Validation:     [PASS] (scripts/validate_benchmarks.py validated all schemas)"
 echo "Overall Reproduction Status: SUCCESS (Full empirical experiment reproduced)"
 echo "========================================================================"

@@ -1,3 +1,9 @@
+---
+summary: "Historical research report on storage feasibility, scaling models, and empirical measurements."
+read_when: "Reviewing the mathematical derivations and empirical basis for the 10 GB storage budget."
+status: historical
+---
+
 # Research Track F: Storage Feasibility Report & Empirical Scaling Analysis
 
 ## 1. Executive Summary

@@ -1,4 +1,13 @@
+---
+summary: "Systematic survey and classification matrix of evaluated upstream chess data sources."
+read_when: "Reviewing third-party source evaluations, volume estimates, or upstream classifications."
+status: reference
+---
+
 # Research Track A: Source Inventory
+
+> [!NOTE]
+> This research document is preserved for reference. The canonical policy and inventory are consolidated in [docs/LICENSING.md](../LICENSING.md).
 
 This document provides a systematic survey of prospective chess game data sources evaluated for the **Chess Openings DB** project.
 

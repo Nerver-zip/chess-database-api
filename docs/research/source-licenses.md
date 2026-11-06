@@ -1,4 +1,13 @@
+---
+summary: "Original legal analysis framework separating software code, upstream data, and artifacts."
+read_when: "Reviewing legal differentiation principles, copyright boundary analysis, or CC BY-SA obligations."
+status: reference
+---
+
 # Research Track A: Source Licenses and Legal Architecture
+
+> [!NOTE]
+> This research document is preserved for reference. Authoritative licensing policy is maintained in [docs/LICENSING.md](../LICENSING.md).
 
 ## 1. Legal Differentiation Framework
 

@@ -25,9 +25,9 @@ from validate_benchmarks import validate_benchmark_file, validate_projections
 class TestValidateBenchmarks(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        with open("benchmarks/results/masters_20k.json") as f:
+        with open("benchmarks/results/historical/masters_20k.json") as f:
             cls.m20k_data = json.load(f)
-        with open("benchmarks/results/projections_heaps.json") as f:
+        with open("benchmarks/results/historical/projections_heaps.json") as f:
             cls.valid_projections = json.load(f)
 
     def test_valid_current_projections_pass(self):
@@ -153,7 +153,7 @@ class TestValidateBenchmarks(unittest.TestCase):
 
     def test_dataset_archive_with_import_duration_fails(self):
         """Condition 6: Ambiguous import_duration on dataset_archive is rejected."""
-        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+        with open("benchmarks/results/historical/pr02_scale_elite_100k.json") as f:
             archive_data = json.load(f)
 
         corrupt = copy.deepcopy(archive_data)
@@ -171,7 +171,7 @@ class TestValidateBenchmarks(unittest.TestCase):
 
     def test_placeholder_sha256_is_rejected(self):
         """Condition 7: Placeholder strings as cryptographic hashes are rejected."""
-        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+        with open("benchmarks/results/historical/pr02_scale_elite_100k.json") as f:
             archive_data = json.load(f)
 
         corrupt = copy.deepcopy(archive_data)
@@ -189,7 +189,7 @@ class TestValidateBenchmarks(unittest.TestCase):
 
     def test_verified_status_without_hash_is_rejected(self):
         """Condition 8: Provenance claim 'verified' without valid hash is rejected."""
-        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+        with open("benchmarks/results/historical/pr02_scale_elite_100k.json") as f:
             archive_data = json.load(f)
 
         corrupt = copy.deepcopy(archive_data)
@@ -208,7 +208,7 @@ class TestValidateBenchmarks(unittest.TestCase):
 
     def test_verified_status_dataset_archive_without_checksum_verified_is_rejected(self):
         """Historical dataset with valid SHA-256 but no checksum_verified proof cannot claim 'verified'."""
-        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+        with open("benchmarks/results/historical/pr02_scale_elite_100k.json") as f:
             archive_data = json.load(f)
 
         corrupt = copy.deepcopy(archive_data)
@@ -228,7 +228,7 @@ class TestValidateBenchmarks(unittest.TestCase):
 
     def test_verified_status_dataset_archive_with_checksum_verified_passes(self):
         """Dataset archive with valid SHA-256 and checksum_verified=True passes when claiming 'verified'."""
-        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+        with open("benchmarks/results/historical/pr02_scale_elite_100k.json") as f:
             archive_data = json.load(f)
 
         valid = copy.deepcopy(archive_data)
@@ -247,7 +247,7 @@ class TestValidateBenchmarks(unittest.TestCase):
 
     def test_physical_archive_bytes_as_input_size_is_rejected(self):
         """Condition 9: Conflating total persistent bytes with input size is rejected."""
-        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+        with open("benchmarks/results/historical/pr02_scale_elite_100k.json") as f:
             archive_data = json.load(f)
 
         corrupt = copy.deepcopy(archive_data)
@@ -266,7 +266,7 @@ class TestValidateBenchmarks(unittest.TestCase):
 
     def test_unknown_source_size_cannot_disguise_as_archive_bytes(self):
         """Condition 10: Unknown source size cannot disguise archive bytes as input size."""
-        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+        with open("benchmarks/results/historical/pr02_scale_elite_100k.json") as f:
             archive_data = json.load(f)
 
         corrupt = copy.deepcopy(archive_data)
@@ -286,7 +286,7 @@ class TestValidateBenchmarks(unittest.TestCase):
 
     def test_unknown_source_size_with_none_passes(self):
         """Condition 11: Unknown source size represented honestly as null passes."""
-        with open("benchmarks/results/pr02_scale_elite_100k.json") as f:
+        with open("benchmarks/results/historical/pr02_scale_elite_100k.json") as f:
             archive_data = json.load(f)
 
         valid = copy.deepcopy(archive_data)

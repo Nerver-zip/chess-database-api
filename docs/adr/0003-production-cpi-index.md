@@ -1,3 +1,9 @@
+---
+summary: "Decisions on production CPI v2 index, bounded-memory external sorting, and Explorer query engine."
+read_when: "Reviewing the external merge sort pipeline, CPI v2 binary container, and Opening Explorer queries."
+status: current
+---
+
 # ADR 0003: Production Chess Position Index (CPI v2) — Bounded-Memory External Sorting, Deterministic Aggregation, Atomic Publication & Explorer Queries
 
 ## Status

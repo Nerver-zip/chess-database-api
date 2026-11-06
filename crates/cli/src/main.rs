@@ -2605,23 +2605,26 @@ mod tests {
             .join("benchmarks")
             .join("results");
 
-        if !results_dir.exists() {
+        let target_dir = if results_dir.join("historical").exists() {
+            results_dir.join("historical")
+        } else {
+            results_dir.clone()
+        };
+
+        if !target_dir.exists() {
             return;
         }
 
         let mut reports: std::collections::BTreeMap<String, BenchmarkReport> =
             std::collections::BTreeMap::new();
 
-        for entry in std::fs::read_dir(&results_dir).unwrap() {
+        for entry in std::fs::read_dir(&target_dir).unwrap() {
             let entry = entry.unwrap();
             let path = entry.path();
+            let fname = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
             if path.extension().and_then(|s| s.to_str()) == Some("json")
-                && !path
-                    .file_name()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .starts_with("projections_")
+                && !fname.starts_with("projections_")
+                && fname != "stage_b_masters_otb_07.json"
             {
                 let content = std::fs::read_to_string(&path)
                     .unwrap_or_else(|e| panic!("Failed to read {}: {}", path.display(), e));
@@ -2725,7 +2728,7 @@ mod tests {
         }
 
         // Verify projections artifact calculation integrity
-        let proj_path = results_dir.join("projections_heaps.json");
+        let proj_path = target_dir.join("projections_heaps.json");
         if proj_path.exists() {
             let proj_content = std::fs::read_to_string(&proj_path).unwrap();
             let v: serde_json::Value = serde_json::from_str(&proj_content).unwrap();

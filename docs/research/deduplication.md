@@ -1,4 +1,13 @@
+---
+summary: "Original research notes on multi-key chess identity, prefix-superseding, and collision handling."
+read_when: "Reviewing the research derivation of multi-key deduplication and FNV-1a collision checks."
+status: reference
+---
+
 # Research Track C: Deduplication, Normalization & Collision Architecture
+
+> [!NOTE]
+> This research document is preserved for reference. Authoritative production deduplication rules are maintained in [docs/CORPUS_AND_DEDUPLICATION.md](../CORPUS_AND_DEDUPLICATION.md).
 
 ## 1. The Multi-Layered Chess Identity Problem
 

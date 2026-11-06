@@ -22,7 +22,7 @@ import os
 masters_runs = ["masters_1k", "masters_2.5k", "masters_5k", "masters_10k", "masters_20k"]
 masters_data = []
 for r in masters_runs:
-    path = f"benchmarks/results/{r}.json"
+    path = f"benchmarks/results/historical/{r}.json"
     if not os.path.exists(path):
         continue
     with open(path) as f:
@@ -52,7 +52,7 @@ elite_candidates = [
 ]
 elite_data = []
 for r in elite_candidates:
-    path = f"benchmarks/results/{r}.json"
+    path = f"benchmarks/results/historical/{r}.json"
     if not os.path.exists(path):
         continue
     with open(path) as f:
@@ -351,8 +351,8 @@ output_json = {
     },
 }
 
-with open("benchmarks/results/projections_heaps.json", "w") as out_f:
+with open("benchmarks/results/historical/projections_heaps.json", "w") as out_f:
     json.dump(output_json, out_f, indent=2)
     out_f.write("\n")
 
-print("\nUpdated benchmarks/results/projections_heaps.json successfully.")
+print("\nUpdated benchmarks/results/historical/projections_heaps.json successfully.")
