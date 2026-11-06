@@ -110,9 +110,10 @@ All local quality gates pass with zero warnings and zero errors:
 
 ---
 
-## 5. Next Actions for Upstream Pull Request
+## 5. Upstream Pull Request & Next Actions
 
-1. **Manifest Integrity:** Regenerate `MANIFEST.sha256` for modified canonical contracts and documentation.
-2. **Unified Verification:** Run `./scripts/validate.sh` ensuring all 8 verification gates pass cleanly.
-3. **Privacy Assertion:** Assert `git diff origin/main` contains zero references to private project names.
-4. **Draft PR Submission:** Commit changes, push `feat/opening-explorer-http-api`, and submit a Draft Pull Request using `gh pr create --draft`.
+1. **Pull Request Status:** Draft Pull Request [#5](https://github.com/Nerver-zip/chess-openings-db/pull/5) submitted and verified.
+   - Branch: `feat/opening-explorer-http-api` -> `main`.
+   - CI Status: 100% Green on GitHub Actions (Run ID `42256269806`, all 8 validation gates and reproduction runner passed).
+2. **Review & Promotion:** Transition PR #5 from Draft to Ready for Review upon stakeholder approval.
+3. **Future Incremental Initiatives:** Evaluate future roadmap enhancements (incremental delta shards, precomputed ECO classification trees, and edge cache optimization).
