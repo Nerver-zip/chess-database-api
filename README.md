@@ -59,28 +59,38 @@ The database maintains two strictly isolated collections with distinct rating se
 
 ```
 chess-openings-db/
+├── AGENTS.md       # Operational guide for AI agents
+├── HANDOFF.md      # Workstream status, verification log, and next actions
+├── CONTRIBUTING.md # Contribution workflows and PR expectations
+├── CHANGELOG.md    # Release and milestone delivery log
+├── MANIFEST.sha256 # Cryptographic manifest of core contracts and schemas
+├── Cargo.toml      # Workspace root configuration
 ├── crates/
-│   ├── core/       # Fundamental domain models (GameMetadata, Collection, CompactMove, PositionKey)
+│   ├── core/       # Fundamental domain models (CompactMove, PositionKey, GameResult)
 │   ├── ingest/     # Streaming PGN parser (Zstandard streaming, full legal move replay)
-│   ├── curate/     # Deduplication, header canonicalization, collection filtering
-│   ├── storage/    # 16-bit binary move encoding, dictionary compression, block-zstd container
-│   ├── index/      # Canonical 128-bit position keys, next-move aggregation, W/D/L stats
-│   └── cli/        # CLI tool (`codb`) for benchmarking, ingestion, and verification
+│   ├── curate/     # Policy filters, header canonicalization, prefix deduplication
+│   ├── storage/    # CGB3 container, sharding, games.idx binary search, advisory flock
+│   ├── index/      # CPI v2 index, bounded external sorting, Opening Explorer queries
+│   └── cli/        # CLI tool (codb) for builds, indexing, queries, and verification
 ├── docs/
-│   ├── research/   # Formal research tracks (licenses, corpus policy, dedupe, feasibility)
-│   │   ├── source-inventory.md
-│   │   ├── source-licenses.md
-│   │   ├── corpus-policy.md
-│   │   ├── deduplication.md
-│   │   ├── storage-options.md
-│   │   ├── feasibility-report.md
-│   │   └── api-contract.md
-│   └── adr/        # Architecture Decision Records
-│       ├── 0001-initial-architecture.md
-│       ├── 0002-bounded-ingestion-and-persistent-cgb3-archive.md
-│       └── 0003-production-cpi-index.md
-├── fixtures/       # Deterministic PGN test fixtures and edge-case suites
-├── benchmarks/     # Automated benchmark scripts and machine-readable results
+│   ├── README.md   # Canonical documentation index
+│   ├── ARCHITECTURE.md # End-to-end architecture, sharding, and memory bounds
+│   ├── DATA_CONTRACTS.md # Binary formats (CGB3, CPI), models, and API schemas
+│   ├── CORPUS_AND_DEDUPLICATION.md # Collection policies, dedupe, and accounting
+│   ├── LICENSING.md # Dual-licensing, dataset provenance, zero-AGPL boundary
+│   ├── QA_STRATEGY.md # Storage crash recovery, snapshot isolation, test strategy
+│   ├── BENCHMARKS.md # Benchmark methodology, production CPI baselines, Heaps' Law
+│   ├── ROADMAP.md  # Milestone progress and planned API service
+│   ├── DECISIONS_AND_OPEN_QUESTIONS.md # Accepted decisions and API open questions
+│   ├── adr/        # Architecture Decision Records (ADR-0001, ADR-0002, ADR-0003)
+│   └── research/   # Historical research tracks preserved for provenance
+├── benchmarks/
+│   ├── README.md   # Benchmark directory overview and methodology
+│   ├── production_cpi/ # Active production CPI baseline measurements (ADR-0003)
+│   └── results/
+│       └── historical/ # Preserved PR-01, PR-02, Stage A/B, and projection artifacts
+├── fixtures/       # Deterministic PGN test fixtures (stage_a_validation.pgn)
+├── scripts/        # Unified validate.sh, validate_docs.py, runners, and tests
 └── .github/        # GitHub Actions CI workflow
 ```
 
@@ -168,25 +178,46 @@ cargo build --release
 ./scripts/reproduce_benchmarks.sh --all
 ```
 
-For complete step-by-step reproduction instructions, dataset checksums, and combined corpus assembly, see the [Benchmark Reproduction Guide](docs/research/benchmark-reproduction.md).
+For complete step-by-step reproduction instructions, dataset checksums, and combined corpus assembly, see the [Benchmark Reproduction Guide](docs/BENCHMARKS.md).
 
-Machine-readable JSON reports are written to `benchmarks/results/`.
+Machine-readable JSON reports are written to `benchmarks/results/` (with completed milestones archived in [`benchmarks/results/historical/`](benchmarks/results/historical/)).
 
 ---
 
-## Research Deliverables
+## Canonical Engineering Documentation
 
+- **Master Index:** [Documentation Index](docs/README.md)
+- **System Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **Data Contracts & Formats:** [docs/DATA_CONTRACTS.md](docs/DATA_CONTRACTS.md)
+- **Corpus & Deduplication Policy:** [docs/CORPUS_AND_DEDUPLICATION.md](docs/CORPUS_AND_DEDUPLICATION.md)
+- **Licensing & Data Provenance:** [docs/LICENSING.md](docs/LICENSING.md)
+- **QA & Testing Strategy:** [docs/QA_STRATEGY.md](docs/QA_STRATEGY.md)
+- **Benchmarks & Scaling Methodology:** [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
+- **Project Roadmap & Milestones:** [docs/ROADMAP.md](docs/ROADMAP.md)
+- **Decisions & Open Questions:** [docs/DECISIONS_AND_OPEN_QUESTIONS.md](docs/DECISIONS_AND_OPEN_QUESTIONS.md)
+- **Architecture Decision Records (ADRs):** [docs/adr/README.md](docs/adr/README.md)
+  - [ADR-0001: Initial Architecture Decisions](docs/adr/0001-initial-architecture.md)
+  - [ADR-0002: Bounded-Memory Ingestion, CGB3 Sharding & Global Game Lookup](docs/adr/0002-bounded-ingestion-and-persistent-cgb3-archive.md)
+  - [ADR-0003: Production CPI Index, Bounded-Memory External Sorting & Explorer Queries](docs/adr/0003-production-cpi-index.md)
+- **Governance & Contributor Guides:**
+  - [Agent Development Guide](AGENTS.md)
+  - [Handoff Log](HANDOFF.md)
+  - [Contributing Guidelines](CONTRIBUTING.md)
+  - [Release Changelog](CHANGELOG.md)
+
+---
+
+## Historical Research Tracks
+
+Initial exploratory research deliverables preserved for historical reference and reproducibility:
+- [Storage Feasibility & Scaling Report](docs/research/feasibility-report.md)
+- [Compact Storage & Layout Options](docs/research/storage-options.md)
 - [Source Inventory & Classification Matrix](docs/research/source-inventory.md)
 - [Source Licensing & Legal Architecture](docs/research/source-licenses.md)
-- [Corpus Inclusion Policies](docs/research/corpus-policy.md)
-- [Deduplication & Conflict Resolution](docs/research/deduplication.md)
-- [Compact Storage & Layout Options](docs/research/storage-options.md)
-- [Storage Feasibility & Scaling Report](docs/research/feasibility-report.md)
-- [Benchmark Reproduction & Methodology Guide](docs/research/benchmark-reproduction.md)
-- [Future API Contract & Decoupling](docs/research/api-contract.md)
-- [ADR-0001: Initial Architecture Decisions](docs/adr/0001-initial-architecture.md)
-- [ADR-0002: Bounded-Memory Ingestion, CGB3 Sharding & Global Game Lookup](docs/adr/0002-bounded-ingestion-and-persistent-cgb3-archive.md)
-- [ADR-0003: Production CPI Index, Bounded-Memory External Sorting & Explorer Queries](docs/adr/0003-production-cpi-index.md)
+- [Corpus Inclusion Policies (Draft)](docs/research/corpus-policy.md)
+- [Deduplication & Conflict Resolution (Draft)](docs/research/deduplication.md)
+- [Benchmark Reproduction Guide (Draft)](docs/research/benchmark-reproduction.md)
+- [Future API Contract & Decoupling (Draft)](docs/research/api-contract.md)
 
 ---
 

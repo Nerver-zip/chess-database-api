@@ -12,7 +12,7 @@ import re
 import unittest
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PROJECTIONS_PATH = os.path.join(ROOT_DIR, "benchmarks", "results", "projections_heaps.json")
+PROJECTIONS_PATH = os.path.join(ROOT_DIR, "benchmarks", "results", "historical", "projections_heaps.json")
 FEASIBILITY_PATH = os.path.join(ROOT_DIR, "docs", "research", "feasibility-report.md")
 README_PATH = os.path.join(ROOT_DIR, "README.md")
 

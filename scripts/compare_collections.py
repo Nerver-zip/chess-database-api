@@ -5,12 +5,12 @@ print(f"{'Scale':>8} | {'Collection':>14} | {'D20 Pos':>12} | {'D30 Pos':>12} | 
 print("-" * 80)
 
 points = [
-    ("1k", "benchmarks/results/masters_1k.json", "benchmarks/results/pr02_scale_elite_1k.json"),
-    ("5k", "benchmarks/results/masters_5k.json", "benchmarks/results/pr02_scale_elite_5k.json"),
-    ("10k", "benchmarks/results/masters_10k.json", "benchmarks/results/pr02_scale_elite_10k.json"),
-    ("20k", "benchmarks/results/masters_20k.json", None),
-    ("50k", None, "benchmarks/results/pr02_scale_elite_50k.json"),
-    ("100k", None, "benchmarks/results/pr02_scale_elite_100k.json"),
+    ("1k", "benchmarks/results/historical/masters_1k.json", "benchmarks/results/historical/pr02_scale_elite_1k.json"),
+    ("5k", "benchmarks/results/historical/masters_5k.json", "benchmarks/results/historical/pr02_scale_elite_5k.json"),
+    ("10k", "benchmarks/results/historical/masters_10k.json", "benchmarks/results/historical/pr02_scale_elite_10k.json"),
+    ("20k", "benchmarks/results/historical/masters_20k.json", None),
+    ("50k", None, "benchmarks/results/historical/pr02_scale_elite_50k.json"),
+    ("100k", None, "benchmarks/results/historical/pr02_scale_elite_100k.json"),
 ]
 
 for n, otb_f, elite_f in points:

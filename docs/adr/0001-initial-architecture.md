@@ -1,3 +1,9 @@
+---
+summary: "Initial architectural decisions on 16-bit move packing, CGB format, and collection isolation."
+read_when: "Reviewing the foundational technical choices made during Stage A feasibility."
+status: superseded
+---
+
 # ADR-0001: Initial Architecture, Storage, and Indexing Foundations
 
 - **Status:** Under Validation / Proposed for PR-02

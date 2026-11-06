@@ -1,4 +1,13 @@
+---
+summary: "Original step-by-step reproduction instructions, checksums, and commands for PR-01 benchmarks."
+read_when: "Reviewing the historical reproduction procedure for PR-01 scaling and empirical datasets."
+status: reference
+---
+
 # Benchmark Reproduction & Research Methodology Guide
+
+> [!NOTE]
+> This research document is preserved for reference. Authoritative benchmark procedures and production CPI guidelines are maintained in [docs/BENCHMARKS.md](../BENCHMARKS.md).
 
 This document establishes the exact, step-by-step reproduction procedure for all empirical benchmarks, ingestion accounting figures, position-growth scaling measurements, and derived storage projections published in PR-01.
 

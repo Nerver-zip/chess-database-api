@@ -31,23 +31,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-
-      - name: Run unit & integration tests
-        run: cargo test --all --verbose
-
-      - name: Validate benchmark schemas and projections
-        run: python3 scripts/validate_benchmarks.py
-
-      - name: Run validation and reproduction regression tests
-        run: |
-          python3 scripts/test_validate_benchmarks.py
-          python3 scripts/test_reproduce_runner.py
-          python3 scripts/test_feasibility_alignment.py
+      - name: Run unified verification gate (scripts/validate.sh)
+        run: ./scripts/validate.sh
 
       - name: Verify lightweight CI reproduction runner
         run: ./scripts/reproduce_benchmarks.sh --ci

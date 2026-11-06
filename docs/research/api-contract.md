@@ -1,4 +1,13 @@
+---
+summary: "Original exploration of future HTTP Opening Explorer API contracts and client compatibility."
+read_when: "Reviewing the initial research draft for the planned Opening Explorer HTTP API."
+status: planned
+---
+
 # Research Track: Future API Contract & Evalis Compatibility
+
+> [!NOTE]
+> This research document is preserved for reference. Authoritative API data contracts are consolidated in [docs/DATA_CONTRACTS.md](../DATA_CONTRACTS.md#6-future-http-opening-explorer-api-contract).
 
 ## 1. Architectural Boundaries & Decoupling
 

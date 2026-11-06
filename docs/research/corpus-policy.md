@@ -1,4 +1,13 @@
+---
+summary: "Original research specification for collection isolation, rating filters, and speed thresholds."
+read_when: "Reviewing the initial research rationale for corpus policies and curation enforcers."
+status: reference
+---
+
 # Research Track B: Corpus Inclusion Policies & Curation Enforcers
+
+> [!NOTE]
+> This research document is preserved for reference. Authoritative production policies are maintained in [docs/CORPUS_AND_DEDUPLICATION.md](../CORPUS_AND_DEDUPLICATION.md).
 
 ## 1. Core Principles & Collection Isolation
 

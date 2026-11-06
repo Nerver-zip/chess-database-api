@@ -1,3 +1,9 @@
+---
+summary: "Decisions on bounded-memory streaming ingestion, persistent CGB3 sharding, and global lookup index."
+read_when: "Reviewing the transition to O(1) RAM streaming, disk-backed deduplication, and CGB3 container sharding."
+status: current
+---
+
 # ADR 0002: Scalable Bounded-Memory Ingestion, Persistent CGB3 Container Sharding, and Global Game Lookup
 
 ## Status
