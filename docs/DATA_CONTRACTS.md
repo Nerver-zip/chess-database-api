@@ -1,6 +1,6 @@
 ---
-summary: "Canonical data contracts for binary formats (CGB3, CPI), domain models, CLI JSON, and future API."
-read_when: "Implementing or integrating storage formats, position index structures, domain models, or API payloads."
+summary: "Canonical data contracts for binary formats (CGB3, CPI), domain models, CLI JSON, and Opening Explorer HTTP API."
+read_when: "Implementing or integrating storage formats, position index structures, domain models, or HTTP API endpoints."
 status: current
 ---
 
@@ -240,22 +240,33 @@ Stored in the root of every dataset snapshot (`versions/vX/manifest.json`):
 
 ---
 
-## 6. Future HTTP Opening Explorer API Contract
+## 6. Opening Explorer HTTP API Contract
 
-Promoted from initial research specifications for the future standalone service.
+The Opening Explorer HTTP API (`codb-api`) exposes read-only access to persistent CGB3 game shards and CPI v2 position indexes.
 
 ### 6.1 `GET /v1/explorer/position`
+Retrieves aggregated opening statistics and candidate legal follow-up moves for a target chess position.
 
 #### Query Parameters
 - `fen` (string, optional): Orthodox legal FEN string.
-- `moves` (string, optional): Comma- or space-separated SAN or UCI move sequence from starting position.
-- `collection` (enum, default: `masters-otb`): `masters-otb` or `elite-online`.
+- `moves` (string, optional): Comma- or whitespace-separated SAN or UCI move sequence from the standard initial chess position (e.g. `"e4,c5,Nf3"` or `"e2e4 c7c5 g1f3"`).
+- `collection` (string, optional, default: `"masters-otb"`): Target collection identifier (`"masters-otb"` or `"elite-online"`).
+- `since_year` / `min_rating` (unsupported): If provided, the request fails with HTTP 422 (`unsupported_parameter`) to prevent silent semantic misinterpretation.
 
-#### Response Payload (`application/json`)
+#### Validation Rules
+1. `fen` and `moves` are mutually exclusive. Providing both returns HTTP 422 (`invalid_parameters`).
+2. If neither `fen` nor `moves` is provided, the API evaluates the standard starting position.
+3. FEN inputs must be orthodox and legal (fails with HTTP 422 `invalid_fen`).
+4. Moves must be legal sequentially from the initial board state (fails with HTTP 422 `invalid_moves`).
+5. Move sequences exceeding `--max-move-plies` (default 200 plies) return HTTP 422 (`moves_too_long`).
+
+#### Response Payload (`application/json`, HTTP 200)
+When the position is present in the CPI index:
 ```json
 {
   "collection": "masters-otb",
   "position_key": "463b96181691fc9c0000000000000000",
+  "fen": "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
   "total_games": 24510,
   "white_wins": 9804,
   "draws": 10294,
@@ -265,33 +276,124 @@ Promoted from initial research specifications for the future standalone service.
   "black_win_pct": 18.0,
   "moves": [
     {
-      "uci": "f1b5",
-      "san": "Bb5",
+      "uci": "a7a6",
+      "san": "a6",
       "white_wins": 5420,
       "draws": 5610,
       "black_wins": 2170,
-      "total_games": 13200
+      "total_games": 13200,
+      "white_win_pct": 41.06,
+      "draw_pct": 42.5,
+      "black_win_pct": 16.44
     }
   ]
 }
 ```
 
-### 6.2 `GET /v1/explorer/game/{id}`
-Returns the full canonical game by 64-bit ID in sub-millisecond retrieval time:
+When the position is legal but does not exist in the indexed database:
+The API returns HTTP 200 with zeroed game counters and an empty candidate move array:
 ```json
 {
-  "id": 1048220,
   "collection": "masters-otb",
-  "white": "Carlsen, Magnus",
-  "black": "Caruana, Fabiano",
-  "white_elo": 2835,
-  "black_elo": 2832,
-  "date": "2018.11.09",
-  "event": "World Championship Match",
-  "site": "London ENG",
-  "round": "1",
-  "result": "1/2-1/2",
-  "eco": "B31",
-  "moves_san": ["e4", "c5", "Nf3", "Nc6", "Bb5", "g6"]
+  "position_key": "c0e6488a0e28f7310000000000000000",
+  "fen": "rnbqkbnr/pppppppp/8/8/8/7N/PPPPPPPP/RNBQKB1R b KQkq - 1 1",
+  "total_games": 0,
+  "white_wins": 0,
+  "draws": 0,
+  "black_wins": 0,
+  "white_win_pct": 0.0,
+  "draw_pct": 0.0,
+  "black_win_pct": 0.0,
+  "moves": []
 }
 ```
+
+### 6.2 `GET /v1/collections/{collection}/games/{id}`
+Retrieves the full reconstructed game in standard PGN format by collection and 64-bit stable game ID.
+
+#### Path Parameters
+- `collection` (string): `"masters-otb"` or `"elite-online"`.
+- `id` (integer): 64-bit unsigned integer stable game ID (`u64`).
+
+#### Response Headers & Body
+- **Content-Type:** `application/x-chess-pgn; charset=utf-8`
+- **Status:** HTTP 200 OK
+- **Body:** Canonical PGN text:
+```pgn
+[Event "FIDE World Championship 2018"]
+[Site "London ENG"]
+[Date "2018.11.09"]
+[Round "1"]
+[White "Caruana, Fabiano"]
+[Black "Carlsen, Magnus"]
+[Result "1/2-1/2"]
+[WhiteElo "2832"]
+[BlackElo "2835"]
+[ECO "B31"]
+
+1. e4 c5 2. Nf3 Nc6 3. Bb5 g6 4. Bxc6 dxc6 1/2-1/2
+```
+
+If the collection is valid but the game ID does not exist in the index, returns HTTP 404 (`game_not_found`).
+
+### 6.3 `GET /v1/collections`
+Returns summary status and metadata for all datasets loaded in the active server snapshot.
+
+#### Response Payload (`application/json`, HTTP 200)
+```json
+{
+  "collections": [
+    {
+      "collection": "masters-otb",
+      "version": "v1_build_20261106",
+      "snapshot_path": "/var/data/masters-otb/versions/v1",
+      "total_games": 100000,
+      "cpi_indexed": true,
+      "cpi_depth_plies": 40
+    }
+  ]
+}
+```
+
+### 6.4 Operational Probes & Admin Endpoints
+
+#### `GET /health`
+Liveness probe. Returns HTTP 200 `{"status": "ok"}` when the HTTP listener is operational.
+
+#### `GET /ready`
+Readiness probe. Returns HTTP 200 `{"status": "ready", "collections": [...]}` when at least one collection dataset is successfully loaded and ready for queries. If no datasets are loaded, returns HTTP 503 Service Unavailable.
+
+#### `POST /v1/admin/reload`
+Triggers an atomic zero-downtime reload of active dataset snapshots from disk (e.g. after a newly published dataset symlink swap). In-flight queries continue executing against existing snapshots without interruption.
+```json
+{
+  "status": "reloaded",
+  "reloaded_collections": ["masters-otb", "elite-online"],
+  "duration_ms": 0.84
+}
+```
+
+### 6.5 Error Response Envelope
+All error responses adhere to a consistent JSON error schema:
+```json
+{
+  "error": {
+    "code": "invalid_moves",
+    "message": "Illegal move 'e5' at ply 1 for current position"
+  }
+}
+```
+
+#### Standard Error Codes
+| Code | HTTP Status | Description |
+| :--- | :--- | :--- |
+| `invalid_collection` | 400 Bad Request | Collection parameter was not `masters-otb` or `elite-online`. |
+| `invalid_fen` | 422 Unprocessable Content | FEN string could not be parsed or violates chess rules. |
+| `invalid_moves` | 422 Unprocessable Content | Move sequence contains illegal moves or invalid notation. |
+| `invalid_parameters` | 422 Unprocessable Content | Mutually exclusive parameters (`fen` and `moves`) were both supplied. |
+| `moves_too_long` | 422 Unprocessable Content | Move sequence exceeds configured maximum plies. |
+| `unsupported_parameter` | 422 Unprocessable Content | Query requested `since_year` or `min_rating`. |
+| `game_not_found` | 404 Not Found | 64-bit game ID does not exist in the collection index. |
+| `collection_not_loaded`| 404 Not Found | Target collection was not mounted at server startup. |
+| `internal_error` | 500 Internal Server Error | Unexpected internal decompression or index failure. |
+| `service_unavailable` | 503 Service Unavailable | Readiness probe failed (no datasets mounted). |

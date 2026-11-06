@@ -8,6 +8,15 @@ pub enum Collection {
     EliteOnline,
 }
 
+impl Collection {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Collection::MastersOtb => "masters-otb",
+            Collection::EliteOnline => "elite-online",
+        }
+    }
+}
+
 impl std::fmt::Display for Collection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

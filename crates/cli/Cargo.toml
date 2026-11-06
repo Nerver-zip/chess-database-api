@@ -15,6 +15,7 @@ codb-ingest.workspace = true
 codb-curate.workspace = true
 codb-storage.workspace = true
 codb-index.workspace = true
+codb-api.workspace = true
 
 pgn-reader.workspace = true
 zstd.workspace = true
@@ -27,3 +28,4 @@ tracing-subscriber.workspace = true
 tempfile.workspace = true
 rayon.workspace = true
 shakmaty.workspace = true
+tokio = { version = "1.40", features = ["macros", "rt-multi-thread"] }

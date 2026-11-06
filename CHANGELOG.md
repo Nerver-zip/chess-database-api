@@ -4,6 +4,38 @@ All notable changes to `chess-openings-db` are documented in this file. The proj
 
 ---
 
+## [0.5.0] - 2026-11-06
+
+### Added
+- **Opening Explorer HTTP Service (`codb-api`):**
+  - Implemented production-ready, read-only HTTP service using Axum 0.8, Tokio, and Tower.
+  - Position query endpoint `GET /v1/explorer/position`:
+    - Orthodox legal FEN parsing or comma/whitespace-separated move sequences.
+    - Zero-copy, lock-free queries directly against memory-mapped CPI v2 indexes.
+    - Full candidate move statistics (UCI, SAN, white wins, draws, black wins, total games, and win percentages calculated from white's perspective).
+    - Returns HTTP 200 with zero counts and empty moves array for unencountered legal positions.
+  - Full game retrieval endpoint `GET /v1/collections/{collection}/games/{id}`:
+    - Collection-qualified lookups by 64-bit stable ID via `games.idx` memory-mapped binary search table.
+    - Offloaded Zstd CGB3 block decompression to Tokio blocking threadpool via bounded RAII `DatasetReaderPool`.
+    - Returns canonical PGN payload (`application/x-chess-pgn`).
+  - Collections metadata endpoint `GET /v1/collections` returning loaded collections, snapshot versions, total games, and CPI index status.
+  - Operational health probes: `GET /health` (liveness) and `GET /ready` (readiness).
+  - Administrative reload endpoint `POST /v1/admin/reload`: zero-downtime hot reloading of dataset snapshots in < 1 ms without dropping in-flight requests.
+  - Strict input validation rejecting mutually exclusive parameters (`fen` and `moves`), unsupported parameters (`since_year`, `min_rating` with HTTP 422), and move sequences exceeding ply limits.
+  - Standard JSON error envelope with machine-readable error codes (`invalid_collection`, `invalid_fen`, `invalid_moves`, `moves_too_long`, `unsupported_parameter`, `game_not_found`, etc.).
+  - Production middleware stack: CORS headers, request timeout (`15s`), and structured tracing.
+- **Unified CLI Integration (`codb serve`):**
+  - Added `serve` subcommand to `codb-cli` with flags for `--masters-dataset`, `--elite-dataset`, `--host`, `--port`, `--allowed-origins`, `--request-timeout-secs`, `--max-move-plies`, and `--reader-pool-size`.
+  - Graceful shutdown handling SIGINT and SIGTERM OS signals.
+- **Architecture Decision Record (ADR-0004):**
+  - Added [`docs/adr/0004-opening-explorer-http-api.md`](docs/adr/0004-opening-explorer-http-api.md) documenting framework selection, lock-free concurrency, snapshot pinning, and decompression threadpools.
+- **Performance Benchmarking Harness (`scripts/bench_http.py`):**
+  - Automated benchmark measuring startup time, RSS memory progression under concurrent load, single-client p50/p95/p99 latencies, concurrency scaling, and zero-downtime hot-reload under live traffic.
+  - Output report written to [`benchmarks/results/http_api_benchmark.json`](benchmarks/results/http_api_benchmark.json).
+  - Unit test suite [`scripts/test_bench_http.py`](scripts/test_bench_http.py) integrated into `scripts/validate.sh`.
+
+---
+
 ## [0.4.0] - 2026-11-06
 
 ### Added

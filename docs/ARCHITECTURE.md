@@ -19,7 +19,7 @@ The architecture is explicitly designed to operate under strict resource ceiling
 
 ## 2. Workspace Crate Boundaries
 
-The workspace comprises six decoupled crates within `crates/`:
+The workspace comprises seven decoupled crates within `crates/`:
 
 ```
 crates/
@@ -28,23 +28,30 @@ crates/
 ├── curate/     # [codb-curate] Policy filtering, header canonicalization, and deduplication
 ├── storage/    # [codb-storage] CGB3 container, sharding, atomic publishing, and locking
 ├── index/      # [codb-index] Position extraction, external merge sort, and CPI v2 indexer
+├── api/        # [codb-api] Production-ready read-only HTTP Opening Explorer service
 └── cli/        # [codb-cli] CLI binary (codb), command dispatch, and verification tools
 ```
 
 ```mermaid
 flowchart TD
     CLI["crates/cli (codb binary)"]
+    API["crates/api (Axum HTTP server)"]
     INGEST["crates/ingest (PGN streaming & legal validation)"]
     CURATE["crates/curate (policy & deduplication)"]
     STORAGE["crates/storage (CGB3 shards, games.idx, locks, publication)"]
     INDEX["crates/index (CPI v2, external sort, queries)"]
     CORE["crates/core (models, CompactMove, PositionKey)"]
 
+    CLI --> API
     CLI --> INGEST
     CLI --> CURATE
     CLI --> STORAGE
     CLI --> INDEX
     CLI --> CORE
+
+    API --> STORAGE
+    API --> INDEX
+    API --> CORE
 
     INGEST --> CORE
     CURATE --> CORE
@@ -92,10 +99,20 @@ flowchart TD
   - `external.rs`: Bounded-memory external merge sort pipeline (`ExternalPositionIndexer`), temporary run file emission (`.crun`), and deterministic hierarchical K-way merge.
   - Opening Explorer query execution: sub-millisecond memory-mapped sparse index lookup and block decompression for SAN, UCI, and legal FEN inputs.
 
-### 2.6 `codb-cli`
+### 2.6 `codb-api`
+- **Location:** [`crates/api/`](../crates/api/)
+- **Responsibilities:**
+  - Production-ready, asynchronous, read-only HTTP Opening Explorer service built on Axum 0.8 and Tokio.
+  - Implements `/v1/explorer/position`, `/v1/collections/{collection}/games/{id}`, `/v1/collections`, `/health`, `/ready`, and `/v1/admin/reload`.
+  - Zero-copy, lock-free concurrent query execution directly against memory-mapped CPI v2 indexes.
+  - Snapshot isolation pinning immutable version directories (`versions/vX/`) and atomic zero-downtime hot-reloading via `parking_lot::RwLock<Arc<DatasetSnapshot>>`.
+  - Pooled, bounded threadpool execution for Zstandard CGB3 game decompression without blocking asynchronous request loops.
+
+### 2.7 `codb-cli`
 - **Location:** [`crates/cli/`](../crates/cli/)
 - **Responsibilities:**
-  - CLI command parsing via `clap`: `build`, `build-index`, `query`, `verify`, `inspect`, `get-game`, `bench`.
+  - Unified CLI command parsing via `clap`: `build`, `build-index`, `query`, `verify`, `inspect`, `get-game`, `bench`, and `serve`.
+  - Service daemon lifecycle management for `codb serve`, handling host, port, timeout, move ply limits, and graceful OS shutdown signals.
   - Progress reporting and structured JSON diagnostic output.
   - Benchmark harnesses and verification gates.
 
@@ -198,7 +215,7 @@ graph LR
         direction TB
         DB_STORE["Persistent CGB3 Archive<br/>(15M games < 3 GB)"]
         DB_INDEX["Production CPI v2 Index<br/>(D40/D30 < 5 GB)"]
-        DB_API["Future Read-Only Service<br/>(HTTP / gRPC Explorer)"]
+        DB_API["Read-Only HTTP Service<br/>(Axum codb serve)"]
     end
 
     subgraph Client["Client Application"]
@@ -208,10 +225,11 @@ graph LR
         CLIENT_SYNC["Accounts & Sync Service<br/>(PostgreSQL)"]
     end
 
-    CLIENT_WEB -->|HTTP GET /api/v1/explorer| DB_API
+    CLIENT_WEB -->|HTTP GET /v1/explorer/position| DB_API
+    CLIENT_WEB -->|HTTP GET /v1/collections/.../games/...| DB_API
     DB_API --> DB_INDEX
     DB_API --> DB_STORE
 ```
 
 - **Domain Decoupling:** `chess-openings-db` has zero dependency on UI frameworks, Stockfish engine binaries, or account synchronization.
-- **Local-First Independence:** Client applications function 100% locally in guest mode without requiring a running `chess-openings-db` service. When configured, client applications query the opening explorer API to annotate games with opening tree statistics and win/draw/loss frequencies.
+- **Local-First Independence:** Client applications function 100% locally in guest mode without requiring a running `chess-openings-db` service. When configured, client applications query the Opening Explorer HTTP API to annotate games with opening tree statistics and win/draw/loss frequencies.
