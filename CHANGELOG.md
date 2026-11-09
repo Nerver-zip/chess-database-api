@@ -38,6 +38,13 @@ All notable changes to `chess-openings-db` are documented in this file. The proj
   - Output report written to [`benchmarks/results/http_api_benchmark.json`](benchmarks/results/http_api_benchmark.json).
   - Unit test suite [`scripts/test_bench_http.py`](scripts/test_bench_http.py) integrated into `scripts/validate.sh`.
 
+### Changed
+- **Server Hardening & Merge Readiness (PR #5 Final Hardening):**
+  - Administrative token validation: `ServerConfig::validate()` strictly rejects empty or whitespace-only `--admin-token` values at startup, preventing accidental authentication with empty bearer tokens.
+  - Internal HTTP error sanitization: HTTP 500 responses (`reload_failed`, `storage_error`, `internal_error`) log detailed diagnostics server-side without leaking secrets, but return sanitized messages to prevent exposing filesystem paths or storage internals.
+  - Representation-accurate position ETags: position ETags incorporate collection identity, dataset build ID, canonical 128-bit position key, and the complete FEN string, eliminating collisions between differing FEN move counters or collections while preserving conditional caching (`304 Not Modified`).
+  - Reader pool timeout CLI exposure: added `--reader-pool-timeout-secs` (`CODB_READER_POOL_TIMEOUT_SECS`, default 5s) to `codb serve`, validated to ensure timeout is greater than 0 seconds.
+
 ---
 
 ## [0.4.0] - 2026-11-06

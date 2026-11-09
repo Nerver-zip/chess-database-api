@@ -302,6 +302,10 @@ enum Commands {
         #[arg(long, default_value = "16")]
         reader_pool_size: usize,
 
+        /// Maximum seconds to wait for an available reader from the pool before returning 503
+        #[arg(long, default_value = "5", env = "CODB_READER_POOL_TIMEOUT_SECS")]
+        reader_pool_timeout_secs: u64,
+
         /// Optional secret token required for administrative operations (POST /v1/admin/reload)
         #[arg(long, env = "CODB_ADMIN_TOKEN")]
         admin_token: Option<String>,
@@ -768,6 +772,7 @@ fn main() -> Result<()> {
             request_timeout_secs,
             max_move_plies,
             reader_pool_size,
+            reader_pool_timeout_secs,
             admin_token,
         } => {
             let origins = allowed_origins
@@ -785,7 +790,7 @@ fn main() -> Result<()> {
                 request_timeout_secs,
                 max_move_plies,
                 reader_pool_size,
-                reader_pool_timeout_secs: 5,
+                reader_pool_timeout_secs,
                 admin_token,
             };
 
@@ -3327,5 +3332,46 @@ mod tests {
         let illegal_fen = "8/8/8/8/8/8/8/8 w - - 0 1"; // No kings
         let err_fen = run_query(Some(&dataset_dir), None, Some(illegal_fen), None, true);
         assert!(err_fen.is_err(), "Illegal FEN must fail closed");
+    }
+
+    #[test]
+    fn test_serve_cli_options_parsing() {
+        use clap::Parser;
+
+        // Default reader_pool_timeout_secs is 5
+        let cli_default =
+            Cli::try_parse_from(["codb", "serve", "--masters-dataset", "data/builds/masters"])
+                .unwrap();
+        match cli_default.command {
+            Commands::Serve {
+                reader_pool_timeout_secs,
+                reader_pool_size,
+                ..
+            } => {
+                assert_eq!(reader_pool_timeout_secs, 5);
+                assert_eq!(reader_pool_size, 16);
+            }
+            _ => panic!("Expected Commands::Serve"),
+        }
+
+        // Custom reader_pool_timeout_secs
+        let cli_custom = Cli::try_parse_from([
+            "codb",
+            "serve",
+            "--masters-dataset",
+            "data/builds/masters",
+            "--reader-pool-timeout-secs",
+            "12",
+        ])
+        .unwrap();
+        match cli_custom.command {
+            Commands::Serve {
+                reader_pool_timeout_secs,
+                ..
+            } => {
+                assert_eq!(reader_pool_timeout_secs, 12);
+            }
+            _ => panic!("Expected Commands::Serve"),
+        }
     }
 }

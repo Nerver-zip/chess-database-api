@@ -6,7 +6,7 @@ use codb_api::config::ServerConfig;
 use codb_api::models::{CollectionsResponse, HealthResponse, PositionResponse, ReadyResponse};
 use codb_api::routes::create_router;
 use codb_api::state::AppState;
-use codb_api::ErrorEnvelope;
+use codb_api::{ApiError, ErrorEnvelope};
 use codb_core::{Collection, CompactMove, GameMetadata, GameResult, IngestionStats, ParsedGame};
 use codb_storage::{
     build_dataset_position_index, DatasetIndexConfig, DatasetWriter, DatasetWriterConfig,
@@ -1262,4 +1262,312 @@ async fn test_concurrent_queries_during_version_replacement() {
     let resp = app.oneshot(req).await.unwrap();
     let pos: PositionResponse = response_json(resp).await;
     assert_eq!(pos.total_games, 10);
+}
+
+#[tokio::test]
+async fn test_admin_token_validation_and_empty_token_rejection() {
+    let tmp = tempdir().unwrap();
+    let masters_dir = tmp.path().join("masters");
+    setup_test_dataset(&masters_dir, Collection::MastersOtb, 2);
+
+    // 1. Missing token (None) -> validate() succeeds; reload disabled (403 admin_disabled)
+    let config_none = ServerConfig {
+        masters_dataset: Some(masters_dir.clone()),
+        elite_dataset: None,
+        admin_token: None,
+        ..Default::default()
+    };
+    assert!(config_none.validate().is_ok());
+    let state_none = AppState::new(config_none).unwrap();
+    let app_none = create_router(state_none);
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/admin/reload")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app_none.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    let err: ErrorEnvelope = response_json(resp).await;
+    assert_eq!(err.error.code, "admin_disabled");
+
+    // 2. Empty string token ("") -> validate() FAILS at startup
+    let config_empty = ServerConfig {
+        masters_dataset: Some(masters_dir.clone()),
+        elite_dataset: None,
+        admin_token: Some("".to_string()),
+        ..Default::default()
+    };
+    let err = config_empty.validate().unwrap_err();
+    assert!(err.contains("cannot be empty or whitespace-only"));
+    assert!(AppState::new(config_empty).is_err());
+
+    // 3. Whitespace-only token ("   \t\n  ") -> validate() FAILS at startup
+    let config_ws = ServerConfig {
+        masters_dataset: Some(masters_dir.clone()),
+        elite_dataset: None,
+        admin_token: Some("   \t\n  ".to_string()),
+        ..Default::default()
+    };
+    let err = config_ws.validate().unwrap_err();
+    assert!(err.contains("cannot be empty or whitespace-only"));
+    assert!(AppState::new(config_ws).is_err());
+
+    // 4. Valid token ("valid-secret") -> validate() succeeds, server starts
+    let config_valid = ServerConfig {
+        masters_dataset: Some(masters_dir.clone()),
+        elite_dataset: None,
+        admin_token: Some("valid-secret".to_string()),
+        ..Default::default()
+    };
+    assert!(config_valid.validate().is_ok());
+    let state_valid = AppState::new(config_valid).unwrap();
+    let app_valid = create_router(state_valid);
+
+    // 4a. Empty bearer token -> 401 Unauthorized
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/admin/reload")
+        .header(header::AUTHORIZATION, "Bearer ")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app_valid.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    let err: ErrorEnvelope = response_json(resp).await;
+    assert_eq!(err.error.code, "unauthorized");
+
+    // 4b. Invalid token -> 401 Unauthorized
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/admin/reload")
+        .header(header::AUTHORIZATION, "Bearer wrong-secret")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app_valid.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+
+    // 4c. Valid token -> 200 OK
+    let req = Request::builder()
+        .method(Method::POST)
+        .uri("/v1/admin/reload")
+        .header(header::AUTHORIZATION, "Bearer valid-secret")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app_valid.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_internal_error_sanitization() {
+    use axum::response::IntoResponse;
+
+    // 1. Storage error with simulated filesystem path and engine internals
+    let storage_err = ApiError::Storage(
+        "/var/run/codb/storage/shard_0001.cgb3: checksum mismatch at block offset 0xdeadbeef"
+            .to_string(),
+    );
+    assert_eq!(storage_err.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(storage_err.error_code(), "storage_error");
+    let resp = storage_err.into_response();
+    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    let body: ErrorEnvelope = response_json(resp).await;
+    assert_eq!(body.error.code, "storage_error");
+    assert_eq!(body.error.message, "A storage engine error occurred.");
+    assert!(!body.error.message.contains("/var"));
+    assert!(!body.error.message.contains("shard_0001"));
+    assert!(!body.error.message.contains("0xdeadbeef"));
+
+    // 2. Internal error with internal details
+    let internal_err = ApiError::Internal(
+        "worker thread panicked at /usr/src/repo/crates/api/src/state.rs:42: pool exhausted"
+            .to_string(),
+    );
+    assert_eq!(
+        internal_err.status_code(),
+        StatusCode::INTERNAL_SERVER_ERROR
+    );
+    assert_eq!(internal_err.error_code(), "internal_error");
+    let resp = internal_err.into_response();
+    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    let body: ErrorEnvelope = response_json(resp).await;
+    assert_eq!(body.error.code, "internal_error");
+    assert_eq!(body.error.message, "An internal server error occurred.");
+    assert!(!body.error.message.contains("/usr"));
+    assert!(!body.error.message.contains("state.rs"));
+    assert!(!body.error.message.contains("panicked"));
+
+    // 3. ReloadFailed error with candidate path details
+    let reload_err = ApiError::ReloadFailed(
+        "corrupt candidate snapshot at /opt/data/builds/v2/positions.cpi: magic header invalid"
+            .to_string(),
+    );
+    assert_eq!(reload_err.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(reload_err.error_code(), "reload_failed");
+    let resp = reload_err.into_response();
+    assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    let body: ErrorEnvelope = response_json(resp).await;
+    assert_eq!(body.error.code, "reload_failed");
+    assert_eq!(
+        body.error.message,
+        "Administrative reload failed: replacement snapshot integrity check was rejected."
+    );
+    assert!(!body.error.message.contains("/opt"));
+    assert!(!body.error.message.contains("positions.cpi"));
+}
+
+#[tokio::test]
+async fn test_position_etag_semantics_and_fen_variation() {
+    let tmp = tempdir().unwrap();
+    let masters_dir = tmp.path().join("masters");
+    let elite_dir = tmp.path().join("elite");
+    setup_test_dataset(&masters_dir, Collection::MastersOtb, 5);
+    setup_test_dataset(&elite_dir, Collection::EliteOnline, 5);
+
+    let config = ServerConfig {
+        masters_dataset: Some(masters_dir),
+        elite_dataset: Some(elite_dir),
+        ..Default::default()
+    };
+    let state = AppState::new(config).unwrap();
+    let app = create_router(state);
+
+    // 1. Initial position via standard starting FEN
+    let req_start_fen = Request::builder()
+        .uri("/v1/explorer/position?collection=masters-otb&fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201")
+        .body(Body::empty())
+        .unwrap();
+    let resp_start_fen = app.clone().oneshot(req_start_fen).await.unwrap();
+    assert_eq!(resp_start_fen.status(), StatusCode::OK);
+    let etag_start = resp_start_fen
+        .headers()
+        .get(header::ETAG)
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    // 2. Initial position reached via move repetition (Nf3 Nf6 Ng1 Ng8)
+    // Board placement and Zobrist key are identical, but FEN halfmove clock is 4 and fullmove is 3
+    let req_repetition = Request::builder()
+        .uri("/v1/explorer/position?collection=masters-otb&moves=Nf3,Nf6,Ng1,Ng8")
+        .body(Body::empty())
+        .unwrap();
+    let resp_repetition = app.clone().oneshot(req_repetition).await.unwrap();
+    assert_eq!(resp_repetition.status(), StatusCode::OK);
+    let etag_repetition = resp_repetition
+        .headers()
+        .get(header::ETAG)
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    // ETags MUST be distinct because response bodies differ in "fen" representation!
+    assert_ne!(
+        etag_start, etag_repetition,
+        "ETags must differ when FEN clocks differ despite identical position key"
+    );
+
+    // 3. Conditional caching for starting position:
+    // With matching ETag -> 304 Not Modified
+    let req_cond_match = Request::builder()
+        .uri("/v1/explorer/position?collection=masters-otb&fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201")
+        .header(header::IF_NONE_MATCH, &etag_start)
+        .body(Body::empty())
+        .unwrap();
+    let resp_cond_match = app.clone().oneshot(req_cond_match).await.unwrap();
+    assert_eq!(resp_cond_match.status(), StatusCode::NOT_MODIFIED);
+
+    // With repetition ETag -> 200 OK (different representation)
+    let req_cond_mismatch = Request::builder()
+        .uri("/v1/explorer/position?collection=masters-otb&fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201")
+        .header(header::IF_NONE_MATCH, &etag_repetition)
+        .body(Body::empty())
+        .unwrap();
+    let resp_cond_mismatch = app.clone().oneshot(req_cond_mismatch).await.unwrap();
+    assert_eq!(resp_cond_mismatch.status(), StatusCode::OK);
+
+    // 4. Transpositions that yield the EXACT same FEN representation share the same ETag
+    // Example: 1. Nf3 Nf6 2. Nc3 Nc6 vs 1. Nc3 Nc6 2. Nf3 Nf6
+    // Both sequences contain 4 knight moves, yielding identical halfmove clock (4) and fullmove counter (3).
+    let req_trans_1 = Request::builder()
+        .uri("/v1/explorer/position?collection=masters-otb&moves=Nf3,Nf6,Nc3,Nc6")
+        .body(Body::empty())
+        .unwrap();
+    let resp_trans_1 = app.clone().oneshot(req_trans_1).await.unwrap();
+    assert_eq!(resp_trans_1.status(), StatusCode::OK);
+    let etag_trans_1 = resp_trans_1
+        .headers()
+        .get(header::ETAG)
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    let req_trans_2 = Request::builder()
+        .uri("/v1/explorer/position?collection=masters-otb&moves=Nc3,Nc6,Nf3,Nf6")
+        .body(Body::empty())
+        .unwrap();
+    let resp_trans_2 = app.clone().oneshot(req_trans_2).await.unwrap();
+    assert_eq!(resp_trans_2.status(), StatusCode::OK);
+    let etag_trans_2 = resp_trans_2
+        .headers()
+        .get(header::ETAG)
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    assert_eq!(
+        etag_trans_1, etag_trans_2,
+        "Equivalent transpositions with identical FEN must share the exact same ETag"
+    );
+
+    // Conditional caching succeeds across identical transposition
+    let req_trans_cached = Request::builder()
+        .uri("/v1/explorer/position?collection=masters-otb&moves=Nc3,Nc6,Nf3,Nf6")
+        .header(header::IF_NONE_MATCH, &etag_trans_1)
+        .body(Body::empty())
+        .unwrap();
+    let resp_trans_cached = app.clone().oneshot(req_trans_cached).await.unwrap();
+    assert_eq!(resp_trans_cached.status(), StatusCode::NOT_MODIFIED);
+
+    // 5. Cross-collection isolation: querying elite-online with start FEN
+    let req_elite = Request::builder()
+        .uri("/v1/explorer/position?collection=elite-online&fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201")
+        .body(Body::empty())
+        .unwrap();
+    let resp_elite = app.clone().oneshot(req_elite).await.unwrap();
+    assert_eq!(resp_elite.status(), StatusCode::OK);
+    let etag_elite = resp_elite
+        .headers()
+        .get(header::ETAG)
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    assert_ne!(
+        etag_start, etag_elite,
+        "ETags across different collections must never collide"
+    );
+    assert!(etag_start.contains("masters-otb"));
+    assert!(etag_elite.contains("elite-online"));
+}
+
+#[test]
+fn test_reader_pool_timeout_validation() {
+    let config_zero = ServerConfig {
+        masters_dataset: Some(std::path::PathBuf::from("/tmp/masters")),
+        reader_pool_timeout_secs: 0,
+        ..Default::default()
+    };
+    let err = config_zero.validate().unwrap_err();
+    assert!(err.contains("Reader pool timeout must be greater than 0 seconds"));
+
+    let config_ok = ServerConfig {
+        masters_dataset: Some(std::path::PathBuf::from("/tmp/masters")),
+        reader_pool_timeout_secs: 10,
+        ..Default::default()
+    };
+    assert!(config_ok.validate().is_ok());
 }

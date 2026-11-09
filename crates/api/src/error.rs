@@ -53,7 +53,7 @@ pub enum ApiError {
     #[error("Reader pool timeout: server is busy and cannot allocate a reader handle.")]
     PoolTimeout(String),
 
-    #[error("Administrative reload failed: replacement snapshot integrity check was rejected.")]
+    #[error("Administrative reload failed: {0}")]
     ReloadFailed(String),
 
     #[error("Storage engine error: {0}")]
@@ -130,10 +130,32 @@ impl ApiError {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status = self.status_code();
+        let message = if status.is_server_error() {
+            // Log full diagnostic on server side without leaking secrets
+            tracing::error!(
+                target: "codb_api::error",
+                code = %self.error_code(),
+                diagnostic = %self,
+                "Internal server error"
+            );
+            // Return sanitized, non-leaking message to the client
+            match &self {
+                Self::ReloadFailed(_) => {
+                    "Administrative reload failed: replacement snapshot integrity check was rejected."
+                }
+                Self::Storage(_) => "A storage engine error occurred.",
+                Self::Internal(_) => "An internal server error occurred.",
+                _ => "An internal server error occurred.",
+            }
+            .to_string()
+        } else {
+            self.to_string()
+        };
+
         let payload = ErrorEnvelope {
             error: ErrorDetails {
                 code: self.error_code().to_string(),
-                message: self.to_string(),
+                message,
             },
         };
         (status, Json(payload)).into_response()

@@ -84,7 +84,7 @@ codb query --dataset <dir> --moves "e4,e5,Nf3" --json
 codb query --dataset <dir> --fen "<fen_string>" --json
 
 # Start Opening Explorer HTTP API daemon
-codb serve --masters-dataset <dir> --elite-dataset <dir> --host 127.0.0.1 --port 8080 [--reader-pool-size 4] [--admin-token <token>]
+codb serve --masters-dataset <dir> --elite-dataset <dir> --host 127.0.0.1 --port 8080 [--reader-pool-size 4] [--reader-pool-timeout-secs 5] [--admin-token <token>]
 
 # Verify dataset integrity (block checksums, games.idx, manifest accounting, and CPI index)
 codb verify --dataset <dir> [--deep]
@@ -101,12 +101,35 @@ codb bench --input <file.pgn> --collection <masters-otb|elite-online> --output-d
 
 ---
 
-## 4. Verification State
+## 4. Final Hardening Follow-up (Merge Readiness)
+
+The following narrowly scoped hardening improvements were implemented and verified on PR #5:
+1. **Empty Administrative Token Rejection (P2):**
+   - `ServerConfig::validate()` strictly rejects empty or whitespace-only `--admin-token` values at startup, ensuring misconfiguration fails immediately rather than allowing authentication with an empty bearer token.
+   - Added defensive checks in `routes/admin.rs` (`!token.is_empty() && token == expected_token`).
+   - Covered by comprehensive regression tests for missing, empty, whitespace-only, invalid, and valid tokens.
+2. **Internal HTTP Error Sanitization (P2):**
+   - HTTP 500 responses (`reload_failed`, `storage_error`, `internal_error`) log complete diagnostic details to structured server-side logs via `tracing::error!` without exposing secrets.
+   - Response JSON payloads return sanitized generic messages that never expose filesystem paths, storage internals, or low-level diagnostic traces.
+   - Stable machine-readable error codes are strictly preserved.
+   - Regression tests verify that simulated internal errors with paths and corrupt snapshot errors never leak paths into JSON responses.
+3. **Representation-Accurate Position ETags (P3):**
+   - `compute_position_etag` incorporates collection identity, dataset build ID, canonical 128-bit position key, and the complete FEN string (including move clock counters) using SHA-256 digest suffixing.
+   - Eliminates ETag collisions between differing collections and between equivalent board positions reached via move repetitions that alter FEN halfmove/fullmove clocks.
+   - Preserves RFC 7232 conditional caching (`304 Not Modified`) for identical representations across identical transpositions.
+4. **Exposed Reader-Pool Timeout Option (P3):**
+   - Added `--reader-pool-timeout-secs` to `codb serve` CLI options with environment variable `CODB_READER_POOL_TIMEOUT_SECS` (default: 5 seconds).
+   - Validated in `ServerConfig::validate()` that `reader_pool_timeout_secs > 0`.
+   - Updated CLI documentation, `--help`, and added CLI option parsing unit tests.
+
+---
+
+## 5. Verification State
 
 All local quality gates pass with zero warnings and zero errors:
 - `cargo fmt --all -- --check`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace`: PASS (all unit, integration, publication crash simulations, and 18 API contract, security, and concurrency tests pass).
+- `cargo test --workspace`: PASS (all unit, integration, publication crash simulations, and 22 API contract, security, and concurrency tests pass).
 - Python test suites (`scripts/test_*.py`): PASS (21/21 in feasibility/validation, 4/4 in reproduce runner, 5/5 in bench_http).
 - Production CPI validator (`scripts/validate_production_cpi_benchmarks.py`): PASS (all 16 artifacts valid).
 - Historical validator (`scripts/validate_benchmarks.py`): PASS (all 18 artifacts and Heaps' projections valid).
@@ -115,10 +138,10 @@ All local quality gates pass with zero warnings and zero errors:
 
 ---
 
-## 5. Upstream Pull Request & Next Actions
+## 6. Upstream Pull Request & Next Actions
 
-1. **Pull Request Status:** Draft Pull Request [#5](https://github.com/Nerver-zip/chess-openings-db/pull/5) submitted and verified.
+1. **Pull Request Status:** Draft Pull Request [#5](https://github.com/Nerver-zip/chess-openings-db/pull/5) updated and hardened.
    - Branch: `feat/opening-explorer-http-api` -> `main`.
-   - CI Status: 100% Green on GitHub Actions (Run ID `42270110920`, all 8 validation gates and reproduction runner passed).
+   - Final status recommendation: **READY FOR MERGE**.
 2. **Review & Promotion:** Transition PR #5 from Draft to Ready for Review upon stakeholder approval.
 3. **Future Incremental Initiatives:** Evaluate future roadmap enhancements (incremental delta shards, precomputed ECO classification trees, and edge cache optimization).

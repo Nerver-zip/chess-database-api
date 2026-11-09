@@ -163,6 +163,7 @@ Start the high-performance, asynchronous, read-only HTTP query service exposing 
     --host 127.0.0.1 \
     --port 8080 \
     --reader-pool-size 4 \
+    --reader-pool-timeout-secs 5 \
     --admin-token "your-admin-secret"
 
 # Query opening statistics by SAN move sequence:

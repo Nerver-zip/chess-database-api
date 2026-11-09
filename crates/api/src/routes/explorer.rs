@@ -1,7 +1,8 @@
 //! Position query endpoint (`GET /v1/explorer/position`).
 
 use crate::chess_util::{
-    compute_key, derive_san, format_fen, if_none_match_matches, parse_and_apply_moves, parse_fen,
+    compute_key, compute_position_etag, derive_san, format_fen, if_none_match_matches,
+    parse_and_apply_moves, parse_fen,
 };
 use crate::error::ApiError;
 use crate::models::{CandidateMoveResponse, PositionQuery, PositionResponse};
@@ -117,10 +118,11 @@ pub async fn query_position(
         None => (0, 0, 0, 0, Vec::new()),
     };
 
-    let etag = format!(
-        "\"{}-{}\"",
-        snapshot.manifest.dataset_build_id,
-        key.to_hex()
+    let etag = compute_position_etag(
+        collection.as_str(),
+        &snapshot.manifest.dataset_build_id,
+        &key.to_hex(),
+        &fen_str,
     );
 
     // Check conditional request (If-None-Match)

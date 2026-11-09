@@ -21,6 +21,7 @@ pub async fn reload_snapshots(
         .config
         .admin_token
         .as_deref()
+        .filter(|t| !t.trim().is_empty())
         .ok_or(ApiError::AdminDisabled)?;
 
     // 2. Reject cross-origin browser triggers for administrative operations
@@ -41,9 +42,12 @@ pub async fn reload_snapshots(
     let is_authorized = match (auth_header, x_admin_header) {
         (Some(auth), _) if auth.starts_with("Bearer ") => {
             let token = auth.trim_start_matches("Bearer ").trim();
-            token == expected_token
+            !token.is_empty() && token == expected_token
         }
-        (_, Some(token)) => token.trim() == expected_token,
+        (_, Some(token)) => {
+            let token = token.trim();
+            !token.is_empty() && token == expected_token
+        }
         _ => false,
     };
 

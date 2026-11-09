@@ -40,7 +40,12 @@ pub async fn get_game_by_id(
         ));
     }
 
-    let etag = format!("\"{}-{}\"", snapshot.manifest.dataset_build_id, game_id);
+    let etag = format!(
+        "\"{}-{}-{}\"",
+        collection.as_str(),
+        snapshot.manifest.dataset_build_id,
+        game_id
+    );
 
     // 5. Evaluate conditional request (If-None-Match) against existing resource
     if let Some(if_none_match) = headers

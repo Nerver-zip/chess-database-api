@@ -63,6 +63,17 @@ impl ServerConfig {
         if self.reader_pool_size == 0 {
             return Err("Reader pool size must be greater than 0".to_string());
         }
+        if self.reader_pool_timeout_secs == 0 {
+            return Err("Reader pool timeout must be greater than 0 seconds".to_string());
+        }
+        if let Some(token) = &self.admin_token {
+            if token.trim().is_empty() {
+                return Err(
+                    "Administrative token (--admin-token / CODB_ADMIN_TOKEN) cannot be empty or whitespace-only"
+                        .to_string(),
+                );
+            }
+        }
         Ok(())
     }
 }

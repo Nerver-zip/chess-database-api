@@ -417,15 +417,17 @@ All error responses adhere to a consistent JSON error schema:
 | `storage_error` | 500 Internal Server Error | Storage engine I/O or decoding failure. |
 | `internal_error` | 500 Internal Server Error | Unexpected internal server or worker thread failure. |
 
+*Note on Error Sanitization:* All HTTP 500 responses (`reload_failed`, `storage_error`, `internal_error`) return sanitized generic messages to external clients, ensuring filesystem paths and engine internals are never leaked. Full diagnostic details are preserved in structured server-side logs.
+
 ---
 
 ## 6.6 HTTP Caching & Conditional Requests
 
 The API implements RFC 7232 HTTP conditional validation:
 - **Existence Verification Prior to Evaluation:** Conforming strictly to RFC 7232 Section 3.2, resource existence is verified before conditional headers are evaluated. If a game ID does not exist in `games.idx`, the server immediately returns `HTTP 404 Not Found` rather than evaluating `If-None-Match` or returning `HTTP 304 Not Modified`.
-- **`ETag` Generation:** Derived deterministically from dataset version build ID and request target:
-  - Position queries: `"{dataset_build_id}-{position_key_hex}"`
-  - Game queries: `"{dataset_build_id}-{game_id}"`
+- **`ETag` Generation:** Derived deterministically from dataset version build ID, collection, and request representation:
+  - Position queries: `"{collection}-{dataset_build_id}-{position_key_hex}-{fen_hash}"` (incorporates the full FEN string to differentiate positions with varying halfmove/fullmove clocks)
+  - Game queries: `"{collection}-{dataset_build_id}-{game_id}"`
 - **Conditional Requests (`If-None-Match`):** Evaluates strong ETags, weak ETags (`W/"..."`), wildcards (`*`), and comma-separated lists. If any tag matches the current resource ETag, returns `HTTP 304 Not Modified` with an empty body.
 - **Cache-Control Headers:**
   - Position and Collections endpoints: `Cache-Control: public, max-age=60`

@@ -29,7 +29,7 @@ To serve external consumer applications (including desktop review tools, web cli
 We introduce a dedicated workspace crate, `codb-api` (`crates/api`), and expose a `codb serve` command in `crates/cli`:
 - **Framework**: Built on [`axum`](https://crates.io/crates/axum) (v0.8) and [`tokio`](https://crates.io/crates/tokio) (v1.40). Axum offers first-class ergonomics, type-safe extractors, zero-cost routing via `matchit`, and seamless middleware integration via `tower-http`.
 - **Middleware Pipeline**: Configured with `tower_http::cors::CorsLayer` for configurable browser access, `tower_http::timeout::TimeoutLayer` for bounding query runtimes, and `tower_http::trace::TraceLayer` for structured observability.
-- **CLI Command (`codb serve`)**: Accepts `--masters-dataset`, `--elite-dataset`, `--host`, `--port`, `--allowed-origins`, and pool configuration options, with environment variable fallbacks (`CODB_*`). Fails immediately at startup if neither collection is provided or if specified paths are invalid.
+- **CLI Command (`codb serve`)**: Accepts `--masters-dataset`, `--elite-dataset`, `--host`, `--port`, `--allowed-origins`, `--reader-pool-size`, `--reader-pool-timeout-secs`, and `--admin-token`, with environment variable fallbacks (`CODB_*`). Fails immediately at startup if neither collection is provided, if specified paths are invalid, if `reader_pool_timeout_secs == 0`, or if `admin_token` is empty or whitespace-only.
 
 ### 2. State Management & Snapshot Pinning
 The application state (`AppState`) manages dataset handles:
@@ -44,7 +44,7 @@ The application state (`AppState`) manages dataset handles:
   - The reload operation opens, verifies, and prepares candidate snapshots in isolated local variables offloaded to `spawn_blocking`.
   - Runs deep validation (`verify_dataset` block checksums + `DiskPositionIndex::verify_integrity`). If verification or opening fails, the reload fails closed (`500 reload_failed`) and leaves the active serving state untouched and fully operational.
   - If successful, the `RwLock` write pointer is updated in nanoseconds. In-flight requests finish cleanly against the prior version, while new requests immediately observe the new version.
-  - Administrative security: `POST /v1/admin/reload` requires authorization via `Bearer <token>` or `X-Admin-Token` matching `--admin-token` / `CODB_ADMIN_TOKEN`. If not configured, the endpoint returns `403 Forbidden`. Cross-origin triggers (`Origin` header present) are rejected with `401 Unauthorized`.
+  - Administrative security: `POST /v1/admin/reload` requires authorization via `Bearer <token>` or `X-Admin-Token` matching `--admin-token` / `CODB_ADMIN_TOKEN`. Startup configuration rejects empty or whitespace-only tokens (`ServerConfig::validate`). If not configured, the endpoint returns `403 Forbidden`. Cross-origin triggers (`Origin` header present) are rejected with `401 Unauthorized`.
   - Local operators can also trigger reload via standard Unix `SIGHUP` signal (`kill -HUP <pid>`).
 
 ### 3. Concurrency Model: Lock-Free CPI Queries & Semaphore-Bounded Reader Pool
@@ -65,6 +65,8 @@ The application state (`AppState`) manages dataset handles:
 - Non-existent positions in a valid index return `200 OK` with `total_games: 0` and empty candidate moves, matching standard chess database conventions.
 - Conforming strictly to RFC 7232, game existence in `games.idx` is verified prior to evaluating `If-None-Match`. Non-existent games return `404 Not Found` rather than evaluating conditional caching or returning `304 Not Modified`.
 - Default CORS configuration is restrictive (empty `allowed_origins`), permitting only same-origin requests unless explicit origins are provided.
+- **Internal Error Sanitization**: HTTP 500 responses (`reload_failed`, `storage_error`, `internal_error`) log detailed diagnostics to server-side logs without leaking secrets, but return sanitized client-facing messages that never expose filesystem paths, storage internals, or diagnostic details.
+- **Representation-Accurate Position ETags**: Position ETags identify the exact response representation per RFC 7232 by hashing collection identity, dataset build ID, canonical 128-bit position key, and the complete FEN string (including move clock counters). Equivalent board positions reached via move repetitions that alter FEN counters produce distinct ETags, while identical representations preserve conditional caching (`304 Not Modified`).
 
 ---
 

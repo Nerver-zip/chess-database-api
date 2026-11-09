@@ -3,6 +3,7 @@
 use crate::error::ApiError;
 use codb_core::PositionKey;
 use codb_index::position::compute_position_key;
+use sha2::{Digest, Sha256};
 use shakmaty::fen::Fen;
 use shakmaty::san::{San, SanPlus};
 use shakmaty::uci::UciMove;
@@ -82,6 +83,35 @@ pub fn derive_san(board: &Chess, uci_str: &str) -> String {
         }
     }
     uci_str.to_string()
+}
+
+/// Computes an RFC 7232 compliant strong ETag for a position response representation.
+///
+/// Incorporates collection identity, dataset build ID, canonical 128-bit position key,
+/// and the complete FEN string (including move clock counters) to guarantee that
+/// distinct response representations never share an ETag.
+pub fn compute_position_etag(
+    collection: &str,
+    dataset_build_id: &str,
+    key_hex: &str,
+    fen: &str,
+) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(collection.as_bytes());
+    hasher.update(b":");
+    hasher.update(dataset_build_id.as_bytes());
+    hasher.update(b":");
+    hasher.update(key_hex.as_bytes());
+    hasher.update(b":");
+    hasher.update(fen.as_bytes());
+    let fen_digest = format!("{:x}", hasher.finalize());
+    format!(
+        "\"{}-{}-{}-{}\"",
+        collection,
+        dataset_build_id,
+        key_hex,
+        &fen_digest[..16]
+    )
 }
 
 /// Matches an `If-None-Match` header value against a target ETag per RFC 7232.
