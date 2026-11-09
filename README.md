@@ -1,7 +1,7 @@
 # Chess Openings DB (`codb`)
 
-> **Status: Production Position Index (CPI), Bounded-Memory External Sorting & Opening Explorer Queries Milestone (PR-03)**  
-> This repository contains the scalable persistent game storage pipeline, bounded-memory external sorting position indexer (CPI v2), atomic dataset publication engine, and functional Opening Explorer query CLI for an independent chess game database.
+> **Status: Opening Explorer HTTP API Service Milestone (PR-04)**  
+> This repository contains the scalable persistent game storage pipeline, bounded-memory external sorting position indexer (CPI v2), atomic dataset publication engine, functional Opening Explorer query CLI, and production-ready read-only HTTP API service (`codb serve`) for an independent chess game database.
 
 A high-performance, compact, and reproducible chess game database and position-centric indexing engine written in Rust. The system curates, deduplicates, compresses, and indexes high-quality chess games to power a position-based Opening Explorer through a lightweight, reusable API.
 
@@ -71,7 +71,8 @@ chess-openings-db/
 │   ├── curate/     # Policy filters, header canonicalization, prefix deduplication
 │   ├── storage/    # CGB3 container, sharding, games.idx binary search, advisory flock
 │   ├── index/      # CPI v2 index, bounded external sorting, Opening Explorer queries
-│   └── cli/        # CLI tool (codb) for builds, indexing, queries, and verification
+│   ├── api/        # Production-ready read-only HTTP Opening Explorer service (Axum & Tokio)
+│   └── cli/        # CLI tool (codb) for builds, indexing, queries, serving, and verification
 ├── docs/
 │   ├── README.md   # Canonical documentation index
 │   ├── ARCHITECTURE.md # End-to-end architecture, sharding, and memory bounds
@@ -152,6 +153,43 @@ Random access lookup in sub-millisecond page-cache time:
 ./target/release/codb get-game --dataset data/builds/masters-otb-20k --id 1234567890
 ```
 
+### 7. Run Opening Explorer HTTP Server (`codb serve`)
+Start the high-performance, asynchronous, read-only HTTP query service exposing `/v1/explorer/position`, `/v1/collections/{collection}/games/{id}`, `/v1/collections`, `/health`, and `/ready`:
+```bash
+# Start server mounting datasets with bounded reader pool and admin reload token:
+./target/release/codb serve \
+    --masters-dataset data/builds/masters-otb-100k \
+    --elite-dataset data/builds/elite-online-100k \
+    --host 127.0.0.1 \
+    --port 8080 \
+    --reader-pool-size 4 \
+    --reader-pool-timeout-secs 5 \
+    --admin-token "your-admin-secret"
+
+# Query opening statistics by SAN move sequence:
+curl -s "http://127.0.0.1:8080/v1/explorer/position?moves=e4,e5,Nf3&collection=masters-otb" | jq .
+
+# Query by orthodox legal FEN:
+curl -s "http://127.0.0.1:8080/v1/explorer/position?fen=rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR%20b%20KQkq%20-%200%201" | jq .
+
+# Retrieve canonical game in PGN format:
+curl -s "http://127.0.0.1:8080/v1/collections/masters-otb/games/1048220"
+
+# Inspect loaded collections and dataset versions:
+curl -s "http://127.0.0.1:8080/v1/collections" | jq .
+
+# Liveness and readiness health checks:
+curl -s "http://127.0.0.1:8080/health"
+curl -s "http://127.0.0.1:8080/ready"
+
+# Trigger zero-downtime hot-reload after publishing a new dataset version:
+curl -s -X POST "http://127.0.0.1:8080/v1/admin/reload" \
+    -H "Authorization: Bearer your-admin-secret" | jq .
+
+# Or trigger zero-downtime reload locally via standard Unix SIGHUP:
+kill -HUP <pid>
+```
+
 ---
 
 ## Reproducing the Benchmarks
@@ -199,6 +237,7 @@ Machine-readable JSON reports are written to `benchmarks/results/` (with complet
   - [ADR-0001: Initial Architecture Decisions](docs/adr/0001-initial-architecture.md)
   - [ADR-0002: Bounded-Memory Ingestion, CGB3 Sharding & Global Game Lookup](docs/adr/0002-bounded-ingestion-and-persistent-cgb3-archive.md)
   - [ADR-0003: Production CPI Index, Bounded-Memory External Sorting & Explorer Queries](docs/adr/0003-production-cpi-index.md)
+  - [ADR-0004: Opening Explorer Read-Only HTTP API Service](docs/adr/0004-opening-explorer-http-api.md)
 - **Governance & Contributor Guides:**
   - [Agent Development Guide](AGENTS.md)
   - [Handoff Log](HANDOFF.md)

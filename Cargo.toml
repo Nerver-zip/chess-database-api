@@ -6,6 +6,7 @@ members = [
     "crates/curate",
     "crates/storage",
     "crates/index",
+    "crates/api",
     "crates/cli",
 ]
 
@@ -23,13 +24,14 @@ codb-ingest = { path = "crates/ingest" }
 codb-curate = { path = "crates/curate" }
 codb-storage = { path = "crates/storage" }
 codb-index = { path = "crates/index" }
+codb-api = { path = "crates/api" }
 
 shakmaty = "0.30.2"
 pgn-reader = "0.29.1"
 zstd = "0.14"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.5", features = ["derive", "env"] }
 rusqlite = { version = "0.33", features = ["bundled"] }
 memmap2 = "0.9"
 byteorder = "1.5"

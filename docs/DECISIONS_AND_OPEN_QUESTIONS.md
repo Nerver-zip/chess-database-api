@@ -30,6 +30,11 @@ The following architectural decisions have been evaluated, implemented, and acce
 - **Decision:** Slicing Masters OTB to Depth 40 and Elite Online to Depth 30 plies.
 - **Rationale:** Masters OTB theory extends deeply into classical lines, whereas online play diversifies widely in early plies. Depth 30 for Elite Online preserves high-frequency opening statistics while constraining conservative deployed storage to 9.98 GB, strictly satisfying the 10 GB envelope constraint.
 
+### 1.6 Production Read-Only HTTP API Architecture (ADR-0004)
+- **Decision:** Build the Opening Explorer serving layer as a dedicated crate (`codb-api`) using Axum 0.8, Tokio, and Tower, integrated into the CLI via `codb serve`.
+- **Rationale:** Axum provides modular, zero-cost routing with first-class state sharing via `Arc`. CPI v2 position queries run 100% lock-free across concurrent worker threads directly against memory-mapped data (`DiskPositionIndex`), achieving sub-millisecond p50 latencies (~220–250 µs). CGB3 game decompression is offloaded to a bounded reader pool (`DatasetReaderPool`) on `tokio::task::spawn_blocking`.
+- **Zero-Downtime Reloading:** Pinned snapshots (`DatasetSnapshot`) are swapped atomically via `parking_lot::RwLock<Arc<DatasetSnapshot>>` upon `POST /v1/admin/reload`, allowing seamless updates under live traffic with zero dropped requests.
+
 ---
 
 ## 2. Historical Research Classification
@@ -42,34 +47,27 @@ are officially designated as **Historical Research Documents**. They record earl
 
 ---
 
-## 3. Open Architectural Questions for the Future API Service
+## 3. Open Architectural Questions for Future Milestones
 
-As the project prepares for the future HTTP/gRPC Opening Explorer API, several architectural decisions remain open for consideration:
+With the core HTTP serving layer delivered in PR-04, the following questions remain open for future distribution and enhancement milestones:
 
-### Q-01: In-Memory Block Cache vs. Exclusive Relying on OS Page Cache
-- **Context:** Currently, `codb query` memory-maps the sparse index ($34\text{ B/entry}$) and reads/decompresses individual Zstd position blocks on demand.
+### Q-01: Application-Level In-Memory Block Cache vs OS Page Cache
+- **Context:** `positions.cpi` lookups memory-map the sparse index and read/decompress individual Zstd blocks on demand. Single-query p50 latency is ~250 µs under Linux page caching.
 - **Options:**
-  1. *OS Page Cache Only:* Rely entirely on `mmap` and the Linux kernel buffer cache.
-  2. *Application-Level LRU Decompressed Block Cache:* Maintain a small in-memory LRU cache of recently decompressed `PositionBlock` structures (e.g. 64–256 MiB) to avoid repeated Zstd decompressions for root opening positions (e.g., `1. e4`, `1. d4`).
-- **Status:** Open. Preliminary benchmark latency ($p_{50} \approx 600\text{ }\mu\text{s}$) suggests OS page caching is sufficient for low-to-medium loads, but a high-throughput public API may benefit from a small root block cache.
+  1. *OS Page Cache Only:* Rely entirely on `mmap` and the Linux kernel buffer cache. Eliminates custom cache invalidation and memory management.
+  2. *Application-Level LRU Block Cache:* Maintain a small in-memory LRU cache of recently decompressed `PositionBlock` structures (e.g. 64–256 MiB) to avoid repeated Zstd decompressions for high-frequency root moves.
+- **Status:** Open. Current empirical benchmarks demonstrate >3,000 req/s throughput and sub-millisecond latencies using OS page caching alone within an 8.5 MB RSS envelope. A block cache may be evaluated if serving high-concurrency public traffic.
 
-### Q-02: Dataset Version Hot-Reloading Mechanism
-- **Context:** When a background indexing or update job publishes a new dataset version (updating the `current` symlink), active API server threads must transition to the new version smoothly.
+### Q-02: Automatic Inotify Symlink Watcher vs Administrative Reload
+- **Context:** ADR-0004 implemented administrative reload (`POST /v1/admin/reload`) which re-reads the active `current` symlinks in 0.84 ms without dropping in-flight requests.
 - **Options:**
-  1. *Filesystem Inotify Watcher:* Listen for symlink changes on `current` and atomically reload `positions.cpi` and `games.idx` references.
-  2. *Per-Request Generation Pointer:* Use an `ArcSwap` reference cell holding open file handles, replacing the pointer upon receiving a SIGHUP signal or scheduled check.
-- **Status:** Open. Option 2 provides clean lock-free reads and ensures active in-flight requests finish cleanly against their pinned snapshot.
+  1. *Explicit Admin Trigger:* Continue using `POST /v1/admin/reload` triggered by automated deployment scripts after dataset publication.
+  2. *Filesystem Inotify Watcher:* Background daemon thread watching directory updates and triggering reload automatically.
+- **Status:** Open. Explicit reload provides deterministic deployment synchronization, whereas inotify eliminates the need for orchestration webhooks.
 
-### Q-03: HTTP Daemon Framework Selection
-- **Context:** The API layer should be lightweight, fast, and secure.
+### Q-03: Precomputed Opening Classification (ECO) Engine
+- **Context:** Opening Explorer consumers often desire canonical ECO codes and opening names (e.g., "Sicilian Defense: Najdorf Variation") alongside move candidate statistics.
 - **Options:**
-  1. `axum`: Modern, modular, built on `tokio` and `tower`, excellent ergonomic routing and state sharing.
-  2. `actix-web`: High raw throughput, mature ecosystem, slightly heavier dependencies.
-- **Status:** Recommendation: `axum` due to its alignment with modern Rust asynchronous idioms and minimal footprint.
-
-### Q-04: Transposition Graph Traversal vs Single-Position Queries
-- **Context:** The current CPI v2 index maps individual canonical positions to candidate next moves and outcome frequencies.
-- **Options:**
-  1. *Single-Ply Lookups:* Client queries position $P$; server returns candidate moves from $P$. Client navigates move-by-move.
-  2. *Sub-Tree Prefetching:* Client queries position $P$ with depth parameter $D \le 3$; server returns a mini-tree of candidate branches.
-- **Status:** Open. Single-ply lookups match the standard Lichess Opening Explorer behavior and minimize network payload size.
+  1. *Client-Side Lookup:* Clients maintain an ECO dictionary mapping position keys to opening names.
+  2. *CPI Sidecar Index:* A lightweight ancillary binary table mapping `PositionKey` to interned ECO string IDs embedded into the dataset directory.
+- **Status:** Open for future exploration.

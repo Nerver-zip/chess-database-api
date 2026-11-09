@@ -20,16 +20,17 @@ Documentation is a maintained product artifact, not a byproduct of development. 
 
 ---
 
-## 2. Workspace Overview (The 6 Crates)
+## 2. Workspace Overview (The 7 Crates)
 
-The workspace is organized into six dedicated crates:
+The workspace is organized into seven dedicated crates:
 
 - **[`codb-core`](crates/core):** Foundational domain models (`Collection`, `CompactMove`, `PositionKey`, `GameResult`, `GameMetadata`, `IngestionStats`). Contains bit-packing logic, stable 64-bit ID computation, and core invariant definitions.
 - **[`codb-ingest`](crates/ingest):** High-throughput streaming PGN parser supporting transparent `.zst` decompression and full legal move validation via `shakmaty`. Computes time control duration ($T_{\text{est}} = \text{base} + 40 \times \text{inc}$) to exclude bullet games.
 - **[`codb-curate`](crates/curate):** Policy filters (`MastersOtbPolicy`, `EliteOnlinePolicy`) and multi-key deduplication (`Deduplicator`). Implements normalized metadata keys, move-slice prefix supersession, and disk-backed SQLite staging catalog.
 - **[`codb-storage`](crates/storage):** CGB3 block container (`CODB-v3`), multi-shard management (`shard_XXXX.cgb3`), 16-byte fixed-record `games.idx` memory-mapped binary search index, process-level advisory file locking (`.dataset.lock`), and atomic symlink publication.
 - **[`codb-index`](crates/index):** Position extraction (`extract_game_positions_detailed`), bounded-memory external merge sort pipeline (`ExternalPositionIndexer`), `.crun` temporary run emission, hierarchical K-way merge, CPI v2 container (`positions.cpi`), and Opening Explorer query execution.
-- **[`codb-cli`](crates/cli):** The unified command-line tool (`codb`) providing commands for `build`, `build-index`, `query`, `verify`, `inspect`, `get-game`, and `bench`.
+- **[`codb-api`](crates/api):** Production-ready, asynchronous, read-only HTTP Opening Explorer service built on Axum 0.8 and Tokio. Serves position statistics, canonical PGN game retrieval, zero-downtime hot-reloading, and health probes.
+- **[`codb-cli`](crates/cli):** The unified command-line tool (`codb`) providing commands for `build`, `build-index`, `query`, `verify`, `inspect`, `get-game`, `bench`, and `serve`.
 
 ---
 

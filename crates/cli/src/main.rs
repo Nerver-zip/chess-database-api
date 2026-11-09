@@ -267,6 +267,49 @@ enum Commands {
         #[arg(long)]
         max_games: Option<usize>,
     },
+
+    /// Start the read-only Opening Explorer HTTP API service
+    Serve {
+        /// Filesystem path to the Masters OTB dataset directory
+        #[arg(long, env = "CODB_MASTERS_DATASET")]
+        masters_dataset: Option<PathBuf>,
+
+        /// Filesystem path to the Elite Online dataset directory
+        #[arg(long, env = "CODB_ELITE_DATASET")]
+        elite_dataset: Option<PathBuf>,
+
+        /// Host interface to bind HTTP listener
+        #[arg(long, default_value = "127.0.0.1", env = "CODB_HOST")]
+        host: String,
+
+        /// Port to listen on
+        #[arg(short, long, default_value = "8080", env = "CODB_PORT")]
+        port: u16,
+
+        /// Allowed CORS origins, comma-separated (e.g. "http://localhost:3000,http://localhost:5173" or "*"). Default is empty (restrictive, same-origin only).
+        #[arg(long, default_value = "", env = "CODB_ALLOWED_ORIGINS")]
+        allowed_origins: String,
+
+        /// Global request timeout in seconds
+        #[arg(long, default_value = "15")]
+        request_timeout_secs: u64,
+
+        /// Maximum plies allowed in a move sequence query
+        #[arg(long, default_value = "200")]
+        max_move_plies: usize,
+
+        /// Capacity of reader pool per dataset snapshot
+        #[arg(long, default_value = "16")]
+        reader_pool_size: usize,
+
+        /// Maximum seconds to wait for an available reader from the pool before returning 503
+        #[arg(long, default_value = "5", env = "CODB_READER_POOL_TIMEOUT_SECS")]
+        reader_pool_timeout_secs: u64,
+
+        /// Optional secret token required for administrative operations (POST /v1/admin/reload)
+        #[arg(long, env = "CODB_ADMIN_TOKEN")]
+        admin_token: Option<String>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -718,6 +761,45 @@ fn main() -> Result<()> {
             max_games,
         } => {
             run_export(&dataset, output.as_deref(), max_games)?;
+        }
+
+        Commands::Serve {
+            masters_dataset,
+            elite_dataset,
+            host,
+            port,
+            allowed_origins,
+            request_timeout_secs,
+            max_move_plies,
+            reader_pool_size,
+            reader_pool_timeout_secs,
+            admin_token,
+        } => {
+            let origins = allowed_origins
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+
+            let config = codb_api::ServerConfig {
+                masters_dataset,
+                elite_dataset,
+                host,
+                port,
+                allowed_origins: origins,
+                request_timeout_secs,
+                max_move_plies,
+                reader_pool_size,
+                reader_pool_timeout_secs,
+                admin_token,
+            };
+
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .context("Failed to build Tokio runtime")?;
+
+            rt.block_on(codb_api::run_server(config))?;
         }
     }
 
@@ -3250,5 +3332,46 @@ mod tests {
         let illegal_fen = "8/8/8/8/8/8/8/8 w - - 0 1"; // No kings
         let err_fen = run_query(Some(&dataset_dir), None, Some(illegal_fen), None, true);
         assert!(err_fen.is_err(), "Illegal FEN must fail closed");
+    }
+
+    #[test]
+    fn test_serve_cli_options_parsing() {
+        use clap::Parser;
+
+        // Default reader_pool_timeout_secs is 5
+        let cli_default =
+            Cli::try_parse_from(["codb", "serve", "--masters-dataset", "data/builds/masters"])
+                .unwrap();
+        match cli_default.command {
+            Commands::Serve {
+                reader_pool_timeout_secs,
+                reader_pool_size,
+                ..
+            } => {
+                assert_eq!(reader_pool_timeout_secs, 5);
+                assert_eq!(reader_pool_size, 16);
+            }
+            _ => panic!("Expected Commands::Serve"),
+        }
+
+        // Custom reader_pool_timeout_secs
+        let cli_custom = Cli::try_parse_from([
+            "codb",
+            "serve",
+            "--masters-dataset",
+            "data/builds/masters",
+            "--reader-pool-timeout-secs",
+            "12",
+        ])
+        .unwrap();
+        match cli_custom.command {
+            Commands::Serve {
+                reader_pool_timeout_secs,
+                ..
+            } => {
+                assert_eq!(reader_pool_timeout_secs, 12);
+            }
+            _ => panic!("Expected Commands::Serve"),
+        }
     }
 }

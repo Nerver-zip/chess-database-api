@@ -1,0 +1,32 @@
+[package]
+name = "codb-api"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+codb-core = { workspace = true }
+codb-storage = { workspace = true }
+codb-index = { workspace = true }
+
+shakmaty = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+
+axum = "0.8"
+tokio = { version = "1.40", features = ["macros", "rt-multi-thread", "signal", "sync", "fs"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "timeout"] }
+parking_lot = "0.12"
+
+[dev-dependencies]
+tempfile = { workspace = true }
+reqwest = { version = "0.12", features = ["json"] }
+http-body-util = "0.1"

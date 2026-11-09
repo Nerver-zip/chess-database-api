@@ -12,7 +12,7 @@ Welcome to the canonical technical documentation for `chess-openings-db`. Always
 
 ## 1. System Architecture & Core Concepts
 
-- [System Architecture](ARCHITECTURE.md) — Comprehensive end-to-end architecture across all six crates (`core`, `ingest`, `curate`, `storage`, `index`, `cli`), data flow, sharding layout, advisory locking, and memory bounds.
+- [System Architecture](ARCHITECTURE.md) — Comprehensive end-to-end architecture across all seven crates (`core`, `ingest`, `curate`, `storage`, `index`, `api`, `cli`), data flow, sharding layout, advisory locking, and memory bounds.
 - [Data Contracts](DATA_CONTRACTS.md) — Normative binary format specifications for CGB3 containers (`shard_XXXX.cgb3`), global binary search index (`games.idx`), Compact Position Index (`positions.cpi`), domain models, and the future HTTP API payload schema.
 - [Corpus & Deduplication Policy](CORPUS_AND_DEDUPLICATION.md) — Rules governing collection segregation (`masters-otb` vs `elite-online`), rating isolation, speed category filtering, multi-key deduplication, prefix-supersession, and accounting reconciliation invariants.
 
@@ -41,6 +41,7 @@ Welcome to the canonical technical documentation for `chess-openings-db`. Always
   - [ADR-0001: Initial Architecture Decisions](adr/0001-initial-architecture.md)
   - [ADR-0002: Bounded-Memory Ingestion, CGB3 Sharding & Global Lookup](adr/0002-bounded-ingestion-and-persistent-cgb3-archive.md)
   - [ADR-0003: Production CPI Index, External Sorting & Explorer Queries](adr/0003-production-cpi-index.md)
+  - [ADR-0004: Production Opening Explorer HTTP API](adr/0004-opening-explorer-http-api.md)
 
 ---
 

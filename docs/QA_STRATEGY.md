@@ -31,11 +31,14 @@ chess-openings-db/
 │   │   ├── persistent_storage_tests.rs # Shard roundtrip, binary search, corruption safety
 │   │   └── integrity_tests.rs        # Deep verification, signed boundaries, query plans
 │   ├── index/src/                    # Unit tests for CPI v2 blocks, external sort, queries
+│   ├── api/tests/
+│   │   └── api_tests.rs              # HTTP contract, security, bounded pool concurrency, caching (18 tests)
 │   └── cli/src/main.rs               # End-to-end CLI workflows (build, index, query, verify)
 └── scripts/
     ├── test_feasibility_alignment.py # Regression test for storage projections & roadmap
     ├── test_reproduce_runner.py      # Regression test for reproduction runner modes
     ├── test_validate_benchmarks.py   # Benchmark schema and mathematical monotonicity tests
+    ├── test_bench_http.py            # HTTP benchmark harness percentiles and continuous memory sampler tests
     └── validate_production_cpi_benchmarks.py # Production CPI schema & memory budget validator
 ```
 
@@ -62,12 +65,21 @@ Features 40 exhaustive integration tests validating transactional publication:
 
 ---
 
-## 4. End-to-End CLI Integration Tests (`crates/cli/src/main.rs`)
+## 4. End-to-End CLI & HTTP Service Testing
 
+### 4.1 CLI Workflows (`crates/cli/src/main.rs`)
 The CLI crate includes end-to-end test scenarios exercising real user workflows:
 - `test_cli_build_inspect_get_game_verify_e2e`: Builds a persistent dataset from PGN fixtures, inspects metadata, retrieves games by stable ID, and runs `--deep` integrity verification.
 - `test_cli_build_index_query_and_inspect_verify_e2e`: Builds a dataset, constructs a CPI v2 position index via bounded external sort, executes Opening Explorer queries across SAN, UCI, and FEN formats, and verifies position statistics.
 - `test_benchmark_artifacts_and_projections_consistency`: Automatically verifies that all machine-readable benchmark JSON files in `benchmarks/results/historical/` strictly adhere to the authoritative schema.
+
+### 4.2 HTTP Service Integration Suite (`crates/api/tests/api_tests.rs`)
+The HTTP layer includes 18 deterministic integration tests verifying end-to-end server behavior:
+- **Administrative Reload Security (`test_admin_reload_security`):** Asserts 403 Forbidden when unconfigured, 401 Unauthorized on missing/invalid tokens, 401 on cross-origin triggers (`Origin` header), and 200 OK with valid tokens.
+- **Bounded Reader Pool Capacity (`test_bounded_reader_pool_capacity`):** Verifies that concurrent reader acquisitions strictly respect pool capacity (`peak_active_readers <= capacity`) under high request concurrency and release permits cleanly.
+- **RFC 7232 Existence Check (`test_conditional_caching_missing_resource_returns_404`):** Verifies that non-existent games return 404 Not Found before evaluating `If-None-Match`, while existing games return 304 with wildcards, strong, or weak ETags.
+- **Fail-Closed Version Replacement (`test_actual_version_replacement_a_to_b`, `test_corrupted_replacement_rejected`):** Proves atomic symlink transitions from v1 to v2, and asserts that candidate snapshots with corrupted CPI or checksum errors fail closed with 500 without degrading active serving.
+- **Concurrent In-Flight Stability (`test_concurrent_queries_during_version_replacement`):** Verifies zero dropped queries during live symlink reload under background load.
 
 ---
 
@@ -88,7 +100,8 @@ cargo test --workspace
 # 4. Python regression and benchmark test suites
 python3 -m unittest scripts/test_feasibility_alignment.py \
                     scripts/test_reproduce_runner.py \
-                    scripts/test_validate_benchmarks.py
+                    scripts/test_validate_benchmarks.py \
+                    scripts/test_bench_http.py
 
 # 5. Production CPI benchmark schema and budget validator
 python3 scripts/validate_production_cpi_benchmarks.py
