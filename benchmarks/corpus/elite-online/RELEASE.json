@@ -18,8 +18,8 @@
       "size_bytes": 6866464
     },
     "manifest.json": {
-      "sha256": "66043692321f3763d0564eac49a8f495f5a575e7fae3bee75e2ac212ec8cace4",
-      "size_bytes": 4463
+      "sha256": "00ec4e315cfa7f7a7fddc6d1d4daa965dee3334c3fe0340e5050d4707c87b1a2",
+      "size_bytes": 4521
     },
     "positions.cpi": {
       "sha256": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
@@ -49,14 +49,14 @@
   },
   "build_metrics_summary": {
     "peak_rss_bytes_by_step": {
-      "build": 29851648,
-      "build-index": 151195648,
-      "report": 29560832,
-      "verify": 137183232
+      "build": 29732864,
+      "build-index": 150679552,
+      "report": 29732864,
+      "verify": 137228288
     },
-    "total_wall_seconds": 679.114
+    "total_wall_seconds": 677.635
   },
-  "built_at": "2026-11-13T23:01:12Z",
+  "built_at": "2026-11-13T23:39:19Z",
   "collection": "elite-online",
   "commands": {
     "build": "./scripts/corpus.sh build --collection elite-online --profile baseline",
@@ -67,15 +67,15 @@
   "curation_policy": {
     "deduplication_policy_version": "v2-verified-prefix",
     "metadata": {
-      "extra_criteria": "Exclude Bullet and UltraBullet (<180s) and casual games",
+      "extra_criteria": "Exclude Bullet and UltraBullet (<180s), casual games, and explicit aborted or rules-infraction Termination values",
       "min_plies": 6,
       "min_rating_both": 2200,
       "min_rating_one": 2400,
       "min_rating_other": 2000
     },
-    "version": "elite-online/2026.11-r1 (both>=2200 or 2400+2000, no bullet/ultrabullet, no casual, standard variant, min 6 plies)"
+    "version": "elite-online/2026.11-r2 (both>=2200 or 2400+2000, no bullet/ultrabullet, no casual, standard variant, min 6 plies, excludes explicit aborted or rules-infraction terminations)"
   },
-  "dataset_version": "codb-elite-online-1794610850844039764-517940-edce81ac7fe9ae24-cpi-d30",
+  "dataset_version": "codb-elite-online-1794613138720313973-519742-00d6e325118fc58c-cpi-d30",
   "index": {
     "cpi_file_size_bytes": 132054643,
     "cpi_sha256": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
@@ -166,12 +166,12 @@
   },
   "release_schema_version": 1,
   "source_catalog": {
-    "catalog_content_sha256": "081b1a592af25bb249cc0a48c32b4f1c2b66bbd3af8dda99afc979b859949cb7",
-    "catalog_id": "codb-corpus-catalog-2026.11-r1"
+    "catalog_content_sha256": "29fa763bea2dba409c90f8589aae3de5b75d10a1748985b87265bd225f179a45",
+    "catalog_id": "codb-corpus-catalog-2026.11-r2"
   },
   "tool": {
     "codb_version": "codb 0.1.0",
-    "git_commit": "5b976710e8e5dea3a31c8201c71795e9fea5ea21",
+    "git_commit": "7f4fa09f17522beb1f6e02d208ff1f85668c9f88",
     "git_tree_dirty": false
   }
 }

@@ -1,31 +1,31 @@
 {
   "collection": "elite-online",
-  "dataset_build_id": "codb-elite-online-1794610850844039764-517940-edce81ac7fe9ae24-cpi-d30",
+  "dataset_build_id": "codb-elite-online-1794613138720313973-519742-00d6e325118fc58c-cpi-d30",
   "games_sampled": 5000,
   "hit_first_pass": {
     "count": 49686,
     "hits": 49686,
-    "max_us": 48.635,
-    "p50_us": 5.649,
-    "p95_us": 11.379000000000001,
-    "p99_us": 13.944
+    "max_us": 65.23,
+    "p50_us": 5.681,
+    "p95_us": 11.386000000000001,
+    "p99_us": 14.099
   },
   "hit_warm_pass": {
     "count": 49686,
     "hits": 49686,
-    "max_us": 495.82200000000006,
-    "p50_us": 5.5520000000000005,
-    "p95_us": 11.286,
-    "p99_us": 12.512
+    "max_us": 105.989,
+    "p50_us": 5.602,
+    "p95_us": 11.346,
+    "p99_us": 12.61
   },
   "index_depth_plies": 30,
   "miss_warm_pass": {
     "count": 7098,
     "hits": 0,
-    "max_us": 29.557,
-    "p50_us": 4.57,
-    "p95_us": 5.258,
-    "p99_us": 7.890000000000001
+    "max_us": 23.11,
+    "p50_us": 4.561,
+    "p95_us": 5.234,
+    "p99_us": 7.744999999999999
   },
   "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
   "unique_positions": 6136307

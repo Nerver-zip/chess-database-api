@@ -20,7 +20,7 @@ All notable changes to `chess-openings-db` are documented in this file. The proj
 - Policy rejections are reported by stable category (`PolicyRejectionReason::category`).
 
 ### Fixed
-- Deduplication SQLite cache lowered from 2 MiB to 256 KiB, temp storage moved to disk, and staging-catalog cache lowered from 4 MiB to 512 KiB; current `codb build` peaks are 29.34 MB (Masters) and 29.85 MB (Elite), under the 30,000,000-byte budget on the measured host.
+- Deduplication SQLite cache lowered from 2 MiB to 256 KiB, temp storage moved to disk, and staging-catalog cache lowered from 4 MiB to 512 KiB; current `codb build` peaks are 29.51 MB (Masters) and 29.73 MB (Elite), under the 30,000,000-byte budget on the measured host.
 - `docs/DATA_CONTRACTS.md` documented HTTP 422 for unsupported query parameters; the implementation (and the error table) return HTTP 400 `unsupported_parameter`.
 
 ---

@@ -61,8 +61,8 @@ prints network transfer remaining, input storage, expected accepted games, expec
 | `games.idx` | 0.7 MB | 6.9 MB |
 | `positions.cpi` | 21.2 MB (497.9 B/game) | 132.1 MB (307.7 B/game) |
 | Final deployed size (current version, incl. manifest) | 30.6 MB (718.9 B/game) | 210.3 MB (490.1 B/game) |
-| Peak temporary workspace (dataset + spill + dedupe DB, any step) | 64.6 MB | 431.7 MB |
-| Total build, index, verify, and report wall time | 28.3 s | 679.1 s |
+| Peak temporary workspace (dataset + spill + dedupe DB, any step) | 64.4 MB | 432.6 MB |
+| Total build, index, verify, and report wall time | 34.0 s | 677.6 s |
 
 
 ## 4. Inspect the Pinned Source Catalog
@@ -233,7 +233,7 @@ All values were measured on the delivery machine (4 cores, 15 GiB RAM, Linux, Ru
 | Unknown-result games (excluded from W/D/L) | 310 | 0 |
 | Distinct players (exact-name estimate) | 8,119 | 17,573 |
 | Distinct events (exact-name estimate) | 26,503 | 4,004 |
-| Deployed release directory bytes (`du -sb`) | 30,634,686 | 210,311,892 |
+| Deployed release directory bytes (`du -sb`) | 30,634,943 | 210,312,125 |
 
 Accounting reconciles exactly (`is_reconciled` and `retained_matches_accepted` are true):
 
@@ -250,18 +250,18 @@ Policy rejections by reason: `masters-otb`: `aborted_or_infraction` 3,052, `belo
 
 | Collection | Step | Wall time | Peak RSS | Peak workspace disk |
 | :--- | :--- | ---: | ---: | ---: |
-| Masters | build | 25.185 s | 29.34 MB | 18.68 MB |
-| Masters | build-index | 2.644 s | 63.06 MB | 64.57 MB |
-| Masters | verify | 0.325 s | 29.34 MB | 34.87 MB |
-| Masters | report | 0.106 s | 29.34 MB | 34.87 MB |
-| Elite | build | 657.558 s | 29.85 MB | 163.91 MB |
-| Elite | build-index | 18.258 s | 151.20 MB | 431.69 MB |
-| Elite | verify | 2.151 s | 137.18 MB | 215.60 MB |
-| Elite | report | 0.886 s | 29.56 MB | 215.61 MB |
+| Masters | build | 30.912 s | 29.51 MB | 18.71 MB |
+| Masters | build-index | 2.670 s | 62.13 MB | 64.42 MB |
+| Masters | verify | 0.309 s | 29.51 MB | 34.87 MB |
+| Masters | report | 0.105 s | 29.51 MB | 34.88 MB |
+| Elite | build | 656.415 s | 29.73 MB | 163.91 MB |
+| Elite | build-index | 18.225 s | 150.68 MB | 432.58 MB |
+| Elite | verify | 2.122 s | 137.23 MB | 215.60 MB |
+| Elite | report | 0.870 s | 29.73 MB | 215.61 MB |
 
-**Memory, stated precisely.** `codb build` peaked at 29,339,648 bytes (29.34 MB) for Masters and 29,851,648 bytes (29.85 MB) for Elite, both below the 30,000,000-byte ingestion ceiling. Elite had 148,352 bytes of measured headroom on this host. To reach that result, the deduplication SQLite cache was reduced from 32 MiB to 256 KiB, its temp store uses disk, and the staging-catalog cache was reduced from 4 MiB to 512 KiB. These are measured runs on the delivery machine; RSS can vary by OS and allocator.
+**Memory, stated precisely.** `codb build` peaked at 29,507,584 bytes (29.51 MB) for Masters and 29,732,864 bytes (29.73 MB) for Elite, both below the 30,000,000-byte ingestion ceiling. Elite had 267,136 bytes of measured headroom on this host. To reach that result, the deduplication SQLite cache was reduced from 32 MiB to 256 KiB, its temp store uses disk, and the staging-catalog cache was reduced from 4 MiB to 512 KiB. These are measurements on the delivery machine; RSS can vary by OS and allocator.
 
-The external position indexer was run with `--memory-limit-mib 128`. Its process RSS was 63.06 MB (Masters) and 151.20 MB (Elite); that option bounds the indexer's configured observation buffer, not total RSS including runtime, mappings, and other process memory. The `codb serve` process peaked at 180,801,536 bytes (`VmHWM`) during HTTP checks, including touched memory-mapped pages of `positions.cpi` and `games.idx` (shared page cache, not private heap).
+The external position indexer was run with `--memory-limit-mib 128`. Its process RSS was 62.13 MB (Masters) and 150.68 MB (Elite); that option bounds the indexer's configured observation buffer, not total RSS including runtime, mappings, and other process memory. `codb serve` peaked at 183,472,128 bytes (`VmHWM`) during HTTP checks, including touched memory-mapped pages of `positions.cpi` and `games.idx` (shared page cache, not private heap).
 
 ### 9.3 Query and API performance
 
@@ -269,10 +269,10 @@ The external position indexer was run with `--memory-limit-mib 128`. Its process
 
 | Measure | `masters-otb` | `elite-online` |
 | :--- | ---: | ---: |
-| Position queries (1,000 requests), p50 / p95 / p99 | 167.2 / 488.5 / 505.9 µs | 192.0 / 303.3 / 332.1 µs |
-| Game retrieval (200 requests), p50 / p95 / p99 | 1,318.5 / 1,417.4 / 1,497.2 µs | 1,112.2 / 1,198.3 / 1,255.4 µs |
-| Startup to `/ready`, both datasets | 1.764 s | 1.764 s |
-| Concurrent throughput, 1 / 4 / 8 / 16 / 32 client processes | 3,352 / 9,234 / 6,911 / 3,715 / 3,468 req/s | 4,581 / 8,787 / 7,123 / 3,589 / 3,083 req/s |
+| Position queries (1,000 requests), p50 / p95 / p99 | 190.0 / 601.5 / 631.5 µs | 180.4 / 288.7 / 324.2 µs |
+| Game retrieval (200 requests), p50 / p95 / p99 | 1,400.5 / 1,797.7 / 2,223.1 µs | 1,083.7 / 1,164.8 / 1,242.1 µs |
+| Startup to `/ready`, both datasets | 1.715 s | 1.715 s |
+| Concurrent throughput, 1 / 4 / 8 / 16 / 32 client processes | 3,220 / 8,765 / 8,912 / 3,805 / 3,436 req/s | 4,460 / 10,452 / 6,763 / 5,551 / 3,089 req/s |
 | Errors under concurrency | 0 | 0 |
 
 At 16–32 client processes the shared four-core host is oversubscribed, increasing tail latency; these are single-machine measurements, not dedicated-host capacity claims.
@@ -281,14 +281,14 @@ In-process lookups (`codb bench-lookup`, `DiskPositionIndex::query`; 5,000 sampl
 
 | Measure | `masters-otb` | `elite-online` |
 | :--- | ---: | ---: |
-| Hit lookups, p50 / p95 / p99 | 5.01 / 10.53 / 10.83 µs (68,145 lookups) | 5.55 / 11.29 / 12.51 µs (49,686 lookups) |
-| Miss lookups, p50 / p95 / p99 | 4.40 / 5.02 / 5.60 µs (9,735 lookups) | 4.57 / 5.26 / 7.89 µs (7,098 lookups) |
+| Hit lookups, p50 / p95 / p99 | 5.00 / 10.53 / 10.96 µs (68,145 lookups) | 5.60 / 11.35 / 12.61 µs (49,686 lookups) |
+| Miss lookups, p50 / p95 / p99 | 4.40 / 5.01 / 7.29 µs (9,735 lookups) | 4.56 / 5.23 / 7.75 µs (7,098 lookups) |
 
 ### 9.4 Correctness evidence
 
 `http-check` ran **414 checks with 0 failures**. It compared HTTP with `codb query` for **131 stratified positions per collection** (40 common, 40 mid-frequency, 40 rare, 3 beyond-depth, 1 absent, and transposition pairs in both orders): 262 comparisons, 0 mismatches. W/D/L and candidate totals reconcile, candidate moves are legal, invalid inputs return the documented errors, and cross-collection game IDs return 404. `codb verify --deep` passed for both releases and for both extracted packages.
 
-A direct local HTTP capture is stored in [`benchmarks/corpus/http_examples.json`](../benchmarks/corpus/http_examples.json). For `moves=e4,e5,Nf3`, Masters returned 5,685 games (W 1,872 / D 2,541 / B 1,272; top moves Nc6 5,044, Nf6 574, d6 64); Elite returned 30,390 (W 14,325 / D 2,404 / B 13,661; top moves Nc6 23,951, Nf6 3,291, d6 1,799). In both cases the HTTP response matched `codb query --json`. Stored games `9216809156860181735` (Masters) and `9226102694647866711` (Elite) returned HTTP 200 with `application/x-chess-pgn`.
+A direct local HTTP capture is stored in [`benchmarks/corpus/http_examples.json`](../benchmarks/corpus/http_examples.json). For `moves=e4,e5,Nf3`, Masters returned 5,685 games (W 1,872 / D 2,541 / B 1,272; top moves Nc6 5,044, Nf6 574, d6 64); Elite returned 30,390 (W 14,325 / D 2,404 / B 13,661; top moves Nc6 23,951, Nf6 3,291, d6 1,799). In both cases the HTTP response matched `codb query --json`. Stored games `9216809156860181735` (Masters) and `9226102694647866711` (Elite) returned HTTP 200 with `application/x-chess-pgn`. A post-build scan streamed all 42,612 accepted Masters PGNs and found zero event, site, or broadcast-link values matching the policy's online-event markers; the scan result is in [`online_marker_audit.json`](../benchmarks/corpus/masters-otb/online_marker_audit.json). This does not rule out online events without any marker; source confidence remains medium.
 
 ### 9.5 Reproducibility measured on the real corpus
 
@@ -298,7 +298,7 @@ An independent second build from each release's pinned `sources.manifest.json` p
 
 Measured CPI density is 21.55 B per unique position (Masters, depth 40) and 21.52 B (Elite, depth 30). CGB3 plus `games.idx` costs 220.40 B per accepted Masters game and 182.28 B per Elite game. With the historical Heaps parameters (`k=49.88` / `37.63`, `α=0.9293`), predicted current-size position counts are 1,000,346 / 6,455,321 versus 984,240 / 6,136,307 measured (-1.6% / -4.9%).
 
-Applying the current measured byte densities to that same model at 5M Masters and 10M Elite games projects about **7.76 GB deployed**, including the historical 0.44 GB allowance for ancillary files and alignment. This is an extrapolation from much smaller historical runs (not a measured release); no approved source currently supplies the 5M Masters target. The release directories themselves occupy 30,634,686 bytes (Masters) and 210,311,892 bytes (Elite); independently verified local package tar files occupy 30,648,320 and 210,329,600 bytes. No dataset or package was uploaded externally.
+Applying the current measured byte densities to that same model at 5M Masters and 10M Elite games projects about **7.76 GB deployed**, including the historical 0.44 GB allowance for ancillary files and alignment. This is an extrapolation from much smaller historical runs (not a measured release); no approved source currently supplies the 5M Masters target. The r2 release directories occupy 30,634,943 bytes (Masters) and 210,312,125 bytes (Elite); independently verified local package tar files occupy 30,648,320 and 210,329,600 bytes. No dataset or package was uploaded externally.
 
 Distinct storage figures: final deployed release size; downloaded source archives (8,664,654,059 bytes total, removable after a build); peak temporary workspace (table above); and retained old versions. The release workflow keeps the prior release under `data/releases/.retired/` until manually removed, so a rebuild can temporarily require up to roughly twice the deployed size.
 
@@ -345,6 +345,6 @@ Distinct storage figures: final deployed release size; downloaded source archive
 * Masters coverage is six recent monthly Lichess broadcast archives. OTB qualification remains a medium-confidence marker heuristic; broadcast archives can include online events, and the pipeline cannot prove that every accepted record is OTB. About 69% of accepted Masters games have no physical venue in `Site`.
 * Elite coverage consists of seven complete monthly archives from 2015-09 to 2017-03. It spans multiple years but reflects old Lichess play and rating levels; recent games are absent and no per-period balancing is applied.
 * `ProvisionalRating` cannot be filtered from the standard PGN export because it contains no provisional-rating marker. Explicit aborted, abandoned, no-contest, unplayed, unterminated, and rules-infraction `Termination` values are rejected; unknown termination values remain eligible.
-* The measured Elite ingestion peak is 29.85 MB, only 148,352 bytes below the 30,000,000-byte ceiling on this host. Re-measure after changing Rust, allocator, or runtime versions.
+* The measured Elite ingestion peak is 29.73 MB, 267,136 bytes below the 30,000,000-byte ceiling on this host. Re-measure after changing Rust, allocator, or runtime versions.
 * The 128 MiB index setting bounds the configured observation buffer; total process RSS is higher due to runtime and mapped data. HTTP concurrency measurements share the same 4-core host as the client.
 * Releases and verified package archives remain local. Publishing requires a separately approved destination and retaining the license notice.

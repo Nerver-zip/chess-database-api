@@ -1,30 +1,30 @@
 {
-  "captured_at_utc": "2026-11-13T23:10:49.803305+00:00",
+  "captured_at_utc": "2026-11-13T23:41:32.138215+00:00",
   "collections_loaded": [
     {
-      "build_timestamp": "2026-11-13T22:49:24Z",
+      "build_timestamp": "2026-11-13T23:40:05Z",
       "collection": "masters-otb",
       "cpi_available": true,
       "cpi_depth_plies": 40,
       "cpi_total_positions": 984240,
-      "dataset_version": "codb-masters-otb-1794610162183084363-517587-0484eb65735e8a55-cpi-d40",
+      "dataset_version": "codb-masters-otb-1794613202919732665-519790-fef699852dd26b42-cpi-d40",
       "format_version": "CGB3/v1",
       "total_games": 42612
     },
     {
-      "build_timestamp": "2026-11-13T23:01:07Z",
+      "build_timestamp": "2026-11-13T23:39:14Z",
       "collection": "elite-online",
       "cpi_available": true,
       "cpi_depth_plies": 30,
       "cpi_total_positions": 6136307,
-      "dataset_version": "codb-elite-online-1794610850844039764-517940-edce81ac7fe9ae24-cpi-d30",
+      "dataset_version": "codb-elite-online-1794613138720313973-519742-00d6e325118fc58c-cpi-d30",
       "format_version": "CGB3/v1",
       "total_games": 429150
     }
   ],
   "examples": {
     "elite-online": {
-      "dataset_version": "codb-elite-online-1794610850844039764-517940-edce81ac7fe9ae24-cpi-d30",
+      "dataset_version": "codb-elite-online-1794613138720313973-519742-00d6e325118fc58c-cpi-d30",
       "position": {
         "black_wins": 13661,
         "cli_match": true,
@@ -60,7 +60,7 @@
       }
     },
     "masters-otb": {
-      "dataset_version": "codb-masters-otb-1794610162183084363-517587-0484eb65735e8a55-cpi-d40",
+      "dataset_version": "codb-masters-otb-1794613202919732665-519790-fef699852dd26b42-cpi-d40",
       "position": {
         "black_wins": 1272,
         "cli_match": true,

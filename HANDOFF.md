@@ -3,7 +3,7 @@
 ## 1. Current Repository State
 
 - **Goal:** PR-A, reproducible production corpus assembly and local Opening Explorer delivery. Branch `feat/corpus-release-pipeline`; Draft PR #6 against `main`.
-- **Current branch head before this continuation commit:** `5b97671` (`fix(data): enforce termination filtering and memory cap`). The follow-up work adds policy/catalog revision `2026.11-r2`, current evidence, and handoff notes. Preserve untracked `GOAL.md`; do not commit large `data/` artifacts.
+- **R2 release-build code head:** `7f4fa09` (`docs(data): refresh corpus policy and handoff evidence`), with code fix `5b97671` beneath it. The final R2 evidence and documentation have passed the repository validation gate and are ready for the follow-up commit. Preserve untracked `GOAL.md`; do not commit large `data/` artifacts.
 - **Sources:** 13 pinned Lichess archives: six 2026-05…10 broadcast months for `masters-otb` (CC BY-SA 4.0) and seven complete standard-rated archives from 2015-09…2017-03 for `elite-online` (CC0 1.0). Local archives pass `corpus.sh verify-sources`; publisher checksum-list audit matched all 13 pinned SHA-256 values.
 - **Workflow:** `scripts/corpus.py` / `scripts/corpus.sh` provide `plan`, `sources`, `fetch`, `verify-sources`, `pin`, `build`, `verify`, `report`, `package`, `verify-package`, `serve`, and `http-check`. The Python tool orchestrates the existing `codb` commands and routes build temp files to `data/work/<run>/tmp`.
 - **Curation:** Masters requires ratings, standard chess, event/site/broadcast online-marker exclusion, historical event+venue, and explicit `Termination` filtering. Elite preserves Lichess Glicko-2 as a separate rating pool and applies rated/variant/time-control/casual and termination rules. `ProvisionalRating` is not inferable from Lichess standard PGN exports.
@@ -15,16 +15,16 @@
   | Accepted unique games | 42,612 (target ≥ 30,000 met) | 429,150 (target ≥ 100,000 met) |
   | Games encountered | 227,489 | 46,536,762 |
   | Index depth / unique positions / move records | 40 / 984,240 / 1,040,109 | 30 / 6,136,307 / 6,739,644 |
-  | Peak RSS: build / index | 29.34 MB / 63.06 MB | 29.85 MB / 151.20 MB |
-  | Build / index wall time | 25.2 s / 2.64 s | 657.6 s / 18.26 s |
-  | Deployed release directory bytes | 30,634,686 | 210,311,892 |
+  | Peak RSS: build / index | 29.51 MB / 62.13 MB | 29.73 MB / 150.68 MB |
+  | Build / index wall time | 30.9 s / 2.67 s | 656.4 s / 18.23 s |
+  | Deployed release directory bytes | 30,634,943 | 210,312,125 |
 
-- **Current release refresh:** the Masters `2026.11-r2` release has been built. The Elite r2 run is in `data/work/elite-online-baseline-20261113T232801Z/`; wait for promotion and then refresh packages, reports, direct HTTP evidence, and tracked snapshots before finalizing this handoff. The newer IDs will be recorded in `benchmarks/corpus/*/RELEASE.json`.
-- **Evidence already produced for the data policy:** deep verification and local package extraction/deep verification pass for both corpora. HTTP check: 414/414 checks, 131 stratified HTTP-vs-CLI comparisons per collection, 0 mismatches. Direct `e4,e5,Nf3` queries match CLI; stored-game retrieval returned HTTP 200 for one real game in each collection. Independent same-input rebuilds matched `games.idx`, `positions.cpi`, and shard hashes for both collections.
-- **Memory:** current measured `codb build` peaks are 29,339,648 bytes (Masters) and 29,851,648 bytes (Elite), under the 30,000,000-byte ceiling; Elite has 148,352 bytes of headroom on this host. Dedupe cache is 256 KiB, SQLite temp storage is disk-backed, and staging-catalog cache is 512 KiB.
+- **Current releases:** both `2026.11-r2` releases were built from clean commit `7f4fa09`; `RELEASE.json` records `git_tree_dirty: false`. IDs, artifact hashes, and package checksums are in `benchmarks/corpus/*/RELEASE.json` and adjacent evidence files.
+- **Evidence:** deep verification and local package extraction/deep verification pass for both r2 corpora. HTTP check: 414/414 checks, 131 stratified HTTP-vs-CLI comparisons per collection, 0 mismatches. Direct `e4,e5,Nf3` queries match CLI; stored-game retrieval returned HTTP 200 for one real game in each collection. Independent same-input rebuilds matched `games.idx`, `positions.cpi`, and shard hashes for both collections. A post-build scan found 0 online-event marker matches across all 42,612 accepted Masters PGNs; unmarked online games remain possible.
+- **Memory:** current measured `codb build` peaks are 29,507,584 bytes (Masters) and 29,732,864 bytes (Elite), under the 30,000,000-byte ceiling; Elite has 267,136 bytes of headroom on this host. Dedupe cache is 256 KiB, SQLite temp storage is disk-backed, and staging-catalog cache is 512 KiB.
 - **Limitations:** Masters OTB attribution remains a medium-confidence marker heuristic; ~69% of accepted games have no physical venue, so unmarked online events cannot be ruled out. Elite covers 2015–2017 only. The future 5M/10M corpus is out of scope. Packages/releases remain local; nothing was uploaded.
 
-The release-level files and benchmark JSON are the source of truth for build IDs, hashes, and package checksums. This handoff is refreshed again after the r2 builds and final validation complete.
+The release-level files and benchmark JSON are the source of truth for build IDs, hashes, and package checksums. The R2 builds and full local validation are complete; the follow-up commit, push, and Draft PR refresh remain.
 ---
 
 ## 2. Workspace & Crate Structure
@@ -126,15 +126,14 @@ Data lives in `data/` (git-ignored; override with `CODB_DATA_DIR`). Never commit
 
 - Focused `cargo test -p codb-curate -p codb-ingest`: PASS after the termination filter; formatting and release build pass.
 - `corpus.sh verify-sources --collection all --profile baseline`: PASS for 13 local source archives.
-- `corpus.sh verify --collection all --profile baseline`: deep verification PASS for both earlier releases; r2 rebuild is being refreshed now.
-- Both earlier local packages passed extraction and deep verification. `http-check`: 414/414; 262 HTTP-vs-CLI comparisons, 0 mismatches. A direct real-data HTTP/CLI capture plus game retrieval evidence is stored under `benchmarks/corpus/`.
-- `./scripts/validate.sh` and PR CI still need to be rerun after the final r2 snapshots and documentation are committed.
+- `corpus.sh verify --collection all --profile baseline`: deep verification PASS for both r2 releases; both local packages passed extraction and deep verification.
+- `http-check`: 414/414; 262 HTTP-vs-CLI comparisons, 0 mismatches. Direct real-data HTTP/CLI capture and game retrieval evidence is under `benchmarks/corpus/`.
+- `./scripts/validate.sh`: PASS on the final R2 worktree (all eight gates, including Rust Clippy/tests, Python regression tests, production and corpus evidence, docs, and manifest). The script rewrote a historical timing snapshot as designed; that generated change was restored. GitHub CI for the pushed follow-up commit is still pending.
 ---
 
 ## 6. Next Actions
 
-1. Let the current Elite r2 run finish, then rebuild Masters once at the clean code commit so both `RELEASE.json` files record the same clean head.
-2. Re-run both deep verification and packaging; refresh HTTP/CLI examples, in-process lookup, and all tracked benchmark snapshots from r2 releases.
-3. Run `./scripts/validate.sh`, update `HANDOFF.md` and `handoff/CONTINUATION.md` with final evidence, update `MANIFEST.sha256`, and commit.
-4. Push the feature branch, refresh Draft PR #6 with current evidence and an explicit `NEEDS FURTHER WORK` recommendation, and inspect the latest CI. Do not merge or publish packages.
-5. Remaining maintainer decision: improve/prove Masters OTB source qualification for unmarked events; keep Elite recency and provisional-rating limitations explicit.
+1. Commit the validated R2 snapshots, marker-audit evidence, documentation, and handoff; do not stage `GOAL.md`.
+2. Push the feature branch and replace the stale Draft PR #6 description with current R2 evidence; keep it Draft and do not publish packages.
+3. Inspect CI for the pushed commit. GitHub CLI status-check access was denied by the configured token; use the connected GitHub integration or report the access limit.
+4. Maintainer follow-up: improve or explicitly accept the remaining uncertainty for Masters events without OTB/online markers; keep Elite recency and provisional-rating limitations explicit.

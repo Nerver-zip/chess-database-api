@@ -116,6 +116,12 @@ def main() -> int:
                 game.get("pgn_bytes", 0) <= 0 or not SHA.match(game.get("pgn_sha256", ""))):
             fail(f"{c}: direct stored-game retrieval evidence is invalid")
 
+    marker_audit = load(EVIDENCE / "masters-otb" / "online_marker_audit.json")
+    masters_release = load(EVIDENCE / "masters-otb" / "RELEASE.json")
+    if (marker_audit.get("result") != "PASS" or marker_audit.get("flagged_games") != 0 or
+            marker_audit.get("games_scanned") != masters_release["accepted_games"] or
+            marker_audit.get("dataset_version") != masters_release["dataset_version"]):
+        fail("Masters post-build online-marker audit is missing, stale, or failed")
     reproducibility = load(EVIDENCE / "reproducibility_check.json")
     for c in COLLECTIONS:
         rel = load(EVIDENCE / c / "RELEASE.json")
