@@ -1332,6 +1332,32 @@ def lat_summary(samples_s: list[float]) -> dict[str, float]:
             "p99_us": round(percentile(v, 99), 1), "max_us": round(v[-1], 1) if v else 0.0}
 
 
+def _load_worker(args: tuple) -> tuple[int, list[float]]:
+    host, port, paths, seed, n = args
+    cl = Http(host, port)
+    errors, lat = 0, []
+    for j in range(n):
+        t = time.perf_counter()
+        st, _, _ = cl.get(paths[(seed + j) % len(paths)])
+        lat.append(time.perf_counter() - t)
+        errors += st != 200
+    return errors, lat
+
+
+def run_load(host: str, port: int, paths: list[str], workers: int, per_worker: int) -> dict[str, Any]:
+    """Closed-loop load from `workers` separate processes; returns throughput and latency percentiles."""
+    import multiprocessing as mp
+    t0 = time.perf_counter()
+    with mp.get_context("fork").Pool(workers) as pool:
+        parts = pool.map(_load_worker, [(host, port, paths, w * 31, per_worker) for w in range(workers)])
+    elapsed = time.perf_counter() - t0
+    lat = [x for _, l in parts for x in l]
+    out = {"processes": workers, "requests": workers * per_worker, "errors": sum(e for e, _ in parts),
+           "req_per_sec": round(workers * per_worker / elapsed, 1)}
+    out.update({k: v for k, v in lat_summary(lat).items() if k != "count"})
+    return out
+
+
 class Checks:
     def __init__(self) -> None:
         self.results: list[dict[str, Any]] = []
@@ -1565,29 +1591,14 @@ def run_http_checks(codb: Path, roots: dict[str, Path], host: str, port: int, se
                 glat.append(time.perf_counter() - t)
             cr["game_retrieval_latency"] = lat_summary(glat)
 
-            # concurrency
+            # concurrency: one OS process per client (no shared GIL), keep-alive connections
             conc = {}
+            paths = [pos_url(c, m) for m in workload]
+            per_worker = max(50, requests_per_col // 4)
             for workers in (1, 4, 8, 16, 32):
-                errors = 0
-                lock = threading.Lock()
-                per_worker = max(50, requests_per_col // 4)
-
-                def worker(seed: int) -> None:
-                    nonlocal errors
-                    cl = Http(host, port)
-                    for j in range(per_worker):
-                        st, _, _ = cl.get(pos_url(c, workload[(seed + j) % len(workload)]))
-                        if st != 200:
-                            with lock:
-                                errors += 1
-                t0 = time.perf_counter()
-                ths = [threading.Thread(target=worker, args=(w,)) for w in range(workers)]
-                [t.start() for t in ths]
-                [t.join() for t in ths]
-                el = time.perf_counter() - t0
-                conc[str(workers)] = {"requests": workers * per_worker, "errors": errors,
-                                      "req_per_sec": round(workers * per_worker / el, 1)}
-                checks.check(f"{c}: concurrency x{workers} without errors", errors == 0, str(errors))
+                res = run_load(host, port, paths, workers, per_worker)
+                conc[str(workers)] = res
+                checks.check(f"{c}: concurrency x{workers} without errors", res["errors"] == 0, str(res["errors"]))
             cr["concurrency"] = conc
 
         # collection isolation at the query level

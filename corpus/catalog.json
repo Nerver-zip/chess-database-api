@@ -58,7 +58,10 @@
           "lichess-standard-2016-03",
           "lichess-standard-2016-06",
           "lichess-standard-2016-09",
-          "lichess-standard-2016-12"
+          "lichess-standard-2016-12",
+          "lichess-standard-2015-09",
+          "lichess-standard-2015-12",
+          "lichess-standard-2017-03"
         ]
       },
       "planning": {
@@ -240,6 +243,57 @@
       "provenance_confidence": "high",
       "eligibility": "Lichess standard rated games (online). Entire archive is online play; Elite policy: both >=2200 or one >=2400 and the other >=2000 Glicko-2, no bullet/ultrabullet, no casual, min 6 plies.",
       "notes": "Complete monthly archive, full SHA-256 verified. Quarterly months of 2016 chosen so qualifying games span the year; ratings reflect 2016 Lichess rating inflation and are Glicko-2, not FIDE Elo."
+    },
+    {
+      "id": "lichess-standard-2015-09",
+      "collection": "elite-online",
+      "publisher": "Lichess.org",
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2015-09.pgn.zst",
+      "filename": "lichess_db_standard_rated_2015-09.pgn.zst",
+      "period": "2015-09",
+      "license": "CC0-1.0",
+      "expected_size_bytes": 547459020,
+      "publisher_sha256": "c3f9b718b2dd80545ac00d0ee8122f863353a7b901fea6ba0be06bff5675bfa7",
+      "publisher_checksum_url": "https://database.lichess.org/standard/sha256sums.txt",
+      "verified_sha256": "c3f9b718b2dd80545ac00d0ee8122f863353a7b901fea6ba0be06bff5675bfa7",
+      "acquired_at": "2026-11-13T19:44:37Z",
+      "provenance_confidence": "high",
+      "eligibility": "Lichess standard rated games (online). Elite policy: both >=2200 or one >=2400 and the other >=2000 Glicko-2, no bullet/ultrabullet, no casual, min 6 plies.",
+      "notes": "Complete monthly archive, full SHA-256 verified. Added so the Elite baseline spans 2015, 2016 and 2017; ratings are Glicko-2, not FIDE Elo."
+    },
+    {
+      "id": "lichess-standard-2015-12",
+      "collection": "elite-online",
+      "publisher": "Lichess.org",
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2015-12.pgn.zst",
+      "filename": "lichess_db_standard_rated_2015-12.pgn.zst",
+      "period": "2015-12",
+      "license": "CC0-1.0",
+      "expected_size_bytes": 757824089,
+      "publisher_sha256": "83c6a8583e618d1321cb655e579010ccb1531593fbcf44622da5e8a5d2e99c4f",
+      "publisher_checksum_url": "https://database.lichess.org/standard/sha256sums.txt",
+      "verified_sha256": "83c6a8583e618d1321cb655e579010ccb1531593fbcf44622da5e8a5d2e99c4f",
+      "acquired_at": "2026-11-13T19:44:22Z",
+      "provenance_confidence": "high",
+      "eligibility": "Lichess standard rated games (online). Elite policy: both >=2200 or one >=2400 and the other >=2000 Glicko-2, no bullet/ultrabullet, no casual, min 6 plies.",
+      "notes": "Complete monthly archive, full SHA-256 verified. Added so the Elite baseline spans 2015, 2016 and 2017; ratings are Glicko-2, not FIDE Elo."
+    },
+    {
+      "id": "lichess-standard-2017-03",
+      "collection": "elite-online",
+      "publisher": "Lichess.org",
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2017-03.pgn.zst",
+      "filename": "lichess_db_standard_rated_2017-03.pgn.zst",
+      "period": "2017-03",
+      "license": "CC0-1.0",
+      "expected_size_bytes": 2169142067,
+      "publisher_sha256": "b319297e9270285635d615cbcd19a9b0d44747be3ff91d5b3eac41175b794320",
+      "publisher_checksum_url": "https://database.lichess.org/standard/sha256sums.txt",
+      "verified_sha256": "b319297e9270285635d615cbcd19a9b0d44747be3ff91d5b3eac41175b794320",
+      "acquired_at": "2026-11-13T19:48:33Z",
+      "provenance_confidence": "high",
+      "eligibility": "Lichess standard rated games (online). Elite policy: both >=2200 or one >=2400 and the other >=2000 Glicko-2, no bullet/ultrabullet, no casual, min 6 plies.",
+      "notes": "Complete monthly archive, full SHA-256 verified. Added so the Elite baseline spans 2015, 2016 and 2017; ratings are Glicko-2, not FIDE Elo."
     }
   ]
 }

@@ -268,6 +268,21 @@ enum Commands {
         random_lookups: usize,
     },
 
+    /// Measure in-process CPI position lookup latency on a published dataset (no re-indexing)
+    BenchLookup {
+        /// Dataset directory path containing manifest.json and positions.cpi
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// Number of stored games to replay for sampling positions
+        #[arg(long, default_value = "5000")]
+        games: usize,
+
+        /// Output JSON file (stdout when omitted)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
     /// Export games from a persistent dataset to PGN format (stdout or file, optional .zst)
     Export {
         /// Dataset directory path containing manifest.json
@@ -774,6 +789,14 @@ fn main() -> Result<()> {
             random_lookups,
         } => {
             run_bench_dataset(&dataset, &output_dir, &run_name, random_lookups)?;
+        }
+
+        Commands::BenchLookup {
+            dataset,
+            games,
+            output,
+        } => {
+            run_bench_lookup(&dataset, games, output.as_deref())?;
         }
 
         Commands::Export {
@@ -1303,6 +1326,98 @@ fn run_report(dataset: &Path, output: Option<&Path>) -> Result<()> {
     match output {
         Some(path) => std::fs::write(path, text)
             .with_context(|| format!("Failed to write report {}", path.display()))?,
+        None => println!("{text}"),
+    }
+    Ok(())
+}
+
+/// In-process CPI lookup latency: positions sampled by replaying stored games (hits across
+/// the frequency range) plus deterministic perturbed keys (misses). Two passes over the same
+/// keys are reported separately: the first touches pages possibly not yet resident
+/// (`first_pass`), the second runs against a warm page cache (`warm_pass`).
+fn run_bench_lookup(dataset: &Path, games: usize, output: Option<&Path>) -> Result<()> {
+    let reader = DatasetReader::open(dataset)
+        .with_context(|| format!("Failed to open dataset at {}", dataset.display()))?;
+    let meta = reader
+        .manifest()
+        .position_index
+        .clone()
+        .context("dataset has no position index")?;
+    let depth = meta.indexed_depth_plies;
+    let idx = reader
+        .open_position_index()?
+        .context("dataset has no position index")?;
+
+    let mut hit_keys: Vec<PositionKey> = Vec::new();
+    for (n, game) in reader.iter_games()?.enumerate() {
+        if n >= games {
+            break;
+        }
+        let game = game?;
+        let ex = codb_index::position::extract_game_positions_detailed(&game, depth)
+            .map_err(|e| anyhow::anyhow!("position extraction failed: {e}"))?;
+        for (i, (key, _, _)) in ex.entries.iter().enumerate() {
+            if i % 3 == 0 {
+                hit_keys.push(*key);
+            }
+        }
+    }
+    anyhow::ensure!(!hit_keys.is_empty(), "no positions sampled");
+    let miss_keys: Vec<PositionKey> = hit_keys
+        .iter()
+        .step_by(7)
+        .map(|k| {
+            PositionKey::new(
+                k.primary() ^ 0x9e37_79b9_7f4a_7c15,
+                k.secondary().rotate_left(13),
+            )
+        })
+        .collect();
+
+    let measure = |keys: &[PositionKey], expect_hit: Option<bool>| -> Result<serde_json::Value> {
+        let mut lat: Vec<f64> = Vec::with_capacity(keys.len());
+        let mut hits = 0usize;
+        for k in keys {
+            let t = Instant::now();
+            let r = idx.query(*k)?;
+            lat.push(t.elapsed().as_secs_f64() * 1e6);
+            black_box(&r);
+            if r.is_some() {
+                hits += 1;
+            }
+        }
+        if let Some(h) = expect_hit {
+            anyhow::ensure!(
+                (hits == keys.len()) == h || !h,
+                "unexpected hit/miss ratio: {hits}/{}",
+                keys.len()
+            );
+        }
+        lat.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let pct = |p: f64| lat[((lat.len() - 1) as f64 * p).round() as usize];
+        Ok(serde_json::json!({
+            "count": keys.len(), "hits": hits,
+            "p50_us": pct(0.50), "p95_us": pct(0.95), "p99_us": pct(0.99), "max_us": lat[lat.len() - 1],
+        }))
+    };
+
+    let first_hit = measure(&hit_keys, Some(true))?;
+    let warm_hit = measure(&hit_keys, Some(true))?;
+    let warm_miss = measure(&miss_keys, None)?;
+    let report = serde_json::json!({
+        "collection": reader.collection().to_string(),
+        "dataset_build_id": reader.manifest().dataset_build_id,
+        "index_depth_plies": depth,
+        "unique_positions": meta.unique_positions,
+        "games_sampled": games.min(reader.total_games() as usize),
+        "hit_first_pass": first_hit,
+        "hit_warm_pass": warm_hit,
+        "miss_warm_pass": warm_miss,
+        "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+    });
+    let text = serde_json::to_string_pretty(&report)?;
+    match output {
+        Some(path) => std::fs::write(path, text)?,
         None => println!("{text}"),
     }
     Ok(())

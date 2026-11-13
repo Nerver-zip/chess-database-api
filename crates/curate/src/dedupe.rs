@@ -246,7 +246,7 @@ impl DiskDedupeStore {
             "PRAGMA synchronous = NORMAL;
              PRAGMA journal_mode = WAL;
              PRAGMA temp_store = MEMORY;
-             PRAGMA cache_size = -32000;
+             PRAGMA cache_size = -2000;
              CREATE TABLE IF NOT EXISTS seen_games (
                  id INTEGER PRIMARY KEY,
                  move_hash INTEGER NOT NULL,
