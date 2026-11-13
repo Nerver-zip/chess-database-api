@@ -34,6 +34,12 @@ The workspace is organized into seven dedicated crates:
 
 ---
 
+## 2.1 Corpus Release Tooling (outside the Rust workspace)
+
+`corpus/catalog.json` (pinned sources, licenses, publisher checksums) and `scripts/corpus.py` / `scripts/corpus.sh` acquire verified source archives and orchestrate the existing `codb` CLI into versioned releases (see [docs/CORPUS_BUILD.md](docs/CORPUS_BUILD.md)). Rules: the tool must never reimplement ingestion, curation, indexing, or publication; sources without a publisher checksum or an approved license must fail closed; large archives and releases live only under git-ignored `data/`; `scripts/test_corpus.py` must stay offline (no real downloads); real-corpus validation is an explicit opt-in stage.
+
+---
+
 ## 3. Formatting, Linting & Verification Commands
 
 Before concluding any work, the following commands must execute cleanly:
@@ -51,7 +57,9 @@ cargo test --workspace
 # 4. Python regression test suites
 python3 -m unittest scripts/test_feasibility_alignment.py \
                     scripts/test_reproduce_runner.py \
-                    scripts/test_validate_benchmarks.py
+                    scripts/test_validate_benchmarks.py \
+                    scripts/test_bench_http.py \
+                    scripts/test_corpus.py
 
 # 5. Production CPI benchmark validator
 python3 scripts/validate_production_cpi_benchmarks.py

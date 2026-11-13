@@ -22,7 +22,9 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 python3 -m unittest scripts/test_feasibility_alignment.py \
                     scripts/test_reproduce_runner.py \
-                    scripts/test_validate_benchmarks.py
+                    scripts/test_validate_benchmarks.py \
+                    scripts/test_bench_http.py \
+                    scripts/test_corpus.py
 python3 scripts/validate_production_cpi_benchmarks.py
 python3 scripts/validate_benchmarks.py
 python3 scripts/validate_docs.py

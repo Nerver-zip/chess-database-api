@@ -97,6 +97,26 @@ chess-openings-db/
 
 ---
 
+## Building the Real Corpus (Reproducible Release Workflow)
+
+The repository ships a pinned, checksum-verified source catalog (`corpus/catalog.json`) and a thin orchestration tool (`scripts/corpus.sh`) that drives the existing `codb` CLI. Nothing large is committed to Git: archives and releases live under `data/` (git-ignored).
+
+```bash
+cargo build --release -p codb-cli
+./scripts/corpus.sh plan                          # network, disk, memory, and time estimates
+./scripts/corpus.sh fetch                         # HTTPS, resumable, verified against Lichess' SHA-256 sums
+./scripts/corpus.sh build --collection masters-otb
+./scripts/corpus.sh build --collection elite-online
+./scripts/corpus.sh verify                        # codb verify --deep on both releases
+./scripts/corpus.sh serve                         # codb serve on 127.0.0.1:8080, both collections
+./scripts/corpus.sh http-check                    # semantic HTTP + CLI equivalence checks
+./scripts/corpus.sh package --collection masters-otb   # independently verifiable release archive
+```
+
+See [docs/CORPUS_BUILD.md](docs/CORPUS_BUILD.md) for the full procedure, measured results, license obligations, and recovery steps. A locally built release is not a published release.
+
+---
+
 ## CLI Usage (`codb`)
 
 ### 1. Build Persistent Curated Dataset
@@ -227,6 +247,7 @@ Machine-readable JSON reports are written to `benchmarks/results/` (with complet
 - **Master Index:** [Documentation Index](docs/README.md)
 - **System Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **Data Contracts & Formats:** [docs/DATA_CONTRACTS.md](docs/DATA_CONTRACTS.md)
+- **Corpus Build & Release Procedure:** [docs/CORPUS_BUILD.md](docs/CORPUS_BUILD.md)
 - **Corpus & Deduplication Policy:** [docs/CORPUS_AND_DEDUPLICATION.md](docs/CORPUS_AND_DEDUPLICATION.md)
 - **Licensing & Data Provenance:** [docs/LICENSING.md](docs/LICENSING.md)
 - **QA & Testing Strategy:** [docs/QA_STRATEGY.md](docs/QA_STRATEGY.md)

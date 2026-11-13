@@ -18,7 +18,8 @@ flowchart LR
     M2 --> M3["PR-03: Production CPI v2 Index<br/>(COMPLETED)"]
     M3 --> M4["Governance & Standards Alignment<br/>(COMPLETED)"]
     M4 --> M5["PR-04: Opening Explorer HTTP API<br/>(COMPLETED)"]
-    M5 --> M6["Future: Remote Replication & ECO Classification<br/>(PLANNED)"]
+    M5 --> M5b["PR-A: Reproducible Corpus Release & Local Delivery<br/>(DELIVERED)"]
+    M5b --> M6["Future: Remote Replication & ECO Classification<br/>(PLANNED)"]
 ```
 
 | Milestone | Target Scope | Status | Primary Artifacts |
@@ -28,6 +29,7 @@ flowchart LR
 | **PR-03: Production CPI v2 Index** | Bounded-memory external sorting pipeline (`ExternalPositionIndexer`), temporary run files (`.crun`), deterministic K-way merge, CPI v2 container (`positions.cpi`), mmap sparse index, and CLI Opening Explorer queries. | **Completed** | [ADR-0003](adr/0003-production-cpi-index.md), `codb-index`, `benchmarks/production_cpi/`. |
 | **Governance & Quality Standardization** | Standardized engineering governance: `AGENTS.md`, `HANDOFF.md`, canonical docs re-architecture, benchmark sanitization, doc link validator, and CI hardening. | **Completed** | [docs/ARCHITECTURE.md](ARCHITECTURE.md), [docs/DATA_CONTRACTS.md](DATA_CONTRACTS.md), `scripts/validate.sh`, `scripts/validate_docs.py`. |
 | **PR-04: Opening Explorer Read-Only HTTP API** | Production-ready HTTP query service (`codb-api`), `codb serve` command, lock-free CPI reads, pooled PGN decompression, atomic reload, and integration suites. | **Completed** | [ADR-0004](adr/0004-opening-explorer-http-api.md), `codb-api`, [docs/DATA_CONTRACTS.md#6](DATA_CONTRACTS.md#6-opening-explorer-http-api-contract). |
+| **PR-A: Reproducible Corpus Release & Local Delivery** | Pinned source catalog with publisher checksums, resumable verified acquisition, Masters OTB online-event qualification, orchestrated build/verify/package/serve workflow, quality reports, HTTP/CLI equivalence checks. | **Delivered** (see [CORPUS_BUILD.md](CORPUS_BUILD.md) for measured scale and limitations) | `corpus/catalog.json`, `scripts/corpus.py`, `scripts/corpus.sh`, [docs/CORPUS_BUILD.md](CORPUS_BUILD.md). |
 | **Future: Replication & Precomputed ECO Trees** | Incremental dataset replication, CDN-friendly block distribution, and precomputed ECO opening classification trees. | **Planned** | Standalone tooling and index enhancements. |
 
 ---
@@ -40,6 +42,12 @@ The current baseline of `chess-openings-db` delivers:
 - **Persistent Sharded Storage (`codb-storage`):** `CGB3` block-level dictionary interning (~208 B/game for Masters OTB, ~178–181 B/game for Elite Online), `shard_XXXX.cgb3` container splitting, 16-byte fixed-record `games.idx` binary search, process-level advisory flock, and atomic symlink publication with snapshot isolation.
 - **Production Position Index (`codb-index`):** Bounded-memory external sorting indexer (`ExternalPositionIndexer`), temporary run file emission (`.crun`), deterministic K-way merge, CPI v2 (`positions.cpi`), zero-allocation memory-mapped sparse index ($34\text{ B/entry}$), and functional Opening Explorer queries.
 - **Production HTTP Serving Layer (`codb-api` & `codb serve`):** Asynchronous Axum/Tokio HTTP service providing zero-copy position lookups, collection-qualified PGN retrieval, zero-downtime hot reloading, CORS/trace/timeout middleware, and p50 latencies under 300 µs at < 10 MB RAM.
+
+---
+
+### 2.1 Full-Scale Corpus Expansion (Future)
+
+The delivered baseline is a reproducible, provenance-verified corpus of the scale documented in [CORPUS_BUILD.md](CORPUS_BUILD.md). The original 5M Masters / 10M Elite goal remains a future expansion that needs additional approved sources (Masters) and tens of gigabytes of Lichess standard archives (Elite). It is not a completion criterion of any delivered milestone. Publishing release archives to an approved hosting destination is likewise future work.
 
 ---
 

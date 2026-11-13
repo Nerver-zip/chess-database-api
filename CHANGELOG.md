@@ -4,6 +4,26 @@ All notable changes to `chess-openings-db` are documented in this file. The proj
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Reproducible corpus release workflow (PR-A):**
+  - `corpus/catalog.json`: pinned source catalog (publisher, URL, archive period, license, expected size, publisher SHA-256, verified SHA-256, acquisition timestamp, provenance confidence, eligibility, notes) for the Lichess broadcast (CC BY-SA 4.0) and standard rated (CC0 1.0) archives.
+  - `scripts/corpus.py` / `scripts/corpus.sh`: `plan`, `sources`, `fetch`, `verify-sources`, `pin`, `build`, `verify`, `report`, `package`, `verify-package`, `serve`, `http-check`. Resumable HTTPS downloads with retry/backoff, publisher-checksum verification, atomic finalization, disk-space and size safety limits, offline verification; builds in a private workspace with deep verification before atomic promotion; deterministic release packaging.
+  - `codb build --report-json` and `codb report` (machine-readable accounting, rejection reasons, and distributions).
+  - Release provenance (`RELEASE/RELEASE.json`) and legal notice (`RELEASE/DATASET_LICENSE.txt`) bundled with every release.
+  - `docs/CORPUS_BUILD.md`, offline fixtures (`fixtures/corpus/`), and `scripts/test_corpus.py`.
+
+### Changed
+- **Masters OTB policy (`masters-otb/2026.11-r1`):** records whose event, site, or broadcast URL carries an online-event marker are rejected (`OnlineEventInMastersSource`); a pre-1970 date is accepted only together with a named event and venue (`HistoricalWithoutProvenance`). No binary format changed.
+- **Elite Online policy (`elite-online/2026.11-r1`):** casual-labelled events are rejected (`CasualUnratedGame`).
+- Policy rejections are reported by stable category (`PolicyRejectionReason::category`).
+
+### Fixed
+- `docs/DATA_CONTRACTS.md` documented HTTP 422 for unsupported query parameters; the implementation (and the error table) return HTTP 400 `unsupported_parameter`.
+
+---
+
 ## [0.5.0] - 2026-11-06
 
 ### Added

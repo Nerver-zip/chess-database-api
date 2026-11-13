@@ -213,6 +213,27 @@ Stored in the root of every dataset snapshot (`versions/vX/manifest.json`):
 }
 ```
 
+### 5.1.1 `codb build --report-json <path>` and `codb report`
+
+`codb build --report-json` writes the build accounting after finalization:
+```json
+{
+  "collection": "masters-otb",
+  "dataset_build_id": "codb-masters-otb-...",
+  "total_games": 42612,
+  "accounting": { "total_encountered": 0, "accepted_unique": 0, "confirmed_duplicates": 0, "superseded_prior": 0, "rejected_by_policy": 0, "rejected_variant": 0, "rejected_illegal": 0, "rejected_malformed": 0, "quarantined": 0, "completion_status": "CompleteEof" },
+  "is_reconciled": true,
+  "retained_matches_accepted": true,
+  "policy_rejection_reasons": { "below_rating_threshold": 0, "missing_rating": 0 },
+  "total_physical_bytes": 0,
+  "build_duration_secs": 0.0,
+  "source_archives": []
+}
+```
+`policy_rejection_reasons` sums to `accounting.rejected_by_policy`. Category keys are defined in [CORPUS_AND_DEDUPLICATION.md](CORPUS_AND_DEDUPLICATION.md#31-machine-readable-rejection-categories).
+
+`codb report --dataset <dir> [--output <json>]` iterates every stored game and emits `results`, `unknown_result_games`, `years`, `months`, `min_player_rating_bins` (100-point bins of the lower rating; FIDE Elo for `masters-otb`, Glicko-2 for `elite-online`, never pooled), `plies_bins`, `speed_classes` (`elite-online` only), `time_control_raw_top20` (`masters-otb` only), `distinct_players_hash_estimate`, `distinct_events_hash_estimate`, and `missing_metadata` counts. Neither command changes any persisted binary format.
+
 ### 5.2 `codb inspect --json`
 ```json
 {
@@ -251,7 +272,7 @@ Retrieves aggregated opening statistics and candidate legal follow-up moves for 
 - `fen` (string, optional): Orthodox legal FEN string.
 - `moves` (string, optional): Comma- or whitespace-separated SAN or UCI move sequence from the standard initial chess position (e.g. `"e4,c5,Nf3"` or `"e2e4 c7c5 g1f3"`).
 - `collection` (string, optional, default: `"masters-otb"`): Target collection identifier (`"masters-otb"` or `"elite-online"`).
-- `since_year` / `min_rating` (unsupported): If provided, the request fails with HTTP 422 (`unsupported_parameter`) to prevent silent semantic misinterpretation.
+- `since_year` / `min_rating` (unsupported): If provided, the request fails with HTTP 400 (`unsupported_parameter`) to prevent silent semantic misinterpretation.
 
 #### Validation Rules
 1. `fen` and `moves` are mutually exclusive. Providing both returns HTTP 400 (`ambiguous_position`).

@@ -81,6 +81,17 @@ The HTTP layer includes 18 deterministic integration tests verifying end-to-end 
 - **Fail-Closed Version Replacement (`test_actual_version_replacement_a_to_b`, `test_corrupted_replacement_rejected`):** Proves atomic symlink transitions from v1 to v2, and asserts that candidate snapshots with corrupted CPI or checksum errors fail closed with 500 without degrading active serving.
 - **Concurrent In-Flight Stability (`test_concurrent_queries_during_version_replacement`):** Verifies zero dropped queries during live symlink reload under background load.
 
+### 4.3 Corpus Tooling Suite (`scripts/test_corpus.py`)
+Offline, network-free regression tests (a local HTTP server with fault injection plus tiny synthetic fixtures in `fixtures/corpus/`) cover:
+- **Acquisition:** correct, incorrect, and missing checksums; truncated and interrupted transfers (resume with `Range`, retry/backoff, retries exhausted with the partial kept but never finalized); idempotent reruns; corrupt existing files quarantined and refetched; unexpected HTTP responses; pinned-size mismatches; servers that ignore `Range`; offline mode; disk-space safety; unapproved or disallowed licenses; non-HTTPS URLs.
+- **Catalog:** schema validation, mixed-collection profile rejection, deterministic `(period, id)` source ordering.
+- **Assembly:** exact accounting on a fixture with OTB, online, low-rated, variant, illegal, duplicate, superseded, historical, and missing-metadata records; cross-archive deduplication; source-order independence; identical CPI hashes across rebuilds.
+- **Publication:** a failed build, failed index step, or failed deep verification never replaces the active release; repeated builds preserve the previous release and its immutable versions; artifact tampering is detected.
+- **Packaging:** required files present, lock/temporary files excluded, checksum emitted, extraction re-verified with `codb verify --deep`, tamper detection, byte-reproducible archives.
+- **Serving:** both collections served from generated releases; semantic HTTP checks (WDL reconciliation, collection identity, dataset version, candidate legality, HTTP/CLI equivalence on stratified positions, transposition equality, absent and beyond-depth positions, error behavior, game retrieval, cross-collection isolation); hot reload of a newly published snapshot.
+
+Real-corpus validation (`corpus.sh fetch/build/verify/http-check`) is an explicit opt-in stage and is never run by `validate.sh` or CI, because it downloads several gigabytes.
+
 ---
 
 ## 5. Automated Verification Gates
@@ -101,7 +112,8 @@ cargo test --workspace
 python3 -m unittest scripts/test_feasibility_alignment.py \
                     scripts/test_reproduce_runner.py \
                     scripts/test_validate_benchmarks.py \
-                    scripts/test_bench_http.py
+                    scripts/test_bench_http.py \
+                    scripts/test_corpus.py
 
 # 5. Production CPI benchmark schema and budget validator
 python3 scripts/validate_production_cpi_benchmarks.py

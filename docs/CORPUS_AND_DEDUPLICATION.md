@@ -37,8 +37,11 @@ pub struct MastersOtbPolicy {
    - Both players have FIDE Elo $\ge 2200$, OR
    - One player has FIDE Elo $\ge 2400$ and opponent has FIDE Elo $\ge 2000$.
 2. **Historical Era Exception (Pre-1970):**
-   - Official FIDE Elo lists did not exist prior to 1970. Pre-1970 games from verified master tournaments (e.g. Zurich 1953, AVRO 1938, St. Petersburg 1914) are accepted even if Elo headers are absent, provided player names and event headers are authentic.
-3. **Move Legality & Orthodox Position:**
+   - Official FIDE Elo lists did not exist prior to 1970. A pre-1970 game is accepted without Elo headers **only if the record names both the event and the venue** (`Event` and `Site` tags present and not `?`). A pre-1970 date alone is never sufficient (`HistoricalWithoutProvenance`). This is an executable check, not a statement of trust in the source: no historical archive is part of the pinned corpus catalog (see [CORPUS_BUILD.md](CORPUS_BUILD.md)).
+3. **OTB Provenance (Online-Event Exclusion):**
+   - Lichess broadcast archives also contain online events, and the PGN has no explicit over-the-board flag. A record is rejected (`OnlineEventInMastersSource`) when its `Event`, `Site`, or `BroadcastURL` contains the whole-word markers `online`, `internet`, `arena`, `bullet`, `ultrabullet`, `playchess`, `chesscom`, `tornelo`, mentions `chess.com`, or its `Site` is a plain Lichess game URL.
+   - **Known limitation:** this is a marker heuristic over event metadata. It excludes records that announce themselves as online; it cannot prove that every remaining record was played over the board. Sources expose `provenance_confidence: medium` in the catalog for this reason.
+4. **Move Legality & Orthodox Position:**
    - Standard orthodox starting position (`rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1`) or verified orthodox legal custom FEN setup.
    - Chess960, Fischer Random, and custom handicap variants are rejected.
    - At least 4 plies (2 full moves) to exclude accidental aborts and trivial forfeits.
@@ -60,8 +63,8 @@ pub struct EliteOnlinePolicy {
 1. **Rating Thresholds:**
    - Both players have verified online rating $\ge 2200$, OR
    - One player $\ge 2400$ and opponent $\ge 2000$.
-   - Unrated and casual games are strictly rejected (`CasualUnratedGame`).
-   - Provisional ratings (e.g. marked with `?` or high $RD$) are rejected (`ProvisionalRating`).
+   - Casual games are rejected (`CasualUnratedGame`) when the `Event` label contains `casual`. The Lichess *standard rated* archives contain only rated games, so this check is a defensive backstop.
+   - **Not enforced in code:** `ProvisionalRating` (the Lichess PGN dump carries no provisional marker) and `AbortedOrInfraction` (the `Termination` tag is not parsed). Both enum variants exist but are never produced. Games with those characteristics are only filtered indirectly by the rating and minimum-ply rules.
 2. **Speed Category & Bullet Exclusion:**
    - **Bullet & UltraBullet are strictly excluded.** Extremely rapid time controls suffer from mouse slips, flag-hunting, and premoves that corrupt positional opening theory.
    - **Estimated Duration Formula:** Evaluated using estimated game length:
@@ -70,7 +73,7 @@ pub struct EliteOnlinePolicy {
    - Valid accepted time controls: Blitz ($180\text{s} \le T_{\text{est}} < 600\text{s}$), Rapid ($600\text{s} \le T_{\text{est}} < 1800\text{s}$), and Classical ($T_{\text{est}} \ge 1800\text{s}$).
 3. **Plies & Termination:**
    - Minimum 6 plies (3 full moves) to eliminate immediate resignations, disconnected connections, or pre-move blunders.
-   - Games terminated by rules infractions or pre-move disconnects are rejected.
+   - Rule-infraction terminations are not rejected explicitly (see above).
 
 ---
 
@@ -85,7 +88,17 @@ When a candidate game is rejected during curation, it is classified into one of 
 - `TooFewPlies { plies, minimum }`: Game too short to reflect intentional opening play.
 - `NonStandardVariant(String)`: Chess960, Crazyhouse, Antichess, King of the Hill, etc.
 - `NonStandardStartingPosition(String)`: Illegal initial setup.
-- `AbortedOrInfraction(String)`: Abandoned before play or terminated by administrative infraction.
+- `AbortedOrInfraction(String)`: Reserved; not produced by the current reader (no `Termination` parsing).
+- `OnlineEventInMastersSource(String)`: Masters OTB only; the event, site, or broadcast URL carries an online-event marker.
+- `HistoricalWithoutProvenance`: Masters OTB only; pre-1970 date without both event and venue.
+
+### 3.1 Machine-Readable Rejection Categories
+
+`PolicyRejectionReason::category()` maps every policy rejection onto a stable snake_case key used by `codb build --report-json` and the release `RELEASE/build_report.json` (`policy_rejection_reasons`): `below_rating_threshold`, `missing_rating`, `provisional_rating`, `casual_or_unrated`, `bullet_or_ultrabullet`, `too_few_plies`, `non_standard_variant`, `non_standard_start`, `aborted_or_infraction`, `online_event_in_masters_source`, `historical_without_provenance`. The reader's early policy filter reports through the same keys. The values sum exactly to `rejected_by_policy`. Variant and illegal-move rejections keep their own accounting counters (`rejected_variant`, `rejected_illegal`).
+
+### 3.2 Curation Policy Version
+
+Releases record `curation_policy_version` from the source catalog (`masters-otb/2026.11-r1`, `elite-online/2026.11-r1`). Revision `r1` introduced the Masters online-event exclusion, the historical-provenance requirement, and the Elite casual-event check. Datasets built before this revision (for example the PR-03 benchmark datasets) were curated without those three checks and are not directly comparable.
 
 ---
 

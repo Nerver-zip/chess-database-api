@@ -111,7 +111,8 @@ flowchart TD
 ### 2.7 `codb-cli`
 - **Location:** [`crates/cli/`](../crates/cli/)
 - **Responsibilities:**
-  - Unified CLI command parsing via `clap`: `build`, `build-index`, `query`, `verify`, `inspect`, `get-game`, `bench`, and `serve`.
+  - Unified CLI command parsing via `clap`: `build`, `build-index`, `query`, `verify`, `inspect`, `report`, `get-game`, `bench`, and `serve`.
+  - `codb build --report-json` and `codb report` emit machine-readable accounting, rejection-reason, and distribution reports consumed by the corpus release workflow.
   - Service daemon lifecycle management for `codb serve`, handling host, port, timeout, move ply limits, and graceful OS shutdown signals.
   - Progress reporting and structured JSON diagnostic output.
   - Benchmark harnesses and verification gates.
@@ -208,6 +209,26 @@ Memory limits are strictly enforced across all components:
 | **Position Indexing** | External merge sort with partitioned `.crun` spill files | Strictly bounded by `--memory-limit-mib` (default 128 MiB) |
 | **Opening Query** | Memory-mapped sparse index ($34\text{ B/entry}$) + single block cache | $< 10\text{ MB}$ query overhead |
 | **HTTP Serving** | Bounded reader pool ($K$ readers $\times 2\text{ MB}$) + memory-mapped CPI/games.idx | $< 30\text{ MB}$ RSS under sustained concurrency |
+
+---
+
+## 6.1 Corpus Orchestration Layer (Outside the Rust Workspace)
+
+Source acquisition and release assembly are deliberately **not** part of the Rust pipeline. They live in a thin Python orchestration layer that only invokes the existing `codb` CLI:
+
+```mermaid
+flowchart TD
+    CAT["corpus/catalog.json<br/>pinned sources, licenses, publisher SHA-256"] --> FETCH["scripts/corpus.py fetch<br/>HTTPS, resume, retry, checksum, atomic finalize"]
+    FETCH --> SRC["data/sources/&lt;collection&gt;/*.pgn.zst<br/>(git-ignored)"]
+    SRC --> BUILD["codb build --manifest<br/>policy, dedupe, CGB3"]
+    BUILD --> INDEX["codb build-index<br/>CPI v2, bounded memory"]
+    INDEX --> VERIFY["codb verify --deep<br/>codb report"]
+    VERIFY --> PUBLISH["Promote: data/releases/&lt;collection&gt;<br/>RELEASE/ provenance + license notice"]
+    PUBLISH --> PKG["corpus.py package<br/>verifiable .tar + SHA-256"]
+    PUBLISH --> SERVE["codb serve (both collections)"]
+```
+
+The layer adds no new binary formats and does not alter ingestion, curation, deduplication, storage, or index semantics. A release is built in a private workspace under `data/work/`, fully verified, and only then renamed into `data/releases/<collection>`; the previous release (if any) is moved to `data/releases/.retired/` rather than deleted. See [CORPUS_BUILD.md](CORPUS_BUILD.md).
 
 ---
 
