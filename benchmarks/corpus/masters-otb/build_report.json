@@ -1,0 +1,77 @@
+{
+  "accounting": {
+    "accepted_unique": 42612,
+    "completion_status": "CompleteEof",
+    "confirmed_duplicates": 29,
+    "quarantined": 0,
+    "rejected_by_policy": 183102,
+    "rejected_illegal": 0,
+    "rejected_malformed": 0,
+    "rejected_variant": 1735,
+    "superseded_prior": 11,
+    "total_encountered": 227489
+  },
+  "build_duration_secs": 25.814567968,
+  "collection": "masters-otb",
+  "dataset_build_id": "codb-masters-otb-1794597056941125224-498832-0bb2f626af13fd38",
+  "is_reconciled": true,
+  "policy_rejection_reasons": {
+    "below_rating_threshold": 155153,
+    "missing_rating": 24823,
+    "online_event_in_masters_source": 2424,
+    "too_few_plies": 702
+  },
+  "retained_matches_accepted": true,
+  "source_archives": [
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_broadcast_2026-05.pgn.zst",
+      "license": "CC-BY-SA-4.0",
+      "sha256": "d212987f7972a70268809ff6c726acff8bf0987161aacd7647b160f8564f6a53",
+      "size_bytes": 22912287,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-05.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_broadcast_2026-06.pgn.zst",
+      "license": "CC-BY-SA-4.0",
+      "sha256": "65905d611c0d78d90ab57cd9edd3821f4119b46c22b5489fd7e265a74c6767b3",
+      "size_bytes": 22797518,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-06.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_broadcast_2026-07.pgn.zst",
+      "license": "CC-BY-SA-4.0",
+      "sha256": "714d0eb99f99fca8d791142038b6c59b5ca6a51b3339bd3891a92f4bdffcbf0c",
+      "size_bytes": 24535400,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-07.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_broadcast_2026-08.pgn.zst",
+      "license": "CC-BY-SA-4.0",
+      "sha256": "e227c35c3207ebade754849c1825982e2717ae82c013013d896778e27be77724",
+      "size_bytes": 31010232,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-08.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_broadcast_2026-09.pgn.zst",
+      "license": "CC-BY-SA-4.0",
+      "sha256": "27a39d035767a30901b89602f33f2a7b27d4ab5025842071165fa079f8fff1df",
+      "size_bytes": 18414369,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-09.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_broadcast_2026-10.pgn.zst",
+      "license": "CC-BY-SA-4.0",
+      "sha256": "d9c0c78c7ed8cd200723c9972b01a1cd35fd8568dd4b6324fbcc3ee7c07374c9",
+      "size_bytes": 22630351,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-10.pgn.zst"
+    }
+  ],
+  "total_games": 42612,
+  "total_physical_bytes": 9391568
+}

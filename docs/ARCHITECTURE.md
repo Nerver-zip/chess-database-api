@@ -210,6 +210,8 @@ Memory limits are strictly enforced across all components:
 | **Opening Query** | Memory-mapped sparse index ($34\text{ B/entry}$) + single block cache | $< 10\text{ MB}$ query overhead |
 | **HTTP Serving** | Bounded reader pool ($K$ readers $\times 2\text{ MB}$) + memory-mapped CPI/games.idx | $< 30\text{ MB}$ RSS under sustained concurrency |
 
+> **Measured on the real corpus (PR-A):** `codb build` peaked at 44.4 MB (42,612 accepted Masters games) and 67.3 MB (313,530 accepted Elite games) RSS, above the "< 30 MB" ingestion figure in the table (the dedupe and staging SQLite caches add about 36 MB to a ~12 MB baseline); serving both real collections reached ≈ 145 MB `VmHWM`, dominated by touched memory-mapped file pages rather than heap. The table states design budgets, the measured values are in [CORPUS_BUILD.md](CORPUS_BUILD.md#92-build-performance-one-pass-measured-by-the-orchestrator-via-kernel-rusage-and-workspace-sampling), and the open question is tracked as Q-04 in [DECISIONS_AND_OPEN_QUESTIONS.md](DECISIONS_AND_OPEN_QUESTIONS.md).
+
 ---
 
 ## 6.1 Corpus Orchestration Layer (Outside the Rust Workspace)

@@ -26,6 +26,7 @@ python3 -m unittest scripts/test_feasibility_alignment.py \
                     scripts/test_bench_http.py \
                     scripts/test_corpus.py
 python3 scripts/validate_production_cpi_benchmarks.py
+python3 scripts/validate_corpus_evidence.py
 python3 scripts/validate_benchmarks.py
 python3 scripts/validate_docs.py
 sha256sum -c MANIFEST.sha256

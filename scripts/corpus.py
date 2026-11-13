@@ -1290,18 +1290,33 @@ def read_game_ids(version_dir: Path) -> list[int]:
     return [int.from_bytes(data[32 + i * 16: 40 + i * 16], "big") for i in range(n)]
 
 
+SAN_RE = re.compile(r"^(?:O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?)[+#]?$")
+
+
+def parse_export_blocks(pgn: str) -> list[list[str]]:
+    """Extracts SAN move lists from `codb export` output.
+
+    Only the last paragraph of each record is read as movetext, and a record is
+    skipped unless every token is a well-formed SAN move (this protects against
+    multi-line tag values and stray annotations).
+    """
+    games: list[list[str]] = []
+    for block in re.split(r"\n\n(?=\[Event )", pgn):
+        paragraphs = [p for p in block.strip().split("\n\n") if p.strip()]
+        if not paragraphs or paragraphs[-1].lstrip().startswith("["):
+            continue
+        movetext = re.sub(r"\{[^}]*\}", " ", paragraphs[-1])
+        toks = [t for t in movetext.split() if not re.match(r"^\d+\.(\.\.)?$", t)
+                and t not in ("1-0", "0-1", "1/2-1/2", "*")]
+        if toks and all(SAN_RE.match(t) for t in toks):
+            games.append(toks)
+    return games
+
+
 def sample_move_sequences(codb: Path, root: Path, max_games: int) -> list[list[str]]:
     r = subprocess.run([str(codb), "export", "--dataset", str(root), "--max-games", str(max_games)],
                        capture_output=True, text=True, check=True)
-    games = []
-    for block in re.split(r"\n\n(?=\[Event )", r.stdout):
-        movetext = "\n".join(l for l in block.splitlines() if l and not l.startswith("["))
-        movetext = re.sub(r"\{[^}]*\}", " ", movetext)
-        toks = [t for t in movetext.split() if not re.match(r"^\d+\.(\.\.)?$", t)
-                and t not in ("1-0", "0-1", "1/2-1/2", "*")]
-        if toks:
-            games.append(toks)
-    return games
+    return parse_export_blocks(r.stdout)
 
 
 def percentile(sorted_vals: list[float], p: float) -> float:

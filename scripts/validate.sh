@@ -6,7 +6,7 @@
 # 2. cargo clippy --workspace --all-targets -- -D warnings
 # 3. cargo test --workspace
 # 4. python3 -m unittest for Python regression test suites
-# 5. python3 scripts/validate_production_cpi_benchmarks.py
+# 5. python3 scripts/validate_production_cpi_benchmarks.py (+ validate_corpus_evidence.py)
 # 6. python3 scripts/validate_benchmarks.py
 # 7. python3 scripts/validate_docs.py
 # 8. sha256sum -c MANIFEST.sha256
@@ -54,6 +54,8 @@ echo ""
 echo "=== [5/8] Validating Production CPI benchmark artifacts ==="
 python3 scripts/validate_production_cpi_benchmarks.py
 echo "  [PASS] Production CPI benchmarks valid."
+python3 scripts/validate_corpus_evidence.py
+echo "  [PASS] Real-corpus release evidence valid."
 
 echo ""
 echo "=== [6/8] Validating historical benchmark schemas and accounting ==="

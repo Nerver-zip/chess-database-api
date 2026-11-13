@@ -1,0 +1,166 @@
+{
+  "accepted_games": 42612,
+  "accounting": {
+    "accepted_unique": 42612,
+    "completion_status": "CompleteEof",
+    "confirmed_duplicates": 29,
+    "quarantined": 0,
+    "rejected_by_policy": 183102,
+    "rejected_illegal": 0,
+    "rejected_malformed": 0,
+    "rejected_variant": 1735,
+    "superseded_prior": 11,
+    "total_encountered": 227489
+  },
+  "artifacts": {
+    "games.idx": {
+      "sha256": "bf45e5447fc54e59cde41c83104683f2768f3132c64f063db9e6df088969ba0a",
+      "size_bytes": 681856
+    },
+    "manifest.json": {
+      "sha256": "81493c7700b5b81736b0e0414ecd425990ea08ac2f8e8a8aa2fbb1351d470317",
+      "size_bytes": 4096
+    },
+    "positions.cpi": {
+      "sha256": "4b8888d29992eee3e01828610bc74cc0258a372fa9b414e643a40aedaafdf05e",
+      "size_bytes": 21214497
+    },
+    "shards/shard_0000.cgb3": {
+      "sha256": "3302bdafa7f65d86230f758f48703284e97f169cd556267acf5524946ec11ba0",
+      "size_bytes": 8709712
+    }
+  },
+  "build_configuration": {
+    "block_capacity": 512,
+    "dedupe_mode": "disk",
+    "index_depth_plies": 40,
+    "memory_limit_mib": 128,
+    "profile": "baseline",
+    "source_order": [
+      "lichess-broadcast-2026-05",
+      "lichess-broadcast-2026-06",
+      "lichess-broadcast-2026-07",
+      "lichess-broadcast-2026-08",
+      "lichess-broadcast-2026-09",
+      "lichess-broadcast-2026-10"
+    ],
+    "zstd_level": 3
+  },
+  "build_metrics_summary": {
+    "peak_rss_bytes_by_step": {
+      "build": 44498944,
+      "build-index": 62824448,
+      "report": 29167616,
+      "verify": 29167616
+    },
+    "total_wall_seconds": 29.767
+  },
+  "built_at": "2026-11-13T19:11:00Z",
+  "collection": "masters-otb",
+  "commands": {
+    "build": "./scripts/corpus.sh build --collection masters-otb --profile baseline",
+    "fetch": "./scripts/corpus.sh fetch --collection masters-otb --profile baseline",
+    "serve": "./scripts/corpus.sh serve",
+    "verify": "codb verify --dataset <release-dir> --deep"
+  },
+  "curation_policy": {
+    "deduplication_policy_version": "v2-verified-prefix",
+    "metadata": {
+      "extra_criteria": "Online-event exclusion; historical exception pre-1970 requires named event and venue",
+      "min_plies": 4,
+      "min_rating_both": 2200,
+      "min_rating_one": 2400,
+      "min_rating_other": 2000
+    },
+    "version": "masters-otb/2026.11-r1 (ratings, standard start, min 4 plies, online-event exclusion, pre-1970 requires event+venue)"
+  },
+  "dataset_version": "codb-masters-otb-1794597057577937523-498898-194a24dbabf73cb6-cpi-d40",
+  "index": {
+    "cpi_file_size_bytes": 21214497,
+    "cpi_sha256": "4b8888d29992eee3e01828610bc74cc0258a372fa9b414e643a40aedaafdf05e",
+    "depth_plies": 40,
+    "total_move_records": 1040109,
+    "unique_positions": 984240
+  },
+  "inputs": [
+    {
+      "filename": "lichess_db_broadcast_2026-05.pgn.zst",
+      "id": "lichess-broadcast-2026-05",
+      "license": "CC-BY-SA-4.0",
+      "period": "2026-05",
+      "provenance_confidence": "medium",
+      "sha256": "d212987f7972a70268809ff6c726acff8bf0987161aacd7647b160f8564f6a53",
+      "size_bytes": 22912287,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-05.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_broadcast_2026-06.pgn.zst",
+      "id": "lichess-broadcast-2026-06",
+      "license": "CC-BY-SA-4.0",
+      "period": "2026-06",
+      "provenance_confidence": "medium",
+      "sha256": "65905d611c0d78d90ab57cd9edd3821f4119b46c22b5489fd7e265a74c6767b3",
+      "size_bytes": 22797518,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-06.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_broadcast_2026-07.pgn.zst",
+      "id": "lichess-broadcast-2026-07",
+      "license": "CC-BY-SA-4.0",
+      "period": "2026-07",
+      "provenance_confidence": "medium",
+      "sha256": "714d0eb99f99fca8d791142038b6c59b5ca6a51b3339bd3891a92f4bdffcbf0c",
+      "size_bytes": 24535400,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-07.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_broadcast_2026-08.pgn.zst",
+      "id": "lichess-broadcast-2026-08",
+      "license": "CC-BY-SA-4.0",
+      "period": "2026-08",
+      "provenance_confidence": "medium",
+      "sha256": "e227c35c3207ebade754849c1825982e2717ae82c013013d896778e27be77724",
+      "size_bytes": 31010232,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-08.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_broadcast_2026-09.pgn.zst",
+      "id": "lichess-broadcast-2026-09",
+      "license": "CC-BY-SA-4.0",
+      "period": "2026-09",
+      "provenance_confidence": "medium",
+      "sha256": "27a39d035767a30901b89602f33f2a7b27d4ab5025842071165fa079f8fff1df",
+      "size_bytes": 18414369,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-09.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_broadcast_2026-10.pgn.zst",
+      "id": "lichess-broadcast-2026-10",
+      "license": "CC-BY-SA-4.0",
+      "period": "2026-10",
+      "provenance_confidence": "medium",
+      "sha256": "d9c0c78c7ed8cd200723c9972b01a1cd35fd8568dd4b6324fbcc3ee7c07374c9",
+      "size_bytes": 22630351,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-10.pgn.zst"
+    }
+  ],
+  "license": {
+    "attribution_required": true,
+    "id": "CC-BY-SA-4.0",
+    "name": "Creative Commons Attribution-ShareAlike 4.0 International",
+    "notice_file": "RELEASE/DATASET_LICENSE.txt",
+    "share_alike": true,
+    "software_license": "MIT OR Apache-2.0 (software only; the dataset license is independent)",
+    "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+  },
+  "release_schema_version": 1,
+  "source_catalog": {
+    "catalog_content_sha256": "7186f3f6a255a3c88db640a00ce60bf494f28ccd9825e5abcb097ac25486042d",
+    "catalog_id": "codb-corpus-catalog-2026.11-r1"
+  },
+  "tool": {
+    "codb_version": "codb 0.1.0",
+    "git_commit": "9b7d77952301bc1ed52eb398681ab75d0c89f1e9",
+    "git_tree_dirty": false
+  }
+}

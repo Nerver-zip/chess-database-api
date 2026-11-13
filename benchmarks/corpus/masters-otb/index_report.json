@@ -1,0 +1,18 @@
+{
+  "published_build_id": "codb-masters-otb-1794597057577937523-498898-194a24dbabf73cb6-cpi-d40",
+  "games_processed": 42612,
+  "games_indexed": 42302,
+  "excluded_unknown_result_games": 310,
+  "custom_fen_games": 0,
+  "repeated_positions_skipped": 2864,
+  "raw_observations_extracted": 1652856,
+  "unique_positions": 984240,
+  "total_move_records": 1040109,
+  "cpi_block_count": 15379,
+  "runs_generated": 1,
+  "merge_passes": 1,
+  "peak_temp_bytes": 31203322,
+  "cpi_file_size_bytes": 21214497,
+  "cpi_sha256": "4b8888d29992eee3e01828610bc74cc0258a372fa9b414e643a40aedaafdf05e",
+  "duration_ms": 2675
+}

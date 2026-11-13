@@ -8,16 +8,18 @@ status: current
 
 ## 1. Benchmark Architecture & Taxonomy
 
-The benchmark ecosystem in `chess-openings-db` is partitioned into two clear domains:
+The benchmark ecosystem in `chess-openings-db` is partitioned into the following domains:
 
 ```
 benchmarks/
 ├── production_cpi/     # Authoritative active production CPI index baselines (ADR-0003)
+├── corpus/             # Real Masters/Elite release evidence (PR-A)
 └── results/            # Runtime benchmark outputs
     └── historical/     # Completed developmental stages & research baselines
 ```
 
 - **Production CPI Benchmarks (`benchmarks/production_cpi/`):** The normative performance baseline for the Compact Position Index (CPI v2) built via bounded-memory external sorting. Evaluated across 16 parameter combinations.
+- **Real Corpus Evidence (`benchmarks/corpus/`):** Machine-validated provenance, accounting, quality, build-performance, and HTTP-check records for the first real Masters OTB and Elite Online releases (section 2.3).
 - **Historical Benchmarks (`benchmarks/results/historical/`):** Archived empirical artifacts from prior developmental phases: Stage A (deterministic fixture), Stage B (single-month baselines), PR-01 progressive scaling ($N \in \{1000, 2500, 5000, 10000, 20000\}$), PR-02 ($100{,}000$ game scale exploration), and derived Heaps' Law projection parameters (`projections_heaps.json`).
 
 ---
@@ -39,6 +41,21 @@ Defined in [ADR-0003](adr/0003-production-cpi-index.md) and validated by [`scrip
    - $p_{95} \le 1.5\text{ ms}$
    - $p_{99} \le 2.0\text{ ms}$
 3. **Deterministic Output:** Byte-identical `.cpi` binary outputs regardless of memory limit or merge fan-in settings.
+
+---
+
+## 2.3 Real Corpus Release Baseline (PR-A)
+
+`benchmarks/corpus/` holds the committed, machine-validated evidence of the first real dual-collection build (see [CORPUS_BUILD.md §9](CORPUS_BUILD.md#9-measured-results-this-delivery) for the full tables):
+
+```
+benchmarks/corpus/
+├── http_check.json                 # `corpus.sh http-check`: checks, HTTP/CLI cases, latency, concurrency
+├── masters-otb/{RELEASE.json, build_report.json, quality_report.json, metrics.json, index_report.json, DATASET_LICENSE.txt}
+└── elite-online/{...same files...}
+```
+
+`python3 scripts/validate_corpus_evidence.py` (part of `validate.sh`) asserts the accounting identity, rejection-reason totals, hash formats, that every input checksum equals the pinned catalog's publisher checksum, license consistency per collection, successful build steps, and a passing HTTP check. Headline results: 42,612 accepted Masters games (depth 40, 984,240 positions) and 313,530 accepted Elite games (depth 30, 4,615,463 positions); 414/414 HTTP checks and 262 HTTP-vs-CLI position comparisons without mismatch; position-query p50 ≈ 196–210 µs, p99 ≈ 350–490 µs. These supersede the 1,000-game fixture figures for the serving layer; the fixture-based `http_api_benchmark.json` remains the lightweight CI baseline. Note that serving RSS on the real corpus (≈145 MB `VmHWM`, mostly shared memory-mapped file pages) is not comparable to the 9.9 MB fixture figure.
 
 ---
 
@@ -100,7 +117,7 @@ Fitted via ordinary least squares (OLS) log-linear regression in [`scripts/fit_h
 
 ### 5.2 Option B Deployment Projections (15 Million Games)
 Slicing **Masters OTB (5M games) to Depth 40** and **Elite Online (10M games) to Depth 30**:
-- **Baseline Scenario:** **7.68 GB** total deployed footprint.
+- **Baseline Scenario:** **7.68 GB** total deployed footprint. *(PR-A check: applying bytes per position and per game measured on the real 42,612-game Masters and 313,530-game Elite releases to this model gives ≈ 7.2–7.3 GB; the model's unique-position predictions were within −1.6% and −4.3% of measured. See [CORPUS_BUILD.md §9.6](CORPUS_BUILD.md#96-storage-feasibility-against-the-earlier-projection). The figure remains an extrapolation.)*
 - **Optimistic Scenario:** **6.44 GB** total deployed footprint.
 - **Conservative Scenario:** **9.98 GB** total deployed footprint (leaves **20 MB / 0.2%** headroom within the 10 GB envelope).
 

@@ -2,32 +2,35 @@
 
 ## 1. Current Repository State
 
-- **Goal:** PR-04: Production-Ready Opening Explorer HTTP API Service.
-- **Baseline Git Status:** Complete Rust workspace with 7 crates (`core`, `ingest`, `curate`, `storage`, `index`, `api`, `cli`). 100% test pass rate across unit, integration, publication crash simulations, HTTP API contract/concurrency suites, and Python regression test suites.
-- **Architecture Status:** Aligned with `ADR-0001` (Feasibility Foundations), `ADR-0002` (Bounded Streaming Ingestion & CGB3 Persistent Shards), `ADR-0003` (Production CPI v2 Index with Bounded External Merge Sort), and `ADR-0004` (Opening Explorer Read-Only HTTP API Service).
-- **Format Integrity:**
-  - `CGB3` (`shard_XXXX.cgb3`): 100% roundtrip fidelity, dictionary string interning, and physical density (~208 B/game for Masters OTB, ~178–181 B/game for Elite Online).
-  - `games.idx`: 16-byte fixed-record memory-mapped global index providing sub-millisecond random game retrieval by 64-bit stable ID.
-  - `CPI v2` (`positions.cpi`): 64-byte header, 34-byte memory-mapped sparse index ($O(\log B)$ binary search), and Zstd-compressed position blocks with candidate moves and W/D/L counters.
-- **HTTP Serving Layer (`codb-api` & `codb serve`):**
-  - High-performance read-only HTTP service built with Axum 0.8, Tokio, and Tower.
-  - Snapshot isolation pinning immutable version directories (`versions/vX/`) with zero lock contention.
-  - Lock-free, zero-copy position lookups directly against memory-mapped CPI indexes.
-  - Semaphore-bounded reader pool (`Arc<tokio::sync::Semaphore>`) for CGB3 game decompression offloaded to Tokio's blocking threadpool, strictly capping active readers to configured capacity with asynchronous queue timeouts.
-  - Fail-closed candidate snapshot validation before activation: candidate replacement directories are deeply verified (`verify_dataset` + CPI verification) before atomic pointer replacement, safely rejecting corrupted candidates while preserving active snapshot operation.
-  - RFC 7232 HTTP conditional request validation: game existence in `games.idx` is verified prior to evaluating conditional headers (returning 404 for missing games, never 304). Supports strong ETags, weak ETags (`W/"..."`), wildcards (`*`), and comma-separated tokens.
-  - Secure administrative management: `POST /v1/admin/reload` requires token authentication (`--admin-token` / `CODB_ADMIN_TOKEN`), returns 403 Forbidden when disabled and 401 Unauthorized for missing/invalid tokens, and rejects cross-origin requests. Local administrators can also trigger reloads without network credentials via standard Unix `SIGHUP` (`kill -HUP <pid>`).
-  - Restrictive default CORS policy (empty by default, same-origin only), with explicit origins configurable via `--allowed-origins`.
-- **Benchmark Baseline:**
-  - Active production CPI baseline: 16 parameter combination runs in `benchmarks/production_cpi/` validated by `scripts/validate_production_cpi_benchmarks.py`.
-  - HTTP API benchmark: `benchmarks/results/http_api_benchmark.json` validated by `scripts/test_bench_http.py`:
-    - Corpus accounting: Tested directly on fast validation fixture (`fixtures/stage_a_validation.pgn`, 1,000 games); documents that PR-03 production 100k datasets require local provisioning.
-    - Startup time: **58.54 ms**
-    - Memory envelope: **6.18 MB** initial RSS, continuous sampled peak RSS at **9.86 MB** under full concurrent load (< 30 MB ceiling).
-    - Query latency: Single-client p50 = **264–361 µs**; Game retrieval p50 = **287 µs**.
-    - Concurrency throughput: **4,587 req/s** peak, scaling across 1, 4, 8, 16, and 32 concurrent workers with zero errors.
-    - Reader pool saturation contention: 32 concurrent workers requesting against pool capacity 4 queue safely with zero errors.
-    - Zero-downtime reload: **3.29 ms** reload duration, **715 live requests handled during swap**, **0 errors**.
+- **Goal:** PR-A: Reproducible Production Corpus Assembly & Local Opening Explorer Delivery (branch `feat/corpus-release-pipeline`, Draft PR against `main`).
+- **What exists now:** the engine from PR-01…PR-04 (7 crates, CGB3, CPI v2, HTTP API) **plus** a pinned source catalog and an orchestration layer that turns real, checksum-verified Lichess archives into two versioned releases and serves them:
+  - `corpus/catalog.json` — 10 pinned archives (6 Lichess broadcast months 2026-05…10 for `masters-otb`, CC BY-SA 4.0; 4 complete Lichess standard-rated months 2016-03/06/09/12 for `elite-online`, CC0 1.0), each with publisher SHA-256, verified SHA-256, acquisition timestamp, provenance confidence, eligibility, notes.
+  - `scripts/corpus.py` / `scripts/corpus.sh` — `plan`, `sources`, `fetch`, `verify-sources`, `pin`, `build`, `verify`, `report`, `package`, `verify-package`, `serve`, `http-check`. Stdlib only; drives the `codb` CLI; never reimplements ingestion/curation/indexing/publication.
+  - `codb build --report-json` and `codb report` (accounting, rejection reasons, distributions).
+  - Curation fixes (policy revision `r1`, no binary-format change): Masters online-event exclusion, pre-1970 games require named event + venue, Elite casual-event rejection.
+  - `docs/CORPUS_BUILD.md` (procedure + measured results), `benchmarks/corpus/` (validated evidence), `fixtures/corpus/` (synthetic offline fixtures).
+- **Real corpus actually built locally (not published anywhere):**
+
+  | | `masters-otb` | `elite-online` |
+  | :--- | ---: | ---: |
+  | Accepted unique games | 42,612 (target ≥ 30,000 met) | 313,530 (target ≥ 100,000 met) |
+  | Games encountered | 227,489 | 28,184,178 |
+  | Index depth / unique positions / move records | 40 / 984,240 / 1,040,109 | 30 / 4,615,463 / 5,056,633 |
+  | Deployed size (current version) | 30.6 MB | 156.4 MB |
+  | `codb build` / index / total wall time | 26 s / 2.8 s / 29 s | 439 s / 13 s / 454 s |
+  | Peak RSS: build / index | 44.4 MB / 62.5 MB | 67.3 MB / 131.5 MB |
+
+  Release identifiers, hashes and all other numbers: `benchmarks/corpus/*/RELEASE.json`.
+- **Verification evidence:** `codb verify --deep` PASS for both releases and for extracted packages; `corpus.sh http-check`: 414/414 checks, 131 HTTP-vs-CLI stratified comparisons per collection, 0 mismatches; HTTP position p50 ≈ 196–210 µs, p99 ≈ 350–490 µs; rebuilds (3× Masters, 2× Elite) gave byte-identical `games.idx`, `positions.cpi` and shards (only `manifest.json` differs).
+- **Known limitations / discrepancies (do not hide):**
+  1. `codb build` peak RSS (44–67 MB) exceeds the older "< 30 MB ingestion" statement; documented as Q-04 in `docs/DECISIONS_AND_OPEN_QUESTIONS.md`; cache sizes were deliberately not changed.
+  2. Masters OTB qualification is a marker heuristic over event/site/broadcast-slug; ~69% of accepted Masters games have no venue (`Site` is a broadcast URL). Catalog confidence is `medium`.
+  3. Elite corpus is four complete 2016 months (a different era); modern monthly archives are tens of GB and were not downloaded. Not the 5M/10M target (future work).
+  4. `ProvisionalRating` and `AbortedOrInfraction` policy variants are still never produced (no provisional marker / `Termination` parsing).
+  5. In-process CPI lookup latency for Elite was not measured (the long `bench-dataset` run was stopped); HTTP latency is the evidence.
+  6. Releases are local artifacts only; no upload to any hosting destination was performed or approved.
+- **Format Integrity (unchanged):** `CGB3` (~204 B/game Masters, ~166 B/game Elite measured), `games.idx` 16-byte records, `CPI v2` (~21.5 B per indexed position).
+- **HTTP Serving Layer:** unchanged from PR-04 (see §3). Documentation correction: unsupported parameters return HTTP 400 `unsupported_parameter` (docs previously said 422 in one place).
 
 ---
 
@@ -52,15 +55,18 @@ chess-openings-db/
 │   ├── QA_STRATEGY.md # Storage crash recovery, reader snapshot isolation, verification gates
 │   ├── BENCHMARKS.md # Benchmark methodology, production CPI baselines, dataset checksums, Heaps' Law
 │   ├── ROADMAP.md  # Milestone progress and planned Opening Explorer HTTP API service
-│   ├── DECISIONS_AND_OPEN_QUESTIONS.md # Accepted trade-offs and open architectural questions
+│   ├── CORPUS_BUILD.md # Reproducible corpus build/release procedure + measured results
+│   ├── DECISIONS_AND_OPEN_QUESTIONS.md # Accepted trade-offs and open architectural questions (Q-04: build RSS)
 │   ├── adr/        # Architecture Decision Records (ADR-0001 to ADR-0004)
 │   └── research/   # Historical research tracks preserved for provenance and reproducibility
 ├── benchmarks/
 │   ├── README.md   # Architecture of production baselines vs historical results
 │   ├── production_cpi/ # 16 active production CPI baseline runs (ADR-0003)
+│   ├── corpus/     # Real Masters/Elite release evidence + HTTP check (validated by validate_corpus_evidence.py)
 │   └── results/    # Active benchmark outputs (http_api_benchmark.json) and historical archive
-├── fixtures/       # Deterministic PGN test fixtures (stage_a_validation.pgn)
-├── scripts/        # Unified validate.sh, validate_docs.py, benchmark runners, and tests
+├── corpus/         # Pinned source catalog (catalog.json) — sources, licenses, publisher checksums
+├── fixtures/       # Deterministic PGN fixtures (stage_a_validation.pgn, corpus/ synthetic offline fixtures)
+├── scripts/        # validate.sh, corpus.sh/corpus.py (acquisition, build, release, serve), validators, tests
 ├── AGENTS.md       # Operational guide for AI agents
 ├── CONTRIBUTING.md # Contribution guidelines, PR conventions, and quality gates
 ├── CHANGELOG.md    # Milestone delivery history
@@ -74,7 +80,11 @@ chess-openings-db/
 
 ```bash
 # Build persistent CGB3 dataset from PGN / PGN.zst
-codb build --input <file.pgn.zst> --collection <masters-otb|elite-online> --output <dir> [--max-games N]
+codb build --input <file.pgn.zst> --collection <masters-otb|elite-online> --output <dir> [--max-games N] [--report-json <file>]
+codb build --manifest <sources.json> --collection <...> --output <dir>   # pinned inputs, used by corpus.sh
+
+# Quality report (distributions, coverage, missing metadata)
+codb report --dataset <dir> [--output <json>]
 
 # Build production CPI position index using bounded-memory external sort
 codb build-index --dataset <dir> --depth-plies <N> --collection <masters-otb|elite-online> [--memory-limit-mib 128]
@@ -101,47 +111,37 @@ codb bench --input <file.pgn> --collection <masters-otb|elite-online> --output-d
 
 ---
 
-## 4. Final Hardening Follow-up (Merge Readiness)
+## 4. Operating Procedure (Local)
 
-The following narrowly scoped hardening improvements were implemented and verified on PR #5:
-1. **Empty Administrative Token Rejection (P2):**
-   - `ServerConfig::validate()` strictly rejects empty or whitespace-only `--admin-token` values at startup, ensuring misconfiguration fails immediately rather than allowing authentication with an empty bearer token.
-   - Added defensive checks in `routes/admin.rs` (`!token.is_empty() && token == expected_token`).
-   - Covered by comprehensive regression tests for missing, empty, whitespace-only, invalid, and valid tokens.
-2. **Internal HTTP Error Sanitization (P2):**
-   - HTTP 500 responses (`reload_failed`, `storage_error`, `internal_error`) log complete diagnostic details to structured server-side logs via `tracing::error!` without exposing secrets.
-   - Response JSON payloads return sanitized generic messages that never expose filesystem paths, storage internals, or low-level diagnostic traces.
-   - Stable machine-readable error codes are strictly preserved.
-   - Regression tests verify that simulated internal errors with paths and corrupt snapshot errors never leak paths into JSON responses.
-3. **Representation-Accurate Position ETags (P3):**
-   - `compute_position_etag` incorporates collection identity, dataset build ID, canonical 128-bit position key, and the complete FEN string (including move clock counters) using SHA-256 digest suffixing.
-   - Eliminates ETag collisions between differing collections and between equivalent board positions reached via move repetitions that alter FEN halfmove/fullmove clocks.
-   - Preserves RFC 7232 conditional caching (`304 Not Modified`) for identical representations across identical transpositions.
-4. **Exposed Reader-Pool Timeout Option (P3):**
-   - Added `--reader-pool-timeout-secs` to `codb serve` CLI options with environment variable `CODB_READER_POOL_TIMEOUT_SECS` (default: 5 seconds).
-   - Validated in `ServerConfig::validate()` that `reader_pool_timeout_secs > 0`.
-   - Updated CLI documentation, `--help`, and added CLI option parsing unit tests.
+```bash
+cargo build --release -p codb-cli
+./scripts/corpus.sh plan
+./scripts/corpus.sh fetch                      # ~5.2 GB, resumable, SHA-256 verified
+./scripts/corpus.sh build --collection masters-otb
+./scripts/corpus.sh build --collection elite-online
+./scripts/corpus.sh verify
+./scripts/corpus.sh http-check --per-stratum 40 --sample-games 6000 --requests 1000
+./scripts/corpus.sh serve                      # 127.0.0.1:8080
+./scripts/corpus.sh package --collection masters-otb   # optional
+```
+
+Data lives in `data/` (git-ignored; override with `CODB_DATA_DIR`). Never commit archives or releases. See `docs/CORPUS_BUILD.md` (including failure recovery).
 
 ---
 
-## 5. Verification State
+## 5. Verification State (this branch)
 
-All local quality gates pass with zero warnings and zero errors:
-- `cargo fmt --all -- --check`: PASS.
-- `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace`: PASS (all unit, integration, publication crash simulations, and 22 API contract, security, and concurrency tests pass).
-- Python test suites (`scripts/test_*.py`): PASS (21/21 in feasibility/validation, 4/4 in reproduce runner, 5/5 in bench_http).
-- Production CPI validator (`scripts/validate_production_cpi_benchmarks.py`): PASS (all 16 artifacts valid).
-- Historical validator (`scripts/validate_benchmarks.py`): PASS (all 18 artifacts and Heaps' projections valid).
-- Documentation validator (`scripts/validate_docs.py`): PASS (all internal links, uppercase basenames, and frontmatter valid).
-- Contract manifest verification (`sha256sum -c MANIFEST.sha256`): PASS.
+- `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`: PASS.
+- Python suites (`scripts/test_*.py` incl. new `test_corpus.py`, 49 offline tests): PASS.
+- `validate_production_cpi_benchmarks.py`, `validate_corpus_evidence.py`, `validate_benchmarks.py`, `validate_docs.py`, `sha256sum -c MANIFEST.sha256`: PASS.
+- `./scripts/validate.sh`: see the final result recorded in the PR description.
+- Real-corpus validation is opt-in and was executed locally (§1); CI never downloads archives.
 
 ---
 
-## 6. Upstream Pull Request & Next Actions
+## 6. Next Actions
 
-1. **Pull Request Status:** Draft Pull Request [#5](https://github.com/Nerver-zip/chess-openings-db/pull/5) updated and hardened.
-   - Branch: `feat/opening-explorer-http-api` -> `main`.
-   - Final status recommendation: **READY FOR MERGE**.
-2. **Review & Promotion:** Transition PR #5 from Draft to Ready for Review upon stakeholder approval.
-3. **Future Incremental Initiatives:** Evaluate future roadmap enhancements (incremental delta shards, precomputed ECO classification trees, and edge cache optimization).
+1. Maintainer review of the Draft PR; decide Q-04 (document vs lower SQLite cache sizes).
+2. Decide an approved distribution destination before publishing any `corpus.sh package` archive; keep `RELEASE/DATASET_LICENSE.txt` with it.
+3. Evalis integration PR: consume `data/releases/{masters-otb,elite-online}` via `codb serve` (CORS: `--allowed-origins`), see `docs/CORPUS_BUILD.md` §10.
+4. Optional expansion: pin more Elite/Masters periods in new catalog profiles; review further Masters sources for redistribution rights before use; improve OTB qualification if a Lichess flag appears.

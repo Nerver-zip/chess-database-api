@@ -35,6 +35,11 @@ The following architectural decisions have been evaluated, implemented, and acce
 - **Rationale:** Axum provides modular, zero-cost routing with first-class state sharing via `Arc`. CPI v2 position queries run 100% lock-free across concurrent worker threads directly against memory-mapped data (`DiskPositionIndex`), achieving sub-millisecond p50 latencies (~220–250 µs). CGB3 game decompression is offloaded to a bounded reader pool (`DatasetReaderPool`) on `tokio::task::spawn_blocking`.
 - **Zero-Downtime Reloading:** Pinned snapshots (`DatasetSnapshot`) are swapped atomically via `parking_lot::RwLock<Arc<DatasetSnapshot>>` upon `POST /v1/admin/reload`, allowing seamless updates under live traffic with zero dropped requests.
 
+### 1.7 Corpus Orchestration Outside the Rust Workspace
+- **Decision:** Source acquisition, release assembly, packaging, and HTTP validation live in `scripts/corpus.py` (Python standard library) driven by a pinned `corpus/catalog.json`, and invoke the existing `codb` CLI instead of adding download or release logic to the Rust crates.
+- **Rationale:** Acquisition and provenance are release-process concerns that change independently of storage formats; keeping them out of `codb-*` preserves the binary-format and determinism contracts and avoids new Rust dependencies (HTTP client, TLS). The catalog fails closed on missing checksums and unapproved licenses.
+- **Trade-off:** A second language in the repository; mitigated by stdlib-only code, offline tests in `validate.sh`, and no new dependencies.
+
 ---
 
 ## 2. Historical Research Classification
@@ -71,3 +76,11 @@ With the core HTTP serving layer delivered in PR-04, the following questions rem
   1. *Client-Side Lookup:* Clients maintain an ECO dictionary mapping position keys to opening names.
   2. *CPI Sidecar Index:* A lightweight ancillary binary table mapping `PositionKey` to interned ECO string IDs embedded into the dataset directory.
 - **Status:** Open for future exploration.
+
+### Q-04: Ingestion Memory Ceiling vs Measured `codb build` RSS
+- **Context:** Documents state ingestion stays below 30 MB RSS and deduplication below a 64 MB cache ceiling. On the real baseline corpus `codb build` peaked at 44.4 MB (Masters, 42,612 accepted games) and 67.3 MB (Elite, 313,530 accepted games); a single-archive Masters build peaked at 22.5 MB. The deduplication SQLite cache is configured at 32 MB and the staging catalog at 4 MB, on top of a ~12 MB process baseline, so the peak grows with accepted games until the caches fill.
+- **Options:**
+  1. *Keep and re-document:* state the guarantee as "bounded by configured SQLite cache sizes" (about 70 MB at 300k accepted games) instead of "< 30 MB".
+  2. *Lower the cache sizes:* reduce `cache_size` in `dedupe.rs` and `dataset.rs` (changes performance, not output; deduplication determinism must be re-verified).
+- **Status:** Open. This delivery did not change cache settings (out of scope; `dedupe.rs` determinism is a core invariant). The measured values are published in [CORPUS_BUILD.md](CORPUS_BUILD.md#92-build-performance-one-pass-measured-by-the-orchestrator-via-kernel-rusage-and-workspace-sampling), and the invariant text in `AGENTS.md` and `ARCHITECTURE.md` should be revisited by the maintainers.
+

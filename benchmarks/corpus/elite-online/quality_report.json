@@ -1,0 +1,125 @@
+{
+  "accounting": {
+    "accepted_unique": 313530,
+    "completion_status": "CompleteEof",
+    "confirmed_duplicates": 42,
+    "quarantined": 0,
+    "rejected_by_policy": 27870594,
+    "rejected_illegal": 0,
+    "rejected_malformed": 0,
+    "rejected_variant": 0,
+    "superseded_prior": 12,
+    "total_encountered": 28184178
+  },
+  "collection": "elite-online",
+  "dataset_build_id": "codb-elite-online-1794597538842378272-499142-bdce0a0d3e87ccc3-cpi-d30",
+  "distinct_events_hash_estimate": 2982,
+  "distinct_players_hash_estimate": 13864,
+  "manifest_total_games": 313530,
+  "min_player_rating_bins": {
+    "2000-2099": 10009,
+    "2100-2199": 15097,
+    "2200-2299": 180143,
+    "2300-2399": 74573,
+    "2400-2499": 25643,
+    "2500-2599": 6573,
+    "2600-2699": 1329,
+    "2700-2799": 130,
+    "2800-2899": 33
+  },
+  "missing_metadata": {
+    "date": 0,
+    "event": 0,
+    "site_or_source_id": 0,
+    "time_control": 456
+  },
+  "months": {
+    "2016-02": 112,
+    "2016-03": 64592,
+    "2016-05": 248,
+    "2016-06": 93918,
+    "2016-08": 200,
+    "2016-09": 80212,
+    "2016-11": 82,
+    "2016-12": 74166
+  },
+  "notes": "Distinct players/events are counted by exact normalized name hash; the same person may appear under several spellings. Ratings are FIDE Elo for masters-otb and Lichess Glicko-2 for elite-online and must never be pooled.",
+  "plies_bins": {
+    "000-019": 2948,
+    "020-039": 26138,
+    "040-079": 142890,
+    "080-159": 137161,
+    "160+": 4393
+  },
+  "position_index": {
+    "block_count": 72117,
+    "custom_fen_games": 0,
+    "excluded_unknown_result_games": 85,
+    "file_size_bytes": 99368120,
+    "filename": "positions.cpi",
+    "format_version": "CPI/v2",
+    "games_indexed": 313445,
+    "games_processed": 313530,
+    "indexed_depth_plies": 30,
+    "positions_per_block": 64,
+    "raw_observations_extracted": 9318302,
+    "repeated_positions_skipped": 1418,
+    "sha256": "f2d01841fddc24c1c8f1b00d1ca360e348d6db135f1b7b38a586c56b69836281",
+    "unique_position_move_pairs": 5056633,
+    "unique_positions": 4615463,
+    "zstd_level": 3
+  },
+  "results": {
+    "0-1": 138898,
+    "1-0": 150775,
+    "1/2-1/2": 23772,
+    "unknown": 85
+  },
+  "source_archives": [
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2016-03.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "11e8667a82a02199855f3aca83d6d4091d194dc4becf6d02a8001f0d9623b5c6",
+      "size_bytes": 1042258644,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-03.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2016-06.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "97ccde214a81d5e58867bedbeb510dfdd99418d9fb31b0995f5320a74b7d4502",
+      "size_bytes": 1093562696,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-06.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2016-09.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "3a4d18db787db558083aacb7c27ab3588f0745c1baaca37846b3f0d8b9677db3",
+      "size_bytes": 1213809361,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-09.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2016-12.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "285d09bcb7f47af2d58594ecee7da8c18f9e800fd7df2e0158b4fb5429f9a904",
+      "size_bytes": 1698298025,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-12.pgn.zst"
+    }
+  ],
+  "speed_class_note": "Only computed for elite-online (seconds-based Lichess TimeControl). For masters-otb the PGN TimeControl unit is not consistent across broadcasts, so only raw values are listed.",
+  "speed_classes": {
+    "blitz": 283953,
+    "classical": 754,
+    "rapid": 28367,
+    "unknown": 456
+  },
+  "time_control_raw_top20": {},
+  "total_games": 313530,
+  "unknown_result_games": 85,
+  "years": {
+    "2016": 313530
+  }
+}

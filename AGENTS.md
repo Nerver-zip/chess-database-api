@@ -63,6 +63,7 @@ python3 -m unittest scripts/test_feasibility_alignment.py \
 
 # 5. Production CPI benchmark validator
 python3 scripts/validate_production_cpi_benchmarks.py
+python3 scripts/validate_corpus_evidence.py
 
 # 6. Historical benchmark schema and accounting validator
 python3 scripts/validate_benchmarks.py

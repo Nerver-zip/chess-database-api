@@ -1,0 +1,18 @@
+{
+  "published_build_id": "codb-elite-online-1794597538842378272-499142-bdce0a0d3e87ccc3-cpi-d30",
+  "games_processed": 313530,
+  "games_indexed": 313445,
+  "excluded_unknown_result_games": 85,
+  "custom_fen_games": 0,
+  "repeated_positions_skipped": 1418,
+  "raw_observations_extracted": 9318302,
+  "unique_positions": 4615463,
+  "total_move_records": 5056633,
+  "cpi_block_count": 72117,
+  "runs_generated": 3,
+  "merge_passes": 1,
+  "peak_temp_bytes": 164151366,
+  "cpi_file_size_bytes": 99368120,
+  "cpi_sha256": "f2d01841fddc24c1c8f1b00d1ca360e348d6db135f1b7b38a586c56b69836281",
+  "duration_ms": 13714
+}

@@ -275,6 +275,20 @@ class CatalogTests(unittest.TestCase):
             corpus.select_sources(make_catalog([self.entry()]), "elite-online", "nope")
 
 
+class ExportParserTests(unittest.TestCase):
+    def test_parse_export_blocks_is_strict(self):
+        pgn = (
+            '[Event "A"]\n[White "x"]\n\n1. e4 e5 2. Nf3 {a comment} Nc6 3. O-O-O+ 1-0\n\n'
+            '[Event "Multi\nline value"]\n[White "y"]\n\n1. d4 d5 2. c4 e6 1/2-1/2\n\n'
+            '[Event "Garbage"]\n\n1. \u00a8\u00e5\u00bd e5 *\n\n'
+            '[Event "Empty"]\n[White "z"]\n'
+        )
+        games = corpus.parse_export_blocks(pgn)
+        self.assertEqual(games[0], ["e4", "e5", "Nf3", "Nc6", "O-O-O+"])
+        self.assertIn(["d4", "d5", "c4", "e6"], games)
+        self.assertEqual(len(games), 2, "records with non-SAN tokens or no movetext are skipped")
+
+
 # --------------------------------------------------------------------------- #
 # Acquisition
 # --------------------------------------------------------------------------- #

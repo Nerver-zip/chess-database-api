@@ -1,0 +1,118 @@
+{
+  "host": "127.0.0.1",
+  "port": 42291,
+  "collections": {
+    "masters-otb": {
+      "cases": 131,
+      "mismatches": 0,
+      "strata": {
+        "common": 40,
+        "mid": 40,
+        "rare": 40,
+        "beyond_depth": 3,
+        "absent": 1,
+        "transposition_pairs": 3
+      },
+      "position_latency": {
+        "count": 1000,
+        "p50_us": 210.0,
+        "p95_us": 455.1,
+        "p99_us": 489.7,
+        "max_us": 568.7
+      },
+      "game_retrieval_latency": {
+        "count": 200,
+        "p50_us": 1345.5,
+        "p95_us": 1575.7,
+        "p99_us": 1852.0,
+        "max_us": 2773.1
+      },
+      "concurrency": {
+        "1": {
+          "requests": 250,
+          "errors": 0,
+          "req_per_sec": 5303.1
+        },
+        "4": {
+          "requests": 1000,
+          "errors": 0,
+          "req_per_sec": 6112.0
+        },
+        "8": {
+          "requests": 2000,
+          "errors": 0,
+          "req_per_sec": 6264.8
+        },
+        "16": {
+          "requests": 4000,
+          "errors": 0,
+          "req_per_sec": 6178.1
+        },
+        "32": {
+          "requests": 8000,
+          "errors": 0,
+          "req_per_sec": 6521.3
+        }
+      }
+    },
+    "elite-online": {
+      "cases": 131,
+      "mismatches": 0,
+      "strata": {
+        "common": 40,
+        "mid": 40,
+        "rare": 40,
+        "beyond_depth": 3,
+        "absent": 1,
+        "transposition_pairs": 3
+      },
+      "position_latency": {
+        "count": 1000,
+        "p50_us": 195.7,
+        "p95_us": 300.2,
+        "p99_us": 350.3,
+        "max_us": 393.8
+      },
+      "game_retrieval_latency": {
+        "count": 200,
+        "p50_us": 1076.9,
+        "p95_us": 1206.6,
+        "p99_us": 1326.5,
+        "max_us": 1364.5
+      },
+      "concurrency": {
+        "1": {
+          "requests": 250,
+          "errors": 0,
+          "req_per_sec": 4903.3
+        },
+        "4": {
+          "requests": 1000,
+          "errors": 0,
+          "req_per_sec": 6322.5
+        },
+        "8": {
+          "requests": 2000,
+          "errors": 0,
+          "req_per_sec": 6870.4
+        },
+        "16": {
+          "requests": 4000,
+          "errors": 0,
+          "req_per_sec": 5730.4
+        },
+        "32": {
+          "requests": 8000,
+          "errors": 0,
+          "req_per_sec": 6449.5
+        }
+      }
+    }
+  },
+  "startup_seconds": 1.362,
+  "server_peak_rss_bytes": 144617472,
+  "checks_total": 414,
+  "checks_failed": 0,
+  "failed": [],
+  "passed": true
+}
