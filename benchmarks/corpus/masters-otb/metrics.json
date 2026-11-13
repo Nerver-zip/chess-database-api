@@ -1,37 +1,37 @@
 {
   "steps": {
     "build": {
-      "command": "<repo>/target/release/codb build --manifest <repo>/data/work/masters-otb-baseline-20261113T191030Z/sources.manifest.json --collection masters-otb --output <repo>/data/work/masters-otb-baseline-20261113T191030Z/dataset --report-json <repo>/data/work/masters-otb-baseline-20261113T191030Z/build_report.json",
+      "command": "<repo>/target/release/codb build --manifest <repo>/data/work/masters-otb-baseline-20261113T194933Z/sources.manifest.json --collection masters-otb --output <repo>/data/work/masters-otb-baseline-20261113T194933Z/dataset --report-json <repo>/data/work/masters-otb-baseline-20261113T194933Z/build_report.json",
       "returncode": 0,
-      "wall_seconds": 26.651,
-      "peak_rss_bytes": 44498944,
+      "wall_seconds": 25.01,
+      "peak_rss_bytes": 29847552,
       "peak_workspace_disk_bytes": 18563072,
-      "log": "<repo>/data/work/masters-otb-baseline-20261113T191030Z/logs/build.log"
+      "log": "<repo>/data/work/masters-otb-baseline-20261113T194933Z/logs/build.log"
     },
     "build-index": {
-      "command": "<repo>/target/release/codb build-index --dataset <repo>/data/work/masters-otb-baseline-20261113T191030Z/dataset --collection masters-otb --depth-plies 40 --memory-limit-mib 128 --json",
+      "command": "<repo>/target/release/codb build-index --dataset <repo>/data/work/masters-otb-baseline-20261113T194933Z/dataset --collection masters-otb --depth-plies 40 --memory-limit-mib 128 --json",
       "returncode": 0,
-      "wall_seconds": 2.678,
-      "peak_rss_bytes": 62824448,
-      "peak_workspace_disk_bytes": 63127552,
-      "log": "<repo>/data/work/masters-otb-baseline-20261113T191030Z/logs/build-index.log"
+      "wall_seconds": 2.708,
+      "peak_rss_bytes": 61665280,
+      "peak_workspace_disk_bytes": 62373888,
+      "log": "<repo>/data/work/masters-otb-baseline-20261113T194933Z/logs/build-index.log"
     },
     "verify": {
-      "command": "<repo>/target/release/codb verify --dataset <repo>/data/work/masters-otb-baseline-20261113T191030Z/dataset --deep",
+      "command": "<repo>/target/release/codb verify --dataset <repo>/data/work/masters-otb-baseline-20261113T194933Z/dataset --deep",
       "returncode": 0,
-      "wall_seconds": 0.304,
-      "peak_rss_bytes": 29167616,
+      "wall_seconds": 0.299,
+      "peak_rss_bytes": 29511680,
       "peak_workspace_disk_bytes": 34865152,
-      "log": "<repo>/data/work/masters-otb-baseline-20261113T191030Z/logs/verify.log"
+      "log": "<repo>/data/work/masters-otb-baseline-20261113T194933Z/logs/verify.log"
     },
     "report": {
-      "command": "<repo>/target/release/codb report --dataset <repo>/data/work/masters-otb-baseline-20261113T191030Z/dataset --output <repo>/data/work/masters-otb-baseline-20261113T191030Z/quality_report.json",
+      "command": "<repo>/target/release/codb report --dataset <repo>/data/work/masters-otb-baseline-20261113T194933Z/dataset --output <repo>/data/work/masters-otb-baseline-20261113T194933Z/quality_report.json",
       "returncode": 0,
-      "wall_seconds": 0.115,
-      "peak_rss_bytes": 29167616,
+      "wall_seconds": 0.106,
+      "peak_rss_bytes": 29511680,
       "peak_workspace_disk_bytes": 34873344,
-      "log": "<repo>/data/work/masters-otb-baseline-20261113T191030Z/logs/report.log"
+      "log": "<repo>/data/work/masters-otb-baseline-20261113T194933Z/logs/report.log"
     }
   },
-  "total_wall_seconds": 29.767
+  "total_wall_seconds": 28.141
 }

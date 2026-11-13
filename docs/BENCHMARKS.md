@@ -55,7 +55,7 @@ benchmarks/corpus/
 └── elite-online/{...same files...}
 ```
 
-`python3 scripts/validate_corpus_evidence.py` (part of `validate.sh`) asserts the accounting identity, rejection-reason totals, hash formats, that every input checksum equals the pinned catalog's publisher checksum, license consistency per collection, successful build steps, and a passing HTTP check. Headline results: 42,612 accepted Masters games (depth 40, 984,240 positions) and 313,530 accepted Elite games (depth 30, 4,615,463 positions); 414/414 HTTP checks and 262 HTTP-vs-CLI position comparisons without mismatch; position-query p50 ≈ 196–210 µs, p99 ≈ 350–490 µs. These supersede the 1,000-game fixture figures for the serving layer; the fixture-based `http_api_benchmark.json` remains the lightweight CI baseline. Note that serving RSS on the real corpus (≈145 MB `VmHWM`, mostly shared memory-mapped file pages) is not comparable to the 9.9 MB fixture figure.
+`python3 scripts/validate_corpus_evidence.py` (part of `validate.sh`) asserts the accounting identity, rejection-reason totals, hash formats, that every input checksum equals the pinned catalog's publisher checksum, license consistency per collection, successful build steps, and a passing HTTP check. Headline results: 42,612 accepted Masters games (depth 40, 984,240 positions) and 429,284 accepted Elite games (depth 30, 6,136,363 positions; seven archives, 2015-09 to 2017-03); 414/414 HTTP checks and 262 HTTP-vs-CLI position comparisons without mismatch; HTTP position-query p50 ≈ 220–230 µs; in-process CPI lookup (`codb bench-lookup`) p50 ≈ 5–6 µs, p99 ≈ 11–17 µs; throughput up to ≈ 8–10k req/s on a shared 4-core host (see [CORPUS_BUILD.md §9.3](CORPUS_BUILD.md#93-query-and-api-performance)). These supersede the 1,000-game fixture figures for the serving layer; the fixture-based `http_api_benchmark.json` remains the lightweight CI baseline. Serving RSS on the real corpus (≈181 MB `VmHWM`, mostly shared memory-mapped file pages) is not comparable to the 9.9 MB fixture figure.
 
 ---
 
@@ -117,7 +117,7 @@ Fitted via ordinary least squares (OLS) log-linear regression in [`scripts/fit_h
 
 ### 5.2 Option B Deployment Projections (15 Million Games)
 Slicing **Masters OTB (5M games) to Depth 40** and **Elite Online (10M games) to Depth 30**:
-- **Baseline Scenario:** **7.68 GB** total deployed footprint. *(PR-A check: applying bytes per position and per game measured on the real 42,612-game Masters and 313,530-game Elite releases to this model gives ≈ 7.2–7.3 GB; the model's unique-position predictions were within −1.6% and −4.3% of measured. See [CORPUS_BUILD.md §9.6](CORPUS_BUILD.md#96-storage-feasibility-against-the-earlier-projection). The figure remains an extrapolation.)*
+- **Baseline Scenario:** **7.68 GB** total deployed footprint. *(PR-A check: applying bytes per position and per game measured on the real 42,612-game Masters and 429,284-game Elite releases to this model gives ≈ 7.2 GB; the model's unique-position predictions were within −1.6% (Masters) and −5.0% (Elite) of measured. See [CORPUS_BUILD.md §9.6](CORPUS_BUILD.md#96-storage-feasibility-against-the-earlier-projection). The figure remains an extrapolation.)*
 - **Optimistic Scenario:** **6.44 GB** total deployed footprint.
 - **Conservative Scenario:** **9.98 GB** total deployed footprint (leaves **20 MB / 0.2%** headroom within the 10 GB envelope).
 

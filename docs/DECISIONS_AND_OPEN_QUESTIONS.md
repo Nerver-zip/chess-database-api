@@ -78,9 +78,8 @@ With the core HTTP serving layer delivered in PR-04, the following questions rem
 - **Status:** Open for future exploration.
 
 ### Q-04: Ingestion Memory Ceiling vs Measured `codb build` RSS
-- **Context:** Documents state ingestion stays below 30 MB RSS and deduplication below a 64 MB cache ceiling. On the real baseline corpus `codb build` peaked at 44.4 MB (Masters, 42,612 accepted games) and 67.3 MB (Elite, 313,530 accepted games); a single-archive Masters build peaked at 22.5 MB. The deduplication SQLite cache is configured at 32 MB and the staging catalog at 4 MB, on top of a ~12 MB process baseline, so the peak grows with accepted games until the caches fill.
-- **Options:**
-  1. *Keep and re-document:* state the guarantee as "bounded by configured SQLite cache sizes" (about 70 MB at 300k accepted games) instead of "< 30 MB".
-  2. *Lower the cache sizes:* reduce `cache_size` in `dedupe.rs` and `dataset.rs` (changes performance, not output; deduplication determinism must be re-verified).
-- **Status:** Open. This delivery did not change cache settings (out of scope; `dedupe.rs` determinism is a core invariant). The measured values are published in [CORPUS_BUILD.md](CORPUS_BUILD.md#92-build-performance-one-pass-measured-by-the-orchestrator-via-kernel-rusage-and-workspace-sampling), and the invariant text in `AGENTS.md` and `ARCHITECTURE.md` should be revisited by the maintainers.
-
+- **Context:** Documents state ingestion stays below 30 MB RSS. On the first real builds `codb build` peaked at 44.4 MB (Masters, 42,612 games) and 67.3 MB (Elite pilot, 313,530 games) because the deduplication SQLite cache was configured at 32 MB (plus a 4 MB staging-catalog cache and a ~12 MB process baseline).
+- **Action taken (PR-A):** the deduplication cache was lowered to 2 MB (`PRAGMA cache_size = -2000` in `dedupe.rs`). Output is unchanged (byte-identical `games.idx`, `positions.cpi`, shards across four Masters builds) and speed is unchanged. Measured peaks afterwards: **29.8 MB** (Masters, 42,612 games) and **36.9 MB** (Elite, 429,284 games from 7 archives, 6.9 GB of compressed input).
+- **Remaining gap:** the Elite build still exceeds 30 MB by ~7 MB. The residual (process baseline, 4 MB staging catalog, SQLite WAL/page structures, zstd decompression buffers for 1–2 GB archives) was not profiled further.
+- **Options:** (1) restate the budget as "< 40 MB at 400k accepted games"; (2) lower the staging-catalog cache and profile allocator/zstd window use to get under 30 MB.
+- **Status:** Open (partially resolved). Maintainers should decide whether the 30 MB statement in `AGENTS.md` and `ARCHITECTURE.md` stays as a hard budget.

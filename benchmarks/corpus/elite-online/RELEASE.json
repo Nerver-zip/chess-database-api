@@ -1,33 +1,33 @@
 {
-  "accepted_games": 313530,
+  "accepted_games": 429284,
   "accounting": {
-    "accepted_unique": 313530,
+    "accepted_unique": 429284,
     "completion_status": "CompleteEof",
-    "confirmed_duplicates": 42,
+    "confirmed_duplicates": 47,
     "quarantined": 0,
-    "rejected_by_policy": 27870594,
+    "rejected_by_policy": 46107415,
     "rejected_illegal": 0,
     "rejected_malformed": 0,
     "rejected_variant": 0,
-    "superseded_prior": 12,
-    "total_encountered": 28184178
+    "superseded_prior": 16,
+    "total_encountered": 46536762
   },
   "artifacts": {
     "games.idx": {
-      "sha256": "1893cab248904588e6d2f7e708a0679ab4e940624acc63f6f0bb795e69caeb42",
-      "size_bytes": 5016544
+      "sha256": "f191db4e385a41010bcbde92c5d228d088235a70a2f5c53e6ef437c14e1f2dda",
+      "size_bytes": 6868608
     },
     "manifest.json": {
-      "sha256": "c027f8434941964cf54dc4ab4a1f9d3f681213fecf1a30eda2b62efe988f1ebc",
-      "size_bytes": 3420
+      "sha256": "c3fbfd417221c2908ae434f4191bf9ed8b75732a84759ec3270ec75809924db1",
+      "size_bytes": 4465
     },
     "positions.cpi": {
-      "sha256": "f2d01841fddc24c1c8f1b00d1ca360e348d6db135f1b7b38a586c56b69836281",
-      "size_bytes": 99368120
+      "sha256": "5040fc7ed41359a430755a692c9c2d5597fd81390d88c9fa35c2aa8277a25dcc",
+      "size_bytes": 132059693
     },
     "shards/shard_0000.cgb3": {
-      "sha256": "7c32c9cbf59eea8af43011bfe29b4eae4a06b8345d476cd328698fe21e3e6138",
-      "size_bytes": 52054431
+      "sha256": "a860bbf350a6754a85b30868af40b1c2e650eb341eabd6b5fa40c7552bda0830",
+      "size_bytes": 71375389
     }
   },
   "build_configuration": {
@@ -37,23 +37,26 @@
     "memory_limit_mib": 128,
     "profile": "baseline",
     "source_order": [
+      "lichess-standard-2015-09",
+      "lichess-standard-2015-12",
       "lichess-standard-2016-03",
       "lichess-standard-2016-06",
       "lichess-standard-2016-09",
-      "lichess-standard-2016-12"
+      "lichess-standard-2016-12",
+      "lichess-standard-2017-03"
     ],
     "zstd_level": 3
   },
   "build_metrics_summary": {
     "peak_rss_bytes_by_step": {
-      "build": 67579904,
-      "build-index": 133545984,
-      "report": 29585408,
-      "verify": 104603648
+      "build": 36913152,
+      "build-index": 151121920,
+      "report": 29716480,
+      "verify": 137359360
     },
-    "total_wall_seconds": 479.568
+    "total_wall_seconds": 690.24
   },
-  "built_at": "2026-11-13T19:19:14Z",
+  "built_at": "2026-11-13T20:01:55Z",
   "collection": "elite-online",
   "commands": {
     "build": "./scripts/corpus.sh build --collection elite-online --profile baseline",
@@ -72,15 +75,35 @@
     },
     "version": "elite-online/2026.11-r1 (both>=2200 or 2400+2000, no bullet/ultrabullet, no casual, standard variant, min 6 plies)"
   },
-  "dataset_version": "codb-elite-online-1794597538842378272-499142-bdce0a0d3e87ccc3-cpi-d30",
+  "dataset_version": "codb-elite-online-1794600082856777543-507086-7c504f6ff13402fc-cpi-d30",
   "index": {
-    "cpi_file_size_bytes": 99368120,
-    "cpi_sha256": "f2d01841fddc24c1c8f1b00d1ca360e348d6db135f1b7b38a586c56b69836281",
+    "cpi_file_size_bytes": 132059693,
+    "cpi_sha256": "5040fc7ed41359a430755a692c9c2d5597fd81390d88c9fa35c2aa8277a25dcc",
     "depth_plies": 30,
-    "total_move_records": 5056633,
-    "unique_positions": 4615463
+    "total_move_records": 6739709,
+    "unique_positions": 6136363
   },
   "inputs": [
+    {
+      "filename": "lichess_db_standard_rated_2015-09.pgn.zst",
+      "id": "lichess-standard-2015-09",
+      "license": "CC0-1.0",
+      "period": "2015-09",
+      "provenance_confidence": "high",
+      "sha256": "c3f9b718b2dd80545ac00d0ee8122f863353a7b901fea6ba0be06bff5675bfa7",
+      "size_bytes": 547459020,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2015-09.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_standard_rated_2015-12.pgn.zst",
+      "id": "lichess-standard-2015-12",
+      "license": "CC0-1.0",
+      "period": "2015-12",
+      "provenance_confidence": "high",
+      "sha256": "83c6a8583e618d1321cb655e579010ccb1531593fbcf44622da5e8a5d2e99c4f",
+      "size_bytes": 757824089,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2015-12.pgn.zst"
+    },
     {
       "filename": "lichess_db_standard_rated_2016-03.pgn.zst",
       "id": "lichess-standard-2016-03",
@@ -120,6 +143,16 @@
       "sha256": "285d09bcb7f47af2d58594ecee7da8c18f9e800fd7df2e0158b4fb5429f9a904",
       "size_bytes": 1698298025,
       "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-12.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_standard_rated_2017-03.pgn.zst",
+      "id": "lichess-standard-2017-03",
+      "license": "CC0-1.0",
+      "period": "2017-03",
+      "provenance_confidence": "high",
+      "sha256": "b319297e9270285635d615cbcd19a9b0d44747be3ff91d5b3eac41175b794320",
+      "size_bytes": 2169142067,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2017-03.pgn.zst"
     }
   ],
   "license": {
@@ -133,12 +166,12 @@
   },
   "release_schema_version": 1,
   "source_catalog": {
-    "catalog_content_sha256": "7186f3f6a255a3c88db640a00ce60bf494f28ccd9825e5abcb097ac25486042d",
+    "catalog_content_sha256": "95a835b72d44adfe89eb324feac8e850f03af51be58aafe67aaf3ae2967ddd7b",
     "catalog_id": "codb-corpus-catalog-2026.11-r1"
   },
   "tool": {
     "codb_version": "codb 0.1.0",
-    "git_commit": "9b7d77952301bc1ed52eb398681ab75d0c89f1e9",
+    "git_commit": "fb967b0bbe416e9d64bac8f24c0834f88f272be6",
     "git_tree_dirty": false
   }
 }

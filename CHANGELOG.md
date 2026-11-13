@@ -12,6 +12,7 @@ All notable changes to `chess-openings-db` are documented in this file. The proj
   - `scripts/corpus.py` / `scripts/corpus.sh`: `plan`, `sources`, `fetch`, `verify-sources`, `pin`, `build`, `verify`, `report`, `package`, `verify-package`, `serve`, `http-check`. Resumable HTTPS downloads with retry/backoff, publisher-checksum verification, atomic finalization, disk-space and size safety limits, offline verification; builds in a private workspace with deep verification before atomic promotion; deterministic release packaging.
   - `codb build --report-json` and `codb report` (machine-readable accounting, rejection reasons, and distributions).
   - Release provenance (`RELEASE/RELEASE.json`) and legal notice (`RELEASE/DATASET_LICENSE.txt`) bundled with every release.
+  - `codb bench-lookup` (in-process CPI lookup latency on a published release) and a multi-process HTTP load client in `http-check`.
   - `docs/CORPUS_BUILD.md`, offline fixtures (`fixtures/corpus/`), and `scripts/test_corpus.py`.
 
 ### Changed
@@ -20,6 +21,7 @@ All notable changes to `chess-openings-db` are documented in this file. The proj
 - Policy rejections are reported by stable category (`PolicyRejectionReason::category`).
 
 ### Fixed
+- Deduplication SQLite cache lowered from 32 MB to 2 MB: byte-identical output, `codb build` peak RSS 29.8 MB (Masters) / 36.9 MB (Elite, 429k games) instead of 44 / 67 MB.
 - `docs/DATA_CONTRACTS.md` documented HTTP 422 for unsupported query parameters; the implementation (and the error table) return HTTP 400 `unsupported_parameter`.
 
 ---

@@ -11,9 +11,9 @@
     "superseded_prior": 11,
     "total_encountered": 227489
   },
-  "build_duration_secs": 25.814567968,
+  "build_duration_secs": 24.193991958,
   "collection": "masters-otb",
-  "dataset_build_id": "codb-masters-otb-1794597056941125224-498832-0bb2f626af13fd38",
+  "dataset_build_id": "codb-masters-otb-1794599397779973887-506625-66f9dd1ac82c352c",
   "is_reconciled": true,
   "policy_rejection_reasons": {
     "below_rating_threshold": 155153,

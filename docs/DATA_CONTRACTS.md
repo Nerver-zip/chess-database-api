@@ -234,6 +234,8 @@ Stored in the root of every dataset snapshot (`versions/vX/manifest.json`):
 
 `codb report --dataset <dir> [--output <json>]` iterates every stored game and emits `results`, `unknown_result_games`, `years`, `months`, `min_player_rating_bins` (100-point bins of the lower rating; FIDE Elo for `masters-otb`, Glicko-2 for `elite-online`, never pooled), `plies_bins`, `speed_classes` (`elite-online` only), `time_control_raw_top20` (`masters-otb` only), `distinct_players_hash_estimate`, `distinct_events_hash_estimate`, and `missing_metadata` counts. Neither command changes any persisted binary format.
 
+`codb bench-lookup --dataset <dir> [--games N] [--output <json>]` replays stored games to sample positions and reports in-process `DiskPositionIndex::query` latency (`hit_first_pass`, `hit_warm_pass`, `miss_warm_pass`: `count`, `hits`, `p50_us`, `p95_us`, `p99_us`, `max_us`). It reads only and does not modify the dataset.
+
 ### 5.2 `codb inspect --json`
 ```json
 {

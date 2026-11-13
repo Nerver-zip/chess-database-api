@@ -39,11 +39,12 @@
         ]
       },
       "planning": {
-        "expected_accepted_games": 40000,
-        "cgb3_bytes_per_game": 220,
-        "cpi_bytes_per_game": 600,
-        "temp_bytes_per_accepted_game": 1500,
-        "input_bytes_per_second": 15000000
+        "expected_accepted_games": 42612,
+        "cgb3_bytes_per_game": 204,
+        "cpi_bytes_per_game": 498,
+        "temp_bytes_per_accepted_game": 1464,
+        "input_bytes_per_second": 5689730,
+        "basis": "measured on the delivered baseline release"
       }
     },
     "elite-online": {
@@ -65,11 +66,12 @@
         ]
       },
       "planning": {
-        "expected_accepted_games": 300000,
-        "cgb3_bytes_per_game": 180,
-        "cpi_bytes_per_game": 600,
-        "temp_bytes_per_accepted_game": 1500,
-        "input_bytes_per_second": 4000000
+        "expected_accepted_games": 429284,
+        "cgb3_bytes_per_game": 166,
+        "cpi_bytes_per_game": 308,
+        "temp_bytes_per_accepted_game": 1009,
+        "input_bytes_per_second": 12965344,
+        "basis": "measured on the delivered baseline release"
       }
     }
   },

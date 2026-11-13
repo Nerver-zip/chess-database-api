@@ -80,6 +80,11 @@ def main() -> int:
             fail(f"{c}: metrics steps incomplete")
         if any(m["returncode"] != 0 for m in metrics["steps"].values()):
             fail(f"{c}: a recorded step failed")
+        lk = load(d / "lookup_benchmark.json")
+        if lk["collection"] != c or lk["dataset_build_id"] != rel["dataset_version"]:
+            fail(f"{c}: lookup benchmark does not belong to this release")
+        if lk["hit_warm_pass"]["hits"] != lk["hit_warm_pass"]["count"] or lk["miss_warm_pass"]["hits"] != 0:
+            fail(f"{c}: lookup benchmark hit/miss semantics violated")
         http = load(EVIDENCE / "http_check.json")
         if not http["passed"] or http["checks_failed"] != 0 or http["checks_total"] < 50:
             fail("http_check.json does not record a passing run")

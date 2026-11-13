@@ -204,13 +204,13 @@ Memory limits are strictly enforced across all components:
 | Component | Ingestion / Processing Strategy | Peak Memory Guarantee |
 | :--- | :--- | :--- |
 | **PGN Ingestion** | Streaming tokenization via `pgn-reader`, immediate legal validation | $< 30\text{ MB}$ RSS regardless of corpus size |
-| **Deduplication** | Disk-backed SQLite index in staging directory | $< 64\text{ MB}$ buffer cache ceiling |
+| **Deduplication** | Disk-backed SQLite index in staging directory | 2 MB buffer cache (was 32 MB; see note below) |
 | **CGB3 Storage** | Single active block buffer ($N = 512$ games) flushed to disk | $\approx 2\text{ MB}$ uncompressed block RAM |
 | **Position Indexing** | External merge sort with partitioned `.crun` spill files | Strictly bounded by `--memory-limit-mib` (default 128 MiB) |
 | **Opening Query** | Memory-mapped sparse index ($34\text{ B/entry}$) + single block cache | $< 10\text{ MB}$ query overhead |
 | **HTTP Serving** | Bounded reader pool ($K$ readers $\times 2\text{ MB}$) + memory-mapped CPI/games.idx | $< 30\text{ MB}$ RSS under sustained concurrency |
 
-> **Measured on the real corpus (PR-A):** `codb build` peaked at 44.4 MB (42,612 accepted Masters games) and 67.3 MB (313,530 accepted Elite games) RSS, above the "< 30 MB" ingestion figure in the table (the dedupe and staging SQLite caches add about 36 MB to a ~12 MB baseline); serving both real collections reached ≈ 145 MB `VmHWM`, dominated by touched memory-mapped file pages rather than heap. The table states design budgets, the measured values are in [CORPUS_BUILD.md](CORPUS_BUILD.md#92-build-performance-one-pass-measured-by-the-orchestrator-via-kernel-rusage-and-workspace-sampling), and the open question is tracked as Q-04 in [DECISIONS_AND_OPEN_QUESTIONS.md](DECISIONS_AND_OPEN_QUESTIONS.md).
+> **Measured on the real corpus (PR-A):** after lowering the deduplication SQLite cache to 2 MB, `codb build` peaked at 29.8 MB (42,612 accepted Masters games) and 36.9 MB (429,284 accepted Elite games) RSS; the Elite peak still exceeds the "< 30 MB" ingestion figure in the table. Serving both real collections reached ≈ 181 MB `VmHWM`, dominated by touched memory-mapped file pages rather than heap. The table states design budgets, the measured values are in [CORPUS_BUILD.md](CORPUS_BUILD.md#92-build-performance-one-pass-kernel-rusage-and-workspace-sampling), and the open question is tracked as Q-04 in [DECISIONS_AND_OPEN_QUESTIONS.md](DECISIONS_AND_OPEN_QUESTIONS.md).
 
 ---
 

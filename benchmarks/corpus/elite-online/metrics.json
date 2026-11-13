@@ -1,37 +1,37 @@
 {
   "steps": {
     "build": {
-      "command": "<repo>/target/release/codb build --manifest <repo>/data/work/elite-online-baseline-20261113T191114Z/sources.manifest.json --collection elite-online --output <repo>/data/work/elite-online-baseline-20261113T191114Z/dataset --report-json <repo>/data/work/elite-online-baseline-20261113T191114Z/build_report.json",
+      "command": "<repo>/target/release/codb build --manifest <repo>/data/work/elite-online-baseline-20261113T195024Z/sources.manifest.json --collection elite-online --output <repo>/data/work/elite-online-baseline-20261113T195024Z/dataset --report-json <repo>/data/work/elite-online-baseline-20261113T195024Z/build_report.json",
       "returncode": 0,
-      "wall_seconds": 463.475,
-      "peak_rss_bytes": 67579904,
-      "peak_workspace_disk_bytes": 122294272,
-      "log": "<repo>/data/work/elite-online-baseline-20261113T191114Z/logs/build.log"
+      "wall_seconds": 657.318,
+      "peak_rss_bytes": 36913152,
+      "peak_workspace_disk_bytes": 164130816,
+      "log": "<repo>/data/work/elite-online-baseline-20261113T195024Z/logs/build.log"
     },
     "build-index": {
-      "command": "<repo>/target/release/codb build-index --dataset <repo>/data/work/elite-online-baseline-20261113T191114Z/dataset --collection elite-online --depth-plies 30 --memory-limit-mib 128 --json",
+      "command": "<repo>/target/release/codb build-index --dataset <repo>/data/work/elite-online-baseline-20261113T195024Z/dataset --collection elite-online --depth-plies 30 --memory-limit-mib 128 --json",
       "returncode": 0,
-      "wall_seconds": 13.717,
-      "peak_rss_bytes": 133545984,
-      "peak_workspace_disk_bytes": 319033344,
-      "log": "<repo>/data/work/elite-online-baseline-20261113T191114Z/logs/build-index.log"
+      "wall_seconds": 29.578,
+      "peak_rss_bytes": 151121920,
+      "peak_workspace_disk_bytes": 433127424,
+      "log": "<repo>/data/work/elite-online-baseline-20261113T195024Z/logs/build-index.log"
     },
     "verify": {
-      "command": "<repo>/target/release/codb verify --dataset <repo>/data/work/elite-online-baseline-20261113T191114Z/dataset --deep",
+      "command": "<repo>/target/release/codb verify --dataset <repo>/data/work/elite-online-baseline-20261113T195024Z/dataset --deep",
       "returncode": 0,
-      "wall_seconds": 1.565,
-      "peak_rss_bytes": 104603648,
-      "peak_workspace_disk_bytes": 161333248,
-      "log": "<repo>/data/work/elite-online-baseline-20261113T191114Z/logs/verify.log"
+      "wall_seconds": 2.171,
+      "peak_rss_bytes": 137359360,
+      "peak_workspace_disk_bytes": 215621632,
+      "log": "<repo>/data/work/elite-online-baseline-20261113T195024Z/logs/verify.log"
     },
     "report": {
-      "command": "<repo>/target/release/codb report --dataset <repo>/data/work/elite-online-baseline-20261113T191114Z/dataset --output <repo>/data/work/elite-online-baseline-20261113T191114Z/quality_report.json",
+      "command": "<repo>/target/release/codb report --dataset <repo>/data/work/elite-online-baseline-20261113T195024Z/dataset --output <repo>/data/work/elite-online-baseline-20261113T195024Z/quality_report.json",
       "returncode": 0,
-      "wall_seconds": 0.623,
-      "peak_rss_bytes": 29585408,
-      "peak_workspace_disk_bytes": 161337344,
-      "log": "<repo>/data/work/elite-online-baseline-20261113T191114Z/logs/report.log"
+      "wall_seconds": 0.906,
+      "peak_rss_bytes": 29716480,
+      "peak_workspace_disk_bytes": 215629824,
+      "log": "<repo>/data/work/elite-online-baseline-20261113T195024Z/logs/report.log"
     }
   },
-  "total_wall_seconds": 479.568
+  "total_wall_seconds": 690.24
 }

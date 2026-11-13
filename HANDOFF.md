@@ -13,22 +13,22 @@
 
   | | `masters-otb` | `elite-online` |
   | :--- | ---: | ---: |
-  | Accepted unique games | 42,612 (target ≥ 30,000 met) | 313,530 (target ≥ 100,000 met) |
-  | Games encountered | 227,489 | 28,184,178 |
-  | Index depth / unique positions / move records | 40 / 984,240 / 1,040,109 | 30 / 4,615,463 / 5,056,633 |
-  | Deployed size (current version) | 30.6 MB | 156.4 MB |
-  | `codb build` / index / total wall time | 26 s / 2.8 s / 29 s | 439 s / 13 s / 454 s |
-  | Peak RSS: build / index | 44.4 MB / 62.5 MB | 67.3 MB / 131.5 MB |
+  | Archives | 6 (Lichess broadcasts 2026-05…10) | 7 (Lichess standard 2015-09, 2015-12, 2016-03/06/09/12, 2017-03) |
+  | Accepted unique games | 42,612 (target ≥ 30,000 met) | 429,284 (target ≥ 100,000 met) |
+  | Games encountered | 227,489 | 46,536,762 |
+  | Index depth / unique positions / move records | 40 / 984,240 / 1,040,109 | 30 / 6,136,363 / 6,739,709 |
+  | Peak RSS: build / index | 29.8 MB / 61.7 MB | 36.9 MB / 151.1 MB |
+  | Build / index wall time | 25 s / 2.7 s | 657 s / 29.6 s |
 
-  Release identifiers, hashes and all other numbers: `benchmarks/corpus/*/RELEASE.json`.
-- **Verification evidence:** `codb verify --deep` PASS for both releases and for extracted packages; `corpus.sh http-check`: 414/414 checks, 131 HTTP-vs-CLI stratified comparisons per collection, 0 mismatches; HTTP position p50 ≈ 196–210 µs, p99 ≈ 350–490 µs; rebuilds (3× Masters, 2× Elite) gave byte-identical `games.idx`, `positions.cpi` and shards (only `manifest.json` differs).
+  Release identifiers, hashes and all other numbers: `benchmarks/corpus/*/RELEASE.json`. Both releases were also packaged with `corpus.sh package` and independently re-verified (local archives only).
+- **Verification evidence:** `codb verify --deep` PASS for both releases and extracted packages; `corpus.sh http-check`: 414/414 checks, 131 HTTP-vs-CLI stratified comparisons per collection, 0 mismatches; HTTP position p50 ≈ 220–230 µs; in-process `codb bench-lookup` p50 ≈ 5–6 µs; multi-process load up to ≈ 8–10k req/s (client and server on one 4-core host); 4 Masters builds and 2 same-input Elite builds gave byte-identical `games.idx`, `positions.cpi` and shards.
 - **Known limitations / discrepancies (do not hide):**
-  1. `codb build` peak RSS (44–67 MB) exceeds the older "< 30 MB ingestion" statement; documented as Q-04 in `docs/DECISIONS_AND_OPEN_QUESTIONS.md`; cache sizes were deliberately not changed.
-  2. Masters OTB qualification is a marker heuristic over event/site/broadcast-slug; ~69% of accepted Masters games have no venue (`Site` is a broadcast URL). Catalog confidence is `medium`.
-  3. Elite corpus is four complete 2016 months (a different era); modern monthly archives are tens of GB and were not downloaded. Not the 5M/10M target (future work).
-  4. `ProvisionalRating` and `AbortedOrInfraction` policy variants are still never produced (no provisional marker / `Termination` parsing).
-  5. In-process CPI lookup latency for Elite was not measured (the long `bench-dataset` run was stopped); HTTP latency is the evidence.
-  6. Releases are local artifacts only; no upload to any hosting destination was performed or approved.
+  1. Memory: dedupe cache lowered 32 MB → 2 MB (identical output). Masters `codb build` 29.8 MB (within the 30 MB budget); Elite 36.9 MB (still above). Q-04 partially resolved.
+  2. Masters OTB qualification is a marker heuristic over event/site/broadcast-slug; ~69% of accepted Masters games have no venue. Catalog confidence is `medium`; "no online games" cannot be proven.
+  3. Elite corpus is seven complete archives from 2015-09 to 2017-03 (older era, later months dominate); modern archives are tens of GB and not downloaded. Not the 5M/10M target.
+  4. `ProvisionalRating` and `AbortedOrInfraction` policy variants are still never produced.
+  5. Load numbers are same-host (client + server share 4 cores); no dedicated-host capacity test.
+  6. Releases are local artifacts only; no upload was performed or approved.
 - **Format Integrity (unchanged):** `CGB3` (~204 B/game Masters, ~166 B/game Elite measured), `games.idx` 16-byte records, `CPI v2` (~21.5 B per indexed position).
 - **HTTP Serving Layer:** unchanged from PR-04 (see §3). Documentation correction: unsupported parameters return HTTP 400 `unsupported_parameter` (docs previously said 422 in one place).
 
@@ -134,14 +134,14 @@ Data lives in `data/` (git-ignored; override with `CODB_DATA_DIR`). Never commit
 - `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`: PASS.
 - Python suites (`scripts/test_*.py` incl. new `test_corpus.py`, 49 offline tests): PASS.
 - `validate_production_cpi_benchmarks.py`, `validate_corpus_evidence.py`, `validate_benchmarks.py`, `validate_docs.py`, `sha256sum -c MANIFEST.sha256`: PASS.
-- `./scripts/validate.sh`: see the final result recorded in the PR description.
+- `./scripts/validate.sh`: PASS locally on the final tree (result also recorded in the PR description).
 - Real-corpus validation is opt-in and was executed locally (§1); CI never downloads archives.
 
 ---
 
 ## 6. Next Actions
 
-1. Maintainer review of the Draft PR; decide Q-04 (document vs lower SQLite cache sizes).
+1. Maintainer review of the Draft PR; decide the remaining Q-04 gap (Elite build 36.9 MB vs the 30 MB budget).
 2. Decide an approved distribution destination before publishing any `corpus.sh package` archive; keep `RELEASE/DATASET_LICENSE.txt` with it.
 3. Evalis integration PR: consume `data/releases/{masters-otb,elite-online}` via `codb serve` (CORS: `--allowed-origins`), see `docs/CORPUS_BUILD.md` §10.
 4. Optional expansion: pin more Elite/Masters periods in new catalog profiles; review further Masters sources for redistribution rights before use; improve OTB qualification if a Lichess flag appears.
