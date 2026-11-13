@@ -69,6 +69,7 @@ pub fn early_filter_category(reason: &str) -> &'static str {
         "Bullet" | "Bullet TC" => "bullet_or_ultrabullet",
         "Below rating threshold" => "below_rating_threshold",
         r if r.starts_with("Missing rating") => "missing_rating",
+        "Aborted or rules infraction" => "aborted_or_infraction",
         _ => "other_policy",
     }
 }
@@ -323,6 +324,22 @@ const ONLINE_TOKENS: &[&str] = &[
     "tornelo",
 ];
 
+/// Returns whether a PGN Termination value explicitly marks an aborted,
+/// abandoned, unplayed, or rules-infraction game. Unknown values remain eligible.
+pub fn is_aborted_or_infraction_termination(termination: &str) -> bool {
+    const REJECTED: &[&str] = &[
+        "aborted",
+        "abandoned",
+        "rules infraction",
+        "no contest",
+        "unplayed",
+        "unterminated",
+    ];
+    REJECTED
+        .iter()
+        .any(|value| termination.trim().eq_ignore_ascii_case(value))
+}
+
 /// Returns a description of the first online-event marker found in the game's
 /// event, site, or broadcast URL, or `None` when no marker is present.
 ///
@@ -415,6 +432,27 @@ mod tests {
             moves: vec![CompactMove::new(12, 28, None); plies],
             fen_start: None,
         }
+    }
+
+    #[test]
+    fn test_termination_classification() {
+        for value in [
+            "Aborted",
+            "Abandoned",
+            "Rules infraction",
+            "No contest",
+            "Unplayed",
+            "Unterminated",
+        ] {
+            assert!(is_aborted_or_infraction_termination(value), "{value}");
+        }
+        for value in ["Normal", "Time forfeit", ""] {
+            assert!(!is_aborted_or_infraction_termination(value), "{value}");
+        }
+        assert_eq!(
+            early_filter_category("Aborted or rules infraction"),
+            "aborted_or_infraction"
+        );
     }
 
     #[test]

@@ -64,7 +64,8 @@ pub struct EliteOnlinePolicy {
    - Both players have verified online rating $\ge 2200$, OR
    - One player $\ge 2400$ and opponent $\ge 2000$.
    - Casual games are rejected (`CasualUnratedGame`) when the `Event` label contains `casual`. The Lichess *standard rated* archives contain only rated games, so this check is a defensive backstop.
-   - **Not enforced in code:** `ProvisionalRating` (the Lichess PGN dump carries no provisional marker) and `AbortedOrInfraction` (the `Termination` tag is not parsed). Both enum variants exist but are never produced. Games with those characteristics are only filtered indirectly by the rating and minimum-ply rules.
+   - **Provisional ratings:** The pinned Lichess PGN archives carry no provisional-rating marker, so this status cannot be distinguished from the exported Glicko-2 number and remains an explicit source limitation. Missing or unparsable ratings are rejected.
+   - **Termination:** The reader checks PGN Termination values during curated ingestion. Aborted, Abandoned, Rules infraction, No contest, Unplayed, and Unterminated are rejected as AbortedOrInfraction; Normal and Time forfeit remain eligible. Unknown and missing values are not reinterpreted.
 2. **Speed Category & Bullet Exclusion:**
    - **Bullet & UltraBullet are strictly excluded.** Extremely rapid time controls suffer from mouse slips, flag-hunting, and premoves that corrupt positional opening theory.
    - **Estimated Duration Formula:** Evaluated using estimated game length:
@@ -73,7 +74,7 @@ pub struct EliteOnlinePolicy {
    - Valid accepted time controls: Blitz ($180\text{s} \le T_{\text{est}} < 600\text{s}$), Rapid ($600\text{s} \le T_{\text{est}} < 1800\text{s}$), and Classical ($T_{\text{est}} \ge 1800\text{s}$).
 3. **Plies & Termination:**
    - Minimum 6 plies (3 full moves) to eliminate immediate resignations, disconnected connections, or pre-move blunders.
-   - Rule-infraction terminations are not rejected explicitly (see above).
+   - PGN Termination values that explicitly identify aborted, abandoned, unplayed, or rules-infraction games are rejected. Normal and Time forfeit are not rejected by this check.
 
 ---
 
@@ -88,7 +89,7 @@ When a candidate game is rejected during curation, it is classified into one of 
 - `TooFewPlies { plies, minimum }`: Game too short to reflect intentional opening play.
 - `NonStandardVariant(String)`: Chess960, Crazyhouse, Antichess, King of the Hill, etc.
 - `NonStandardStartingPosition(String)`: Illegal initial setup.
-- `AbortedOrInfraction(String)`: Reserved; not produced by the current reader (no `Termination` parsing).
+- AbortedOrInfraction(String): the curated reader rejects explicit aborted, abandoned, no-contest, unplayed, unterminated, and rules-infraction Termination values.
 - `OnlineEventInMastersSource(String)`: Masters OTB only; the event, site, or broadcast URL carries an online-event marker.
 - `HistoricalWithoutProvenance`: Masters OTB only; pre-1970 date without both event and venue.
 

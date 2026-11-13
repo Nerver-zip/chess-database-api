@@ -262,7 +262,7 @@ impl StagingCatalog {
             "PRAGMA synchronous = NORMAL;
              PRAGMA journal_mode = WAL;
              PRAGMA temp_store = FILE;
-             PRAGMA cache_size = -4096;
+             PRAGMA cache_size = -512;
              CREATE TABLE active_games (
                  game_id INTEGER PRIMARY KEY,
                  shard_id INTEGER NOT NULL,
