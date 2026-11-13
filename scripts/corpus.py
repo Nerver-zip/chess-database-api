@@ -757,15 +757,15 @@ class DiskSampler(threading.Thread):
         self.paths = paths
         self.interval = interval
         self.peak = 0
-        self._stop = threading.Event()
+        self._halt = threading.Event()
 
     def run(self) -> None:
-        while not self._stop.is_set():
+        while not self._halt.is_set():
             self.peak = max(self.peak, dir_allocated_bytes(self.paths))
-            self._stop.wait(self.interval)
+            self._halt.wait(self.interval)
 
     def finish(self) -> int:
-        self._stop.set()
+        self._halt.set()
         self.join()
         self.peak = max(self.peak, dir_allocated_bytes(self.paths))
         return self.peak
