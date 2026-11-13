@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_id": "codb-corpus-catalog-2026.11-r1",
+  "catalog_id": "codb-corpus-catalog-2026.11-r2",
   "description": "Pinned, checksum-verified source archives for the masters-otb and elite-online collections. Software is MIT OR Apache-2.0; dataset licenses are independent and listed below.",
   "licenses": {
     "CC-BY-SA-4.0": {
@@ -27,7 +27,7 @@
       "allowed_licenses": [
         "CC-BY-SA-4.0"
       ],
-      "curation_policy_version": "masters-otb/2026.11-r1 (ratings, standard start, min 4 plies, online-event exclusion, pre-1970 requires event+venue)",
+      "curation_policy_version": "masters-otb/2026.11-r2 (ratings, standard start, min 4 plies, online-event exclusion, pre-1970 requires event+venue, excludes explicit aborted or rules-infraction terminations)",
       "profiles": {
         "baseline": [
           "lichess-broadcast-2026-05",
@@ -42,8 +42,8 @@
         "expected_accepted_games": 42612,
         "cgb3_bytes_per_game": 204,
         "cpi_bytes_per_game": 498,
-        "temp_bytes_per_accepted_game": 1464,
-        "input_bytes_per_second": 5689730,
+        "temp_bytes_per_accepted_game": 1515,
+        "input_bytes_per_second": 5650195,
         "basis": "measured on the delivered baseline release"
       }
     },
@@ -53,7 +53,7 @@
       "allowed_licenses": [
         "CC0-1.0"
       ],
-      "curation_policy_version": "elite-online/2026.11-r1 (both>=2200 or 2400+2000, no bullet/ultrabullet, no casual, standard variant, min 6 plies)",
+      "curation_policy_version": "elite-online/2026.11-r2 (both>=2200 or 2400+2000, no bullet/ultrabullet, no casual, standard variant, min 6 plies, excludes explicit aborted or rules-infraction terminations)",
       "profiles": {
         "baseline": [
           "lichess-standard-2016-03",
@@ -66,11 +66,11 @@
         ]
       },
       "planning": {
-        "expected_accepted_games": 429284,
+        "expected_accepted_games": 429150,
         "cgb3_bytes_per_game": 166,
         "cpi_bytes_per_game": 308,
-        "temp_bytes_per_accepted_game": 1009,
-        "input_bytes_per_second": 12965344,
+        "temp_bytes_per_accepted_game": 1006,
+        "input_bytes_per_second": 12960612,
         "basis": "measured on the delivered baseline release"
       }
     }

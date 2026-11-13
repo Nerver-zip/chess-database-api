@@ -1,0 +1,101 @@
+{
+  "captured_at_utc": "2026-11-13T23:10:49.803305+00:00",
+  "collections_loaded": [
+    {
+      "build_timestamp": "2026-11-13T22:49:24Z",
+      "collection": "masters-otb",
+      "cpi_available": true,
+      "cpi_depth_plies": 40,
+      "cpi_total_positions": 984240,
+      "dataset_version": "codb-masters-otb-1794610162183084363-517587-0484eb65735e8a55-cpi-d40",
+      "format_version": "CGB3/v1",
+      "total_games": 42612
+    },
+    {
+      "build_timestamp": "2026-11-13T23:01:07Z",
+      "collection": "elite-online",
+      "cpi_available": true,
+      "cpi_depth_plies": 30,
+      "cpi_total_positions": 6136307,
+      "dataset_version": "codb-elite-online-1794610850844039764-517940-edce81ac7fe9ae24-cpi-d30",
+      "format_version": "CGB3/v1",
+      "total_games": 429150
+    }
+  ],
+  "examples": {
+    "elite-online": {
+      "dataset_version": "codb-elite-online-1794610850844039764-517940-edce81ac7fe9ae24-cpi-d30",
+      "position": {
+        "black_wins": 13661,
+        "cli_match": true,
+        "draws": 2404,
+        "http_status": 200,
+        "request_path": "/v1/explorer/position?collection=elite-online&moves=e4%2Ce5%2CNf3",
+        "top_moves": [
+          {
+            "games": 23951,
+            "san": "Nc6",
+            "uci": "b8c6"
+          },
+          {
+            "games": 3291,
+            "san": "Nf6",
+            "uci": "g8f6"
+          },
+          {
+            "games": 1799,
+            "san": "d6",
+            "uci": "d7d6"
+          }
+        ],
+        "total_games": 30390,
+        "white_wins": 14325
+      },
+      "stored_game": {
+        "content_type": "application/x-chess-pgn; charset=utf-8",
+        "http_status": 200,
+        "id": "9226102694647866711",
+        "pgn_bytes": 1039,
+        "pgn_sha256": "4ef4fa741a1f0c501f634d07bfd8c6da815525c47b78511f2136850c935eb896"
+      }
+    },
+    "masters-otb": {
+      "dataset_version": "codb-masters-otb-1794610162183084363-517587-0484eb65735e8a55-cpi-d40",
+      "position": {
+        "black_wins": 1272,
+        "cli_match": true,
+        "draws": 2541,
+        "http_status": 200,
+        "request_path": "/v1/explorer/position?collection=masters-otb&moves=e4%2Ce5%2CNf3",
+        "top_moves": [
+          {
+            "games": 5044,
+            "san": "Nc6",
+            "uci": "b8c6"
+          },
+          {
+            "games": 574,
+            "san": "Nf6",
+            "uci": "g8f6"
+          },
+          {
+            "games": 64,
+            "san": "d6",
+            "uci": "d7d6"
+          }
+        ],
+        "total_games": 5685,
+        "white_wins": 1872
+      },
+      "stored_game": {
+        "content_type": "application/x-chess-pgn; charset=utf-8",
+        "http_status": 200,
+        "id": "9216809156860181735",
+        "pgn_bytes": 1485,
+        "pgn_sha256": "74911631be6a4b97dee2b9436179a43ebe9828358e30c7441174c380c23d4c3e"
+      }
+    }
+  },
+  "health_ready": true,
+  "method": "Direct GET against local codb serve; each position total and W/D/L plus top-three moves compared with codb query --json."
+}

@@ -99,7 +99,7 @@ When a candidate game is rejected during curation, it is classified into one of 
 
 ### 3.2 Curation Policy Version
 
-Releases record `curation_policy_version` from the source catalog (`masters-otb/2026.11-r1`, `elite-online/2026.11-r1`). Revision `r1` introduced the Masters online-event exclusion, the historical-provenance requirement, and the Elite casual-event check. Datasets built before this revision (for example the PR-03 benchmark datasets) were curated without those three checks and are not directly comparable.
+Releases record `curation_policy_version` from the source catalog (`masters-otb/2026.11-r2`, `elite-online/2026.11-r2`). Revision `r1` introduced Masters online-event and historical-provenance checks plus the Elite casual-event check. Revision `r2` adds explicit `Termination` filtering for aborted, abandoned, rules-infraction, no-contest, unplayed, and unterminated games. Unknown termination values remain eligible. Standard Lichess PGNs do not provide a provisional-rating marker, so `ProvisionalRating` cannot be inferred. Datasets built before these revisions (for example PR-03 benchmark datasets) were curated without these checks and are not directly comparable.
 
 ---
 

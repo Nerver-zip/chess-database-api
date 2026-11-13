@@ -1,10 +1,10 @@
 {
   "accounting": {
-    "accepted_unique": 429284,
+    "accepted_unique": 429150,
     "completion_status": "CompleteEof",
-    "confirmed_duplicates": 47,
+    "confirmed_duplicates": 45,
     "quarantined": 0,
-    "rejected_by_policy": 46107415,
+    "rejected_by_policy": 46107551,
     "rejected_illegal": 0,
     "rejected_malformed": 0,
     "rejected_variant": 0,
@@ -12,18 +12,18 @@
     "total_encountered": 46536762
   },
   "collection": "elite-online",
-  "dataset_build_id": "codb-elite-online-1794600082856777543-507086-7c504f6ff13402fc-cpi-d30",
-  "distinct_events_hash_estimate": 4008,
-  "distinct_players_hash_estimate": 17583,
-  "manifest_total_games": 429284,
+  "dataset_build_id": "codb-elite-online-1794610850844039764-517940-edce81ac7fe9ae24-cpi-d30",
+  "distinct_events_hash_estimate": 4004,
+  "distinct_players_hash_estimate": 17573,
+  "manifest_total_games": 429150,
   "min_player_rating_bins": {
-    "2000-2099": 13141,
-    "2100-2199": 20661,
-    "2200-2299": 250460,
-    "2300-2399": 100710,
-    "2400-2499": 33965,
-    "2500-2599": 8607,
-    "2600-2699": 1517,
+    "2000-2099": 13134,
+    "2100-2199": 20651,
+    "2200-2299": 250383,
+    "2300-2399": 100685,
+    "2400-2499": 33952,
+    "2500-2599": 8606,
+    "2600-2699": 1516,
     "2700-2799": 189,
     "2800-2899": 34
   },
@@ -31,7 +31,7 @@
     "date": 0,
     "event": 0,
     "site_or_source_id": 0,
-    "time_control": 728
+    "time_control": 712
   },
   "months": {
     "2015-08": 14,
@@ -39,47 +39,46 @@
     "2015-11": 24,
     "2015-12": 20398,
     "2016-02": 112,
-    "2016-03": 64592,
+    "2016-03": 64583,
     "2016-05": 248,
-    "2016-06": 93918,
+    "2016-06": 93886,
     "2016-08": 200,
-    "2016-09": 80212,
+    "2016-09": 80197,
     "2016-11": 82,
-    "2016-12": 74166,
+    "2016-12": 74126,
     "2017-02": 107,
-    "2017-03": 87992
+    "2017-03": 87954
   },
   "notes": "Distinct players/events are counted by exact normalized name hash; the same person may appear under several spellings. Ratings are FIDE Elo for masters-otb and Lichess Glicko-2 for elite-online and must never be pooled.",
   "plies_bins": {
-    "000-019": 3941,
-    "020-039": 35280,
-    "040-079": 194953,
-    "080-159": 188942,
+    "000-019": 3926,
+    "020-039": 35251,
+    "040-079": 194895,
+    "080-159": 188910,
     "160+": 6168
   },
   "position_index": {
-    "block_count": 95881,
+    "block_count": 95880,
     "custom_fen_games": 0,
-    "excluded_unknown_result_games": 121,
-    "file_size_bytes": 132059693,
+    "excluded_unknown_result_games": 0,
+    "file_size_bytes": 132054643,
     "filename": "positions.cpi",
     "format_version": "CPI/v2",
-    "games_indexed": 429163,
-    "games_processed": 429284,
+    "games_indexed": 429150,
+    "games_processed": 429150,
     "indexed_depth_plies": 30,
     "positions_per_block": 64,
-    "raw_observations_extracted": 12760903,
+    "raw_observations_extracted": 12760622,
     "repeated_positions_skipped": 1847,
-    "sha256": "5040fc7ed41359a430755a692c9c2d5597fd81390d88c9fa35c2aa8277a25dcc",
-    "unique_position_move_pairs": 6739709,
-    "unique_positions": 6136363,
+    "sha256": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
+    "unique_position_move_pairs": 6739644,
+    "unique_positions": 6136307,
     "zstd_level": 3
   },
   "results": {
-    "0-1": 189863,
-    "1-0": 206324,
-    "1/2-1/2": 32976,
-    "unknown": 121
+    "0-1": 189856,
+    "1-0": 206318,
+    "1/2-1/2": 32976
   },
   "source_archives": [
     {
@@ -141,17 +140,17 @@
   ],
   "speed_class_note": "Only computed for elite-online (seconds-based Lichess TimeControl). For masters-otb the PGN TimeControl unit is not consistent across broadcasts, so only raw values are listed.",
   "speed_classes": {
-    "blitz": 393334,
-    "classical": 930,
-    "rapid": 34292,
-    "unknown": 728
+    "blitz": 393240,
+    "classical": 929,
+    "rapid": 34269,
+    "unknown": 712
   },
   "time_control_raw_top20": {},
-  "total_games": 429284,
-  "unknown_result_games": 121,
+  "total_games": 429150,
+  "unknown_result_games": 0,
   "years": {
     "2015": 27655,
-    "2016": 313530,
-    "2017": 88099
+    "2016": 313434,
+    "2017": 88061
   }
 }

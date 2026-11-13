@@ -1,37 +1,37 @@
 {
   "steps": {
     "build": {
-      "command": "<repo>/target/release/codb build --manifest <repo>/data/work/masters-otb-baseline-20261113T194933Z/sources.manifest.json --collection masters-otb --output <repo>/data/work/masters-otb-baseline-20261113T194933Z/dataset --report-json <repo>/data/work/masters-otb-baseline-20261113T194933Z/build_report.json",
+      "command": "/home/agent/workspace/chess-openings-db/target/release/codb build --manifest /home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T224856Z/sources.manifest.json --collection masters-otb --output /home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T224856Z/dataset --report-json /home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T224856Z/build_report.json",
       "returncode": 0,
-      "wall_seconds": 25.01,
-      "peak_rss_bytes": 29847552,
-      "peak_workspace_disk_bytes": 18563072,
-      "log": "<repo>/data/work/masters-otb-baseline-20261113T194933Z/logs/build.log"
+      "wall_seconds": 25.185,
+      "peak_rss_bytes": 29339648,
+      "peak_workspace_disk_bytes": 18677760,
+      "log": "/home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T224856Z/logs/build.log"
     },
     "build-index": {
-      "command": "<repo>/target/release/codb build-index --dataset <repo>/data/work/masters-otb-baseline-20261113T194933Z/dataset --collection masters-otb --depth-plies 40 --memory-limit-mib 128 --json",
+      "command": "/home/agent/workspace/chess-openings-db/target/release/codb build-index --dataset /home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T224856Z/dataset --collection masters-otb --depth-plies 40 --memory-limit-mib 128 --json",
       "returncode": 0,
-      "wall_seconds": 2.708,
-      "peak_rss_bytes": 61665280,
-      "peak_workspace_disk_bytes": 62373888,
-      "log": "<repo>/data/work/masters-otb-baseline-20261113T194933Z/logs/build-index.log"
+      "wall_seconds": 2.644,
+      "peak_rss_bytes": 63062016,
+      "peak_workspace_disk_bytes": 64565248,
+      "log": "/home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T224856Z/logs/build-index.log"
     },
     "verify": {
-      "command": "<repo>/target/release/codb verify --dataset <repo>/data/work/masters-otb-baseline-20261113T194933Z/dataset --deep",
+      "command": "/home/agent/workspace/chess-openings-db/target/release/codb verify --dataset /home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T224856Z/dataset --deep",
       "returncode": 0,
-      "wall_seconds": 0.299,
-      "peak_rss_bytes": 29511680,
+      "wall_seconds": 0.325,
+      "peak_rss_bytes": 29339648,
       "peak_workspace_disk_bytes": 34865152,
-      "log": "<repo>/data/work/masters-otb-baseline-20261113T194933Z/logs/verify.log"
+      "log": "/home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T224856Z/logs/verify.log"
     },
     "report": {
-      "command": "<repo>/target/release/codb report --dataset <repo>/data/work/masters-otb-baseline-20261113T194933Z/dataset --output <repo>/data/work/masters-otb-baseline-20261113T194933Z/quality_report.json",
+      "command": "/home/agent/workspace/chess-openings-db/target/release/codb report --dataset /home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T224856Z/dataset --output /home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T224856Z/quality_report.json",
       "returncode": 0,
       "wall_seconds": 0.106,
-      "peak_rss_bytes": 29511680,
+      "peak_rss_bytes": 29339648,
       "peak_workspace_disk_bytes": 34873344,
-      "log": "<repo>/data/work/masters-otb-baseline-20261113T194933Z/logs/report.log"
+      "log": "/home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T224856Z/logs/report.log"
     }
   },
-  "total_wall_seconds": 28.141
+  "total_wall_seconds": 28.263
 }

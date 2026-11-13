@@ -16,12 +16,11 @@ All notable changes to `chess-openings-db` are documented in this file. The proj
   - `docs/CORPUS_BUILD.md`, offline fixtures (`fixtures/corpus/`), and `scripts/test_corpus.py`.
 
 ### Changed
-- **Masters OTB policy (`masters-otb/2026.11-r1`):** records whose event, site, or broadcast URL carries an online-event marker are rejected (`OnlineEventInMastersSource`); a pre-1970 date is accepted only together with a named event and venue (`HistoricalWithoutProvenance`). No binary format changed.
-- **Elite Online policy (`elite-online/2026.11-r1`):** casual-labelled events are rejected (`CasualUnratedGame`).
+- **Curation policy revision `2026.11-r2`:** Masters rejects explicit aborted, abandoned, no-contest, unplayed, unterminated, and rules-infraction `Termination` values in addition to online-event markers and historical games without event/venue provenance; Elite applies the same termination filter alongside its existing casual and bullet exclusions. Unknown termination values remain eligible. `ProvisionalRating` cannot be inferred because standard Lichess PGNs expose no provisional marker.
 - Policy rejections are reported by stable category (`PolicyRejectionReason::category`).
 
 ### Fixed
-- Deduplication SQLite cache lowered from 32 MB to 2 MB: byte-identical output, `codb build` peak RSS 29.8 MB (Masters) / 36.9 MB (Elite, 429k games) instead of 44 / 67 MB.
+- Deduplication SQLite cache lowered from 2 MiB to 256 KiB, temp storage moved to disk, and staging-catalog cache lowered from 4 MiB to 512 KiB; current `codb build` peaks are 29.34 MB (Masters) and 29.85 MB (Elite), under the 30,000,000-byte budget on the measured host.
 - `docs/DATA_CONTRACTS.md` documented HTTP 422 for unsupported query parameters; the implementation (and the error table) return HTTP 400 `unsupported_parameter`.
 
 ---

@@ -1,11 +1,11 @@
 {
-  "accepted_games": 429284,
+  "accepted_games": 429150,
   "accounting": {
-    "accepted_unique": 429284,
+    "accepted_unique": 429150,
     "completion_status": "CompleteEof",
-    "confirmed_duplicates": 47,
+    "confirmed_duplicates": 45,
     "quarantined": 0,
-    "rejected_by_policy": 46107415,
+    "rejected_by_policy": 46107551,
     "rejected_illegal": 0,
     "rejected_malformed": 0,
     "rejected_variant": 0,
@@ -14,20 +14,20 @@
   },
   "artifacts": {
     "games.idx": {
-      "sha256": "f191db4e385a41010bcbde92c5d228d088235a70a2f5c53e6ef437c14e1f2dda",
-      "size_bytes": 6868608
+      "sha256": "83125009540b3887c3b1ebd75e2435207aeb0e6a8e1e797a0b2d7d7eec309558",
+      "size_bytes": 6866464
     },
     "manifest.json": {
-      "sha256": "c3fbfd417221c2908ae434f4191bf9ed8b75732a84759ec3270ec75809924db1",
-      "size_bytes": 4465
+      "sha256": "66043692321f3763d0564eac49a8f495f5a575e7fae3bee75e2ac212ec8cace4",
+      "size_bytes": 4463
     },
     "positions.cpi": {
-      "sha256": "5040fc7ed41359a430755a692c9c2d5597fd81390d88c9fa35c2aa8277a25dcc",
-      "size_bytes": 132059693
+      "sha256": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
+      "size_bytes": 132054643
     },
     "shards/shard_0000.cgb3": {
-      "sha256": "a860bbf350a6754a85b30868af40b1c2e650eb341eabd6b5fa40c7552bda0830",
-      "size_bytes": 71375389
+      "sha256": "5ecd991fc9b8df1798d05e3969f0b9e826da7bd8be4efb7f442a981b1daf3cbd",
+      "size_bytes": 71360460
     }
   },
   "build_configuration": {
@@ -49,14 +49,14 @@
   },
   "build_metrics_summary": {
     "peak_rss_bytes_by_step": {
-      "build": 36913152,
-      "build-index": 151121920,
-      "report": 29716480,
-      "verify": 137359360
+      "build": 29851648,
+      "build-index": 151195648,
+      "report": 29560832,
+      "verify": 137183232
     },
-    "total_wall_seconds": 690.24
+    "total_wall_seconds": 679.114
   },
-  "built_at": "2026-11-13T20:01:55Z",
+  "built_at": "2026-11-13T23:01:12Z",
   "collection": "elite-online",
   "commands": {
     "build": "./scripts/corpus.sh build --collection elite-online --profile baseline",
@@ -75,13 +75,13 @@
     },
     "version": "elite-online/2026.11-r1 (both>=2200 or 2400+2000, no bullet/ultrabullet, no casual, standard variant, min 6 plies)"
   },
-  "dataset_version": "codb-elite-online-1794600082856777543-507086-7c504f6ff13402fc-cpi-d30",
+  "dataset_version": "codb-elite-online-1794610850844039764-517940-edce81ac7fe9ae24-cpi-d30",
   "index": {
-    "cpi_file_size_bytes": 132059693,
-    "cpi_sha256": "5040fc7ed41359a430755a692c9c2d5597fd81390d88c9fa35c2aa8277a25dcc",
+    "cpi_file_size_bytes": 132054643,
+    "cpi_sha256": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
     "depth_plies": 30,
-    "total_move_records": 6739709,
-    "unique_positions": 6136363
+    "total_move_records": 6739644,
+    "unique_positions": 6136307
   },
   "inputs": [
     {
@@ -166,12 +166,12 @@
   },
   "release_schema_version": 1,
   "source_catalog": {
-    "catalog_content_sha256": "95a835b72d44adfe89eb324feac8e850f03af51be58aafe67aaf3ae2967ddd7b",
+    "catalog_content_sha256": "081b1a592af25bb249cc0a48c32b4f1c2b66bbd3af8dda99afc979b859949cb7",
     "catalog_id": "codb-corpus-catalog-2026.11-r1"
   },
   "tool": {
     "codb_version": "codb 0.1.0",
-    "git_commit": "fb967b0bbe416e9d64bac8f24c0834f88f272be6",
+    "git_commit": "5b976710e8e5dea3a31c8201c71795e9fea5ea21",
     "git_tree_dirty": false
   }
 }

@@ -91,6 +91,51 @@ def main() -> int:
         if http["collections"][c]["mismatches"] != 0:
             fail(f"{c}: HTTP/CLI mismatches recorded")
         print(f"  [PASS] {c}: {rel['accepted_games']} games, {len(rel['inputs'])} verified inputs, reconciled")
+
+    examples = load(EVIDENCE / "http_examples.json")
+    if not examples.get("health_ready"):
+        fail("http_examples.json does not record a ready HTTP server")
+    loaded = {x["collection"]: x for x in examples.get("collections_loaded", [])}
+    if set(loaded) != set(COLLECTIONS):
+        fail("http_examples.json does not record both loaded collections")
+    for c in COLLECTIONS:
+        rel = load(EVIDENCE / c / "RELEASE.json")
+        ex = examples.get("examples", {}).get(c)
+        if not ex or ex.get("dataset_version") != rel["dataset_version"]:
+            fail(f"{c}: direct HTTP example does not match the recorded release")
+        if loaded[c].get("dataset_version") != rel["dataset_version"]:
+            fail(f"{c}: HTTP collections response does not match the release")
+        pos = ex["position"]
+        if pos.get("http_status") != 200 or not pos.get("cli_match"):
+            fail(f"{c}: direct HTTP query failed or differs from the CLI")
+        if pos["white_wins"] + pos["draws"] + pos["black_wins"] != pos["total_games"]:
+            fail(f"{c}: direct HTTP W/D/L counts do not reconcile")
+        game = ex["stored_game"]
+        if (game.get("http_status") != 200 or
+                not game.get("content_type", "").startswith("application/x-chess-pgn") or
+                game.get("pgn_bytes", 0) <= 0 or not SHA.match(game.get("pgn_sha256", ""))):
+            fail(f"{c}: direct stored-game retrieval evidence is invalid")
+
+    reproducibility = load(EVIDENCE / "reproducibility_check.json")
+    for c in COLLECTIONS:
+        rel = load(EVIDENCE / c / "RELEASE.json")
+        check = reproducibility.get("collections", {}).get(c)
+        if not check or check.get("collection") != c:
+            fail(f"{c}: missing independent rebuild evidence")
+        if not (check.get("same_binary_artifacts") and check.get("accounting_reconciled")):
+            fail(f"{c}: independent rebuild did not match or reconcile")
+        if check.get("accepted_games") != rel["accepted_games"]:
+            fail(f"{c}: independent rebuild accepted-game count differs")
+        reference = check.get("reference_sha256", {})
+        repeated = check.get("repeat_sha256", {})
+        if not reference or reference != repeated:
+            fail(f"{c}: independent rebuild artifact hashes differ")
+        for name, digest in reference.items():
+            if name not in rel["artifacts"] or rel["artifacts"][name]["sha256"] != digest:
+                fail(f"{c}: repeat-build hash does not match current release artifact {name}")
+        if any(value <= 0 for value in check.get("wall_seconds", {}).values()):
+            fail(f"{c}: independent rebuild timing is invalid")
+        print(f"  [PASS] {c}: direct HTTP/CLI and deterministic payload evidence")
     return 0
 
 

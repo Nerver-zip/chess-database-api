@@ -1066,14 +1066,14 @@ fn run_build(opts: BuildOptions) -> Result<()> {
             min_rating_one: 2400,
             min_rating_other: 2000,
             min_plies: 4,
-            extra_criteria: "Online-event exclusion; historical exception pre-1970 requires named event and venue".into(),
+            extra_criteria: "Online-event exclusion; historical exception pre-1970 requires named event and venue; explicit aborted or rules-infraction Termination values excluded".into(),
         },
         Collection::EliteOnline => CurationPolicyMetadata {
             min_rating_both: 2200,
             min_rating_one: 2400,
             min_rating_other: 2000,
             min_plies: 6,
-            extra_criteria: "Exclude Bullet and UltraBullet (<180s) and casual games".into(),
+            extra_criteria: "Exclude Bullet and UltraBullet (<180s), casual games, and explicit aborted or rules-infraction Termination values".into(),
         },
     };
 

@@ -4,22 +4,23 @@
     "completion_status": "CompleteEof",
     "confirmed_duplicates": 29,
     "quarantined": 0,
-    "rejected_by_policy": 183102,
+    "rejected_by_policy": 183110,
     "rejected_illegal": 0,
     "rejected_malformed": 0,
-    "rejected_variant": 1735,
+    "rejected_variant": 1727,
     "superseded_prior": 11,
     "total_encountered": 227489
   },
-  "build_duration_secs": 24.193991958,
+  "build_duration_secs": 24.374596073,
   "collection": "masters-otb",
-  "dataset_build_id": "codb-masters-otb-1794599397779973887-506625-66f9dd1ac82c352c",
+  "dataset_build_id": "codb-masters-otb-1794610161624770188-517574-d590c5f1088265ed",
   "is_reconciled": true,
   "policy_rejection_reasons": {
-    "below_rating_threshold": 155153,
-    "missing_rating": 24823,
+    "aborted_or_infraction": 3052,
+    "below_rating_threshold": 152977,
+    "missing_rating": 24285,
     "online_event_in_masters_source": 2424,
-    "too_few_plies": 702
+    "too_few_plies": 372
   },
   "retained_matches_accepted": true,
   "source_archives": [

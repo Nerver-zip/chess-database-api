@@ -54,7 +54,7 @@ are officially designated as **Historical Research Documents**. They record earl
 
 ## 3. Open Architectural Questions for Future Milestones
 
-With the core HTTP serving layer delivered in PR-04, the following questions remain open for future distribution and enhancement milestones:
+With the core HTTP serving layer delivered in PR-04, Q-01 through Q-03 remain open for future milestones. Q-04 records a resolved baseline memory issue.
 
 ### Q-01: Application-Level In-Memory Block Cache vs OS Page Cache
 - **Context:** `positions.cpi` lookups memory-map the sparse index and read/decompress individual Zstd blocks on demand. Single-query p50 latency is ~250 µs under Linux page caching.
@@ -77,9 +77,9 @@ With the core HTTP serving layer delivered in PR-04, the following questions rem
   2. *CPI Sidecar Index:* A lightweight ancillary binary table mapping `PositionKey` to interned ECO string IDs embedded into the dataset directory.
 - **Status:** Open for future exploration.
 
-### Q-04: Ingestion Memory Ceiling vs Measured `codb build` RSS
-- **Context:** Documents state ingestion stays below 30 MB RSS. On the first real builds `codb build` peaked at 44.4 MB (Masters, 42,612 games) and 67.3 MB (Elite pilot, 313,530 games) because the deduplication SQLite cache was configured at 32 MB (plus a 4 MB staging-catalog cache and a ~12 MB process baseline).
-- **Action taken (PR-A):** the deduplication cache was lowered to 2 MB (`PRAGMA cache_size = -2000` in `dedupe.rs`). Output is unchanged (byte-identical `games.idx`, `positions.cpi`, shards across four Masters builds) and speed is unchanged. Measured peaks afterwards: **29.8 MB** (Masters, 42,612 games) and **36.9 MB** (Elite, 429,284 games from 7 archives, 6.9 GB of compressed input).
-- **Remaining gap:** the Elite build still exceeds 30 MB by ~7 MB. The residual (process baseline, 4 MB staging catalog, SQLite WAL/page structures, zstd decompression buffers for 1–2 GB archives) was not profiled further.
-- **Options:** (1) restate the budget as "< 40 MB at 400k accepted games"; (2) lower the staging-catalog cache and profile allocator/zstd window use to get under 30 MB.
-- **Status:** Open (partially resolved). Maintainers should decide whether the 30 MB statement in `AGENTS.md` and `ARCHITECTURE.md` stays as a hard budget.
+### Q-04: Ingestion Memory Ceiling (resolved)
+- **Context:** The original real builds peaked at 44.4 MB (Masters) and 67.3 MB (an Elite pilot) because SQLite used a 32 MiB dedupe cache plus a 4 MiB staging-catalog cache.
+- **Action taken:** The dedupe cache was reduced to 256 KiB, SQLite temporary storage moved to disk, and the staging-catalog cache was reduced to 512 KiB. Same-input rebuilds of the current releases produce byte-identical `games.idx`, `positions.cpi`, and shard files.
+- **Current measurement:** `codb build` peaked at 29,339,648 bytes (Masters, 42,612 accepted games) and 29,851,648 bytes (Elite, 429,150 games, 8,522,353,902 input bytes). Both measurements are below 30,000,000 bytes; Elite had 148,352 bytes of headroom on the 4-core Linux host. See [`benchmarks/corpus/*/metrics.json`](../benchmarks/corpus/) and [`CORPUS_BUILD.md`](CORPUS_BUILD.md).
+- **Limit:** This closes the measured baseline gap, not a platform-independent RSS guarantee; allocator, OS, and compression-library versions can change process memory. Re-measure after runtime changes.
+- **Status:** Closed for the delivered baseline; retain the hard 30 MB target and validate any future scale expansion.

@@ -1,25 +1,26 @@
 {
   "accounting": {
-    "accepted_unique": 429284,
+    "accepted_unique": 429150,
     "completion_status": "CompleteEof",
-    "confirmed_duplicates": 47,
+    "confirmed_duplicates": 45,
     "quarantined": 0,
-    "rejected_by_policy": 46107415,
+    "rejected_by_policy": 46107551,
     "rejected_illegal": 0,
     "rejected_malformed": 0,
     "rejected_variant": 0,
     "superseded_prior": 16,
     "total_encountered": 46536762
   },
-  "build_duration_secs": 612.563516975,
+  "build_duration_secs": 612.767261632,
   "collection": "elite-online",
-  "dataset_build_id": "codb-elite-online-1794600080748565511-506720-80b41bca2a4b3b36",
+  "dataset_build_id": "codb-elite-online-1794610848793125749-517612-5f7ccb9e2a333c2a",
   "is_reconciled": true,
   "policy_rejection_reasons": {
-    "below_rating_threshold": 32709085,
-    "bullet_or_ultrabullet": 13396793,
+    "aborted_or_infraction": 228742,
+    "below_rating_threshold": 32542858,
+    "bullet_or_ultrabullet": 13334669,
     "missing_rating": 20,
-    "too_few_plies": 1517
+    "too_few_plies": 1262
   },
   "retained_matches_accepted": true,
   "source_archives": [
@@ -80,6 +81,6 @@
       "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2017-03.pgn.zst"
     }
   ],
-  "total_games": 429284,
-  "total_physical_bytes": 78243997
+  "total_games": 429150,
+  "total_physical_bytes": 78226924
 }
