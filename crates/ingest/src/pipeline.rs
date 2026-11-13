@@ -67,6 +67,8 @@ pub struct CuratedPipeline<C: GameConsumer> {
     elite_policy: EliteOnlinePolicy,
     pub consumer: C,
     pub stats: IngestionStats,
+    /// Breakdown of `stats.rejected_by_policy` by stable reason category.
+    pub policy_rejection_reasons: std::collections::BTreeMap<String, u64>,
     pub transpositions_distinct: u64,
     pub max_games: Option<usize>,
     consecutive_syntax_errors: usize,
@@ -82,6 +84,7 @@ impl<C: GameConsumer> CuratedPipeline<C> {
             elite_policy: EliteOnlinePolicy::default(),
             consumer,
             stats: IngestionStats::default(),
+            policy_rejection_reasons: Default::default(),
             transpositions_distinct: 0,
             max_games: None,
             consecutive_syntax_errors: 0,
@@ -123,17 +126,17 @@ impl<C: GameConsumer> CuratedPipeline<C> {
 
                     match result {
                         Ok(game) => {
-                            let passes_policy = match self.collection {
-                                Collection::MastersOtb => {
-                                    self.masters_policy.evaluate(&game) == PolicyVerdict::Accepted
-                                }
-                                Collection::EliteOnline => {
-                                    self.elite_policy.evaluate(&game) == PolicyVerdict::Accepted
-                                }
+                            let verdict = match self.collection {
+                                Collection::MastersOtb => self.masters_policy.evaluate(&game),
+                                Collection::EliteOnline => self.elite_policy.evaluate(&game),
                             };
 
-                            if !passes_policy {
+                            if let PolicyVerdict::Rejected(reason) = verdict {
                                 self.stats.rejected_by_policy += 1;
+                                *self
+                                    .policy_rejection_reasons
+                                    .entry(reason.category().to_string())
+                                    .or_insert(0) += 1;
                             } else {
                                 match self.deduplicator.evaluate(&game)? {
                                     DuplicateVerdict::Unique => {
@@ -161,8 +164,14 @@ impl<C: GameConsumer> CuratedPipeline<C> {
                                 }
                             }
                         }
-                        Err(IngestError::RejectedByPolicy(_)) => {
+                        Err(IngestError::RejectedByPolicy(reason)) => {
                             self.stats.rejected_by_policy += 1;
+                            *self
+                                .policy_rejection_reasons
+                                .entry(
+                                    codb_curate::policy::early_filter_category(&reason).to_string(),
+                                )
+                                .or_insert(0) += 1;
                         }
                         Err(IngestError::UnsupportedVariant(_))
                         | Err(IngestError::NonStandardStartingPosition(_)) => {

@@ -46,7 +46,8 @@ python3 -m unittest \
     scripts/test_feasibility_alignment.py \
     scripts/test_reproduce_runner.py \
     scripts/test_validate_benchmarks.py \
-    scripts/test_bench_http.py
+    scripts/test_bench_http.py \
+    scripts/test_corpus.py
 echo "  [PASS] Python unit and regression tests passed."
 
 echo ""

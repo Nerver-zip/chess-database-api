@@ -1,0 +1,465 @@
+[Event "Reykjavik Open 2026"]
+[Site "Reykjavik ISL"]
+[Date "2026.09.01"]
+[Round "1.0"]
+[White "Master W1"]
+[Black "Master B1"]
+[Result "1-0"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0001"]
+[GameURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0001/G000001"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 1-0
+
+[Event "Reykjavik Open 2026"]
+[Site "Reykjavik ISL"]
+[Date "2026.09.01"]
+[Round "2.1"]
+[White "Master W2"]
+[Black "Master B2"]
+[Result "0-1"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0002"]
+[GameURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0002/G000002"]
+
+1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 O-O 5. Bd3 d5 6. Nf3 c5 0-1
+
+[Event "Reykjavik Open 2026"]
+[Site "Reykjavik ISL"]
+[Date "2026.09.01"]
+[Round "3.2"]
+[White "Master W3"]
+[Black "Master B3"]
+[Result "1/2-1/2"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0003"]
+[GameURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0003/G000003"]
+
+1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6 6. Be2 e5 1/2-1/2
+
+[Event "Reykjavik Open 2026"]
+[Site "Reykjavik ISL"]
+[Date "2026.09.01"]
+[Round "4.3"]
+[White "Master W4"]
+[Black "Master B4"]
+[Result "1-0"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0004"]
+[GameURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0004/G000004"]
+
+1. c4 e5 2. Nc3 Nf6 3. Nf3 Nc6 4. g3 d5 5. cxd5 Nxd5 6. Bg2 Nb6 1-0
+
+[Event "Reykjavik Open 2026"]
+[Site "Reykjavik ISL"]
+[Date "2026.09.01"]
+[Round "5.4"]
+[White "Master W5"]
+[Black "Master B5"]
+[Result "0-1"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0005"]
+[GameURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0005/G000005"]
+
+1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Be7 5. e3 O-O 6. Nf3 h6 0-1
+
+[Event "Reykjavik Open 2026"]
+[Site "Reykjavik ISL"]
+[Date "2026.09.01"]
+[Round "6.5"]
+[White "Master W6"]
+[Black "Master B6"]
+[Result "1/2-1/2"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0006"]
+[GameURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0006/G000006"]
+
+1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. e5 c5 5. a3 Bxc3+ 6. bxc3 Ne7 1/2-1/2
+
+[Event "Reykjavik Open 2026"]
+[Site "Reykjavik ISL"]
+[Date "2026.09.01"]
+[Round "7.6"]
+[White "Master W7"]
+[Black "Master B7"]
+[Result "1-0"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0007"]
+[GameURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0007/G000007"]
+
+1. Nf3 d5 2. g3 Nf6 3. Bg2 e6 4. O-O Be7 5. d3 O-O 6. Nbd2 c5 1-0
+
+[Event "Reykjavik Open 2026"]
+[Site "Reykjavik ISL"]
+[Date "2026.09.01"]
+[Round "8.7"]
+[White "Master W8"]
+[Black "Master B8"]
+[Result "0-1"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0008"]
+[GameURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0008/G000008"]
+
+1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 5. Ng3 Bg6 6. h4 h6 0-1
+
+[Event "Reykjavik Open 2026"]
+[Site "Reykjavik ISL"]
+[Date "2026.09.01"]
+[Round "9.8"]
+[White "Master W9"]
+[Black "Master B9"]
+[Result "1/2-1/2"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0009"]
+[GameURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0009/G000009"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 1/2-1/2
+
+[Event "Reykjavik Open 2026"]
+[Site "Reykjavik ISL"]
+[Date "2026.09.01"]
+[Round "1.9"]
+[White "Master W10"]
+[Black "Master B10"]
+[Result "1-0"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0010"]
+[GameURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0010/G000010"]
+
+1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 O-O 5. Bd3 d5 6. Nf3 c5 1-0
+
+[Event "Reykjavik Open 2026"]
+[Site "Reykjavik ISL"]
+[Date "2026.09.01"]
+[Round "2.10"]
+[White "Master W11"]
+[Black "Master B11"]
+[Result "0-1"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0011"]
+[GameURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0011/G000011"]
+
+1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6 6. Be2 e5 0-1
+
+[Event "Reykjavik Open 2026"]
+[Site "Reykjavik ISL"]
+[Date "2026.09.01"]
+[Round "3.11"]
+[White "Master W12"]
+[Black "Master B12"]
+[Result "1/2-1/2"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0012"]
+[GameURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0012/G000012"]
+
+1. c4 e5 2. Nc3 Nf6 3. Nf3 Nc6 4. g3 d5 5. cxd5 Nxd5 6. Bg2 Nb6 1/2-1/2
+
+[Event "Reykjavik Open 2026"]
+[Site "Reykjavik ISL"]
+[Date "2026.09.01"]
+[Round "4.12"]
+[White "Master W13"]
+[Black "Master B13"]
+[Result "1-0"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0013"]
+[GameURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0013/G000013"]
+
+1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Be7 5. e3 O-O 6. Nf3 h6 1-0
+
+[Event "Reykjavik Open 2026"]
+[Site "Reykjavik ISL"]
+[Date "2026.09.01"]
+[Round "5.13"]
+[White "Master W14"]
+[Black "Master B14"]
+[Result "0-1"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0014"]
+[GameURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0014/G000014"]
+
+1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. e5 c5 5. a3 Bxc3+ 6. bxc3 Ne7 0-1
+
+[Event "Titled Arena Online 2026"]
+[Site "Lichess"]
+[Date "2026.09.01"]
+[Round "1.0"]
+[White "Master W15"]
+[Black "Master B15"]
+[Result "1-0"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/titled-arena-online-2026/round-1/AAAA0015"]
+[GameURL "https://lichess.org/broadcast/titled-arena-online-2026/round-1/AAAA0015/G000015"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 1-0
+
+[Event "Titled Arena Online 2026"]
+[Site "Lichess"]
+[Date "2026.09.01"]
+[Round "2.1"]
+[White "Master W16"]
+[Black "Master B16"]
+[Result "0-1"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/titled-arena-online-2026/round-1/AAAA0016"]
+[GameURL "https://lichess.org/broadcast/titled-arena-online-2026/round-1/AAAA0016/G000016"]
+
+1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 O-O 5. Bd3 d5 6. Nf3 c5 0-1
+
+[Event "Titled Arena Online 2026"]
+[Site "Lichess"]
+[Date "2026.09.01"]
+[Round "3.2"]
+[White "Master W17"]
+[Black "Master B17"]
+[Result "1/2-1/2"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/titled-arena-online-2026/round-1/AAAA0017"]
+[GameURL "https://lichess.org/broadcast/titled-arena-online-2026/round-1/AAAA0017/G000017"]
+
+1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6 6. Be2 e5 1/2-1/2
+
+[Event "World Cup Qualifier"]
+[Site "Chess.com"]
+[Date "2026.09.01"]
+[Round "4.3"]
+[White "Master W18"]
+[Black "Master B18"]
+[Result "1-0"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/world-cup-qualifier/round-1/AAAA0018"]
+[GameURL "https://lichess.org/broadcast/world-cup-qualifier/round-1/AAAA0018/G000018"]
+
+1. c4 e5 2. Nc3 Nf6 3. Nf3 Nc6 4. g3 d5 5. cxd5 Nxd5 6. Bg2 Nb6 1-0
+
+[Event "Club Championship 2026"]
+[Site "Oslo NOR"]
+[Date "2026.09.01"]
+[Round "1.0"]
+[White "Master W19"]
+[Black "Master B19"]
+[Result "1-0"]
+[WhiteElo "1820"]
+[BlackElo "1710"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/club-championship-2026/round-1/AAAA0019"]
+[GameURL "https://lichess.org/broadcast/club-championship-2026/round-1/AAAA0019/G000019"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 1-0
+
+[Event "Club Championship 2026"]
+[Site "Oslo NOR"]
+[Date "2026.09.01"]
+[Round "2.1"]
+[White "Master W20"]
+[Black "Master B20"]
+[Result "0-1"]
+[WhiteElo "1820"]
+[BlackElo "1710"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/club-championship-2026/round-1/AAAA0020"]
+[GameURL "https://lichess.org/broadcast/club-championship-2026/round-1/AAAA0020/G000020"]
+
+1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 O-O 5. Bd3 d5 6. Nf3 c5 0-1
+
+[Event "Club Championship 2026"]
+[Site "Oslo NOR"]
+[Date "2026.09.01"]
+[Round "3.2"]
+[White "Master W21"]
+[Black "Master B21"]
+[Result "1/2-1/2"]
+[WhiteElo "1820"]
+[BlackElo "1710"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/club-championship-2026/round-1/AAAA0021"]
+[GameURL "https://lichess.org/broadcast/club-championship-2026/round-1/AAAA0021/G000021"]
+
+1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6 6. Be2 e5 1/2-1/2
+
+[Event "Open Weekend 2026"]
+[Site "Bergen NOR"]
+[Date "2026.09.01"]
+[Round "1.0"]
+[White "Master W22"]
+[Black "Master B22"]
+[Result "1-0"]
+[WhiteElo "0"]
+[BlackElo "0"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/open-weekend-2026/round-1/AAAA0022"]
+[GameURL "https://lichess.org/broadcast/open-weekend-2026/round-1/AAAA0022/G000022"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 1-0
+
+[Event "Open Weekend 2026"]
+[Site "Bergen NOR"]
+[Date "2026.09.01"]
+[Round "2.1"]
+[White "Master W23"]
+[Black "Master B23"]
+[Result "0-1"]
+[WhiteElo "0"]
+[BlackElo "0"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/open-weekend-2026/round-1/AAAA0023"]
+[GameURL "https://lichess.org/broadcast/open-weekend-2026/round-1/AAAA0023/G000023"]
+
+1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 O-O 5. Bd3 d5 6. Nf3 c5 0-1
+
+[Event "Unrated Open"]
+[Site "Oslo NOR"]
+[Date "2026.09.02"]
+[White "No Elo A"]
+[Black "No Elo B"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 1-0
+
+[Event "Freestyle Festival"]
+[Site "Weissenhaus GER"]
+[Date "2026.09.01"]
+[Round "2.1"]
+[White "Master W24"]
+[Black "Master B24"]
+[Result "0-1"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/freestyle-festival/round-1/AAAA0024"]
+[GameURL "https://lichess.org/broadcast/freestyle-festival/round-1/AAAA0024/G000024"]
+[Variant "Chess960"]
+
+1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 O-O 5. Bd3 d5 6. Nf3 c5 0-1
+
+[Event "Broken Open"]
+[Site "Oslo NOR"]
+[Date "2026.09.03"]
+[Round "1"]
+[White "Illegal A"]
+[Black "Illegal B"]
+[Result "1-0"]
+[WhiteElo "2500"]
+[BlackElo "2500"]
+
+1. e4 e5 2. Nf6 Nc6 3. Bb5 a6 1-0
+
+[Event "Short Draw Open"]
+[Site "Oslo NOR"]
+[Date "2026.09.01"]
+[Round "3.2"]
+[White "Master W25"]
+[Black "Master B25"]
+[Result "1/2-1/2"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/short-draw-open/round-1/AAAA0025"]
+[GameURL "https://lichess.org/broadcast/short-draw-open/round-1/AAAA0025/G000025"]
+
+1. e4 e5 1/2-1/2
+
+[Event "Reykjavik Open 2026"]
+[Site "Reykjavik ISL"]
+[Date "2026.09.01"]
+[Round "1.0"]
+[White "Master W1"]
+[Black "Master B1"]
+[Result "1-0"]
+[WhiteElo "2510"]
+[BlackElo "2455"]
+[Variant "Standard"]
+[BroadcastURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0001"]
+[GameURL "https://lichess.org/broadcast/reykjavik-open-2026/round-1/AAAA0001/G000001"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 1-0
+
+[Event "Live Classic 2026"]
+[Site "Prague CZE"]
+[Date "2026.09.04"]
+[Round "5"]
+[White "Live White"]
+[Black "Live Black"]
+[WhiteElo "2600"]
+[BlackElo "2590"]
+[Variant "Standard"]
+[GameURL "https://lichess.org/broadcast/live-classic-2026/round-5/ZZZZ0001/LIVE0001"]
+[Result "*"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 *
+
+[Event "Live Classic 2026"]
+[Site "Prague CZE"]
+[Date "2026.09.04"]
+[Round "5"]
+[White "Live White"]
+[Black "Live Black"]
+[WhiteElo "2600"]
+[BlackElo "2590"]
+[Variant "Standard"]
+[GameURL "https://lichess.org/broadcast/live-classic-2026/round-5/ZZZZ0001/LIVE0001"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 1-0
+
+[Event "AVRO 1938"]
+[Site "Netherlands"]
+[Date "1938.11.06"]
+[Round "3"]
+[White "Keres, Paul"]
+[Black "Fine, Reuben"]
+[Result "1-0"]
+
+1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 O-O 5. Bd3 d5 6. Nf3 c5 1-0
+
+[Event "?"]
+[Site "?"]
+[Date "1938.11.07"]
+[Round "?"]
+[White "Unknown A"]
+[Black "Unknown B"]
+[Result "1-0"]
+
+1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6 6. Be2 e5 1-0
+
+[Event "Broken header
+[Site "x"]
+
+1. e4 e5 1-0
+

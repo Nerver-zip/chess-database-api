@@ -1,0 +1,245 @@
+{
+  "schema_version": 1,
+  "catalog_id": "codb-corpus-catalog-2026.11-r1",
+  "description": "Pinned, checksum-verified source archives for the masters-otb and elite-online collections. Software is MIT OR Apache-2.0; dataset licenses are independent and listed below.",
+  "licenses": {
+    "CC-BY-SA-4.0": {
+      "name": "Creative Commons Attribution-ShareAlike 4.0 International",
+      "url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "approved": true,
+      "attribution_required": true,
+      "share_alike": true,
+      "statement_source": "https://database.lichess.org/ ('Broadcast games are released under the Creative Commons Attribution-ShareAlike 4.0 license')"
+    },
+    "CC0-1.0": {
+      "name": "Creative Commons CC0 1.0 Universal",
+      "url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "approved": true,
+      "attribution_required": false,
+      "share_alike": false,
+      "statement_source": "https://database.lichess.org/ ('Database exports are released under the Creative Commons CC0 license')"
+    }
+  },
+  "collections": {
+    "masters-otb": {
+      "rating_system": "FIDE Elo",
+      "default_depth_plies": 40,
+      "allowed_licenses": [
+        "CC-BY-SA-4.0"
+      ],
+      "curation_policy_version": "masters-otb/2026.11-r1 (ratings, standard start, min 4 plies, online-event exclusion, pre-1970 requires event+venue)",
+      "profiles": {
+        "baseline": [
+          "lichess-broadcast-2026-05",
+          "lichess-broadcast-2026-06",
+          "lichess-broadcast-2026-07",
+          "lichess-broadcast-2026-08",
+          "lichess-broadcast-2026-09",
+          "lichess-broadcast-2026-10"
+        ]
+      },
+      "planning": {
+        "expected_accepted_games": 40000,
+        "cgb3_bytes_per_game": 220,
+        "cpi_bytes_per_game": 600,
+        "temp_bytes_per_accepted_game": 1500,
+        "input_bytes_per_second": 15000000
+      }
+    },
+    "elite-online": {
+      "rating_system": "Lichess Glicko-2",
+      "default_depth_plies": 30,
+      "allowed_licenses": [
+        "CC0-1.0"
+      ],
+      "curation_policy_version": "elite-online/2026.11-r1 (both>=2200 or 2400+2000, no bullet/ultrabullet, no casual, standard variant, min 6 plies)",
+      "profiles": {
+        "baseline": [
+          "lichess-standard-2016-03",
+          "lichess-standard-2016-06",
+          "lichess-standard-2016-09",
+          "lichess-standard-2016-12"
+        ]
+      },
+      "planning": {
+        "expected_accepted_games": 300000,
+        "cgb3_bytes_per_game": 180,
+        "cpi_bytes_per_game": 600,
+        "temp_bytes_per_accepted_game": 1500,
+        "input_bytes_per_second": 4000000
+      }
+    }
+  },
+  "sources": [
+    {
+      "id": "lichess-broadcast-2026-05",
+      "collection": "masters-otb",
+      "publisher": "Lichess.org",
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-05.pgn.zst",
+      "filename": "lichess_db_broadcast_2026-05.pgn.zst",
+      "period": "2026-05",
+      "license": "CC-BY-SA-4.0",
+      "expected_size_bytes": 22912287,
+      "publisher_sha256": "d212987f7972a70268809ff6c726acff8bf0987161aacd7647b160f8564f6a53",
+      "publisher_checksum_url": "https://database.lichess.org/broadcast/sha256sums.txt",
+      "verified_sha256": "d212987f7972a70268809ff6c726acff8bf0987161aacd7647b160f8564f6a53",
+      "acquired_at": "2026-11-13T18:12:07Z",
+      "provenance_confidence": "medium",
+      "eligibility": "Lichess official broadcasts. Contains both over-the-board and online events; only records passing the codb Masters OTB policy (FIDE rating thresholds, standard chess, online-event exclusion) enter masters-otb.",
+      "notes": "Broadcast TimeControl strings have inconsistent units. No explicit OTB flag exists in the PGN; OTB qualification relies on event, site and broadcast-slug markers and cannot be proven for every record."
+    },
+    {
+      "id": "lichess-broadcast-2026-06",
+      "collection": "masters-otb",
+      "publisher": "Lichess.org",
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-06.pgn.zst",
+      "filename": "lichess_db_broadcast_2026-06.pgn.zst",
+      "period": "2026-06",
+      "license": "CC-BY-SA-4.0",
+      "expected_size_bytes": 22797518,
+      "publisher_sha256": "65905d611c0d78d90ab57cd9edd3821f4119b46c22b5489fd7e265a74c6767b3",
+      "publisher_checksum_url": "https://database.lichess.org/broadcast/sha256sums.txt",
+      "verified_sha256": "65905d611c0d78d90ab57cd9edd3821f4119b46c22b5489fd7e265a74c6767b3",
+      "acquired_at": "2026-11-13T18:12:14Z",
+      "provenance_confidence": "medium",
+      "eligibility": "Lichess official broadcasts. Contains both over-the-board and online events; only records passing the codb Masters OTB policy (FIDE rating thresholds, standard chess, online-event exclusion) enter masters-otb.",
+      "notes": "Broadcast TimeControl strings have inconsistent units. No explicit OTB flag exists in the PGN; OTB qualification relies on event, site and broadcast-slug markers and cannot be proven for every record."
+    },
+    {
+      "id": "lichess-broadcast-2026-07",
+      "collection": "masters-otb",
+      "publisher": "Lichess.org",
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-07.pgn.zst",
+      "filename": "lichess_db_broadcast_2026-07.pgn.zst",
+      "period": "2026-07",
+      "license": "CC-BY-SA-4.0",
+      "expected_size_bytes": 24535400,
+      "publisher_sha256": "714d0eb99f99fca8d791142038b6c59b5ca6a51b3339bd3891a92f4bdffcbf0c",
+      "publisher_checksum_url": "https://database.lichess.org/broadcast/sha256sums.txt",
+      "verified_sha256": "714d0eb99f99fca8d791142038b6c59b5ca6a51b3339bd3891a92f4bdffcbf0c",
+      "acquired_at": "2026-11-13T18:12:20Z",
+      "provenance_confidence": "medium",
+      "eligibility": "Lichess official broadcasts. Contains both over-the-board and online events; only records passing the codb Masters OTB policy (FIDE rating thresholds, standard chess, online-event exclusion) enter masters-otb.",
+      "notes": "Broadcast TimeControl strings have inconsistent units. No explicit OTB flag exists in the PGN; OTB qualification relies on event, site and broadcast-slug markers and cannot be proven for every record."
+    },
+    {
+      "id": "lichess-broadcast-2026-08",
+      "collection": "masters-otb",
+      "publisher": "Lichess.org",
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-08.pgn.zst",
+      "filename": "lichess_db_broadcast_2026-08.pgn.zst",
+      "period": "2026-08",
+      "license": "CC-BY-SA-4.0",
+      "expected_size_bytes": 31010232,
+      "publisher_sha256": "e227c35c3207ebade754849c1825982e2717ae82c013013d896778e27be77724",
+      "publisher_checksum_url": "https://database.lichess.org/broadcast/sha256sums.txt",
+      "verified_sha256": "e227c35c3207ebade754849c1825982e2717ae82c013013d896778e27be77724",
+      "acquired_at": "2026-11-13T18:12:27Z",
+      "provenance_confidence": "medium",
+      "eligibility": "Lichess official broadcasts. Contains both over-the-board and online events; only records passing the codb Masters OTB policy (FIDE rating thresholds, standard chess, online-event exclusion) enter masters-otb.",
+      "notes": "Broadcast TimeControl strings have inconsistent units. No explicit OTB flag exists in the PGN; OTB qualification relies on event, site and broadcast-slug markers and cannot be proven for every record."
+    },
+    {
+      "id": "lichess-broadcast-2026-09",
+      "collection": "masters-otb",
+      "publisher": "Lichess.org",
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-09.pgn.zst",
+      "filename": "lichess_db_broadcast_2026-09.pgn.zst",
+      "period": "2026-09",
+      "license": "CC-BY-SA-4.0",
+      "expected_size_bytes": 18414369,
+      "publisher_sha256": "27a39d035767a30901b89602f33f2a7b27d4ab5025842071165fa079f8fff1df",
+      "publisher_checksum_url": "https://database.lichess.org/broadcast/sha256sums.txt",
+      "verified_sha256": "27a39d035767a30901b89602f33f2a7b27d4ab5025842071165fa079f8fff1df",
+      "acquired_at": "2026-11-13T18:12:41Z",
+      "provenance_confidence": "medium",
+      "eligibility": "Lichess official broadcasts. Contains both over-the-board and online events; only records passing the codb Masters OTB policy (FIDE rating thresholds, standard chess, online-event exclusion) enter masters-otb.",
+      "notes": "Broadcast TimeControl strings have inconsistent units. No explicit OTB flag exists in the PGN; OTB qualification relies on event, site and broadcast-slug markers and cannot be proven for every record."
+    },
+    {
+      "id": "lichess-broadcast-2026-10",
+      "collection": "masters-otb",
+      "publisher": "Lichess.org",
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-10.pgn.zst",
+      "filename": "lichess_db_broadcast_2026-10.pgn.zst",
+      "period": "2026-10",
+      "license": "CC-BY-SA-4.0",
+      "expected_size_bytes": 22630351,
+      "publisher_sha256": "d9c0c78c7ed8cd200723c9972b01a1cd35fd8568dd4b6324fbcc3ee7c07374c9",
+      "publisher_checksum_url": "https://database.lichess.org/broadcast/sha256sums.txt",
+      "verified_sha256": "d9c0c78c7ed8cd200723c9972b01a1cd35fd8568dd4b6324fbcc3ee7c07374c9",
+      "acquired_at": "2026-11-13T18:12:47Z",
+      "provenance_confidence": "medium",
+      "eligibility": "Lichess official broadcasts. Contains both over-the-board and online events; only records passing the codb Masters OTB policy (FIDE rating thresholds, standard chess, online-event exclusion) enter masters-otb.",
+      "notes": "Broadcast TimeControl strings have inconsistent units. No explicit OTB flag exists in the PGN; OTB qualification relies on event, site and broadcast-slug markers and cannot be proven for every record."
+    },
+    {
+      "id": "lichess-standard-2016-03",
+      "collection": "elite-online",
+      "publisher": "Lichess.org",
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-03.pgn.zst",
+      "filename": "lichess_db_standard_rated_2016-03.pgn.zst",
+      "period": "2016-03",
+      "license": "CC0-1.0",
+      "expected_size_bytes": 1042258644,
+      "publisher_sha256": "11e8667a82a02199855f3aca83d6d4091d194dc4becf6d02a8001f0d9623b5c6",
+      "publisher_checksum_url": "https://database.lichess.org/standard/sha256sums.txt",
+      "verified_sha256": "11e8667a82a02199855f3aca83d6d4091d194dc4becf6d02a8001f0d9623b5c6",
+      "acquired_at": "2026-11-13T18:24:11Z",
+      "provenance_confidence": "high",
+      "eligibility": "Lichess standard rated games (online). Entire archive is online play; Elite policy: both >=2200 or one >=2400 and the other >=2000 Glicko-2, no bullet/ultrabullet, no casual, min 6 plies.",
+      "notes": "Complete monthly archive, full SHA-256 verified. Quarterly months of 2016 chosen so qualifying games span the year; ratings reflect 2016 Lichess rating inflation and are Glicko-2, not FIDE Elo."
+    },
+    {
+      "id": "lichess-standard-2016-06",
+      "collection": "elite-online",
+      "publisher": "Lichess.org",
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-06.pgn.zst",
+      "filename": "lichess_db_standard_rated_2016-06.pgn.zst",
+      "period": "2016-06",
+      "license": "CC0-1.0",
+      "expected_size_bytes": 1093562696,
+      "publisher_sha256": "97ccde214a81d5e58867bedbeb510dfdd99418d9fb31b0995f5320a74b7d4502",
+      "publisher_checksum_url": "https://database.lichess.org/standard/sha256sums.txt",
+      "verified_sha256": "97ccde214a81d5e58867bedbeb510dfdd99418d9fb31b0995f5320a74b7d4502",
+      "acquired_at": "2026-11-13T18:35:58Z",
+      "provenance_confidence": "high",
+      "eligibility": "Lichess standard rated games (online). Entire archive is online play; Elite policy: both >=2200 or one >=2400 and the other >=2000 Glicko-2, no bullet/ultrabullet, no casual, min 6 plies.",
+      "notes": "Complete monthly archive, full SHA-256 verified. Quarterly months of 2016 chosen so qualifying games span the year; ratings reflect 2016 Lichess rating inflation and are Glicko-2, not FIDE Elo."
+    },
+    {
+      "id": "lichess-standard-2016-09",
+      "collection": "elite-online",
+      "publisher": "Lichess.org",
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-09.pgn.zst",
+      "filename": "lichess_db_standard_rated_2016-09.pgn.zst",
+      "period": "2016-09",
+      "license": "CC0-1.0",
+      "expected_size_bytes": 1213809361,
+      "publisher_sha256": "3a4d18db787db558083aacb7c27ab3588f0745c1baaca37846b3f0d8b9677db3",
+      "publisher_checksum_url": "https://database.lichess.org/standard/sha256sums.txt",
+      "verified_sha256": "3a4d18db787db558083aacb7c27ab3588f0745c1baaca37846b3f0d8b9677db3",
+      "acquired_at": "2026-11-13T18:29:57Z",
+      "provenance_confidence": "high",
+      "eligibility": "Lichess standard rated games (online). Entire archive is online play; Elite policy: both >=2200 or one >=2400 and the other >=2000 Glicko-2, no bullet/ultrabullet, no casual, min 6 plies.",
+      "notes": "Complete monthly archive, full SHA-256 verified. Quarterly months of 2016 chosen so qualifying games span the year; ratings reflect 2016 Lichess rating inflation and are Glicko-2, not FIDE Elo."
+    },
+    {
+      "id": "lichess-standard-2016-12",
+      "collection": "elite-online",
+      "publisher": "Lichess.org",
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-12.pgn.zst",
+      "filename": "lichess_db_standard_rated_2016-12.pgn.zst",
+      "period": "2016-12",
+      "license": "CC0-1.0",
+      "expected_size_bytes": 1698298025,
+      "publisher_sha256": "285d09bcb7f47af2d58594ecee7da8c18f9e800fd7df2e0158b4fb5429f9a904",
+      "publisher_checksum_url": "https://database.lichess.org/standard/sha256sums.txt",
+      "verified_sha256": "285d09bcb7f47af2d58594ecee7da8c18f9e800fd7df2e0158b4fb5429f9a904",
+      "acquired_at": "2026-11-13T18:38:28Z",
+      "provenance_confidence": "high",
+      "eligibility": "Lichess standard rated games (online). Entire archive is online play; Elite policy: both >=2200 or one >=2400 and the other >=2000 Glicko-2, no bullet/ultrabullet, no casual, min 6 plies.",
+      "notes": "Complete monthly archive, full SHA-256 verified. Quarterly months of 2016 chosen so qualifying games span the year; ratings reflect 2016 Lichess rating inflation and are Glicko-2, not FIDE Elo."
+    }
+  ]
+}
