@@ -4,11 +4,14 @@ use codb_core::{
 };
 use codb_storage::fault::{self, FaultPoint};
 use codb_storage::{
-    cleanup_old_versions, recover_dataset, resolve_dataset_snapshot, verify_dataset, DatasetReader,
-    DatasetWriter, DatasetWriterConfig, SourceArchiveMetadata, StorageError,
+    cleanup_old_versions, publish_prebuilt_dataset, recover_dataset, resolve_dataset_snapshot,
+    verify_dataset, DatasetReader, DatasetWriter, DatasetWriterConfig, SourceArchiveMetadata,
+    StorageError,
 };
 use std::fs;
 use std::path::Path;
+use std::sync::{Arc, Barrier, Mutex};
+use std::thread;
 use tempfile::tempdir;
 
 fn sample_game(id_seed: u64, collection: Collection, white: &str, black: &str) -> ParsedGame {
@@ -140,6 +143,96 @@ fn create_legacy_flat_dataset(
     }
     let _ = fs::remove_dir_all(&temp_staging);
     Ok(())
+}
+
+#[test]
+fn test_prebuilt_publication_keeps_pinned_readers_valid_during_atomic_transition() {
+    let tmp = tempdir().unwrap();
+    let candidate_a = tmp.path().join("candidate-a");
+    let candidate_b = tmp.path().join("candidate-b");
+    let target = tmp.path().join("stable-dataset");
+
+    create_dataset(&candidate_a, 4, 100).unwrap();
+    publish_prebuilt_dataset(&candidate_a, &target, Collection::MastersOtb).unwrap();
+    let old_snapshot = resolve_dataset_snapshot(&target).unwrap();
+    let pinned_reader = DatasetReader::open(&target).unwrap();
+    assert_eq!(pinned_reader.total_games(), 4);
+
+    create_dataset(&candidate_b, 7, 500).unwrap();
+    let barrier = Arc::new(Barrier::new(2));
+    let observed = Arc::new(Mutex::new(Vec::new()));
+    let failures = Arc::new(Mutex::new(Vec::new()));
+    let reader_target = target.clone();
+    let reader_barrier = barrier.clone();
+    let reader_observed = observed.clone();
+    let reader_failures = failures.clone();
+    let reader_thread = thread::spawn(move || {
+        reader_barrier.wait();
+        for _ in 0..256 {
+            match DatasetReader::open(&reader_target) {
+                Ok(reader) => reader_observed.lock().unwrap().push(reader.total_games()),
+                Err(error) => reader_failures.lock().unwrap().push(error.to_string()),
+            }
+            thread::yield_now();
+        }
+    });
+
+    barrier.wait();
+    publish_prebuilt_dataset(&candidate_b, &target, Collection::MastersOtb).unwrap();
+    reader_thread.join().unwrap();
+
+    assert!(failures.lock().unwrap().is_empty(), "concurrent opens failed");
+    let counts = observed.lock().unwrap();
+    assert!(!counts.is_empty(), "concurrent reader loop did not execute");
+    assert!(
+        counts.iter().all(|count| *count == 4 || *count == 7),
+        "readers observed an incomplete or mixed snapshot: {counts:?}"
+    );
+    assert_eq!(pinned_reader.total_games(), 4);
+    assert!(old_snapshot.is_dir(), "the old immutable version must remain available");
+    assert!(verify_dataset(&old_snapshot, true).unwrap().deep_verification_passed);
+    assert_eq!(DatasetReader::open(&target).unwrap().total_games(), 7);
+}
+
+#[test]
+fn test_prebuilt_publication_preserves_known_good_active_version_after_candidate_failure() {
+    let tmp = tempdir().unwrap();
+    let candidate_a = tmp.path().join("candidate-a");
+    let candidate_b = tmp.path().join("candidate-b");
+    let target = tmp.path().join("stable-dataset");
+
+    create_dataset(&candidate_a, 4, 100).unwrap();
+    publish_prebuilt_dataset(&candidate_a, &target, Collection::MastersOtb).unwrap();
+    let previous_snapshot = resolve_dataset_snapshot(&target).unwrap();
+
+    create_dataset(&candidate_b, 7, 500).unwrap();
+    let candidate_snapshot = resolve_dataset_snapshot(&candidate_b).unwrap();
+    let shard = fs::read_dir(candidate_snapshot.join("shards"))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    fs::write(&shard, b"corrupt candidate shard").unwrap();
+
+    let error = publish_prebuilt_dataset(&candidate_b, &target, Collection::MastersOtb).unwrap_err();
+    assert!(error.to_string().contains("checksum mismatch"));
+    assert_eq!(resolve_dataset_snapshot(&target).unwrap(), previous_snapshot);
+    assert!(previous_snapshot.is_dir());
+    assert_eq!(DatasetReader::open(&target).unwrap().total_games(), 4);
+    assert!(verify_dataset(&target, true).unwrap().deep_verification_passed);
+}
+
+#[test]
+fn test_prebuilt_publication_rejects_wrong_collection_without_target_mutation() {
+    let tmp = tempdir().unwrap();
+    let candidate = tmp.path().join("candidate");
+    let target = tmp.path().join("stable-dataset");
+    create_dataset(&candidate, 2, 200).unwrap();
+
+    let error = publish_prebuilt_dataset(&candidate, &target, Collection::EliteOnline).unwrap_err();
+    assert!(error.to_string().contains("does not match requested collection"));
+    assert!(!target.join("current").exists());
 }
 
 #[test]

@@ -197,7 +197,12 @@ pub struct GameLookupReader {
 
 impl GameLookupReader {
     pub fn open(path: &Path) -> Result<Self, StorageError> {
-        let file = File::open(path)?;
+        let file = File::open(path).map_err(|error| {
+            StorageError::Io(std::io::Error::new(
+                error.kind(),
+                format!("{}: {}", path.display(), error),
+            ))
+        })?;
         let file_len = file.metadata()?.len();
 
         let min_len = (LOOKUP_HEADER_SIZE + LOOKUP_FOOTER_SIZE) as u64;

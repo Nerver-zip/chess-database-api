@@ -324,6 +324,19 @@ fn test_dataset_supersession_compaction() {
 }
 
 #[test]
+fn test_missing_lookup_file_error_names_path_and_preserves_io_kind() {
+    let tmp = tempdir().unwrap();
+    let missing = tmp.path().join("games.idx");
+    let error = match GameLookupReader::open(&missing) {
+        Err(error) => error,
+        Ok(_) => panic!("missing lookup file unexpectedly opened"),
+    };
+
+    assert!(matches!(error, StorageError::Io(_)));
+    assert!(error.to_string().contains(missing.to_string_lossy().as_ref()));
+}
+
+#[test]
 fn test_corruption_safety_and_invalid_magic() {
     let tmp = tempdir().unwrap();
     let corrupt_shard = tmp.path().join("corrupt.cgb3");

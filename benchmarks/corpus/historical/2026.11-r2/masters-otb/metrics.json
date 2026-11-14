@@ -1,0 +1,37 @@
+{
+  "steps": {
+    "build": {
+      "command": "/home/agent/workspace/chess-openings-db/target/release/codb build --manifest /home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T233931Z/sources.manifest.json --collection masters-otb --output /home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T233931Z/dataset --report-json /home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T233931Z/build_report.json",
+      "returncode": 0,
+      "wall_seconds": 30.912,
+      "peak_rss_bytes": 29507584,
+      "peak_workspace_disk_bytes": 18706432,
+      "log": "/home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T233931Z/logs/build.log"
+    },
+    "build-index": {
+      "command": "/home/agent/workspace/chess-openings-db/target/release/codb build-index --dataset /home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T233931Z/dataset --collection masters-otb --depth-plies 40 --memory-limit-mib 128 --json",
+      "returncode": 0,
+      "wall_seconds": 2.67,
+      "peak_rss_bytes": 62128128,
+      "peak_workspace_disk_bytes": 64417792,
+      "log": "/home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T233931Z/logs/build-index.log"
+    },
+    "verify": {
+      "command": "/home/agent/workspace/chess-openings-db/target/release/codb verify --dataset /home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T233931Z/dataset --deep",
+      "returncode": 0,
+      "wall_seconds": 0.309,
+      "peak_rss_bytes": 29507584,
+      "peak_workspace_disk_bytes": 34869248,
+      "log": "/home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T233931Z/logs/verify.log"
+    },
+    "report": {
+      "command": "/home/agent/workspace/chess-openings-db/target/release/codb report --dataset /home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T233931Z/dataset --output /home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T233931Z/quality_report.json",
+      "returncode": 0,
+      "wall_seconds": 0.105,
+      "peak_rss_bytes": 29507584,
+      "peak_workspace_disk_bytes": 34877440,
+      "log": "/home/agent/workspace/chess-openings-db/data/work/masters-otb-baseline-20261113T233931Z/logs/report.log"
+    }
+  },
+  "total_wall_seconds": 33.998
+}

@@ -1,5 +1,10 @@
 /target
 **/*.rs.bk
+# Local environment files
+.env
+.env.*
+!.env.codb.example
+
 # Data directories and archives
 data/
 raw/

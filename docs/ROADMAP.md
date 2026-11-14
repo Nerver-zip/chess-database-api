@@ -1,5 +1,5 @@
 ---
-summary: "Project milestones, delivered capabilities (CGB3, CPI v2), and future API roadmap."
+summary: "Project milestones, current corpus releases, and Dockerized Opening Explorer delivery."
 read_when: "Reviewing delivery history, milestone status, or planning future engineering efforts."
 status: current
 ---
@@ -19,7 +19,8 @@ flowchart LR
     M3 --> M4["Governance & Standards Alignment<br/>(COMPLETED)"]
     M4 --> M5["PR-04: Opening Explorer HTTP API<br/>(COMPLETED)"]
     M5 --> M5b["PR-A: Reproducible Corpus Release & Local Delivery<br/>(DELIVERED)"]
-    M5b --> M6["Future: Remote Replication & ECO Classification<br/>(PLANNED)"]
+    M5b --> M5c["PR #6: Dockerized Opening Explorer & event-qualified Masters release<br/>(IN PROGRESS)"]
+    M5c --> M6["Future: Advanced distribution and classification<br/>(PLANNED)"]
 ```
 
 | Milestone | Target Scope | Status | Primary Artifacts |
@@ -29,7 +30,8 @@ flowchart LR
 | **PR-03: Production CPI v2 Index** | Bounded-memory external sorting pipeline (`ExternalPositionIndexer`), temporary run files (`.crun`), deterministic K-way merge, CPI v2 container (`positions.cpi`), mmap sparse index, and CLI Opening Explorer queries. | **Completed** | [ADR-0003](adr/0003-production-cpi-index.md), `codb-index`, `benchmarks/production_cpi/`. |
 | **Governance & Quality Standardization** | Standardized engineering governance: `AGENTS.md`, `HANDOFF.md`, canonical docs re-architecture, benchmark sanitization, doc link validator, and CI hardening. | **Completed** | [docs/ARCHITECTURE.md](ARCHITECTURE.md), [docs/DATA_CONTRACTS.md](DATA_CONTRACTS.md), `scripts/validate.sh`, `scripts/validate_docs.py`. |
 | **PR-04: Opening Explorer Read-Only HTTP API** | Production-ready HTTP query service (`codb-api`), `codb serve` command, lock-free CPI reads, pooled PGN decompression, atomic reload, and integration suites. | **Completed** | [ADR-0004](adr/0004-opening-explorer-http-api.md), `codb-api`, [docs/DATA_CONTRACTS.md#6](DATA_CONTRACTS.md#6-opening-explorer-http-api-contract). |
-| **PR-A: Reproducible Corpus Release & Local Delivery** | Pinned source catalog with publisher checksums, resumable verified acquisition, Masters OTB online-event qualification, orchestrated build/verify/package/serve workflow, quality reports, HTTP/CLI equivalence checks. | **Delivered** (see [CORPUS_BUILD.md](CORPUS_BUILD.md) for measured scale and limitations) | `corpus/catalog.json`, `scripts/corpus.py`, `scripts/corpus.sh`, [docs/CORPUS_BUILD.md](CORPUS_BUILD.md). |
+| **PR-A: Reproducible Corpus Release** | Pinned source catalog, verified acquisition, release build/index/verify/package tooling, and local API checks. | **Delivered** | corpus/catalog.json, scripts/corpus.py, scripts/corpus.sh, [CORPUS_BUILD.md](CORPUS_BUILD.md). |
+| **PR #6 follow-up: Dockerized Opening Explorer & event-qualified Masters release** | Independent API image, Compose deployment, verified package bootstrap, shared Docker network, exact event-level Masters audit, atomic version switch, and real-corpus container evidence. | **In progress** | [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md), scripts/audit_masters_events.py, scripts/docker_smoke.py. |
 | **Future: Replication & Precomputed ECO Trees** | Incremental dataset replication, CDN-friendly block distribution, and precomputed ECO opening classification trees. | **Planned** | Standalone tooling and index enhancements. |
 
 ---

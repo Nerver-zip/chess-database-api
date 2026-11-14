@@ -267,7 +267,7 @@ impl AppState {
                 path,
                 Collection::MastersOtb,
                 config.reader_pool_size,
-                false,
+                config.deep_validate_on_startup,
             )?;
             info!(
                 "Successfully loaded Masters OTB snapshot (version: {}, games: {}, CPI: {})",
@@ -286,7 +286,7 @@ impl AppState {
                 path,
                 Collection::EliteOnline,
                 config.reader_pool_size,
-                false,
+                config.deep_validate_on_startup,
             )?;
             info!(
                 "Successfully loaded Elite Online snapshot (version: {}, games: {}, CPI: {})",
@@ -342,7 +342,7 @@ impl AppState {
                     path,
                     Collection::MastersOtb,
                     config.reader_pool_size,
-                    false,
+                    config.deep_validate_on_startup,
                 )
                 .map_err(|e| {
                     tracing::error!("Masters OTB replacement snapshot validation failed: {}", e);
@@ -366,7 +366,7 @@ impl AppState {
                     path,
                     Collection::EliteOnline,
                     config.reader_pool_size,
-                    false,
+                    config.deep_validate_on_startup,
                 )
                 .map_err(|e| {
                     tracing::error!("Elite Online replacement snapshot validation failed: {}", e);

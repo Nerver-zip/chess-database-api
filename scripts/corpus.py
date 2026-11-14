@@ -26,21 +26,24 @@ import hashlib
 import http.client
 import json
 import os
+import posixpath
 import re
 import shutil
 import socket
 import subprocess
 import sys
 import tarfile
+import tempfile
 import threading
 import time
 import urllib.error
 import urllib.request
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CATALOG = REPO_ROOT / "corpus" / "catalog.json"
+DEFAULT_MASTERS_EVENT_AUDIT = REPO_ROOT / "corpus" / "masters_event_qualification.json"
 COLLECTIONS = ("masters-otb", "elite-online")
 CATALOG_SCHEMA_VERSION = 1
 CHUNK = 1 << 20
@@ -843,6 +846,21 @@ def cmd_build(args: argparse.Namespace) -> int:
     codb = find_codb(args.codb)
     profile = args.profile or "baseline"
     ccfg = cat["collections"][collection]
+    masters_event_audit = None
+    if collection == "masters-otb":
+        audit_arg = getattr(args, "masters_event_audit", None)
+        requires_event_audit = "exact event-level verified OTB allowlist" in ccfg[
+            "curation_policy_version"
+        ]
+        if requires_event_audit and audit_arg is None:
+            audit_arg = DEFAULT_MASTERS_EVENT_AUDIT
+        if audit_arg is not None:
+            masters_event_audit = Path(audit_arg).resolve()
+            if not masters_event_audit.is_file():
+                raise CorpusError(
+                    f"Masters event qualification audit is missing: {masters_event_audit}; "
+                    "run scripts/audit_masters_events.py before building"
+                )
     depth = args.depth_plies or ccfg["default_depth_plies"]
     sources = select_sources(cat, collection, profile)
 
@@ -896,8 +914,11 @@ def cmd_build(args: argparse.Namespace) -> int:
         return m
 
     build_report = work / "build_report.json"
-    step("build", [str(codb), "build", "--manifest", str(manifest_path), "--collection", collection,
-                   "--output", str(ds_root), "--report-json", str(build_report)])
+    build_command = [str(codb), "build", "--manifest", str(manifest_path), "--collection", collection,
+                     "--output", str(ds_root), "--report-json", str(build_report)]
+    if masters_event_audit is not None:
+        build_command.extend(["--masters-event-audit", str(masters_event_audit)])
+    step("build", build_command)
     step("build-index", [str(codb), "build-index", "--dataset", str(ds_root), "--collection", collection,
                          "--depth-plies", str(depth), "--memory-limit-mib", str(args.memory_limit_mib),
                          "--json"])
@@ -915,39 +936,52 @@ def cmd_build(args: argparse.Namespace) -> int:
     qj = json.loads(quality.read_text())
     version_dir = current_version_dir(ds_root)
     write_release_files(cat, collection, profile, sources, ds_root, version_dir, bj, index_report,
-                        qj, metrics, depth, args, codb)
-    shutil.copy(build_report, ds_root / "RELEASE" / "build_report.json")
-    shutil.copy(work / "index_report.json", ds_root / "RELEASE" / "index_report.json")
-    shutil.copy(quality, ds_root / "RELEASE" / "quality_report.json")
-    shutil.copy(logs / "verify.log", ds_root / "RELEASE" / "verify_deep.txt")
-    (ds_root / "RELEASE" / "metrics.json").write_text(json.dumps(metrics, indent=2) + "\n")
-    # keep the pinned input manifest with the release
-    shutil.copy(manifest_path, ds_root / "RELEASE" / "sources.manifest.json")
+                        qj, metrics, depth, args, codb, masters_event_audit)
+    release_dir = version_dir / "RELEASE"
+    shutil.copy(build_report, release_dir / "build_report.json")
+    shutil.copy(work / "index_report.json", release_dir / "index_report.json")
+    shutil.copy(quality, release_dir / "quality_report.json")
+    shutil.copy(logs / "verify.log", release_dir / "verify_deep.txt")
+    (release_dir / "metrics.json").write_text(json.dumps(metrics, indent=2) + "\n")
+    # Keep the pinned input manifest with the immutable release snapshot.
+    shutil.copy(manifest_path, release_dir / "sources.manifest.json")
+    refresh_release_artifacts(version_dir)
 
-    # 4. Promote without ever deleting a valid existing release.
+    problem = verify_release_files(ds_root)
+    if problem:
+        raise CorpusError(f"candidate release artifact verification failed before publication: {problem}")
+    problem = verify_release_compatibility(ds_root, collection, cat)
+    if problem:
+        raise CorpusError(f"candidate release is incompatible before publication: {problem}")
+
+    # 4. Publish through the Rust storage layer's atomic current-symlink transition.
     final = release_root(data_dir, collection)
     final.parent.mkdir(parents=True, exist_ok=True)
     shutil.rmtree(tmp, ignore_errors=True)
-    retired = None
-    if final.exists():
-        retired_dir = data_dir / "releases" / ".retired"
-        retired_dir.mkdir(parents=True, exist_ok=True)
-        retired = retired_dir / f"{collection}-{int(time.time())}"
-        os.replace(final, retired)
-    os.replace(ds_root, final)
-    fsync_dir(final.parent)
-    # post-promotion deep verification of the published location
+    publish = subprocess.run(
+        [str(codb), "publish", "--candidate", str(ds_root), "--target", str(final),
+         "--collection", collection],
+        capture_output=True, text=True,
+    )
+    if publish.returncode != 0:
+        raise CorpusError(
+            f"atomic release publication failed; inspect {work} and {final}; "
+            "the active pointer is preserved when a prior version exists: "
+            f"{publish.stdout[-500:]}{publish.stderr[-500:]}"
+        )
     r = subprocess.run([str(codb), "verify", "--dataset", str(final), "--deep"],
                        capture_output=True, text=True)
-    if r.returncode != 0:
-        if retired is not None:
-            os.replace(final, work / "failed-release")
-            os.replace(retired, final)
-        raise CorpusError(f"post-promotion verification failed: {r.stdout[-500:]}{r.stderr[-500:]}")
+    problem = verify_release_files(final)
+    if r.returncode != 0 or problem:
+        raise CorpusError(
+            f"post-publication verification failed; active pointer is preserved at {final}: "
+            f"{problem or ''} {r.stdout[-500:]}{r.stderr[-500:]}"
+        )
+    problem = verify_release_compatibility(final, collection, cat)
+    if problem:
+        raise CorpusError(f"published release is incompatible: {problem}")
     shutil.rmtree(work, ignore_errors=True)
-    log(f"[build] published {final}")
-    if retired:
-        log(f"[build] previous release preserved at {retired}")
+    log(f"[build] atomically published {final}")
     return 0
 
 
@@ -964,7 +998,8 @@ ATTRIBUTION = {
         "Attribution-ShareAlike 4.0 International license (CC BY-SA 4.0), "
         "https://creativecommons.org/licenses/by-sa/4.0/ .\n"
         "Changes made: games were filtered (FIDE-rating thresholds, standard chess only, "
-        "online-event exclusion, minimum length), deduplicated, and re-encoded into the CGB3 "
+        "event-level verified OTB tournament allowlist, online/unresolved event exclusion, "
+        "minimum length), deduplicated, and re-encoded into the CGB3 "
         "binary container; position statistics were aggregated into a CPI v2 index.\n"
         "ShareAlike: redistributed adaptations of this dataset must be licensed under CC BY-SA 4.0 "
         "or a compatible license.\n"
@@ -981,10 +1016,19 @@ ATTRIBUTION = {
 
 
 def write_release_files(cat, collection, profile, sources, ds_root, version_dir, bj, index_report,
-                        qj, metrics, depth, args, codb) -> None:
+                        qj, metrics, depth, args, codb, masters_event_audit=None) -> None:
     lic = cat["licenses"][sources[0]["license"]]
-    rel_dir = ds_root / "RELEASE"
+    rel_dir = version_dir / "RELEASE"
     rel_dir.mkdir(exist_ok=True)
+    event_audit = None
+    if collection == "masters-otb" and masters_event_audit is not None:
+        if not masters_event_audit.is_file():
+            raise CorpusError("Masters release is missing its event-level qualification audit")
+        shutil.copy2(masters_event_audit, rel_dir / "MASTERS_EVENT_QUALIFICATION.json")
+        event_audit = json.loads(masters_event_audit.read_text())
+    elif (collection == "masters-otb"
+          and "exact event-level verified OTB allowlist" in cat["collections"][collection]["curation_policy_version"]):
+        raise CorpusError("Current Masters release policy requires an event-level qualification audit")
     artifacts = {}
     for p in sorted(version_dir.rglob("*")):
         if p.is_file() and not p.name.startswith("."):
@@ -1055,6 +1099,21 @@ def write_release_files(cat, collection, profile, sources, ds_root, version_dir,
             "peak_rss_bytes_by_step": {k: v["peak_rss_bytes"] for k, v in metrics["steps"].items()},
         },
     }
+    if event_audit is not None:
+        release["masters_event_qualification"] = {
+            "status": "verified_otb_subset",
+            "audit_file": "RELEASE/MASTERS_EVENT_QUALIFICATION.json",
+            "audit_sha256": sha256_file(rel_dir / "MASTERS_EVENT_QUALIFICATION.json"),
+            "baseline_audit_game_counts": event_audit["totals"],
+            "release_rejections": {
+                "verified_online_event": bj.get("policy_rejection_reasons", {}).get(
+                    "online_event_in_masters_source", 0
+                ),
+                "unresolved_masters_provenance": bj.get("policy_rejection_reasons", {}).get(
+                    "unresolved_masters_provenance", 0
+                ),
+            },
+        }
     (rel_dir / "RELEASE.json").write_text(json.dumps(release, indent=2, sort_keys=True) + "\n")
     notice = (
         f"Dataset: {collection} ({release['dataset_version']})\n"
@@ -1074,9 +1133,201 @@ def _codb_version(codb: Path) -> str:
 # --------------------------------------------------------------------------- #
 # Verify releases / reports
 # --------------------------------------------------------------------------- #
+def refresh_release_artifacts(version_dir: Path) -> None:
+    """Hash all immutable release files except RELEASE.json, which contains this inventory."""
+    release_path = version_dir / "RELEASE" / "RELEASE.json"
+    release = json.loads(release_path.read_text())
+    artifacts = {}
+    for path in sorted(version_dir.rglob("*")):
+        relative = path.relative_to(version_dir).as_posix()
+        if (path.is_file() and relative != "RELEASE/RELEASE.json"
+                and not path.name.startswith(".") and not path.name.endswith(".lock")):
+            artifacts[relative] = {"sha256": sha256_file(path), "size_bytes": path.stat().st_size}
+    release["artifacts"] = artifacts
+    release_path.write_text(json.dumps(release, indent=2, sort_keys=True) + "\n")
+
+
+def verify_release_compatibility(root: Path, expected_collection: str,
+                                 catalog: dict[str, Any]) -> str | None:
+    """Check the complete release envelope against the active catalog contract."""
+    try:
+        version_dir = current_version_dir(root)
+        release = json.loads((version_dir / "RELEASE" / "RELEASE.json").read_text())
+        if release.get("release_schema_version") != 1:
+            return "unsupported or missing release schema version"
+        if release.get("collection") != expected_collection:
+            return "release collection identity does not match the requested collection"
+        if release.get("dataset_version") != version_dir.name:
+            return "release dataset version does not match its immutable version directory"
+        expected_policy = catalog["collections"][expected_collection]["curation_policy_version"]
+        if release.get("curation_policy", {}).get("version") != expected_policy:
+            return f"release curation policy is incompatible with catalog policy {expected_policy}"
+        source_catalog = release.get("source_catalog")
+        if (not isinstance(source_catalog, dict)
+                or not isinstance(source_catalog.get("catalog_id"), str)
+                or not source_catalog.get("catalog_id")
+                or not SHA256_RE.fullmatch(source_catalog.get("catalog_content_sha256", ""))):
+            return "release source catalog provenance is missing or malformed"
+
+        required = (
+            "manifest.json", "games.idx", "positions.cpi",
+            "RELEASE/DATASET_LICENSE.txt", "RELEASE/build_report.json",
+            "RELEASE/index_report.json", "RELEASE/quality_report.json",
+            "RELEASE/metrics.json", "RELEASE/sources.manifest.json",
+        )
+        missing = [name for name in required if not (version_dir / name).is_file()]
+        if missing:
+            return f"release is incomplete; missing {', '.join(missing)}"
+        artifact_names = release.get("artifacts")
+        core_artifacts = ("manifest.json", "games.idx", "positions.cpi")
+        if not isinstance(artifact_names, dict) or any(name not in artifact_names for name in core_artifacts):
+            return "release checksum inventory omits a core dataset artifact"
+        if not list((version_dir / "shards").glob("*.cgb3")):
+            return "release is incomplete; no CGB3 shard is present"
+
+        manifest = json.loads((version_dir / "manifest.json").read_text())
+        if (manifest.get("collection") != expected_collection
+                or manifest.get("dataset_build_id") != version_dir.name
+                or manifest.get("is_complete") is not True):
+            return "dataset manifest is incomplete or has a mismatched identity"
+        position_index = manifest.get("position_index")
+        index = release.get("index", {})
+        if (not isinstance(position_index, dict)
+                or position_index.get("filename") != "positions.cpi"
+                or position_index.get("sha256") != index.get("cpi_sha256")
+                or position_index.get("indexed_depth_plies") != index.get("depth_plies")):
+            return "release CPI metadata is missing or does not match the dataset manifest"
+        if (manifest.get("total_games") != release.get("accepted_games")
+                or manifest.get("accounting") != release.get("accounting")):
+            return "release game counts or accounting do not match the dataset manifest"
+
+        source_rows = {source["id"]: source for source in catalog["sources"]}
+        inputs = release.get("inputs")
+        if not isinstance(inputs, list) or not inputs:
+            return "release has no pinned source inputs"
+        for item in inputs:
+            source = source_rows.get(item.get("id"))
+            if (source is None or source.get("collection") != expected_collection
+                    or source.get("publisher_sha256") != item.get("sha256")
+                    or source.get("license") != item.get("license")):
+                return f"release input {item.get('id')} is not compatible with the configured source catalog"
+        allowed_licenses = catalog["collections"][expected_collection]["allowed_licenses"]
+        if any(item.get("license") not in allowed_licenses for item in inputs):
+            return "release uses a license that is not approved for this collection"
+
+        strict_masters = (
+            expected_collection == "masters-otb"
+            and "exact event-level verified OTB allowlist" in expected_policy
+        )
+        if strict_masters:
+            qualification = release.get("masters_event_qualification")
+            if (not isinstance(qualification, dict)
+                    or qualification.get("status") != "verified_otb_subset"
+                    or qualification.get("audit_file") != "RELEASE/MASTERS_EVENT_QUALIFICATION.json"):
+                return "Masters release is missing its verified OTB event qualification"
+            audit_path = version_dir / qualification["audit_file"]
+            audit = json.loads(audit_path.read_text())
+            if audit.get("schema_version") != 1:
+                return "Masters event audit has an unsupported schema"
+            audit_input = audit.get("input")
+            if (not isinstance(audit_input, dict)
+                    or not isinstance(audit_input.get("source_dataset_version"), str)
+                    or not audit_input.get("source_dataset_version")
+                    or not SHA256_RE.fullmatch(audit_input.get("sha256", ""))
+                    or not isinstance(audit_input.get("games"), int)
+                    or audit_input["games"] <= 0):
+                return "Masters event audit source release provenance is missing or malformed"
+            audit_method = audit.get("method", {})
+            if (not isinstance(audit_method, dict)
+                    or audit_method.get("metadata_source") != "Lichess Broadcast API tournament metadata plus source PGN event, site, and broadcast URL tags"
+                    or not audit_method.get("external_sources")):
+                return "Masters event audit does not identify its official and linked evidence sources"
+            policy = audit.get("release_policy", {})
+            online = policy.get("verified_online_tournament_slugs")
+            otb = policy.get("verified_otb_tournament_slugs")
+            if (policy.get("require_verified_otb_event") is not True
+                    or not isinstance(online, list) or not isinstance(otb, list) or not otb
+                    or len(set(online)) != len(online) or len(set(otb)) != len(otb)
+                    or set(online).intersection(otb)):
+                return "Masters event audit allowlists are missing, duplicated, or conflicting"
+            classes = {"verified_otb", "verified_online", "unresolved"}
+            totals = audit.get("totals", {})
+            events = audit.get("events")
+            if (set(totals) != classes or not isinstance(events, list)
+                    or any(event.get("classification") not in classes for event in events)):
+                return "Masters event audit does not report all three required classifications"
+            derived_totals = {name: {"games": 0, "events": 0} for name in classes}
+            for event in events:
+                game_count = event.get("game_count")
+                if not isinstance(game_count, int) or game_count < 0:
+                    return "Masters event audit contains an invalid game count"
+                classification = event["classification"]
+                if classification in ("verified_otb", "verified_online"):
+                    metadata = event.get("metadata")
+                    metadata_hash = event.get("metadata_sha256")
+                    canonical = json.dumps(
+                        metadata, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+                    ).encode() if isinstance(metadata, dict) else b""
+                    if (not isinstance(metadata, dict)
+                            or not SHA256_RE.fullmatch(metadata_hash or "")
+                            or hashlib.sha256(canonical).hexdigest() != metadata_hash
+                            or not str(event.get("metadata_url", "")).startswith(
+                                "https://lichess.org/api/broadcast/"
+                            )
+                            or not event.get("evidence")):
+                        return "Masters event audit classification lacks hashed official event evidence"
+                if classification == "verified_otb":
+                    info = event.get("metadata", {}).get("tour", {}).get("info", {})
+                    external = event.get("external_event_evidence")
+                    linked = event.get("linked_event_evidence")
+                    if (not isinstance(info, dict) or not isinstance(info.get("location"), str)
+                            or not info["location"].strip() or not isinstance(external, dict)
+                            or external.get("verified") is not True
+                            or not SHA256_RE.fullmatch(external.get("sha256", ""))
+                            or not isinstance(linked, list)
+                            or not any(
+                                isinstance(page, dict) and page.get("verified") is True
+                                and page.get("sha256") == external.get("sha256")
+                                for page in linked
+                            )):
+                        return "Masters verified OTB event lacks a corroborated venue and linked source hash"
+                derived_totals[classification]["games"] += game_count
+                derived_totals[classification]["events"] += 1
+            if (derived_totals != totals
+                    or sum(item["games"] for item in derived_totals.values())
+                    != audit.get("input", {}).get("games")):
+                return "Masters event audit game and event totals do not reconcile"
+            expected_online = sorted(
+                event["tournament_slug"] for event in events
+                if event["classification"] == "verified_online" and event.get("tournament_slug")
+            )
+            expected_otb = sorted(
+                event["tournament_slug"] for event in events
+                if event["classification"] == "verified_otb" and event.get("tournament_slug")
+            )
+            if sorted(online) != expected_online or sorted(otb) != expected_otb:
+                return "Masters event audit allowlists do not match its event classifications"
+            if qualification.get("baseline_audit_game_counts") != totals:
+                return "Masters release event totals do not match the attached audit"
+            if qualification.get("audit_sha256") != sha256_file(audit_path):
+                return "Masters event audit checksum does not match release provenance"
+            build_report = json.loads((version_dir / "RELEASE" / "build_report.json").read_text())
+            reasons = build_report.get("policy_rejection_reasons", {})
+            expected_rejections = {
+                "verified_online_event": reasons.get("online_event_in_masters_source", 0),
+                "unresolved_masters_provenance": reasons.get("unresolved_masters_provenance", 0),
+            }
+            if qualification.get("release_rejections") != expected_rejections:
+                return "Masters event rejection totals do not match the build report"
+        return None
+    except (AttributeError, KeyError, OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+        return f"release metadata is invalid: {error}"
+
+
 def cmd_verify(args: argparse.Namespace) -> int:
     data_dir = data_dir_from(args)
     codb = find_codb(args.codb)
+    catalog = load_catalog(Path(args.catalog))
     collections = COLLECTIONS if args.collection == "all" else (args.collection,)
     failures = 0
     for c in collections:
@@ -1085,6 +1336,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
                            capture_output=True, text=True)
         ok = r.returncode == 0 and "Result: SUCCESS" in r.stdout
         verdict = verify_release_files(root)
+        if verdict is None:
+            verdict = verify_release_compatibility(root, c, catalog)
         log(f"[verify] {c}: codb verify --deep {'PASS' if ok else 'FAIL'}; "
             f"release artifacts {'PASS' if verdict is None else 'FAIL: ' + verdict}")
         failures += 0 if ok and verdict is None else 1
@@ -1095,20 +1348,35 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
 def verify_release_files(root: Path) -> str | None:
     """Re-hash every artifact listed in RELEASE.json. Returns an error string or None."""
-    rj = root / "RELEASE" / "RELEASE.json"
-    if not rj.exists():
-        return "RELEASE/RELEASE.json missing"
-    release = json.loads(rj.read_text())
-    vdir = current_version_dir(root)
-    if vdir.name != release["dataset_version"] and not vdir.name.startswith(release["dataset_version"]):
-        return f"current version {vdir.name} does not match release {release['dataset_version']}"
-    for rel, meta in release["artifacts"].items():
-        p = vdir / rel
-        if not p.is_file():
-            return f"artifact missing: {rel}"
-        if p.stat().st_size != meta["size_bytes"] or sha256_file(p) != meta["sha256"]:
-            return f"artifact checksum mismatch: {rel}"
-    return None
+    try:
+        vdir = current_version_dir(root)
+        rj = vdir / "RELEASE" / "RELEASE.json"
+        if not rj.is_file():
+            return "current/RELEASE/RELEASE.json missing"
+        release = json.loads(rj.read_text())
+        version = release.get("dataset_version")
+        if not isinstance(version, str) or vdir.name != version:
+            return f"current version {vdir.name} does not match release {version}"
+        artifacts = release.get("artifacts")
+        if not isinstance(artifacts, dict) or not artifacts:
+            return "release artifact checksum inventory is missing or empty"
+        root_resolved = vdir.resolve()
+        for rel, meta in artifacts.items():
+            relative = PurePosixPath(rel)
+            if relative.is_absolute() or not relative.parts or any(part in ("", ".", "..") for part in relative.parts):
+                return f"unsafe release artifact path: {rel}"
+            path = vdir.joinpath(*relative.parts)
+            resolved = path.resolve(strict=False)
+            if not resolved.is_relative_to(root_resolved):
+                return f"release artifact path escapes the immutable version: {rel}"
+            if not path.is_file():
+                return f"artifact missing: {rel}"
+            if (not isinstance(meta, dict) or path.stat().st_size != meta.get("size_bytes")
+                    or sha256_file(path) != meta.get("sha256")):
+                return f"artifact checksum mismatch: {rel}"
+        return None
+    except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+        return f"release artifact metadata is invalid: {error}"
 
 
 def cmd_report(args: argparse.Namespace) -> int:
@@ -1133,10 +1401,13 @@ def cmd_package(args: argparse.Namespace) -> int:
     c = args.collection
     root = release_root(data_dir, c)
     problem = verify_release_files(root)
+    catalog = load_catalog(Path(args.catalog))
+    if problem is None:
+        problem = verify_release_compatibility(root, c, catalog)
     if problem:
-        raise CorpusError(f"refusing to package an unverified release: {problem}")
+        raise CorpusError(f"refusing to package an unverified or incompatible release: {problem}")
     vdir = current_version_dir(root)
-    release = json.loads((root / "RELEASE" / "RELEASE.json").read_text())
+    release = json.loads((vdir / "RELEASE" / "RELEASE.json").read_text())
     out_dir = Path(args.output_dir) if args.output_dir else data_dir / "packages"
     out_dir.mkdir(parents=True, exist_ok=True)
     archive = out_dir / f"{c}-{vdir.name}.tar"
@@ -1160,8 +1431,8 @@ def cmd_package(args: argparse.Namespace) -> int:
             if p.name.startswith(".") or p.name.endswith(".lock"):
                 continue  # exclude lock files and temporary build files
             names.append((p, f"{c}/versions/{vdir.name}/{p.relative_to(vdir)}"))
-        for p in sorted((root / "RELEASE").rglob("*")):
-            names.append((p, f"{c}/RELEASE/{p.relative_to(root / 'RELEASE')}"))
+        for p in sorted((vdir / "RELEASE").rglob("*")):
+            names.append((p, f"{c}/RELEASE/{p.relative_to(vdir / 'RELEASE')}"))
         # symlinks that make the release root a valid dataset root
         for link in ("current", "games.idx", "manifest.json", "positions.cpi", "shards"):
             lp = root / link
@@ -1175,38 +1446,30 @@ def cmd_package(args: argparse.Namespace) -> int:
     log(f"[package] {archive} ({archive.stat().st_size} bytes) sha256 {digest}")
 
     # Independent verification: extract into a fresh directory and re-open it.
-    verify_package(archive, codb, expected_games=release["accepted_games"])
+    verify_package(archive, codb, expected_games=release["accepted_games"], catalog=catalog)
     log(f"[package] extraction and deep verification PASSED for {archive.name}")
     return 0
 
 
-def verify_package(archive: Path, codb: Path, expected_games: int | None = None) -> dict[str, Any]:
-    sums = archive.with_name(archive.name + ".sha256")
-    if not sums.exists():
-        raise CorpusError(f"checksum file missing: {sums}")
-    want = sums.read_text().split()[0]
-    got = sha256_file(archive)
-    if want != got:
-        raise CorpusError(f"package checksum mismatch: {got} != {want}")
-    import tempfile
+def info_collection(root: Path) -> str:
+    release_path = current_version_dir(root) / "RELEASE" / "RELEASE.json"
+    return json.loads(release_path.read_text())["collection"]
+
+
+def verify_package(archive: Path, codb: Path, expected_games: int | None = None,
+                   catalog: dict[str, Any] | None = None) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="codb-pkg-", dir=archive.parent) as td:
-        with tarfile.open(archive) as tf:
-            tf.extractall(td, filter="data")
-        roots = [p for p in Path(td).iterdir() if p.is_dir()]
-        if len(roots) != 1:
-            raise CorpusError("package must contain exactly one top-level release directory")
-        root = roots[0]
-        for required in ("RELEASE/RELEASE.json", "RELEASE/DATASET_LICENSE.txt", "current"):
-            if not (root / required).exists():
-                raise CorpusError(f"package is missing required entry {required}")
+        root = extract_release_archive(archive, Path(td))
         problem = verify_release_files(root)
+        if problem is None and catalog is not None:
+            problem = verify_release_compatibility(root, info_collection(root), catalog)
         if problem:
-            raise CorpusError(f"extracted package failed artifact verification: {problem}")
+            raise CorpusError(f"extracted package failed artifact or compatibility verification: {problem}")
         r = subprocess.run([str(codb), "verify", "--dataset", str(root), "--deep"],
                            capture_output=True, text=True)
         if r.returncode != 0 or "Result: SUCCESS" not in r.stdout:
-            raise CorpusError(f"extracted package failed `codb verify --deep`:\n{r.stdout}{r.stderr}")
-        info = json.loads((root / "RELEASE" / "RELEASE.json").read_text())
+            raise CorpusError(f"extracted package failed codb verify --deep:\n{r.stdout}{r.stderr}")
+        info = json.loads((current_version_dir(root) / "RELEASE" / "RELEASE.json").read_text())
         if expected_games is not None and info["accepted_games"] != expected_games:
             raise CorpusError("extracted release game count differs from the source release")
         q = codb_json(codb, ["query", "--dataset", str(root), "--moves", "e4", "--json"])
@@ -1215,8 +1478,180 @@ def verify_package(archive: Path, codb: Path, expected_games: int | None = None)
         return info
 
 
+def extract_release_archive(archive: Path, destination: Path,
+                            expected_collection: str | None = None) -> Path:
+    """Convert package corruption and I/O errors into a fail-closed diagnostic."""
+    try:
+        return _extract_release_archive_unchecked(archive, destination, expected_collection)
+    except CorpusError:
+        raise
+    except (OSError, tarfile.TarError, ValueError, TypeError, KeyError) as error:
+        raise CorpusError(f"invalid release package {archive}: {error}") from error
+
+
+def _extract_release_archive_unchecked(archive: Path, destination: Path,
+                                      expected_collection: str | None = None) -> Path:
+    '''Verify the detached checksum and safely extract one complete release package.'''
+    sums = archive.with_name(archive.name + ".sha256")
+    if not sums.is_file():
+        raise CorpusError(f"checksum file missing: {sums}")
+    fields = sums.read_text().split()
+    if len(fields) != 2 or not SHA256_RE.fullmatch(fields[0]) or fields[1] != archive.name:
+        raise CorpusError(f"malformed package checksum file: {sums}")
+    got = sha256_file(archive)
+    if fields[0] != got:
+        raise CorpusError(f"package checksum mismatch: {got} != {fields[0]}")
+
+    with tarfile.open(archive, "r:*") as tf:
+        members = tf.getmembers()
+        if not members:
+            raise CorpusError("package archive is empty")
+        roots: set[str] = set()
+        seen: set[str] = set()
+        for member in members:
+            path = PurePosixPath(member.name)
+            if path.is_absolute() or not path.parts or any(part in ("", ".", "..") for part in path.parts):
+                raise CorpusError(f"unsafe package path: {member.name}")
+            roots.add(path.parts[0])
+            normalized_name = str(path)
+            if normalized_name in seen:
+                raise CorpusError(f"duplicate package path: {member.name}")
+            seen.add(normalized_name)
+            if not (member.isdir() or member.isfile() or member.issym()):
+                raise CorpusError(f"unsupported package entry type: {member.name}")
+            if member.issym():
+                link = PurePosixPath(member.linkname)
+                resolved = posixpath.normpath(posixpath.join(str(path.parent), member.linkname))
+                if link.is_absolute() or resolved == ".." or resolved.startswith("../"):
+                    raise CorpusError(f"package symlink escapes release root: {member.name}")
+        if len(roots) != 1:
+            raise CorpusError("package must contain exactly one top-level release directory")
+        root_name = next(iter(roots))
+        if root_name not in COLLECTIONS:
+            raise CorpusError(f"unknown collection directory in package: {root_name}")
+        if expected_collection and root_name != expected_collection:
+            raise CorpusError(
+                f"package collection '{root_name}' does not match requested '{expected_collection}'"
+            )
+        destination.mkdir(parents=True, exist_ok=True)
+        try:
+            tf.extractall(destination, members=members, filter="data")
+        except (OSError, tarfile.TarError, ValueError) as error:
+            raise CorpusError(f"could not safely extract release package: {error}") from error
+
+    root = destination / root_name
+    if not root.is_dir():
+        raise CorpusError("package did not create its release directory")
+    current = root / "current"
+    if not current.is_symlink() or Path(os.readlink(current)).is_absolute():
+        raise CorpusError("package is missing a relative current symlink")
+    active = current_version_dir(root)
+    if active.parent != (root / "versions").resolve():
+        raise CorpusError("package current symlink does not point into its immutable versions directory")
+    release_path = active / "RELEASE" / "RELEASE.json"
+    legacy_release = root / "RELEASE"
+    if not release_path.is_file() and legacy_release.is_dir() and not legacy_release.is_symlink():
+        # Packages produced before immutable release metadata used a root RELEASE directory.
+        # Normalize it into the extracted candidate snapshot before any publication.
+        shutil.move(str(legacy_release), str(active / "RELEASE"))
+        release_path = active / "RELEASE" / "RELEASE.json"
+    if not release_path.is_file():
+        raise CorpusError("package is missing immutable RELEASE/RELEASE.json metadata")
+    release = json.loads(release_path.read_text())
+    if release.get("release_schema_version") != 1:
+        raise CorpusError("package has an unsupported release schema")
+    if release.get("collection") != root_name or release.get("dataset_version") != active.name:
+        raise CorpusError("package release identity does not match its collection and active version")
+    if not (active / "RELEASE" / "DATASET_LICENSE.txt").is_file():
+        raise CorpusError("package is missing its dataset licensing notice")
+    return root
+
+
+def cmd_bootstrap(args: argparse.Namespace) -> int:
+    '''Install verified packages or explicitly fetch and rebuild the pinned source corpus.'''
+    data_dir = data_dir_from(args)
+    assert_untracked_location(data_dir)
+    codb = find_codb(args.codb)
+    catalog = load_catalog(Path(args.catalog))
+    if args.rebuild:
+        log("[bootstrap] fetching the pinned baseline sources; this downloads approximately 8.66 GB")
+        fetch_args = argparse.Namespace(
+            catalog=args.catalog, data_dir=str(data_dir), codb=args.codb, collection="all",
+            profile=args.profile, source=None, max_download_bytes=args.max_download_bytes,
+            offline=False, retries=4, backoff=2.0, min_free_bytes=2 * 1024**3,
+            rehash=True, update_catalog=False,
+        )
+        cmd_fetch(fetch_args)
+        for collection in COLLECTIONS:
+            build_args = argparse.Namespace(
+                catalog=args.catalog, data_dir=str(data_dir), codb=args.codb,
+                collection=collection, profile=args.profile, depth_plies=None,
+                memory_limit_mib=args.memory_limit_mib,
+                masters_event_audit=DEFAULT_MASTERS_EVENT_AUDIT,
+            )
+            cmd_build(build_args)
+        verify_args = argparse.Namespace(
+            catalog=args.catalog, data_dir=str(data_dir), codb=args.codb, collection="all",
+        )
+        return cmd_verify(verify_args)
+
+    if not args.masters_package or not args.elite_package:
+        raise CorpusError("provide both --masters-package and --elite-package, or use --rebuild")
+    packages = {
+        "masters-otb": Path(args.masters_package),
+        "elite-online": Path(args.elite_package),
+    }
+    staging = data_dir / "work" / f"bootstrap-{os.getpid()}-{time.time_ns()}"
+    staging.mkdir(parents=True, exist_ok=False)
+    try:
+        extracted: dict[str, Path] = {}
+        for collection, archive in packages.items():
+            log(f"[bootstrap] verifying and extracting {collection} package {archive}")
+            root = extract_release_archive(archive, staging / collection, collection)
+            problem = verify_release_files(root)
+            if problem is None:
+                problem = verify_release_compatibility(root, collection, catalog)
+            if problem:
+                raise CorpusError(f"{collection} package failed release compatibility verification: {problem}")
+            result = subprocess.run(
+                [str(codb), "verify", "--dataset", str(root), "--deep"],
+                capture_output=True, text=True,
+            )
+            if result.returncode != 0 or "Result: SUCCESS" not in result.stdout:
+                raise CorpusError(
+                    f"{collection} package failed deep verification:\n{result.stdout}{result.stderr}"
+                )
+            extracted[collection] = root
+
+        for collection, root in extracted.items():
+            target = release_root(data_dir, collection)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            result = subprocess.run(
+                [str(codb), "publish", "--candidate", str(root), "--target", str(target),
+                 "--collection", collection],
+                capture_output=True, text=True,
+            )
+            if result.returncode != 0:
+                raise CorpusError(
+                    f"could not publish {collection}; previous active version remains available: "
+                    f"{result.stdout}{result.stderr}"
+                )
+            problem = verify_release_files(target)
+            if problem:
+                raise CorpusError(f"published {collection} failed release verification: {problem}")
+            log(f"[bootstrap] installed {collection} at {current_version_dir(target)}")
+
+        verify_args = argparse.Namespace(
+            catalog=args.catalog, data_dir=str(data_dir), codb=args.codb, collection="all",
+        )
+        return cmd_verify(verify_args)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+
 def cmd_verify_package(args: argparse.Namespace) -> int:
-    info = verify_package(Path(args.archive), find_codb(args.codb))
+    info = verify_package(Path(args.archive), find_codb(args.codb),
+                          catalog=load_catalog(Path(args.catalog)))
     log(f"[verify-package] OK: {info['collection']} {info['dataset_version']} "
         f"({info['accepted_games']} games)")
     return 0
@@ -1695,6 +2130,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--profile")
     sp.add_argument("--depth-plies", type=int)
     sp.add_argument("--memory-limit-mib", type=int, default=128)
+    sp.add_argument("--masters-event-audit", type=Path,
+                    help="event-level Masters policy JSON (required by the current production policy)")
     sp.set_defaults(fn=cmd_build)
 
     sp = with_col(sub.add_parser("verify", help="deep-verify published releases"))
@@ -1711,6 +2148,18 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("verify-package", help="verify checksum, extract, and re-open a package")
     sp.add_argument("--archive", required=True)
     sp.set_defaults(fn=cmd_verify_package)
+
+    sp = sub.add_parser("bootstrap", help="provision real release datasets before Docker startup")
+    source = sp.add_mutually_exclusive_group()
+    source.add_argument("--rebuild", action="store_true",
+                        help="download pinned sources and rebuild both collections (about 8.66 GB)")
+    source.add_argument("--masters-package", help="verified Masters OTB release tar archive")
+    sp.add_argument("--elite-package", help="verified Elite Online release tar archive")
+    sp.add_argument("--memory-limit-mib", type=int, default=128)
+    sp.add_argument("--max-download-bytes", type=int,
+                    help="optional cap for the explicit --rebuild source download")
+    sp.add_argument("--profile", default="baseline")
+    sp.set_defaults(fn=cmd_bootstrap)
 
     sp = sub.add_parser("serve", help="serve both collections via codb serve")
     sp.add_argument("--host", default="127.0.0.1")

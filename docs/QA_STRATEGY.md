@@ -13,7 +13,7 @@ status: current
 1. **Intouchability of Binary Formats:** Persistent storage (`CGB3`), position index layouts (`CPI v2`), and deduplication rules are immutable contracts. Changes must never silently break backward compatibility or determinism.
 2. **Fail-Closed Accounting:** Every encountered game is accounted for across mutually exclusive categories. Any counter discrepancy halts the pipeline and refuses publication.
 3. **Snapshot Isolation for Readers:** Live readers holding open file descriptors are guaranteed 100% consistent views of immutable snapshots, even during background index updates or dataset publications.
-4. **Crash-Safe Publications:** Datasets use atomic directory staging and symlink swaps. Process interruption or unexpected crash at any point leaves the active dataset untouched.
+4. **Crash-Safe Publications:** Datasets use verified immutable versions and atomic current-symlink swaps. Process interruption leaves the prior active snapshot available.
 
 ---
 
@@ -27,7 +27,7 @@ chess-openings-db/
 │   ├── ingest/tests/
 │   │   └── pipeline_tests.rs         # Streaming ingestion, multi-file superseding, limits
 │   ├── storage/tests/
-│   │   ├── publication_tests.rs      # Concurrency, crash recovery, atomic symlinks (40 tests)
+│   │   ├── publication_tests.rs      # Concurrency, crash recovery, atomic symlinks (active-reader and atomic version-transition tests)
 │   │   ├── persistent_storage_tests.rs # Shard roundtrip, binary search, corruption safety
 │   │   └── integrity_tests.rs        # Deep verification, signed boundaries, query plans
 │   ├── index/src/                    # Unit tests for CPI v2 blocks, external sort, queries
@@ -39,6 +39,8 @@ chess-openings-db/
     ├── test_reproduce_runner.py      # Regression test for reproduction runner modes
     ├── test_validate_benchmarks.py   # Benchmark schema and mathematical monotonicity tests
     ├── test_bench_http.py            # HTTP benchmark harness percentiles and continuous memory sampler tests
+    ├── test_docker_deployment.py     # Compose, read-only mounts, and optional fixture container smoke
+    ├── test_masters_event_audit.py   # Offline event provenance and redirect-safety tests
     └── validate_production_cpi_benchmarks.py # Production CPI schema & memory budget validator
 ```
 
@@ -47,7 +49,7 @@ chess-openings-db/
 ## 3. Storage, Concurrency & Crash Recovery Suites (`crates/storage/tests/`)
 
 ### 3.1 Publication & Crash Recovery Tests (`publication_tests.rs`)
-Features 40 exhaustive integration tests validating transactional publication:
+The integration suite validates transactional publication, including:
 - **Subprocess Termination Simulation (`test_crash_simulation_subprocess_termination`):** Spawns a child process performing publication and forcefully terminates it with `SIGKILL` at various points. Asserts that the prior active dataset version remains intact and readable without corruption.
 - **Fault Injection During Symlink Transition:** Verifies that I/O or filesystem errors immediately prior to, during, or after symlink replacement fail closed and restore previous backups cleanly.
 - **Reader Snapshot Pinning (`test_live_reader_pinned_to_snapshot_across_publication`):** Demonstrates that an active reader process maintaining open file descriptors continues reading the original snapshot without degradation while a publisher replaces `current` with a newly built dataset version.
@@ -81,7 +83,9 @@ The HTTP layer includes 18 deterministic integration tests verifying end-to-end 
 - **Fail-Closed Version Replacement (`test_actual_version_replacement_a_to_b`, `test_corrupted_replacement_rejected`):** Proves atomic symlink transitions from v1 to v2, and asserts that candidate snapshots with corrupted CPI or checksum errors fail closed with 500 without degrading active serving.
 - **Concurrent In-Flight Stability (`test_concurrent_queries_during_version_replacement`):** Verifies zero dropped queries during live symlink reload under background load.
 
-### 4.3 Corpus Tooling Suite (`scripts/test_corpus.py`)
+                    scripts/test_corpus.py \
+                    scripts/test_docker_deployment.py \
+                    scripts/test_masters_event_audit.py
 Offline, network-free regression tests (a local HTTP server with fault injection plus tiny synthetic fixtures in `fixtures/corpus/`) cover:
 - **Acquisition:** correct, incorrect, and missing checksums; truncated and interrupted transfers (resume with `Range`, retry/backoff, retries exhausted with the partial kept but never finalized); idempotent reruns; corrupt existing files quarantined and refetched; unexpected HTTP responses; pinned-size mismatches; servers that ignore `Range`; offline mode; disk-space safety; unapproved or disallowed licenses; non-HTTPS URLs.
 - **Catalog:** schema validation, mixed-collection profile rejection, deterministic `(period, id)` source ordering.
@@ -90,7 +94,7 @@ Offline, network-free regression tests (a local HTTP server with fault injection
 - **Packaging:** required files present, lock/temporary files excluded, checksum emitted, extraction re-verified with `codb verify --deep`, tamper detection, byte-reproducible archives.
 - **Serving:** both collections served from generated releases; semantic HTTP checks (WDL reconciliation, collection identity, dataset version, candidate legality, HTTP/CLI equivalence on stratified positions, transposition equality, absent and beyond-depth positions, error behavior, game retrieval, cross-collection isolation); hot reload of a newly published snapshot.
 
-Real-corpus validation (`corpus.sh fetch/build/verify/http-check`) is an explicit opt-in stage and is never run by `validate.sh` or CI, because it downloads several gigabytes.
+Offline tests cover release checksum verification, unsafe or incomplete package rejection, exact event-audit qualification, publication while active readers pin a snapshot, and Docker/Compose configuration. The fixture container smoke runs when a Docker daemon is available; it does not fetch production archives. Real-corpus verification and the real Docker API integration (python3 scripts/docker_smoke.py --real --data-dir data) are explicit opt-in steps documented in [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md). Ordinary CI never downloads the 8.66 GB source archives.
 
 ---
 
@@ -113,9 +117,9 @@ python3 -m unittest scripts/test_feasibility_alignment.py \
                     scripts/test_reproduce_runner.py \
                     scripts/test_validate_benchmarks.py \
                     scripts/test_bench_http.py \
-                    scripts/test_corpus.py
-
-# 5. Production CPI benchmark schema and budget validator
+                    scripts/test_corpus.py \
+                    scripts/test_docker_deployment.py \
+                    scripts/test_masters_event_audit.py
 python3 scripts/validate_production_cpi_benchmarks.py
 python3 scripts/validate_corpus_evidence.py
 

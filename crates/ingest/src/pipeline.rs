@@ -1,6 +1,7 @@
 use codb_core::{Collection, IngestionCompletionStatus, IngestionStats, ParsedGame};
 use codb_curate::dedupe::{Deduplicator, DuplicateVerdict};
 use codb_curate::policy::{EliteOnlinePolicy, MastersOtbPolicy, PolicyVerdict};
+use std::collections::HashSet;
 use std::io::Read;
 use thiserror::Error;
 
@@ -99,6 +100,21 @@ impl<C: GameConsumer> CuratedPipeline<C> {
 
     pub fn with_log_progress(mut self, log: bool) -> Self {
         self.log_progress = log;
+        self
+    }
+
+    /// Applies event-level Masters OTB qualification from a reproducible audit.
+    pub fn with_masters_event_qualification(
+        mut self,
+        verified_online_tournament_slugs: HashSet<String>,
+        verified_otb_tournament_slugs: HashSet<String>,
+        require_verified_otb_event: bool,
+    ) -> Self {
+        self.masters_policy = self.masters_policy.with_event_qualification(
+            verified_online_tournament_slugs,
+            verified_otb_tournament_slugs,
+            require_verified_otb_event,
+        );
         self
     }
 

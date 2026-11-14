@@ -91,7 +91,7 @@ Every release produced by `scripts/corpus.sh build` carries its own legal notice
 
 Release archives produced by `corpus.sh package` include these files unchanged. The license statements for the two Lichess sources are taken from [database.lichess.org](https://database.lichess.org/) and recorded in `corpus/catalog.json` (`licenses.*.statement_source`). The catalog refuses to fetch or build from any source whose license is not marked `approved` or is not in the collection's `allowed_licenses`. **This is an engineering control, not legal advice**: whether statistical aggregates (the CPI index) count as an adaptation for ShareAlike purposes should be confirmed by the distributing party. The conservative position, adopted by the release notice, is to treat the Masters CPI as covered.
 
-A locally generated release is not a published release: no dataset in this repository has been uploaded to any hosting destination.
+A locally generated release is not a published release: no dataset in this repository has been uploaded to any hosting destination. Operators deploying the Docker service must still provide the Masters attribution and preserve the release license notices; containerization does not change dataset terms. See [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) for the operator workflow.
 
 ---
 

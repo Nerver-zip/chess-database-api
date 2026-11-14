@@ -10,10 +10,11 @@ status: current
 
 `chess-openings-db` is a modular, high-performance chess database and position indexing engine written in Rust. It ingests large, heterogeneous PGN corpora, enforces strict legal move validation, canonicalizes headers, eliminates duplicates with prefix-supersession, stores compressed games in persistent sharded CGB3 containers, and builds immutable Compact Position Indexes (CPI v2) using bounded-memory external sorting.
 
-The architecture is explicitly designed to operate under strict resource ceilings:
-- **Streaming Ingestion Memory:** Peak RAM $\le 30\text{ MB}$ RSS regardless of input corpus size ($O(1)$ memory scaling).
-- **Position Indexing Memory:** Peak accumulation buffer strictly bounded by `--memory-limit-mib` (default 128 MiB, configurable down to 16 MiB).
-- **Total Deployed Storage Envelope:** $\le 10\text{ GB}$ deployed footprint for 15 million curated games (5M Masters OTB sliced to Depth 40, 10M Elite Online sliced to Depth 30).
+The architecture is designed around explicit resource bounds:
+- **Streaming Ingestion Memory:** measured peak RSS remains below the 30 MB target for the verified releases; platform-specific builds must be measured independently.
+- **Position Indexing Memory:** peak accumulation is bounded by the --memory-limit-mib option (default 128 MiB, configurable down to 16 MiB).
+- **HTTP Runtime:** Compose applies a 512 MiB memory cap, a 2 CPU quota, bounded request and reader-pool timeouts, and a reader-pool capacity of 1–64 per snapshot.
+- **Current Release Footprint:** exact corpus and container measurements are recorded in [CORPUS_BUILD.md](CORPUS_BUILD.md). The historical 15-million-game projection is research only, not a current deployment target.
 
 ---
 
@@ -204,13 +205,13 @@ Memory limits are strictly enforced across all components:
 | Component | Ingestion / Processing Strategy | Peak Memory Guarantee |
 | :--- | :--- | :--- |
 | **PGN Ingestion** | Streaming tokenization via `pgn-reader`, immediate legal validation | $< 30\text{ MB}$ RSS regardless of corpus size |
-| **Deduplication** | Disk-backed SQLite index in staging directory | 2 MB buffer cache (was 32 MB; see note below) |
+| **Deduplication** | Disk-backed SQLite index in staging directory | 256 KiB SQLite cache plus a 512 KiB staging-catalog cache; temp store is disk-backed |
 | **CGB3 Storage** | Single active block buffer ($N = 512$ games) flushed to disk | $\approx 2\text{ MB}$ uncompressed block RAM |
 | **Position Indexing** | External merge sort with partitioned `.crun` spill files | Strictly bounded by `--memory-limit-mib` (default 128 MiB) |
 | **Opening Query** | Memory-mapped sparse index ($34\text{ B/entry}$) + single block cache | $< 10\text{ MB}$ query overhead |
-| **HTTP Serving** | Bounded reader pool ($K$ readers $\times 2\text{ MB}$) + memory-mapped CPI/games.idx | $< 30\text{ MB}$ RSS under sustained concurrency |
+| **HTTP Serving** | Bounded reader pool plus memory-mapped CPI/games.idx | Reader count and request waits are bounded; process RSS includes touched file-backed pages and is measured against the real releases |
 
-> **Measured on the real corpus (PR-A):** after lowering the deduplication SQLite cache to 2 MB, `codb build` peaked at 29.8 MB (42,612 accepted Masters games) and 36.9 MB (429,284 accepted Elite games) RSS; the Elite peak still exceeds the "< 30 MB" ingestion figure in the table. Serving both real collections reached ≈ 181 MB `VmHWM`, dominated by touched memory-mapped file pages rather than heap. The table states design budgets, the measured values are in [CORPUS_BUILD.md](CORPUS_BUILD.md#92-build-performance-one-pass-kernel-rusage-and-workspace-sampling), and the open question is tracked as Q-04 in [DECISIONS_AND_OPEN_QUESTIONS.md](DECISIONS_AND_OPEN_QUESTIONS.md).
+> **Measured releases:** Build-step and container RSS measurements for the current releases are recorded in [CORPUS_BUILD.md](CORPUS_BUILD.md#92-build-performance-one-pass-kernel-rusage-and-workspace-sampling) and its Docker integration evidence.
 
 ---
 
@@ -225,16 +226,20 @@ flowchart TD
     SRC --> BUILD["codb build --manifest<br/>policy, dedupe, CGB3"]
     BUILD --> INDEX["codb build-index<br/>CPI v2, bounded memory"]
     INDEX --> VERIFY["codb verify --deep<br/>codb report"]
-    VERIFY --> PUBLISH["Promote: data/releases/&lt;collection&gt;<br/>RELEASE/ provenance + license notice"]
+    VERIFY --> PUBLISH["codb publish<br/>complete immutable version + atomic current symlink"]
     PUBLISH --> PKG["corpus.py package<br/>verifiable .tar + SHA-256"]
     PUBLISH --> SERVE["codb serve (both collections)"]
 ```
 
-The layer adds no new binary formats and does not alter ingestion, curation, deduplication, storage, or index semantics. A release is built in a private workspace under `data/work/`, fully verified, and only then renamed into `data/releases/<collection>`; the previous release (if any) is moved to `data/releases/.retired/` rather than deleted. See [CORPUS_BUILD.md](CORPUS_BUILD.md).
+The orchestration adds no binary format and does not reimplement ingestion, curation, deduplication, storage, or index semantics. It builds in a private data/work/ workspace, deeply verifies a complete candidate, moves the immutable version under the stable data/releases/<collection>/versions/ root, and atomically replaces the relative current symlink. Previous versions remain in place for readers pinned to an older snapshot. See [CORPUS_BUILD.md](CORPUS_BUILD.md).
 
 ---
 
-## 7. Integration Boundaries (Client Applications)
+## 7. Docker Runtime Boundary
+
+The multi-stage image contains the codb executable and runtime libraries only. It does not contain corpus releases, source archives, build workspaces, or Cargo caches. Compose mounts the stable Masters OTB and Elite Online release roots read-only, deeply validates both before readiness, and binds 0.0.0.0:8080 on the container network. It publishes no host port by default. Separate Compose projects can attach to the same external network and resolve the API by the codb service alias. Operational commands and CORS boundaries are documented in [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md).
+
+## 8. Integration Boundaries (Client Applications)
 
 ```mermaid
 graph LR

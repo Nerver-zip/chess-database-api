@@ -6,7 +6,7 @@ status: current
 
 # Corpus Build & Release Procedure
 
-This document is the operational counterpart of [CORPUS_AND_DEDUPLICATION.md](CORPUS_AND_DEDUPLICATION.md) (what is accepted), [LICENSING.md](LICENSING.md) (what may be redistributed), and [ARCHITECTURE.md](ARCHITECTURE.md#61-corpus-orchestration-layer-outside-the-rust-workspace) (where the tooling sits). It describes how to turn **pinned, checksum-verified Lichess archives** into two immutable, queryable datasets (`masters-otb`, `elite-online`) and serve them with `codb serve`.
+This document is the operational counterpart of CORPUS_AND_DEDUPLICATION.md (what is accepted), LICENSING.md (what may be redistributed), and ARCHITECTURE.md (where the tooling sits). It covers pinned source builds, event qualification, package bootstrap, and serving through codb or Docker Compose.
 
 The orchestration (`scripts/corpus.sh` → `scripts/corpus.py`, Python standard library only) never reimplements ingestion, curation, deduplication, indexing, or publication. It invokes `codb build`, `codb build-index`, `codb verify --deep`, and `codb report`.
 
@@ -23,7 +23,7 @@ codb build --manifest  ->  policy + dedupe + CGB3 + games.idx   (private workspa
 codb build-index       ->  CPI v2 positions.cpi (bounded memory)
 codb verify --deep     ->  deep integrity gate
 codb report            ->  quality report
-        |  atomic promotion (previous release kept in data/releases/.retired/)
+        |  codb publish moves a complete immutable version and atomically switches current
         v
 data/releases/<collection>/ { versions/<id>/, current, RELEASE/ }
         |-- corpus.sh package  ->  data/packages/<collection>-<version>.tar + .sha256
@@ -94,7 +94,7 @@ No other source is approved. TWIC, PGN Mentor, Caissabase, KingBase, commercial 
 
 ### 4.2 Source qualification and its limits
 
-* **Masters OTB.** Broadcast archives contain both over-the-board and online events and have no explicit OTB flag. Qualification is executed by `MastersOtbPolicy`: FIDE-rating thresholds, standard chess only, minimum length, online-event marker exclusion (event, site, broadcast URL), pre-1970 provenance requirements, and explicit `Termination` exclusions. The catalog marks these sources `provenance_confidence: medium`. The residual risk (an online event without any marker) is not eliminated and is disclosed in the release notice. `time_control_raw_top20` in the quality report shows raw `TimeControl` strings, whose units are not consistent across broadcasts.
+* **Masters OTB.** The broadcast archives can contain both OTB and online games. A separate event audit groups accepted baseline games by the broadcast tournament identifier and records official Lichess tournament metadata plus linked event or standings evidence. Verified online requires explicit event-level online or engine evidence. Verified OTB requires an official physical venue and a linked event page that matches both tournament identity and location. Missing Site venue data and high FIDE ratings do not prove play mode. Events that cannot be corroborated are unresolved and excluded from the release. See the complete per-event record in corpus/masters_event_qualification.json and the policy details in CORPUS_AND_DEDUPLICATION.md. The [Lichess Broadcast help](https://lichess.org/broadcast/help) notes that venue and other tournament fields are optional, so absence is not treated as online evidence.
 * **Elite Online.** The complete monthly archives are SHA-256 verified end to end. Ratings are Lichess Glicko-2 and are never pooled with FIDE Elo. Existing rated, variant, length, and time-control checks are enforced; explicit aborted, abandoned, no-contest, unplayed, unterminated, and rules-infraction `Termination` values are rejected. The months (2015-09 to 2017-03) were chosen because complete archives of that era are small enough to download in full and verify (0.5–2.2 GB each); modern monthly archives are tens of gigabytes. They span three calendar years at roughly quarterly spacing, but the corpus reflects 2015–2017 Lichess play and rating levels; recent play is not represented. A partial or truncated stream of a larger archive would **not** be a verified archive and is never produced by this tool.
 
 ## 5. Download and Verify Archives
@@ -127,7 +127,7 @@ Behavior (all covered by offline tests):
 3. `codb verify --deep`,
 4. `codb report`,
 
-writes `RELEASE/` (provenance, license notice, reports, per-step wall time, peak RSS, and peak workspace disk), and only then renames the workspace into `data/releases/<collection>/`. A post-promotion `codb verify --deep` runs on the published path; if it fails, the previous release is restored. A failure at any step leaves the active release untouched and the workspace in place for diagnosis. A rerun creates a new immutable version; the previous release is moved to `data/releases/.retired/` and never deleted by the tool.
+writes RELEASE/ (provenance, license notice, reports, per-step wall time, peak RSS, and peak workspace disk) inside the completed immutable snapshot. The Rust storage publisher deeply verifies the candidate, moves it into the stable data/releases/<collection>/versions/<id> directory, then atomically replaces the relative current symlink. It preserves prior version directories and never removes the active path during transition. A failure before the pointer switch leaves the prior active snapshot untouched; a failed post-switch validation atomically restores the prior target. Failed work and any unreferenced promoted candidate are retained for diagnosis.
 
 `--depth-plies` and `--memory-limit-mib` override the defaults; options are recorded in `RELEASE/RELEASE.json`.
 
@@ -135,13 +135,16 @@ writes `RELEASE/` (provenance, license notice, reports, per-step wall time, peak
 
 ```text
 data/releases/masters-otb/
-  current -> versions/<build-id>-cpi-d40
-  versions/<build-id>-cpi-d40/{manifest.json, games.idx, positions.cpi, shards/shard_0000.cgb3, ...}
-  versions/<build-id>/                 # pre-index snapshot; shards and games.idx are hard links
-  manifest.json games.idx positions.cpi shards -> current/...   # convenience symlinks
-  RELEASE/{RELEASE.json, DATASET_LICENSE.txt, build_report.json, index_report.json,
-           quality_report.json, verify_deep.txt, metrics.json, sources.manifest.json}
+  current -> versions/<immutable-build-id>
+  versions/<immutable-build-id>/
+    manifest.json
+    games.idx
+    positions.cpi
+    shards/shard_0000.cgb3
+    RELEASE/{RELEASE.json, DATASET_LICENSE.txt, MASTERS_EVENT_QUALIFICATION.json, reports...}
+  manifest.json games.idx positions.cpi shards -> current/...
 ```
+
 
 `RELEASE.json` carries: collection, dataset version, build configuration, source catalog identity (id and content hash), exact input checksums, curation-policy version, accepted game count, index depth, CPI hash, per-artifact SHA-256, license, attribution requirements, the tool's git commit, and the build/verify/serve commands.
 
@@ -294,23 +297,15 @@ A direct local HTTP capture is stored in [`benchmarks/corpus/http_examples.json`
 
 An independent second build from each release's pinned `sources.manifest.json` produced byte-identical `games.idx`, `positions.cpi`, and `shard_0000.cgb3` files. Both repeat builds reconciled accounting and passed `codb verify --deep`; exact hashes and elapsed times are in [`benchmarks/corpus/reproducibility_check.json`](../benchmarks/corpus/reproducibility_check.json). The build IDs, timestamps, release manifests, and catalog metadata are expected to differ; complete-directory bitwise identity is not claimed. The later `2026.11-r2` change updates only the policy descriptors and catalog revision; the filtering logic used for both builds was already present.
 
-### 9.6 Storage feasibility against the earlier projection
+## 9.6 Storage and Scale
 
-Measured CPI density is 21.55 B per unique position (Masters, depth 40) and 21.52 B (Elite, depth 30). CGB3 plus `games.idx` costs 220.40 B per accepted Masters game and 182.28 B per Elite game. With the historical Heaps parameters (`k=49.88` / `37.63`, `α=0.9293`), predicted current-size position counts are 1,000,346 / 6,455,321 versus 984,240 / 6,136,307 measured (-1.6% / -4.9%).
+The release-specific artifact sizes and measured runtime RSS are recorded with the current evidence in this section. The historical 15-million-game feasibility model is research, not a dataset built or qualified by this release; see [research/feasibility-report.md](research/feasibility-report.md). This follow-up does not expand the corpus beyond the two provisionable releases.
 
-Applying the current measured byte densities to that same model at 5M Masters and 10M Elite games projects about **7.76 GB deployed**, including the historical 0.44 GB allowance for ancillary files and alignment. This is an extrapolation from much smaller historical runs (not a measured release); no approved source currently supplies the 5M Masters target. The r2 release directories occupy 30,634,943 bytes (Masters) and 210,312,125 bytes (Elite); independently verified local package tar files occupy 30,648,320 and 210,329,600 bytes. No dataset or package was uploaded externally.
+## 10. Container and Browser Access
 
-Distinct storage figures: final deployed release size; downloaded source archives (8,664,654,059 bytes total, removable after a build); peak temporary workspace (table above); and retained old versions. The release workflow keeps the prior release under `data/releases/.retired/` until manually removed, so a rebuild can temporarily require up to roughly twice the deployed size.
+For the container deployment, the internal API address is http://codb:8080. The default Compose file publishes no host port. A separate Compose project can join the same external Docker network; the exact setup and a loopback-only debug mapping are documented in [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md).
 
-## 10. Local Browser Integration (Evalis development)
-
-* **Origin:** `http://127.0.0.1:8080` (change with `--host`/`--port`).
-* **CORS:** same-origin only by default. For a dev server on another origin pass `--allowed-origins http://localhost:3000` (comma separated; `*` allows any origin). Exposed headers: `ETag`, `Content-Type`, `Cache-Control`. Allowed methods: `GET`, `POST`, `OPTIONS`, `HEAD`.
-* **Collection identifiers:** `masters-otb`, `elite-online`. Never pool results across collections.
-* **Position query:** `GET /v1/explorer/position?collection=<id>&moves=e4,e5,Nf3` or `&fen=<url-encoded FEN>`. Response fields: `collection`, `dataset_version`, `dataset_freshness`, `position_key`, `fen`, `total_games`, `white_wins`, `draws`, `black_wins`, `*_pct`, and `moves[]` (`uci`, `san`, per-result counts, `total_games`, `*_pct`) sorted by frequency. A legal position absent from the index returns `200` with zero counts and an empty `moves` array. Positions deeper than the index depth (40 plies Masters, 30 plies Elite) are absent by construction.
-* **Games:** `GET /v1/collections/{collection}/games/{id}` returns canonical PGN (`application/x-chess-pgn`).
-* **Unavailable:** `since_year` and `min_rating` filters (HTTP 400 `unsupported_parameter`), opening names/ECO classification, per-position representative games, authentication other than the admin reload token.
-* **Failures:** JSON error envelope with stable codes (`invalid_collection`, `invalid_fen`, `invalid_moves`, `missing_position`, `ambiguous_position`, `move_sequence_too_long`, `unsupported_parameter`, `invalid_game_id`, `game_not_found`, `reader_pool_timeout`, …); 404 for unknown game ids; 503 from `/ready` when no collection is loaded. See [DATA_CONTRACTS.md](DATA_CONTRACTS.md#6-opening-explorer-http-api-contract).
+Container-to-container requests do not use browser CORS. A browser needs a reachable HTTP origin and either an explicitly allowed CORS origin or a same-origin reverse proxy. The default service allows no cross-origin browser access. Position and stored-game API contracts are specified in [DATA_CONTRACTS.md](DATA_CONTRACTS.md#6-opening-explorer-http-api-contract).
 
 ## 11. License Obligations
 
@@ -329,8 +324,8 @@ Distinct storage figures: final deployed release size; downloaded source archive
 | `source … is not verified` at build | Archive missing/tampered | `fetch` again; the build never proceeds. |
 | `step '<name>' failed` | A `codb` step failed | Active release untouched; inspect `data/work/<run>/logs/<name>.log`, fix, rerun, then delete the stale workspace. |
 | `database or disk is full` in standalone `codb build` | SQLite temporary files may be using a full or size-limited system temp directory | Set `TMPDIR` to a writable directory with enough space. `corpus.sh build` already scopes temporary files to `data/work/<run>/tmp`. |
-| `post-promotion verification failed` | Published copy failed deep verify | The previous release was restored automatically; inspect `data/work/<run>/failed-release`. |
-| Interrupted `build` | Workspace left under `data/work/` | Safe to delete; the release directory is only changed by the final rename. |
+| `post-publication verification failed` | Published copy failed deep verify | The previous current target is restored automatically when one exists; inspect the candidate workspace and stable release root. |
+| Interrupted `build` | Workspace left under `data/work/` | Safe to delete; the active release root changes only when the atomic current symlink is switched. |
 | Crash during `codb build` inside a dataset root | Staging directory under `versions/.staging_*` | `codb recover --dataset <dir>`; or discard the workspace. |
 
 ## 13. Reproducibility Status
@@ -341,8 +336,8 @@ Distinct storage figures: final deployed release size; downloaded source archive
 
 ## 14. Limitations and Remaining Work
 
-* This is a real, useful baseline, not the future 5M Masters / 10M Elite goal ([ROADMAP.md](ROADMAP.md)).
-* Masters coverage is six recent monthly Lichess broadcast archives. OTB qualification remains a medium-confidence marker heuristic; broadcast archives can include online events, and the pipeline cannot prove that every accepted record is OTB. About 69% of accepted Masters games have no physical venue in `Site`.
+* This is a real, useful baseline, not the future 15-million-game goal ([ROADMAP.md](ROADMAP.md)).
+* Masters coverage is six recent monthly Lichess broadcast archives. The corpus release contains only the event-level verified OTB subset. Verified online and unresolved events are excluded. The audit is based on accepted games in the source-qualified baseline; its linked-page matching rule, missing-event evidence, and aggregate unresolved counts remain visible in each release. It does not assert that every event in the complete broadcast archives has been classified.
 * Elite coverage consists of seven complete monthly archives from 2015-09 to 2017-03. It spans multiple years but reflects old Lichess play and rating levels; recent games are absent and no per-period balancing is applied.
 * `ProvisionalRating` cannot be filtered from the standard PGN export because it contains no provisional-rating marker. Explicit aborted, abandoned, no-contest, unplayed, unterminated, and rules-infraction `Termination` values are rejected; unknown termination values remain eligible.
 * The measured Elite ingestion peak is 29.73 MB, 267,136 bytes below the 30,000,000-byte ceiling on this host. Re-measure after changing Rust, allocator, or runtime versions.

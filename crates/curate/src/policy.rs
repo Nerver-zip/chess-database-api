@@ -1,4 +1,5 @@
 use codb_core::ParsedGame;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PolicyVerdict {
@@ -28,6 +29,8 @@ pub enum PolicyRejectionReason {
     AbortedOrInfraction(String),
     /// Masters OTB only: the event, site or broadcast slug identifies an online event.
     OnlineEventInMastersSource(String),
+    /// Masters OTB only: event-level evidence did not verify a physical tournament.
+    UnverifiedMastersProvenance(String),
     /// Masters OTB only: a pre-1970 game without a named event and venue.
     HistoricalWithoutProvenance,
 }
@@ -56,6 +59,9 @@ impl PolicyRejectionReason {
             PolicyRejectionReason::AbortedOrInfraction(_) => "aborted_or_infraction",
             PolicyRejectionReason::OnlineEventInMastersSource(_) => {
                 "online_event_in_masters_source"
+            }
+            PolicyRejectionReason::UnverifiedMastersProvenance(_) => {
+                "unresolved_masters_provenance"
             }
             PolicyRejectionReason::HistoricalWithoutProvenance => "historical_without_provenance",
         }
@@ -107,6 +113,9 @@ impl std::fmt::Display for PolicyRejectionReason {
             PolicyRejectionReason::OnlineEventInMastersSource(m) => {
                 write!(f, "Online event marker in Masters OTB source: {}", m)
             }
+            PolicyRejectionReason::UnverifiedMastersProvenance(reason) => {
+                write!(f, "Masters event lacks verified OTB provenance: {}", reason)
+            }
             PolicyRejectionReason::HistoricalWithoutProvenance => {
                 write!(f, "Pre-1970 game without named event and venue")
             }
@@ -122,6 +131,9 @@ pub struct MastersOtbPolicy {
     pub min_other_elo: u16,
     pub allow_historical_pre_1970: bool,
     pub min_plies: usize,
+    verified_online_tournament_slugs: HashSet<String>,
+    verified_otb_tournament_slugs: HashSet<String>,
+    require_verified_otb_event: bool,
 }
 
 impl Default for MastersOtbPolicy {
@@ -132,11 +144,33 @@ impl Default for MastersOtbPolicy {
             min_other_elo: 2000,
             allow_historical_pre_1970: true,
             min_plies: 4,
+            verified_online_tournament_slugs: HashSet::new(),
+            verified_otb_tournament_slugs: HashSet::new(),
+            require_verified_otb_event: false,
         }
     }
 }
 
 impl MastersOtbPolicy {
+    /// Applies exact event-level classifications from the reproducible Masters audit.
+    pub fn with_event_qualification(
+        mut self,
+        verified_online_tournament_slugs: HashSet<String>,
+        verified_otb_tournament_slugs: HashSet<String>,
+        require_verified_otb_event: bool,
+    ) -> Self {
+        self.verified_online_tournament_slugs = verified_online_tournament_slugs
+            .into_iter()
+            .map(|slug| slug.to_ascii_lowercase())
+            .collect();
+        self.verified_otb_tournament_slugs = verified_otb_tournament_slugs
+            .into_iter()
+            .map(|slug| slug.to_ascii_lowercase())
+            .collect();
+        self.require_verified_otb_event = require_verified_otb_event;
+        self
+    }
+
     pub fn evaluate(&self, game: &ParsedGame) -> PolicyVerdict {
         // 1. Standard starting position check
         if let Some(fen) = &game.fen_start {
@@ -155,8 +189,41 @@ impl MastersOtbPolicy {
             });
         }
 
-        // 3. OTB provenance: broadcast archives also contain online events.
-        if let Some(marker) = online_event_marker(game) {
+        // 3. Event-level provenance. When the audit is configured, exact tournament IDs
+        // decide the event class; explicit per-game event, site, or broadcast markers still
+        // reject a game from an otherwise verified tournament.
+        let tournament_slug =
+            broadcast_tournament_slug(game.metadata.broadcast_url.as_deref());
+        if let Some(slug) = tournament_slug.as_deref() {
+            if self.verified_online_tournament_slugs.contains(slug) {
+                return PolicyVerdict::Rejected(
+                    PolicyRejectionReason::OnlineEventInMastersSource(format!(
+                        "official event audit classifies broadcast tournament '{slug}' as online"
+                    )),
+                );
+            }
+        }
+        if self.require_verified_otb_event {
+            let Some(slug) = tournament_slug else {
+                return PolicyVerdict::Rejected(
+                    PolicyRejectionReason::UnverifiedMastersProvenance(
+                        "game has no event-level Lichess broadcast tournament identifier".into(),
+                    ),
+                );
+            };
+            if !self.verified_otb_tournament_slugs.contains(&slug) {
+                return PolicyVerdict::Rejected(
+                    PolicyRejectionReason::UnverifiedMastersProvenance(format!(
+                        "broadcast tournament '{slug}' is unresolved or absent from the verified OTB allowlist"
+                    )),
+                );
+            }
+            if let Some(marker) = online_event_marker(game) {
+                return PolicyVerdict::Rejected(
+                    PolicyRejectionReason::OnlineEventInMastersSource(marker),
+                );
+            }
+        } else if let Some(marker) = online_event_marker(game) {
             return PolicyVerdict::Rejected(PolicyRejectionReason::OnlineEventInMastersSource(
                 marker,
             ));
@@ -372,6 +439,17 @@ pub fn online_event_marker(game: &ParsedGame) -> Option<String> {
     None
 }
 
+fn broadcast_tournament_slug(url: Option<&str>) -> Option<String> {
+    let path = url?.split(['?', '#']).next()?;
+    let mut parts = path.split('/').filter(|part| !part.is_empty());
+    while let Some(part) = parts.next() {
+        if part.eq_ignore_ascii_case("broadcast") {
+            return parts.next().map(str::to_ascii_lowercase);
+        }
+    }
+    None
+}
+
 pub fn is_standard_start_fen(fen: &str) -> bool {
     let trimmed = fen.trim();
     trimmed.starts_with("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -")
@@ -559,6 +637,54 @@ mod tests {
                 other
             ),
         }
+    }
+
+    #[test]
+    fn test_masters_event_qualification_uses_exact_tournament_ids() {
+        let policy = MastersOtbPolicy::default().with_event_qualification(
+            HashSet::from(["verified-online-7".to_string()]),
+            HashSet::from(["verified-otb-12".to_string()]),
+            true,
+        );
+
+        let mut otb = make_game(
+            Collection::MastersOtb,
+            Some(2650),
+            Some(2700),
+            "Open",
+            "2026.03.01",
+            None,
+            40,
+        );
+        otb.metadata.broadcast_url = Some(
+            "https://lichess.org/broadcast/verified-otb-12/round-1/AbCd1234".into(),
+        );
+        assert_eq!(policy.evaluate(&otb), PolicyVerdict::Accepted);
+
+        let mut explicit_online_site = otb.clone();
+        explicit_online_site.metadata.site = Some("Internet Chess Club".into());
+        assert!(matches!(
+            policy.evaluate(&explicit_online_site),
+            PolicyVerdict::Rejected(PolicyRejectionReason::OnlineEventInMastersSource(_))
+        ));
+
+        let mut online = otb.clone();
+        online.metadata.broadcast_url = Some(
+            "https://lichess.org/broadcast/verified-online-7/round-3/XyZ12345".into(),
+        );
+        assert!(matches!(
+            policy.evaluate(&online),
+            PolicyVerdict::Rejected(PolicyRejectionReason::OnlineEventInMastersSource(_))
+        ));
+
+        let mut unresolved = otb;
+        unresolved.metadata.broadcast_url = Some(
+            "https://lichess.org/broadcast/unreviewed-13/round-2/QwEr1234".into(),
+        );
+        assert!(matches!(
+            policy.evaluate(&unresolved),
+            PolicyVerdict::Rejected(PolicyRejectionReason::UnverifiedMastersProvenance(_))
+        ));
     }
 
     #[test]

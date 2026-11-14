@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import http.server
+import io
 import json
 import os
 import shutil
@@ -505,7 +506,7 @@ class AssemblyBase(unittest.TestCase):
         return self.run_cli(catalog, "build", "--collection", collection, codb=codb)
 
     def release(self, collection: str) -> dict:
-        return json.loads((self.data_dir / "releases" / collection / "RELEASE" / "RELEASE.json").read_text())
+        return json.loads((corpus.current_version_dir(self.data_dir / "releases" / collection) / "RELEASE" / "RELEASE.json").read_text())
 
     def export(self, collection: str) -> str:
         r = subprocess.run([str(self.codb), "export", "--dataset", str(self.data_dir / "releases" / collection)],
@@ -536,7 +537,7 @@ class AssemblyTests(AssemblyBase):
         self.assertEqual(acc["rejected_variant"], 1)
         self.assertEqual(acc["rejected_illegal"], 1)
         self.assertEqual(acc["rejected_by_policy"], 13)
-        reasons = json.loads((self.data_dir / "releases/masters-otb/RELEASE/build_report.json").read_text())[
+        reasons = json.loads((corpus.current_version_dir(self.data_dir / "releases/masters-otb") / "RELEASE/build_report.json").read_text())[
             "policy_rejection_reasons"]
         self.assertEqual(sum(reasons.values()), acc["rejected_by_policy"])
         self.assertEqual(reasons["online_event_in_masters_source"], 4)
@@ -551,7 +552,7 @@ class AssemblyTests(AssemblyBase):
         # superseded live record replaced by the finished game
         self.assertEqual(pgn.count("Live White"), 1)
         # report schema: unknown results are reported
-        q = json.loads((self.data_dir / "releases/masters-otb/RELEASE/quality_report.json").read_text())
+        q = json.loads((corpus.current_version_dir(self.data_dir / "releases/masters-otb") / "RELEASE/quality_report.json").read_text())
         self.assertEqual(q["total_games"], 16)
         self.assertIn("unknown_result_games", q)
 
@@ -566,7 +567,7 @@ class AssemblyTests(AssemblyBase):
         self.assertEqual(rel["inputs"][0]["sha256"], sha(self.masters_pgn))
         self.assertTrue(rel["license"]["share_alike"])
         self.assertRegex(rel["index"]["cpi_sha256"], r"^[0-9a-f]{64}$")
-        notice = (self.data_dir / "releases/masters-otb/RELEASE/DATASET_LICENSE.txt").read_text()
+        notice = (corpus.current_version_dir(self.data_dir / "releases/masters-otb") / "RELEASE/DATASET_LICENSE.txt").read_text()
         self.assertIn("CC BY-SA 4.0", notice)
         self.assertIn("ShareAlike", notice)
         # artifacts really match
@@ -580,11 +581,11 @@ class AssemblyTests(AssemblyBase):
         self.assertEqual(rel["build_configuration"]["index_depth_plies"], 30)
         self.assertEqual(rel["accounting"]["accepted_unique"], 18)
         self.assertEqual(rel["accounting"]["rejected_illegal"], 1)
-        reasons = json.loads((self.data_dir / "releases/elite-online/RELEASE/build_report.json").read_text())[
+        reasons = json.loads((corpus.current_version_dir(self.data_dir / "releases/elite-online") / "RELEASE/build_report.json").read_text())[
             "policy_rejection_reasons"]
         self.assertEqual(reasons["bullet_or_ultrabullet"], 4)
         self.assertEqual(reasons["casual_or_unrated"], 1)
-        notice = (self.data_dir / "releases/elite-online/RELEASE/DATASET_LICENSE.txt").read_text()
+        notice = (corpus.current_version_dir(self.data_dir / "releases/elite-online") / "RELEASE/DATASET_LICENSE.txt").read_text()
         self.assertIn("Glicko-2", notice)
         self.assertIn("never be pooled", notice)
         pgn = self.export("elite-online")
@@ -696,11 +697,10 @@ class PublicationTests(AssemblyBase):
         self.assertEqual(self.run_cli(self.cat, "build", "--collection", "masters-otb"), 0)
         new_version = self.release("masters-otb")["dataset_version"]
         self.assertNotEqual(old_version, new_version)
-        retired = list((self.data_dir / "releases" / ".retired").glob("masters-otb-*"))
-        self.assertEqual(len(retired), 1)
-        self.assertTrue((retired[0] / "versions" / old_version).is_dir(), "old immutable version preserved")
+        old_snapshot = self.root_dir / "versions" / old_version
+        self.assertTrue(old_snapshot.is_dir(), "old immutable version preserved")
         self.assertEqual(self.run_cli(self.cat, "verify", "--collection", "masters-otb"), 0)
-        r = subprocess.run([str(self.codb), "verify", "--dataset", str(retired[0]), "--deep"],
+        r = subprocess.run([str(self.codb), "verify", "--dataset", str(old_snapshot), "--deep"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
@@ -756,6 +756,115 @@ class ServingTests(AssemblyBase):
         self.cat = self.write_catalog([m, e])
         for c in corpus.COLLECTIONS:
             self.assertEqual(self.fetch_and_build(self.cat, c), 0)
+
+    def test_bootstrap_installs_both_verified_packages(self):
+        package_dir = self.root / "release-packages"
+        package_dir.mkdir()
+        archives = {}
+        for collection in corpus.COLLECTIONS:
+            self.assertEqual(self.run_cli(self.cat, "package", "--collection", collection,
+                                          "--output-dir", str(package_dir)), 0)
+            archives[collection] = next(package_dir.glob(f"{collection}-*.tar"))
+
+        provisioned = self.root / "provisioned-data"
+        rc = corpus.main([
+            "--catalog", str(self.cat), "--data-dir", str(provisioned), "--codb", str(self.codb),
+            "bootstrap", "--masters-package", str(archives["masters-otb"]),
+            "--elite-package", str(archives["elite-online"]),
+        ])
+        self.assertEqual(rc, 0)
+        for collection in corpus.COLLECTIONS:
+            root = provisioned / "releases" / collection
+            self.assertTrue(corpus.current_version_dir(root).is_dir())
+            self.assertIsNone(corpus.verify_release_files(root))
+            report = subprocess.run([str(self.codb), "verify", "--dataset", str(root), "--deep"],
+                                    capture_output=True, text=True)
+            self.assertEqual(report.returncode, 0, report.stdout + report.stderr)
+
+    def test_unchanged_release_package_can_be_reissued_from_full_release_files(self):
+        elite_root = self.data_dir / "releases" / "elite-online"
+        version = corpus.current_version_dir(elite_root)
+        release_path = version / "RELEASE" / "RELEASE.json"
+        release = json.loads(release_path.read_text())
+        for name in ("RELEASE/DATASET_LICENSE.txt", "RELEASE/build_report.json",
+                     "RELEASE/index_report.json", "RELEASE/quality_report.json",
+                     "RELEASE/metrics.json", "RELEASE/sources.manifest.json"):
+            release["artifacts"].pop(name, None)
+        release_path.write_text(json.dumps(release, indent=2, sort_keys=True) + "\n")
+        self.assertIsNone(corpus.verify_release_files(elite_root))
+        self.assertIsNone(
+            corpus.verify_release_compatibility(elite_root, "elite-online", corpus.load_catalog(self.cat))
+        )
+
+    def test_unrelated_masters_catalog_change_keeps_elite_release_compatible(self):
+        changed = json.loads(self.cat.read_text())
+        changed["catalog_id"] = "test-catalog-with-masters-policy-update"
+        changed["collections"]["masters-otb"]["curation_policy_version"] = "new-masters-policy"
+        elite_root = self.data_dir / "releases" / "elite-online"
+        masters_root = self.data_dir / "releases" / "masters-otb"
+        self.assertIsNone(
+            corpus.verify_release_compatibility(elite_root, "elite-online", changed)
+        )
+        self.assertIn(
+            "curation policy is incompatible",
+            corpus.verify_release_compatibility(masters_root, "masters-otb", changed),
+        )
+
+    def test_bootstrap_rejects_bad_checksums_wrong_collection_and_incomplete_archive(self):
+        package_dir = self.root / "release-packages"
+        package_dir.mkdir()
+        archives = {}
+        for collection in corpus.COLLECTIONS:
+            self.assertEqual(self.run_cli(self.cat, "package", "--collection", collection,
+                                          "--output-dir", str(package_dir)), 0)
+            archives[collection] = next(package_dir.glob(f"{collection}-*.tar"))
+
+        def invoke(masters: Path, elite: Path, name: str) -> int:
+            return corpus.main([
+                "--catalog", str(self.cat), "--data-dir", str(self.root / name),
+                "--codb", str(self.codb), "bootstrap", "--masters-package", str(masters),
+                "--elite-package", str(elite),
+            ])
+
+        tampered = self.root / "tampered.tar"
+        shutil.copy2(archives["masters-otb"], tampered)
+        tampered.write_bytes(tampered.read_bytes() + b"tamper")
+        original_digest = corpus.sha256_file(archives["masters-otb"])
+        Path(str(tampered) + ".sha256").write_text(
+            f"{original_digest}  {tampered.name}\n"
+        )
+        self.assertEqual(invoke(tampered, archives["elite-online"], "bad-checksum"), 2)
+        self.assertFalse((self.root / "bad-checksum" / "releases").exists())
+
+        self.assertEqual(invoke(archives["elite-online"], archives["elite-online"], "wrong-collection"), 2)
+        self.assertFalse((self.root / "wrong-collection" / "releases").exists())
+
+        incomplete = self.root / "incomplete.tar"
+        with tarfile.open(incomplete, "w") as tf:
+            data = b"incomplete"
+            info = tarfile.TarInfo("masters-otb/README.txt")
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+        Path(str(incomplete) + ".sha256").write_text(
+            f"{corpus.sha256_file(incomplete)}  {incomplete.name}\n"
+        )
+        self.assertEqual(invoke(incomplete, archives["elite-online"], "incomplete"), 2)
+        self.assertFalse((self.root / "incomplete" / "releases").exists())
+
+        # A complete, checksum-valid package built under an obsolete curation policy is incompatible.
+        incompatible_catalog = self.root / "incompatible-catalog.json"
+        changed = json.loads(self.cat.read_text())
+        changed["collections"]["masters-otb"]["curation_policy_version"] = "obsolete-policy"
+        incompatible_catalog.write_text(json.dumps(changed))
+        incompatible_data = self.root / "incompatible-policy"
+        incompatible_rc = corpus.main([
+            "--catalog", str(incompatible_catalog), "--data-dir", str(incompatible_data),
+            "--codb", str(self.codb), "bootstrap",
+            "--masters-package", str(archives["masters-otb"]),
+            "--elite-package", str(archives["elite-online"]),
+        ])
+        self.assertEqual(incompatible_rc, 2)
+        self.assertFalse((incompatible_data / "releases").exists())
 
     def test_http_semantic_checks_against_generated_releases(self):
         roots = {c: self.data_dir / "releases" / c for c in corpus.COLLECTIONS}

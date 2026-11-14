@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_id": "codb-corpus-catalog-2026.11-r2",
+  "catalog_id": "codb-corpus-catalog-2026.11-r3",
   "description": "Pinned, checksum-verified source archives for the masters-otb and elite-online collections. Software is MIT OR Apache-2.0; dataset licenses are independent and listed below.",
   "licenses": {
     "CC-BY-SA-4.0": {
@@ -27,7 +27,7 @@
       "allowed_licenses": [
         "CC-BY-SA-4.0"
       ],
-      "curation_policy_version": "masters-otb/2026.11-r2 (ratings, standard start, min 4 plies, online-event exclusion, pre-1970 requires event+venue, excludes explicit aborted or rules-infraction terminations)",
+      "curation_policy_version": "masters-otb/2026.11-r3 (FIDE rating thresholds, standard chess, min 4 plies, exact event-level verified OTB allowlist; online and unresolved events excluded, historical exception pre-1970 requires named event and venue, aborted or rules-infraction terminations excluded)",
       "profiles": {
         "baseline": [
           "lichess-broadcast-2026-05",
@@ -39,7 +39,7 @@
         ]
       },
       "planning": {
-        "expected_accepted_games": 42612,
+        "expected_accepted_games": 29640,
         "cgb3_bytes_per_game": 204,
         "cpi_bytes_per_game": 498,
         "temp_bytes_per_accepted_game": 1515,
@@ -90,8 +90,8 @@
       "verified_sha256": "d212987f7972a70268809ff6c726acff8bf0987161aacd7647b160f8564f6a53",
       "acquired_at": "2026-11-13T18:12:07Z",
       "provenance_confidence": "medium",
-      "eligibility": "Lichess official broadcasts. Contains both over-the-board and online events; only records passing the codb Masters OTB policy (FIDE rating thresholds, standard chess, online-event exclusion) enter masters-otb.",
-      "notes": "Broadcast TimeControl strings have inconsistent units. No explicit OTB flag exists in the PGN; OTB qualification relies on event, site and broadcast-slug markers and cannot be proven for every record."
+      "eligibility": "Lichess broadcast archives can contain OTB and online events. The release accepts only exact broadcast tournaments classified verified OTB in corpus/masters_event_qualification.json using official tournament metadata and corroborating linked event or standings evidence. Verified online and unresolved events are excluded.",
+      "notes": "The PGNs have no universal OTB flag. Missing Site venue information and high FIDE ratings do not establish play mode. Event-level identity, venue, and linked-source evidence is preserved in the release audit."
     },
     {
       "id": "lichess-broadcast-2026-06",
@@ -107,8 +107,8 @@
       "verified_sha256": "65905d611c0d78d90ab57cd9edd3821f4119b46c22b5489fd7e265a74c6767b3",
       "acquired_at": "2026-11-13T18:12:14Z",
       "provenance_confidence": "medium",
-      "eligibility": "Lichess official broadcasts. Contains both over-the-board and online events; only records passing the codb Masters OTB policy (FIDE rating thresholds, standard chess, online-event exclusion) enter masters-otb.",
-      "notes": "Broadcast TimeControl strings have inconsistent units. No explicit OTB flag exists in the PGN; OTB qualification relies on event, site and broadcast-slug markers and cannot be proven for every record."
+      "eligibility": "Lichess broadcast archives can contain OTB and online events. The release accepts only exact broadcast tournaments classified verified OTB in corpus/masters_event_qualification.json using official tournament metadata and corroborating linked event or standings evidence. Verified online and unresolved events are excluded.",
+      "notes": "The PGNs have no universal OTB flag. Missing Site venue information and high FIDE ratings do not establish play mode. Event-level identity, venue, and linked-source evidence is preserved in the release audit."
     },
     {
       "id": "lichess-broadcast-2026-07",
@@ -124,8 +124,8 @@
       "verified_sha256": "714d0eb99f99fca8d791142038b6c59b5ca6a51b3339bd3891a92f4bdffcbf0c",
       "acquired_at": "2026-11-13T18:12:20Z",
       "provenance_confidence": "medium",
-      "eligibility": "Lichess official broadcasts. Contains both over-the-board and online events; only records passing the codb Masters OTB policy (FIDE rating thresholds, standard chess, online-event exclusion) enter masters-otb.",
-      "notes": "Broadcast TimeControl strings have inconsistent units. No explicit OTB flag exists in the PGN; OTB qualification relies on event, site and broadcast-slug markers and cannot be proven for every record."
+      "eligibility": "Lichess broadcast archives can contain OTB and online events. The release accepts only exact broadcast tournaments classified verified OTB in corpus/masters_event_qualification.json using official tournament metadata and corroborating linked event or standings evidence. Verified online and unresolved events are excluded.",
+      "notes": "The PGNs have no universal OTB flag. Missing Site venue information and high FIDE ratings do not establish play mode. Event-level identity, venue, and linked-source evidence is preserved in the release audit."
     },
     {
       "id": "lichess-broadcast-2026-08",
@@ -141,8 +141,8 @@
       "verified_sha256": "e227c35c3207ebade754849c1825982e2717ae82c013013d896778e27be77724",
       "acquired_at": "2026-11-13T18:12:27Z",
       "provenance_confidence": "medium",
-      "eligibility": "Lichess official broadcasts. Contains both over-the-board and online events; only records passing the codb Masters OTB policy (FIDE rating thresholds, standard chess, online-event exclusion) enter masters-otb.",
-      "notes": "Broadcast TimeControl strings have inconsistent units. No explicit OTB flag exists in the PGN; OTB qualification relies on event, site and broadcast-slug markers and cannot be proven for every record."
+      "eligibility": "Lichess broadcast archives can contain OTB and online events. The release accepts only exact broadcast tournaments classified verified OTB in corpus/masters_event_qualification.json using official tournament metadata and corroborating linked event or standings evidence. Verified online and unresolved events are excluded.",
+      "notes": "The PGNs have no universal OTB flag. Missing Site venue information and high FIDE ratings do not establish play mode. Event-level identity, venue, and linked-source evidence is preserved in the release audit."
     },
     {
       "id": "lichess-broadcast-2026-09",
@@ -158,8 +158,8 @@
       "verified_sha256": "27a39d035767a30901b89602f33f2a7b27d4ab5025842071165fa079f8fff1df",
       "acquired_at": "2026-11-13T18:12:41Z",
       "provenance_confidence": "medium",
-      "eligibility": "Lichess official broadcasts. Contains both over-the-board and online events; only records passing the codb Masters OTB policy (FIDE rating thresholds, standard chess, online-event exclusion) enter masters-otb.",
-      "notes": "Broadcast TimeControl strings have inconsistent units. No explicit OTB flag exists in the PGN; OTB qualification relies on event, site and broadcast-slug markers and cannot be proven for every record."
+      "eligibility": "Lichess broadcast archives can contain OTB and online events. The release accepts only exact broadcast tournaments classified verified OTB in corpus/masters_event_qualification.json using official tournament metadata and corroborating linked event or standings evidence. Verified online and unresolved events are excluded.",
+      "notes": "The PGNs have no universal OTB flag. Missing Site venue information and high FIDE ratings do not establish play mode. Event-level identity, venue, and linked-source evidence is preserved in the release audit."
     },
     {
       "id": "lichess-broadcast-2026-10",
@@ -175,8 +175,8 @@
       "verified_sha256": "d9c0c78c7ed8cd200723c9972b01a1cd35fd8568dd4b6324fbcc3ee7c07374c9",
       "acquired_at": "2026-11-13T18:12:47Z",
       "provenance_confidence": "medium",
-      "eligibility": "Lichess official broadcasts. Contains both over-the-board and online events; only records passing the codb Masters OTB policy (FIDE rating thresholds, standard chess, online-event exclusion) enter masters-otb.",
-      "notes": "Broadcast TimeControl strings have inconsistent units. No explicit OTB flag exists in the PGN; OTB qualification relies on event, site and broadcast-slug markers and cannot be proven for every record."
+      "eligibility": "Lichess broadcast archives can contain OTB and online events. The release accepts only exact broadcast tournaments classified verified OTB in corpus/masters_event_qualification.json using official tournament metadata and corroborating linked event or standings evidence. Verified online and unresolved events are excluded.",
+      "notes": "The PGNs have no universal OTB flag. Missing Site venue information and high FIDE ratings do not establish play mode. Event-level identity, venue, and linked-source evidence is preserved in the release audit."
     },
     {
       "id": "lichess-standard-2016-03",

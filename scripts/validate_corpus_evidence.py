@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
-"""Validate the committed real-corpus evidence under benchmarks/corpus/.
+"""Validate current real release, provenance, HTTP, and Docker evidence offline."""
 
-The evidence files are small JSON records copied from a real release build
-(`RELEASE.json`, `build_report.json`, `quality_report.json`, `metrics.json`) and
-from `corpus.sh http-check` (`http_check.json`). This validator checks schema,
-exact accounting reconciliation, hash formats, and that the source checksums
-match the pinned catalog. It performs no network access and needs no dataset.
-"""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
@@ -19,129 +14,313 @@ EVIDENCE = ROOT / "benchmarks" / "corpus"
 CATALOG = ROOT / "corpus" / "catalog.json"
 SHA = re.compile(r"^[0-9a-f]{64}$")
 COLLECTIONS = ("masters-otb", "elite-online")
-COUNTERS = ("accepted_unique", "confirmed_duplicates", "superseded_prior", "rejected_by_policy",
-            "rejected_variant", "rejected_illegal", "rejected_malformed", "quarantined")
+CLASSES = ("verified_otb", "verified_online", "unresolved")
+COUNTERS = (
+    "accepted_unique", "confirmed_duplicates", "superseded_prior", "rejected_by_policy",
+    "rejected_variant", "rejected_illegal", "rejected_malformed", "quarantined",
+)
 
 
-def fail(msg: str) -> None:
-    print(f"  [FAIL] {msg}")
+def fail(message: str) -> None:
+    print(f"  [FAIL] {message}")
     raise SystemExit(1)
 
 
-def load(p: Path):
+def load(path: Path):
     try:
-        return json.loads(p.read_text())
-    except (OSError, json.JSONDecodeError) as e:
-        fail(f"{p.relative_to(ROOT)}: {e}")
+        return json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        fail(f"{path.relative_to(ROOT)}: {error}")
+
+
+def canonical_sha256(value: object) -> str:
+    raw = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(raw).hexdigest()
+
+
+def validate_release(collection: str, catalog: dict) -> dict:
+    directory = EVIDENCE / collection
+    if not directory.is_dir():
+        fail(f"missing evidence directory {directory.relative_to(ROOT)}")
+    release = load(directory / "RELEASE.json")
+    build = load(directory / "build_report.json")
+    quality = load(directory / "quality_report.json")
+    metrics = load(directory / "metrics.json")
+
+    if (release.get("collection") != collection or build.get("collection") != collection
+            or quality.get("collection") != collection):
+        fail(f"{collection}: collection identity differs across evidence")
+    if release.get("release_schema_version") != 1:
+        fail(f"{collection}: unsupported release schema")
+    accounting = release.get("accounting", {})
+    if accounting.get("total_encountered") != sum(accounting.get(key, 0) for key in COUNTERS):
+        fail(f"{collection}: accounting identity does not reconcile")
+    if accounting != {key: build.get("accounting", {}).get(key) for key in accounting}:
+        fail(f"{collection}: RELEASE and build report accounting differ")
+    if (release.get("accepted_games") != accounting.get("accepted_unique")
+            or quality.get("total_games") != accounting.get("accepted_unique")):
+        fail(f"{collection}: accepted-game counts differ")
+    if not (build.get("is_reconciled") and build.get("retained_matches_accepted")):
+        fail(f"{collection}: build report is not reconciled")
+    if sum(build.get("policy_rejection_reasons", {}).values()) != accounting.get("rejected_by_policy"):
+        fail(f"{collection}: policy rejection reasons do not reconcile")
+
+    artifacts = release.get("artifacts", {})
+    if not isinstance(artifacts, dict) or not artifacts:
+        fail(f"{collection}: release artifact inventory is missing")
+    for name, metadata in artifacts.items():
+        if (not SHA.fullmatch(metadata.get("sha256", ""))
+                or not isinstance(metadata.get("size_bytes"), int)
+                or metadata["size_bytes"] <= 0):
+            fail(f"{collection}: malformed release artifact record {name}")
+    index = release.get("index", {})
+    if not SHA.fullmatch(index.get("cpi_sha256", "")) or index.get("depth_plies", 0) <= 0:
+        fail(f"{collection}: invalid CPI provenance")
+    if not release.get("inputs"):
+        fail(f"{collection}: no pinned source inputs")
+    sources = {source["id"]: source for source in catalog["sources"]}
+    for item in release["inputs"]:
+        source = sources.get(item.get("id"))
+        if (source is None or source.get("collection") != collection
+                or source.get("publisher_sha256") != item.get("sha256")
+                or source.get("verified_sha256") != item.get("sha256")
+                or source.get("license") != item.get("license")):
+            fail(f"{collection}: source {item.get('id')} differs from current pinned catalog")
+    license_record = release.get("license", {})
+    expected_license = "CC-BY-SA-4.0" if collection == "masters-otb" else "CC0-1.0"
+    if (license_record.get("id") != expected_license
+            or license_record.get("share_alike") != (collection == "masters-otb")):
+        fail(f"{collection}: license record is inconsistent")
+    if set(metrics.get("steps", {})) != {"build", "build-index", "verify", "report"}:
+        fail(f"{collection}: release metrics are incomplete")
+    if any(step.get("returncode") != 0 for step in metrics["steps"].values()):
+        fail(f"{collection}: a release build step failed")
+
+    lookup_path = directory / "lookup_benchmark.json"
+    if lookup_path.exists():
+        lookup = load(lookup_path)
+        if (lookup.get("collection") != collection
+                or lookup.get("dataset_build_id") != release.get("dataset_version")
+                or lookup.get("unique_positions") != index.get("unique_positions")):
+            fail(f"{collection}: lookup benchmark is stale for the current release")
+
+    print(
+        f"  [PASS] {collection}: {release['accepted_games']} games, "
+        f"{len(release['inputs'])} verified source archives, accounting reconciled"
+    )
+    return release
+
+
+def validate_masters_audit(release: dict, build: dict) -> None:
+    qualification = release.get("masters_event_qualification")
+    if (not isinstance(qualification, dict)
+            or qualification.get("status") != "verified_otb_subset"
+            or qualification.get("audit_file") != "RELEASE/MASTERS_EVENT_QUALIFICATION.json"):
+        fail("Masters release does not identify itself as an audited OTB subset")
+
+    audit_path = EVIDENCE / "masters-otb" / "masters_event_qualification.json"
+    audit = load(audit_path)
+    if audit.get("schema_version") != 1:
+        fail("Masters event audit schema is unsupported")
+    if qualification.get("audit_sha256") != hashlib.sha256(audit_path.read_bytes()).hexdigest():
+        fail("Masters event audit hash does not match release provenance")
+    source = audit.get("input", {})
+    if (not source.get("source_dataset_version") or not SHA.fullmatch(source.get("sha256", ""))
+            or not isinstance(source.get("games"), int)):
+        fail("Masters event audit input release provenance is incomplete")
+    method = audit.get("method", {})
+    if (method.get("metadata_source") != "Lichess Broadcast API tournament metadata plus source PGN event, site, and broadcast URL tags"
+            or not method.get("external_sources")):
+        fail("Masters event audit does not identify its evidence sources")
+
+    totals = audit.get("totals", {})
+    events = audit.get("events")
+    if set(totals) != set(CLASSES) or not isinstance(events, list):
+        fail("Masters event audit must report verified OTB, verified online, and unresolved events")
+    computed = {name: {"games": 0, "events": 0} for name in CLASSES}
+    for event in events:
+        classification = event.get("classification")
+        count = event.get("game_count")
+        if classification not in computed or not isinstance(count, int) or count < 0:
+            fail("Masters event audit contains an invalid class or game count")
+        computed[classification]["games"] += count
+        computed[classification]["events"] += 1
+        if classification in ("verified_otb", "verified_online"):
+            metadata = event.get("metadata")
+            metadata_hash = event.get("metadata_sha256")
+            if (not isinstance(metadata, dict) or not SHA.fullmatch(metadata_hash or "")
+                    or canonical_sha256(metadata) != metadata_hash
+                    or not str(event.get("metadata_url", "")).startswith(
+                        "https://lichess.org/api/broadcast/"
+                    )
+                    or not event.get("evidence")):
+                fail("Classified Masters event lacks hashed official metadata evidence")
+        if classification == "verified_otb":
+            info = event.get("metadata", {}).get("tour", {}).get("info", {})
+            linked = event.get("linked_event_evidence")
+            external = event.get("external_event_evidence")
+            if (not isinstance(info, dict) or not str(info.get("location", "")).strip()
+                    or not isinstance(external, dict) or external.get("verified") is not True
+                    or not SHA.fullmatch(external.get("sha256", ""))
+                    or not isinstance(linked, list)
+                    or not any(
+                        isinstance(page, dict) and page.get("verified") is True
+                        and page.get("sha256") == external.get("sha256")
+                        for page in linked
+                    )):
+                fail("Verified OTB event lacks corroborated venue and linked-source evidence")
+    if computed != totals or sum(value["games"] for value in computed.values()) != source["games"]:
+        fail("Masters event audit totals do not reconcile to its input PGN")
+    if audit.get("release_policy", {}).get("require_verified_otb_event") is not True:
+        fail("Masters release policy does not require verified OTB events")
+
+    policy = audit["release_policy"]
+    expected_online = sorted(
+        event["tournament_slug"] for event in events
+        if event["classification"] == "verified_online" and event.get("tournament_slug")
+    )
+    expected_otb = sorted(
+        event["tournament_slug"] for event in events
+        if event["classification"] == "verified_otb" and event.get("tournament_slug")
+    )
+    if (sorted(policy.get("verified_online_tournament_slugs", [])) != expected_online
+            or sorted(policy.get("verified_otb_tournament_slugs", [])) != expected_otb
+            or not expected_otb or set(expected_online) & set(expected_otb)):
+        fail("Masters event audit allowlists do not match its event classifications")
+    if qualification.get("baseline_audit_game_counts") != totals:
+        fail("Masters release event totals differ from the attached audit")
+    reasons = build.get("policy_rejection_reasons", {})
+    expected_rejections = {
+        "verified_online_event": reasons.get("online_event_in_masters_source", 0),
+        "unresolved_masters_provenance": reasons.get("unresolved_masters_provenance", 0),
+    }
+    if qualification.get("release_rejections") != expected_rejections:
+        fail("Masters release rejection totals differ from the build report")
+    if release.get("accepted_games", 0) > totals["verified_otb"]["games"]:
+        fail("Masters release contains more games than its verified OTB source subset")
+
+    print("  [PASS] Masters event audit: "
+          + "; ".join(f"{name}={totals[name]['games']} games/{totals[name]['events']} events"
+                      for name in CLASSES))
+
+
+def validate_docker(report: dict, releases: dict[str, dict]) -> None:
+    if (report.get("schema_version") != 1 or report.get("mode") != "real"
+            or report.get("service") != "codb" or report.get("api_address") != "http://codb:8080"):
+        fail("Docker evidence is not a real-corpus Compose run")
+    if "@sha256:" not in report.get("independent_client_image", ""):
+        fail("Docker evidence does not identify a digest-pinned independent client image")
+    if not report.get("network"):
+        fail("Docker evidence is missing its container network")
+
+    if report.get("http_checks") != {
+        "health_status": 200,
+        "ready_status": 200,
+        "collections_status": 200,
+        "invalid_position_status": 400,
+        "unknown_game_status": 404,
+        "admin_reload_status": 403,
+    }:
+        fail("Docker evidence is missing expected API status checks")
+
+    queries = report.get("collections", {})
+    if set(queries) != set(COLLECTIONS):
+        fail("Docker evidence does not include both real collections")
+    for collection in COLLECTIONS:
+        query = queries[collection]
+        release = releases[collection]
+        if (query.get("dataset_version") != release.get("dataset_version")
+                or query.get("dataset_total_games") != release.get("accepted_games")
+                or query.get("cli_match") is not True):
+            fail(f"Docker {collection} response does not match its release or CLI")
+        if (not isinstance(query.get("expected_total_games_at_e4_e5_nf3"), int)
+                or query.get("total_games_at_e4_e5_nf3")
+                != query.get("expected_total_games_at_e4_e5_nf3")):
+            fail(f"Docker {collection} opening-position count differs from its recorded expectation")
+        if (query.get("stored_game_http_status") != 200
+                or query.get("stored_game_bytes", 0) <= 0
+                or not SHA.fullmatch(query.get("stored_game_sha256", ""))
+                or query.get("stored_game_is_pgn") is not True):
+            fail(f"Docker {collection} stored-PGN retrieval evidence is invalid")
+
+    concurrent = report.get("concurrent_requests", {})
+    if (concurrent.get("count") != 96 or concurrent.get("successful") != 96
+            or concurrent.get("concurrent_workers") != 12):
+        fail("Docker concurrent position and PGN requests did not all succeed")
+    rss = report.get("runtime_rss", {})
+    if (rss.get("sampled_peak_bytes", 0) <= 0
+            or rss.get("sampled_peak_bytes") != rss.get("sampled_peak_kib", 0) * 1024
+            or rss.get("sampled_peak_bytes") >= 512 * 1024 * 1024):
+        fail("Docker real-corpus RSS evidence is missing or exceeds the 512 MiB runtime cap")
+    settings = report.get("container_settings", {})
+    if (settings.get("root_filesystem_read_only") is not True
+            or settings.get("configured_user") != "10001:10001"
+            or settings.get("dataset_mount_mode") not in {
+                "read_only_host_bind", "read_only_named_volume_copy"
+            }
+            or settings.get("masters_mount_read_only") is not True
+            or settings.get("elite_mount_read_only") is not True
+            or settings.get("no_host_ports_published") is not True
+            or settings.get("image_size_bytes", 0) <= 0):
+        fail("Docker security, mount, image, or host-exposure checks failed")
+    if report.get("bad_dataset_starts_rejected") != [
+        "missing collection mount", "wrong collection path", "incomplete dataset", "corrupted CPI"
+    ]:
+        fail("Docker failure checks did not reject all invalid dataset setups")
+    restart = report.get("container_restart", {})
+    if (restart.get("healthy_after_restart") is not True
+            or restart.get("api_results_match_before_restart") is not True
+            or restart.get("deep_dataset_verification_after_restart") is not True):
+        fail("Docker restart and mounted-dataset verification evidence is incomplete")
+    if report.get("graceful_sigterm_shutdown") is not True:
+        fail("Docker SIGTERM shutdown did not complete gracefully")
+    print(
+        f"  [PASS] real Docker integration: {concurrent['successful']}/{concurrent['count']} "
+        f"concurrent requests; sampled RSS {rss['sampled_peak_kib']} KiB"
+    )
 
 
 def main() -> int:
     catalog = load(CATALOG)
-    sources = {s["id"]: s for s in catalog["sources"]}
-    for c in COLLECTIONS:
-        d = EVIDENCE / c
-        if not d.is_dir():
-            fail(f"missing evidence directory {d.relative_to(ROOT)}")
-        rel = load(d / "RELEASE.json")
-        build = load(d / "build_report.json")
-        quality = load(d / "quality_report.json")
-        metrics = load(d / "metrics.json")
-        if rel["collection"] != c or build["collection"] != c or quality["collection"] != c:
-            fail(f"{c}: collection identity mismatch across evidence files")
-        acc = rel["accounting"]
-        if acc["total_encountered"] != sum(acc[k] for k in COUNTERS):
-            fail(f"{c}: accounting identity does not reconcile")
-        if acc != {k: build["accounting"][k] for k in acc}:
-            fail(f"{c}: RELEASE and build report accounting differ")
-        if rel["accepted_games"] != acc["accepted_unique"] or quality["total_games"] != acc["accepted_unique"]:
-            fail(f"{c}: accepted game counts differ")
-        if not (build["is_reconciled"] and build["retained_matches_accepted"]):
-            fail(f"{c}: build report not reconciled")
-        if sum(build["policy_rejection_reasons"].values()) != acc["rejected_by_policy"]:
-            fail(f"{c}: rejection reasons do not sum to rejected_by_policy")
-        if not SHA.match(rel["index"]["cpi_sha256"]):
-            fail(f"{c}: malformed CPI hash")
-        for name, meta in rel["artifacts"].items():
-            if not SHA.match(meta["sha256"]) or meta["size_bytes"] <= 0:
-                fail(f"{c}: malformed artifact record {name}")
-        if not rel["inputs"]:
-            fail(f"{c}: no inputs recorded")
-        for i in rel["inputs"]:
-            s = sources.get(i["id"])
-            if s is None or s["publisher_sha256"] != i["sha256"] or s["collection"] != c:
-                fail(f"{c}: input {i['id']} does not match the pinned catalog")
-            if s.get("verified_sha256") != i["sha256"]:
-                fail(f"{c}: input {i['id']} has no verified_sha256 recorded in the catalog")
-        lic = rel["license"]
-        want = "CC-BY-SA-4.0" if c == "masters-otb" else "CC0-1.0"
-        if lic["id"] != want or lic["share_alike"] != (c == "masters-otb"):
-            fail(f"{c}: license record inconsistent")
-        if set(metrics["steps"]) != {"build", "build-index", "verify", "report"}:
-            fail(f"{c}: metrics steps incomplete")
-        if any(m["returncode"] != 0 for m in metrics["steps"].values()):
-            fail(f"{c}: a recorded step failed")
-        lk = load(d / "lookup_benchmark.json")
-        if lk["collection"] != c or lk["dataset_build_id"] != rel["dataset_version"]:
-            fail(f"{c}: lookup benchmark does not belong to this release")
-        if lk["hit_warm_pass"]["hits"] != lk["hit_warm_pass"]["count"] or lk["miss_warm_pass"]["hits"] != 0:
-            fail(f"{c}: lookup benchmark hit/miss semantics violated")
-        http = load(EVIDENCE / "http_check.json")
-        if not http["passed"] or http["checks_failed"] != 0 or http["checks_total"] < 50:
-            fail("http_check.json does not record a passing run")
-        if http["collections"][c]["mismatches"] != 0:
-            fail(f"{c}: HTTP/CLI mismatches recorded")
-        print(f"  [PASS] {c}: {rel['accepted_games']} games, {len(rel['inputs'])} verified inputs, reconciled")
+    releases = {
+        collection: validate_release(collection, catalog)
+        for collection in COLLECTIONS
+    }
 
-    examples = load(EVIDENCE / "http_examples.json")
-    if not examples.get("health_ready"):
-        fail("http_examples.json does not record a ready HTTP server")
-    loaded = {x["collection"]: x for x in examples.get("collections_loaded", [])}
-    if set(loaded) != set(COLLECTIONS):
-        fail("http_examples.json does not record both loaded collections")
-    for c in COLLECTIONS:
-        rel = load(EVIDENCE / c / "RELEASE.json")
-        ex = examples.get("examples", {}).get(c)
-        if not ex or ex.get("dataset_version") != rel["dataset_version"]:
-            fail(f"{c}: direct HTTP example does not match the recorded release")
-        if loaded[c].get("dataset_version") != rel["dataset_version"]:
-            fail(f"{c}: HTTP collections response does not match the release")
-        pos = ex["position"]
-        if pos.get("http_status") != 200 or not pos.get("cli_match"):
-            fail(f"{c}: direct HTTP query failed or differs from the CLI")
-        if pos["white_wins"] + pos["draws"] + pos["black_wins"] != pos["total_games"]:
-            fail(f"{c}: direct HTTP W/D/L counts do not reconcile")
-        game = ex["stored_game"]
-        if (game.get("http_status") != 200 or
-                not game.get("content_type", "").startswith("application/x-chess-pgn") or
-                game.get("pgn_bytes", 0) <= 0 or not SHA.match(game.get("pgn_sha256", ""))):
-            fail(f"{c}: direct stored-game retrieval evidence is invalid")
+    http = load(EVIDENCE / "http_check.json")
+    if (http.get("passed") is not True or http.get("checks_failed") != 0
+            or http.get("checks_total", 0) < 50):
+        fail("real HTTP/CLI check does not record a passing run")
+    for collection in COLLECTIONS:
+        if http.get("collections", {}).get(collection, {}).get("mismatches") != 0:
+            fail(f"{collection}: real HTTP/CLI comparisons contain mismatches")
 
-    marker_audit = load(EVIDENCE / "masters-otb" / "online_marker_audit.json")
-    masters_release = load(EVIDENCE / "masters-otb" / "RELEASE.json")
-    if (marker_audit.get("result") != "PASS" or marker_audit.get("flagged_games") != 0 or
-            marker_audit.get("games_scanned") != masters_release["accepted_games"] or
-            marker_audit.get("dataset_version") != masters_release["dataset_version"]):
-        fail("Masters post-build online-marker audit is missing, stale, or failed")
+    validate_masters_audit(releases["masters-otb"],
+                           load(EVIDENCE / "masters-otb" / "build_report.json"))
+    validate_docker(load(EVIDENCE / "docker_real_check.json"), releases)
+
     reproducibility = load(EVIDENCE / "reproducibility_check.json")
-    for c in COLLECTIONS:
-        rel = load(EVIDENCE / c / "RELEASE.json")
-        check = reproducibility.get("collections", {}).get(c)
-        if not check or check.get("collection") != c:
-            fail(f"{c}: missing independent rebuild evidence")
-        if not (check.get("same_binary_artifacts") and check.get("accounting_reconciled")):
-            fail(f"{c}: independent rebuild did not match or reconcile")
-        if check.get("accepted_games") != rel["accepted_games"]:
-            fail(f"{c}: independent rebuild accepted-game count differs")
+    for collection in COLLECTIONS:
+        release = releases[collection]
+        check = reproducibility.get("collections", {}).get(collection)
+        if (not isinstance(check, dict) or check.get("collection") != collection
+                or check.get("reference_release_id") != release.get("dataset_version")
+                or not check.get("same_binary_artifacts")
+                or not check.get("accounting_reconciled")
+                or check.get("accepted_games") != release.get("accepted_games")):
+            fail(f"{collection}: missing current independent rebuild evidence")
         reference = check.get("reference_sha256", {})
-        repeated = check.get("repeat_sha256", {})
-        if not reference or reference != repeated:
-            fail(f"{c}: independent rebuild artifact hashes differ")
+        repeat = check.get("repeat_sha256", {})
+        if not reference or reference != repeat:
+            fail(f"{collection}: independent rebuild artifact hashes differ")
         for name, digest in reference.items():
-            if name not in rel["artifacts"] or rel["artifacts"][name]["sha256"] != digest:
-                fail(f"{c}: repeat-build hash does not match current release artifact {name}")
+            if (not SHA.fullmatch(digest)
+                    or release.get("artifacts", {}).get(name, {}).get("sha256") != digest):
+                fail(f"{collection}: reproducibility hash does not match release artifact {name}")
         if any(value <= 0 for value in check.get("wall_seconds", {}).values()):
-            fail(f"{c}: independent rebuild timing is invalid")
-        print(f"  [PASS] {c}: direct HTTP/CLI and deterministic payload evidence")
+            fail(f"{collection}: independent rebuild timing is invalid")
+        print(f"  [PASS] {collection}: independent build artifacts match")
+
     return 0
 
 

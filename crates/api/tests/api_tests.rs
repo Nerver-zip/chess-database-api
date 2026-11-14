@@ -1562,7 +1562,7 @@ fn test_reader_pool_timeout_validation() {
         ..Default::default()
     };
     let err = config_zero.validate().unwrap_err();
-    assert!(err.contains("Reader pool timeout must be greater than 0 seconds"));
+    assert!(err.contains("Reader pool timeout must be between 1 and 60 seconds"));
 
     let config_ok = ServerConfig {
         masters_dataset: Some(std::path::PathBuf::from("/tmp/masters")),
@@ -1570,4 +1570,24 @@ fn test_reader_pool_timeout_validation() {
         ..Default::default()
     };
     assert!(config_ok.validate().is_ok());
+
+    let config_pool_over_limit = ServerConfig {
+        masters_dataset: Some(std::path::PathBuf::from("/tmp/masters")),
+        reader_pool_size: 65,
+        ..Default::default()
+    };
+    assert!(config_pool_over_limit
+        .validate()
+        .unwrap_err()
+        .contains("Reader pool size must be between 1 and 64"));
+
+    let config_request_over_limit = ServerConfig {
+        masters_dataset: Some(std::path::PathBuf::from("/tmp/masters")),
+        request_timeout_secs: 301,
+        ..Default::default()
+    };
+    assert!(config_request_over_limit
+        .validate()
+        .unwrap_err()
+        .contains("Request timeout must be between 1 and 300 seconds"));
 }

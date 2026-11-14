@@ -20,8 +20,9 @@ use codb_ingest::reader::{
 };
 use codb_storage::format::{export_to_pgn, GameBlock};
 use codb_storage::{
-    compute_file_sha256, verify_dataset, CurationPolicyMetadata, DatasetReader, DatasetWriter,
-    DatasetWriterConfig, ShardReader, SourceArchiveMetadata, StorageError,
+    compute_file_sha256, publish_prebuilt_dataset, verify_dataset, CurationPolicyMetadata,
+    DatasetReader, DatasetWriter, DatasetWriterConfig, ShardReader, SourceArchiveMetadata,
+    StorageError,
 };
 use serde::{Deserialize, Serialize};
 use shakmaty::uci::UciMove;
@@ -122,6 +123,10 @@ enum Commands {
         /// Optional path for a machine-readable build report (accounting and rejection reasons)
         #[arg(long)]
         report_json: Option<PathBuf>,
+
+        /// Masters event audit JSON used to reject online and unresolved tournament events
+        #[arg(long, requires = "collection")]
+        masters_event_audit: Option<PathBuf>,
     },
 
     /// Compute a machine-readable dataset quality report (distributions and coverage)
@@ -170,6 +175,21 @@ enum Commands {
         /// Perform deep game-level decompression and verification of every block
         #[arg(long)]
         deep: bool,
+    },
+
+    /// Publish a deeply verified staged snapshot into a stable versioned dataset root
+    Publish {
+        /// Staged dataset root containing a complete current snapshot
+        #[arg(long)]
+        candidate: PathBuf,
+
+        /// Stable dataset root that serves current and preserves previous versions
+        #[arg(long)]
+        target: PathBuf,
+
+        /// Collection identity required for the candidate
+        #[arg(long)]
+        collection: CollectionArg,
     },
 
     /// Run the end-to-end benchmark suite and write JSON reports
@@ -321,15 +341,19 @@ enum Commands {
         allowed_origins: String,
 
         /// Global request timeout in seconds
-        #[arg(long, default_value = "15")]
+        #[arg(long, default_value = "15", env = "CODB_REQUEST_TIMEOUT_SECS")]
         request_timeout_secs: u64,
 
-        /// Maximum plies allowed in a move sequence query
-        #[arg(long, default_value = "200")]
+        /// Maximum plies allowed in a move sequence query (1-512)
+        #[arg(long, default_value = "200", env = "CODB_MAX_MOVE_PLIES")]
         max_move_plies: usize,
 
-        /// Capacity of reader pool per dataset snapshot
-        #[arg(long, default_value = "16")]
+        /// Deeply validate every dataset block before the service becomes ready
+        #[arg(long)]
+        deep_validate_on_startup: bool,
+
+        /// Capacity of reader pool per dataset snapshot (1-64)
+        #[arg(long, default_value = "16", env = "CODB_READER_POOL_SIZE")]
         reader_pool_size: usize,
 
         /// Maximum seconds to wait for an available reader from the pool before returning 503
@@ -647,6 +671,13 @@ fn open_pgn_reader(path: &Path) -> Result<Box<dyn Read + Send>> {
 }
 
 fn main() -> Result<()> {
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_ansi(false)
+        .try_init();
+
     let cli = Cli::parse();
 
     match cli.command {
@@ -661,9 +692,11 @@ fn main() -> Result<()> {
             zstd_level,
             dedupe_mode,
             report_json,
+            masters_event_audit,
         } => {
             run_build(BuildOptions {
                 report_json,
+                masters_event_audit,
                 manifest,
                 input,
                 collection,
@@ -694,6 +727,28 @@ fn main() -> Result<()> {
 
         Commands::Verify { dataset, deep } => {
             run_verify(&dataset, deep)?;
+        }
+
+        Commands::Publish {
+            candidate,
+            target,
+            collection,
+        } => {
+            let collection: Collection = collection.into();
+            let active = publish_prebuilt_dataset(&candidate, &target, collection)
+                .with_context(|| {
+                    format!(
+                        "Failed to publish candidate dataset {} into {}",
+                        candidate.display(),
+                        target.display()
+                    )
+                })?;
+            println!(
+                "Published {} into stable dataset root {} (active snapshot: {})",
+                collection,
+                target.display(),
+                active.display()
+            );
         }
 
         Commands::Ingest {
@@ -817,6 +872,7 @@ fn main() -> Result<()> {
             max_move_plies,
             reader_pool_size,
             reader_pool_timeout_secs,
+            deep_validate_on_startup,
             admin_token,
         } => {
             let origins = allowed_origins
@@ -835,6 +891,7 @@ fn main() -> Result<()> {
                 max_move_plies,
                 reader_pool_size,
                 reader_pool_timeout_secs,
+                deep_validate_on_startup,
                 admin_token,
             };
 
@@ -937,6 +994,7 @@ fn open_auto_detect_reader(path: &Path) -> Result<Box<dyn Read + Send>> {
 
 struct BuildOptions {
     report_json: Option<PathBuf>,
+    masters_event_audit: Option<PathBuf>,
     manifest: Option<PathBuf>,
     input: Vec<PathBuf>,
     collection: CollectionArg,
@@ -948,10 +1006,77 @@ struct BuildOptions {
     dedupe_mode: DedupeModeArg,
 }
 
+#[derive(Deserialize)]
+struct MastersEventAuditInput {
+    schema_version: u32,
+    release_policy: MastersEventPolicyInput,
+}
+
+#[derive(Deserialize)]
+struct MastersEventPolicyInput {
+    require_verified_otb_event: bool,
+    verified_online_tournament_slugs: Vec<String>,
+    verified_otb_tournament_slugs: Vec<String>,
+}
+
 fn run_build(opts: BuildOptions) -> Result<()> {
     let mut resolved_inputs = Vec::new();
     let mut source_metas = Vec::new();
     let col: Collection = opts.collection.into();
+    let event_qualification = if let Some(path) = opts.masters_event_audit.as_ref() {
+        anyhow::ensure!(
+            col == Collection::MastersOtb,
+            "--masters-event-audit is only valid for the masters-otb collection"
+        );
+        let bytes = std::fs::read(path).with_context(|| {
+            format!("Failed to read Masters event audit {}", path.display())
+        })?;
+        let audit: MastersEventAuditInput = serde_json::from_slice(&bytes).with_context(|| {
+            format!("Invalid Masters event audit JSON in {}", path.display())
+        })?;
+        anyhow::ensure!(
+            audit.schema_version == 1,
+            "Unsupported Masters event audit schema version {}",
+            audit.schema_version
+        );
+        let policy = audit.release_policy;
+        let online_items = &policy.verified_online_tournament_slugs;
+        let otb_items = &policy.verified_otb_tournament_slugs;
+        for slug in online_items.iter().chain(otb_items) {
+            anyhow::ensure!(
+                !slug.trim().is_empty()
+                    && slug.trim() == slug
+                    && slug.bytes().all(|byte| {
+                        byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.')
+                    }),
+                "Invalid Masters broadcast tournament slug in event audit: '{}'",
+                slug
+            );
+        }
+        let online: std::collections::HashSet<String> = online_items
+            .into_iter()
+            .map(|slug| slug.to_ascii_lowercase())
+            .collect();
+        let otb: std::collections::HashSet<String> = otb_items
+            .into_iter()
+            .map(|slug| slug.to_ascii_lowercase())
+            .collect();
+        anyhow::ensure!(
+            online.len() == online_items.len() && otb.len() == otb_items.len(),
+            "Masters event audit contains duplicate tournament slugs"
+        );
+        anyhow::ensure!(
+            online.is_disjoint(&otb),
+            "Masters event audit classifies at least one tournament as both online and OTB"
+        );
+        anyhow::ensure!(
+            !policy.require_verified_otb_event || !otb.is_empty(),
+            "Masters event audit requires verified OTB events but its allowlist is empty"
+        );
+        Some((policy.require_verified_otb_event, online, otb))
+    } else {
+        None
+    };
 
     if let Some(m_path) = opts.manifest {
         let file_bytes = std::fs::read(&m_path)
@@ -1060,13 +1185,18 @@ fn run_build(opts: BuildOptions) -> Result<()> {
     println!("Zstandard Level:     {}", opts.zstd_level);
     println!("Deduplication Mode:  {:?}", opts.dedupe_mode);
 
+    let event_qualification_enabled = event_qualification.is_some();
     let curation_policy = match col {
         Collection::MastersOtb => CurationPolicyMetadata {
             min_rating_both: 2200,
             min_rating_one: 2400,
             min_rating_other: 2000,
             min_plies: 4,
-            extra_criteria: "Online-event exclusion; historical exception pre-1970 requires named event and venue; explicit aborted or rules-infraction Termination values excluded".into(),
+            extra_criteria: if event_qualification_enabled {
+                "Exact event-level audit allowlist: verified online and unresolved tournaments excluded; verified OTB venue corroborated by linked event source; direct online platform Site tags excluded; historical exception pre-1970 requires named event and venue; explicit aborted or rules-infraction Termination values excluded".into()
+            } else {
+                "Online-event marker exclusion; historical exception pre-1970 requires named event and venue; explicit aborted or rules-infraction Termination values excluded".into()
+            },
         },
         Collection::EliteOnline => CurationPolicyMetadata {
             min_rating_both: 2200,
@@ -1108,6 +1238,9 @@ fn run_build(opts: BuildOptions) -> Result<()> {
     let mut pipeline = CuratedPipeline::new(col, deduplicator, consumer)
         .with_max_games(opts.max_games)
         .with_log_progress(true);
+    if let Some((require_verified, online, otb)) = event_qualification {
+        pipeline = pipeline.with_masters_event_qualification(online, otb, require_verified);
+    }
 
     for path in &resolved_inputs {
         println!("Streaming from {}...", path.display());

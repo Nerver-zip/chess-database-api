@@ -1707,6 +1707,215 @@ pub fn resolve_dataset_snapshot(dataset_dir: &Path) -> Result<PathBuf, StorageEr
 
 /// Resolves a dataset directory path to its active data directory,
 /// supporting both versioned layouts (`target/current`) and legacy flat directories.
+
+/// Publishes a fully verified immutable dataset version into a stable dataset root.
+///
+/// The candidate is resolved and deeply verified before any target mutation. The active version
+/// is switched by atomically renaming a temporary relative symlink over current; previous
+/// versions remain in place so readers that already resolved a snapshot can finish safely.
+/// Publication uses the same nonblocking .dataset.lock as other dataset mutations.
+#[cfg(unix)]
+pub fn publish_prebuilt_dataset(
+    candidate_dir: &Path,
+    target_dir: &Path,
+    expected_collection: Collection,
+) -> Result<PathBuf, StorageError> {
+    if !candidate_dir.is_dir() {
+        return Err(StorageError::Decoding(format!(
+            "Candidate dataset directory '{}' does not exist",
+            candidate_dir.display()
+        )));
+    }
+
+    let candidate_snapshot = resolve_dataset_snapshot(candidate_dir)?;
+    let candidate_manifest_path = candidate_snapshot.join("manifest.json");
+    let candidate_manifest_bytes = fs::read(&candidate_manifest_path)?;
+    let candidate_manifest: DatasetManifest = serde_json::from_slice(&candidate_manifest_bytes)
+        .map_err(|error| StorageError::Decoding(format!("Invalid candidate manifest.json: {error}")))?;
+    if candidate_manifest.collection != expected_collection {
+        return Err(StorageError::Integrity(format!(
+            "Candidate collection '{}' does not match requested collection '{}'",
+            candidate_manifest.collection, expected_collection
+        )));
+    }
+
+    let version_id = &candidate_manifest.dataset_build_id;
+    if version_id.is_empty()
+        || version_id.starts_with('.')
+        || version_id.len() > 160
+        || !version_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+    {
+        return Err(StorageError::Integrity(format!(
+            "Candidate dataset build ID '{version_id}' is not a safe version directory name"
+        )));
+    }
+    if candidate_snapshot.file_name().and_then(|name| name.to_str()) != Some(version_id.as_str()) {
+        return Err(StorageError::Integrity(format!(
+            "Candidate snapshot directory '{}' does not match manifest build ID '{}'",
+            candidate_snapshot.display(),
+            version_id
+        )));
+    }
+    let candidate_report = verify_dataset(&candidate_snapshot, true)?;
+    if !candidate_report.deep_verification_passed {
+        return Err(StorageError::Integrity(
+            "Candidate dataset failed deep verification".into(),
+        ));
+    }
+
+    fs::create_dir_all(target_dir)?;
+    let target_dir = fs::canonicalize(target_dir)?;
+    let candidate_snapshot = fs::canonicalize(candidate_snapshot)?;
+    if candidate_snapshot.starts_with(&target_dir) {
+        return Err(StorageError::Integrity(
+            "Candidate snapshot must be staged outside the active dataset root".into(),
+        ));
+    }
+    let _dataset_lock = DatasetLock::try_acquire_exclusive(&target_dir)?;
+
+    let current_path = target_dir.join("current");
+    let previous_target = match fs::symlink_metadata(&current_path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => Some(fs::read_link(&current_path)?),
+        Ok(_) => {
+            return Err(StorageError::Integrity(format!(
+                "Active dataset pointer '{}' is not a symlink; refusing publication",
+                current_path.display()
+            )))
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => return Err(StorageError::Io(error)),
+    };
+
+    let root_manifest = target_dir.join("manifest.json");
+    if previous_target.is_none()
+        && root_manifest.is_file()
+        && !fs::symlink_metadata(&root_manifest)
+            .map(|metadata| metadata.file_type().is_symlink())
+            .unwrap_or(false)
+    {
+        return Err(StorageError::Integrity(
+            "Target contains a legacy flat dataset; migrate it with codb recover before publication"
+                .into(),
+        ));
+    }
+
+    let versions_dir = target_dir.join("versions");
+    fs::create_dir_all(&versions_dir)?;
+    let version_dir = versions_dir.join(version_id);
+    if version_dir.exists() {
+        let existing_manifest = fs::read(version_dir.join("manifest.json"))?;
+        if existing_manifest != candidate_manifest_bytes {
+            return Err(StorageError::Integrity(format!(
+                "Version directory '{}' already exists with a different manifest",
+                version_dir.display()
+            )));
+        }
+        let existing_report = verify_dataset(&version_dir, true)?;
+        if !existing_report.deep_verification_passed {
+            return Err(StorageError::Integrity(format!(
+                "Existing version '{}' failed deep verification",
+                version_dir.display()
+            )));
+        }
+    } else {
+        // Staging and release roots must share a filesystem; rename keeps the completed version
+        // immutable and makes its directory entry durable before current can reference it.
+        sync_dir_contents(&candidate_snapshot)?;
+        fs::rename(&candidate_snapshot, &version_dir).map_err(|error| {
+            StorageError::Io(std::io::Error::new(
+                error.kind(),
+                format!(
+                    "Could not move candidate version into '{}'; stage releases on the same filesystem: {error}",
+                    version_dir.display()
+                ),
+            ))
+        })?;
+        sync_dir_itself(&versions_dir)?;
+        let promoted_report = verify_dataset(&version_dir, true)?;
+        if !promoted_report.deep_verification_passed {
+            return Err(StorageError::Integrity(format!(
+                "Promoted candidate version '{}' failed deep verification",
+                version_dir.display()
+            )));
+        }
+    }
+
+    let link_target = PathBuf::from("versions").join(version_id);
+    let tmp_link = target_dir.join(format!(
+        ".current_tmp_publish_{}_{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or(0)
+    ));
+    symlink(&link_target, &tmp_link)?;
+    if let Err(error) = fs::rename(&tmp_link, &current_path) {
+        let _ = fs::remove_file(&tmp_link);
+        return Err(StorageError::Io(error));
+    }
+    sync_dir_itself(&target_dir)?;
+
+    let activation_result = ensure_root_symlinks(&target_dir)
+        .and_then(|()| sync_dir_itself(&target_dir))
+        .and_then(|()| {
+            let report = verify_dataset(&target_dir, true)?;
+            if report.deep_verification_passed {
+                Ok(())
+            } else {
+                Err(StorageError::Integrity(
+                    "Published dataset failed post-switch deep verification".into(),
+                ))
+            }
+        });
+    if let Err(error) = activation_result {
+        let rollback_result = (|| -> Result<(), StorageError> {
+            if let Some(previous_target) = previous_target {
+                let rollback_link = target_dir.join(format!(
+                    ".current_tmp_rollback_{}_{}",
+                    std::process::id(),
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|duration| duration.as_nanos())
+                        .unwrap_or(0)
+                ));
+                symlink(&previous_target, &rollback_link)?;
+                if let Err(error) = fs::rename(&rollback_link, &current_path) {
+                    let _ = fs::remove_file(&rollback_link);
+                    return Err(StorageError::Io(error));
+                }
+                sync_dir_itself(&target_dir)
+            } else {
+                fs::remove_file(&current_path)?;
+                sync_dir_itself(&target_dir)
+            }
+        })();
+        if let Err(rollback_error) = rollback_result {
+            return Err(StorageError::Integrity(format!(
+                "Publication failed ({error}) and restoring the prior active version failed ({rollback_error}); prior version directories remain preserved"
+            )));
+        }
+        return Err(error);
+    }
+
+    Ok(current_path)
+}
+
+#[cfg(not(unix))]
+pub fn publish_prebuilt_dataset(
+    _candidate_dir: &Path,
+    _target_dir: &Path,
+    _expected_collection: Collection,
+) -> Result<PathBuf, StorageError> {
+    Err(StorageError::Integrity(
+        "Atomic dataset publication currently requires a Unix filesystem".into(),
+    ))
+}
+
+/// Resolves a dataset path to its active data directory,
+/// supporting both versioned layouts (`target/current`) and legacy flat directories.
 pub fn resolve_dataset_dir(dataset_dir: &Path) -> PathBuf {
     resolve_dataset_snapshot(dataset_dir).unwrap_or_else(|_| dataset_dir.to_path_buf())
 }
@@ -2138,6 +2347,7 @@ fn ensure_root_symlinks(target_dir: &Path) -> Result<(), StorageError> {
         {
             let _ = fs::remove_file(&cpi_link_path);
         }
+
     }
     Ok(())
 }

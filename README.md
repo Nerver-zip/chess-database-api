@@ -1,37 +1,17 @@
 # Chess Openings DB (`codb`)
 
-> **Status: Opening Explorer HTTP API Service Milestone (PR-04)**  
-> This repository contains the scalable persistent game storage pipeline, bounded-memory external sorting position indexer (CPI v2), atomic dataset publication engine, functional Opening Explorer query CLI, and production-ready read-only HTTP API service (`codb serve`) for an independent chess game database.
+> **Status: Draft PR #6 follow-up — Dockerized Opening Explorer and corpus qualification**
+> This repository contains the scalable persistent game storage pipeline, bounded-memory CPI v2 indexer, atomic dataset publication engine, verified real corpus releases, and a Dockerized read-only Opening Explorer API.
 
 A high-performance, compact, and reproducible chess game database and position-centric indexing engine written in Rust. The system curates, deduplicates, compresses, and indexes high-quality chess games to power a position-based Opening Explorer through a lightweight, reusable API.
 
 ---
 
-## The Central Feasibility Question
+## Delivered Corpus and Scope
 
-> **Can we build a reliable, reproducible, publicly redistributable chess database containing millions of high-quality games, with full game retrieval and position-based opening statistics, within approximately 10 GB of deployed storage?**
+The real-corpus pipeline delivers two isolated release collections and a read-only HTTP Opening Explorer. Release sizes, current game and index counts, licensing, provenance audit results, and test evidence are recorded in [docs/CORPUS_BUILD.md](docs/CORPUS_BUILD.md).
 
-### Conclusion: **Feasibility Supported (Conditional on Depth Slicing & Scaling Margins)**
-
-Based on reproducible measurements across 117,616 real Lichess Official Broadcast games (22,265 accepted after curation and prefix-verified deduplication) and over 5,000,000 modern Lichess Standard Rated games (up to 100,000 accepted games curated across 2024–2026 archives):
-
-- **Bounded-Memory Streaming Pipeline (PR-02):**
-  - **$O(1)$ RAM Scaling:** Eliminates whole-corpus memory retention during ingestion by streaming directly through validation, disk-backed deduplication, and compressed persistent CGB3 shards. Peak RAM stays strictly below **30 MB RSS** even when processing millions of games.
-  - **High Throughput:** Reaches **~25,000 games/sec** on local streams and **3,000–4,000 games/sec** on piped network streams with full legal move validation.
-- **Persistent Sharded Storage (`CGB3` Container):**
-  - **Masters OTB:** **~208 bytes/game** in CGB3 blocks (5.16× compression ratio over PGN) with 100% round-trip fidelity across all supported canonical and provenance fields.
-  - **Elite Online:** **~178–181 bytes/game** in CGB3 blocks (~15% more compact than Masters OTB due to typical online game lengths).
-  - **Sharding & Global Index:** Encoded in `shard_XXXX.cgb3` with a 16-byte fixed-record `games.idx` memory-mapped binary search table.
-  - **Random Retrieval Latency:** Retrieves individual games by 64-bit ID in **698 µs (p50)**, **773 µs (p95)**, and **863 µs (p99)** across 100k-game persistent archives.
-- **Empirical Position Diversity & Scaling (Heaps' Law):**
-  - **Online Diversity:** Elite Online exhibits **~40% higher position diversity** at Depth 20 and **~20% higher diversity** at Depth 30 than Masters OTB, accurately reflecting diverse online opening repertoires vs. classical grandmaster theory.
-  - **Dual-Corpus Scaling Fits:** Masters OTB ($\alpha_{D40} = 0.9293$, $k = 49.88$, $R^2 = 0.99998$) and Elite Online ($\alpha_{D30} = 0.9293$, $k = 37.63$, $R^2 = 0.99999$).
-- **Recalibrated 15-Million-Game Deployment Projections (Option B):**
-  - Slicing **Masters OTB (5M games) to Depth 40** and **Elite Online (10M games) to Depth 30** projects to:
-    - **Baseline:** **7.68 GB** (Core payloads: 1.04 GB Masters games + 1.80 GB Elite games + 1.79 GB Masters D40 index + 2.60 GB Elite D30 index + 0.44 GB ancillary overhead).
-    - **Optimistic Scenario:** **6.44 GB**.
-    - **Conservative Scenario:** **9.98 GB** (incorporating sensitivity margins and production CPI density, leaving **20 MB / 0.2%** headroom against the 10 GB limit).
-  - **Conclusion & Risk Factors:** Feasibility is **conditional** upon enforcing Depth 30 slicing for Elite Online (extending to Depth 40 pushes conservative storage to 12.26 GB, violating budget). Additional risk factors include compression degradation at scale, position uniqueness in long endgame transposition chains, and narrow conservative headroom under production CPI density.
+The historical 15-million-game storage feasibility work remains in [docs/research/feasibility-report.md](docs/research/feasibility-report.md). Expanding to that future corpus is not required to run or validate the Docker service.
 
 ---
 
@@ -39,7 +19,7 @@ Based on reproducible measurements across 117,616 real Lichess Official Broadcas
 
 The database maintains two strictly isolated collections with distinct rating semantics and provenance:
 
-1. **Masters OTB:** Over-the-board competitive tournament games, prioritizing verified classical events, high-level masters, and historical tournaments (sourced from Lichess Official Broadcasts under CC BY-SA 4.0 and Public Domain historical archives).
+1. **Masters OTB:** A conservative subset of high-rated Lichess broadcast games. Corpus releases accept only exact event identifiers classified as verified OTB by the event-level metadata and linked-source audit; unresolved and verified online events are excluded. The source data is CC BY-SA 4.0.
 2. **Elite Online:** High-rated online games filtering for verified high rating tiers (2200+, 2400+, 2500+), clean time controls (classical/rapid/blitz; bullet strictly excluded), and non-aborted games (sourced from Lichess Rated Archives under CC0 1.0).
 
 > [!IMPORTANT]
@@ -47,11 +27,9 @@ The database maintains two strictly isolated collections with distinct rating se
 
 ---
 
-## Architectural Boundaries & Relationship to Evalis
+## Service Boundary
 
-- **`chess-openings-db`** owns ingestion, curation, legal validation, compact storage, position indexing, and the future read-only query API.
-- **Evalis** owns the graphical user interface, board navigation, local review integration, and private user game analysis.
-- **Decoupled:** The future database service is independently deployable and usable by third-party applications. Evalis remains 100% functional in local-first mode without requiring a remote database connection.
+The CODB service owns corpus ingestion, curation, legal validation, compact storage, position indexing, and read-only HTTP queries. Docker Compose runs the API independently from the corpus releases, which are mounted as read-only host volumes. Other containers can reach it on a shared Docker network at http://codb:8080; no host port is published by default.
 
 ---
 
@@ -76,6 +54,7 @@ chess-openings-db/
 ├── docs/
 │   ├── README.md   # Canonical documentation index
 │   ├── ARCHITECTURE.md # End-to-end architecture, sharding, and memory bounds
+│   ├── DOCKER_DEPLOYMENT.md # Real release provisioning and Compose operations
 │   ├── DATA_CONTRACTS.md # Binary formats (CGB3, CPI), models, and API schemas
 │   ├── CORPUS_AND_DEDUPLICATION.md # Collection policies, dedupe, and accounting
 │   ├── LICENSING.md # Dual-licensing, dataset provenance, zero-AGPL boundary
@@ -97,23 +76,20 @@ chess-openings-db/
 
 ---
 
-## Building the Real Corpus (Reproducible Release Workflow)
+## Build and Run the Real Service
 
-The repository ships a pinned, checksum-verified source catalog (`corpus/catalog.json`) and a thin orchestration tool (`scripts/corpus.sh`) that drives the existing `codb` CLI. Nothing large is committed to Git: archives and releases live under `data/` (git-ignored).
+Build the host CLI used to provision and verify releases. The explicit rebuild command downloads the pinned sources (about 8.66 GB), then builds, indexes, and deeply verifies both collections. A package bootstrap is also available when verified release archives and their .sha256 sidecars are already present.
 
 ```bash
-cargo build --release -p codb-cli
-./scripts/corpus.sh plan                          # network, disk, memory, and time estimates
-./scripts/corpus.sh fetch                         # HTTPS, resumable, verified against Lichess' SHA-256 sums
-./scripts/corpus.sh build --collection masters-otb
-./scripts/corpus.sh build --collection elite-online
-./scripts/corpus.sh verify                        # codb verify --deep on both releases
-./scripts/corpus.sh serve                         # codb serve on 127.0.0.1:8080, both collections
-./scripts/corpus.sh http-check                    # semantic HTTP + CLI equivalence checks
-./scripts/corpus.sh package --collection masters-otb   # independently verifiable release archive
+cargo build --locked --release --package codb-cli
+./scripts/corpus.sh plan --collection all
+./scripts/corpus.sh --data-dir ./data bootstrap --rebuild
+./scripts/corpus.sh --data-dir ./data verify
+docker compose -f compose.codb.yaml up -d --build
+docker compose -f compose.codb.yaml ps
 ```
 
-See [docs/CORPUS_BUILD.md](docs/CORPUS_BUILD.md) for the full procedure, measured results, license obligations, and recovery steps. A locally built release is not a published release.
+Compose never downloads or rebuilds datasets. The API listens as service codb on port 8080 inside its Docker network and publishes no host port by default. See [docs/DOCKER_DEPLOYMENT.md](docs/DOCKER_DEPLOYMENT.md) for package bootstrap, debug queries, cross-project networking, safe updates, resource bounds, and troubleshooting. The complete corpus procedure and release evidence are in [docs/CORPUS_BUILD.md](docs/CORPUS_BUILD.md).
 
 ---
 
