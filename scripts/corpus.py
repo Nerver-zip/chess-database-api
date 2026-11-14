@@ -774,24 +774,49 @@ class DiskSampler(threading.Thread):
         return self.peak
 
 
+def process_peak_rss_bytes(pid: int, executable: Path) -> int:
+    """Read the executed process VmHWM without counting inherited Python memory."""
+    proc_dir = Path("/proc") / str(pid)
+    try:
+        if (proc_dir / "exe").resolve() != executable.resolve():
+            return 0
+        for line in (proc_dir / "status").read_text().splitlines():
+            if line.startswith("VmHWM:"):
+                return int(line.split()[1]) * 1024  # Linux reports KiB.
+    except (OSError, ValueError):
+        return 0
+    return 0
+
+
 def run_measured(
     cmd: list[str], log_path: Path, env: dict[str, str], sample_paths: list[Path]
 ) -> dict[str, Any]:
-    """Run a command, capturing wall time, peak RSS (kernel rusage) and peak disk use."""
+    """Run a command, capturing wall time, executed-process VmHWM and peak disk use."""
     sampler = DiskSampler(sample_paths)
+    executable = Path(cmd[0]).resolve()
     t0 = time.monotonic()
+    peak_rss_bytes = 0
     with open(log_path, "wb") as out:
         sampler.start()
         proc = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, env=env)
-        _, status, ru = os.wait4(proc.pid, 0)
-        proc.returncode = os.waitstatus_to_exitcode(status)
+        while True:
+            peak_rss_bytes = max(peak_rss_bytes, process_peak_rss_bytes(proc.pid, executable))
+            finished_pid, status, ru = os.wait4(proc.pid, os.WNOHANG)
+            if finished_pid:
+                proc.returncode = os.waitstatus_to_exitcode(status)
+                break
+            time.sleep(0.005)
     wall = time.monotonic() - t0
     peak_disk = sampler.finish()
+    if peak_rss_bytes == 0:
+        if Path("/proc").is_dir():
+            raise CorpusError(f"Could not sample VmHWM for executed process: {cmd[0]}")
+        peak_rss_bytes = ru.ru_maxrss * (1024 if sys.platform.startswith("linux") else 1)
     return {
         "command": " ".join(cmd),
         "returncode": proc.returncode,
         "wall_seconds": round(wall, 3),
-        "peak_rss_bytes": ru.ru_maxrss * 1024,  # Linux reports KiB
+        "peak_rss_bytes": peak_rss_bytes,
         "peak_workspace_disk_bytes": peak_disk,
         "log": str(log_path),
     }

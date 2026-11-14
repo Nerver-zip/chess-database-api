@@ -173,6 +173,21 @@ def make_catalog(entries: list[dict], profiles: dict[str, dict[str, list[str]]] 
 # --------------------------------------------------------------------------- #
 # Catalog validation
 # --------------------------------------------------------------------------- #
+class ResourceMeasurementTests(unittest.TestCase):
+    @unittest.skipUnless(Path("/proc/self/status").is_file() and shutil.which("sleep"),
+                         "Linux procfs and sleep are required")
+    def test_run_measured_reports_child_rss_without_python_parent(self):
+        with tempfile.TemporaryDirectory() as td:
+            sleep = shutil.which("sleep")
+            assert sleep is not None
+            result = corpus.run_measured(
+                [sleep, "0.15"], Path(td) / "sleep.log", {}, []
+            )
+        self.assertEqual(result["returncode"], 0)
+        self.assertGreater(result["peak_rss_bytes"], 0)
+        self.assertLess(result["peak_rss_bytes"], 12 * 1024 * 1024)
+
+
 class CatalogTests(unittest.TestCase):
     def entry(self, **kw):
         data = b"payload"
