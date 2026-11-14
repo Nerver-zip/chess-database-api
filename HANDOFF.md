@@ -128,12 +128,12 @@ Data lives in `data/` (git-ignored; override with `CODB_DATA_DIR`). Never commit
 - `corpus.sh verify-sources --collection all --profile baseline`: PASS for 13 local source archives.
 - `corpus.sh verify --collection all --profile baseline`: deep verification PASS for both r2 releases; both local packages passed extraction and deep verification.
 - `http-check`: 414/414; 262 HTTP-vs-CLI comparisons, 0 mismatches. Direct real-data HTTP/CLI capture and game retrieval evidence is under `benchmarks/corpus/`.
-- `./scripts/validate.sh`: PASS on the final R2 worktree (all eight gates, including Rust Clippy/tests, Python regression tests, production and corpus evidence, docs, and manifest). The script rewrote a historical timing snapshot as designed; that generated change was restored. GitHub CI for the pushed follow-up commit is still pending.
+- `./scripts/validate.sh`: PASS on pushed commit `eec5932` (all eight gates, including Rust Clippy/tests, Python regression tests, production and corpus evidence, docs, and manifest). The script rewrote a historical timing snapshot as designed; that generated change was restored. GitHub Actions run 66 for `eec5932`: PASS, including the unified gate and offline reproduction runner.
 ---
 
 ## 6. Next Actions
 
 1. Commit the validated R2 snapshots, marker-audit evidence, documentation, and handoff; do not stage `GOAL.md`.
 2. Push the feature branch and replace the stale Draft PR #6 description with current R2 evidence; keep it Draft and do not publish packages.
-3. Inspect CI for the pushed commit. GitHub CLI status-check access was denied by the configured token; use the connected GitHub integration or report the access limit.
+3. The following handoff-only commit will trigger another CI run; check it through the connected GitHub integration.
 4. Maintainer follow-up: improve or explicitly accept the remaining uncertainty for Masters events without OTB/online markers; keep Elite recency and provisional-rating limitations explicit.

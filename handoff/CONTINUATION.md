@@ -17,9 +17,10 @@ The prior implementation was on remote host `agents` in `/home/agent/workspace/c
 
 ## Verification and next actions
 
-- `./scripts/validate.sh`: PASS on this R2 worktree; all eight gates passed. The generated timing-only modification to `benchmarks/results/historical/stage_a_validation.json` was restored afterward. `MANIFEST.sha256` verifies.
-- The final R2 snapshots, marker-audit evidence, and documentation are ready to commit. Preserve untracked `GOAL.md`.
-- Push the branch, update Draft PR #6 with the current evidence and `NEEDS FURTHER WORK` readiness, then inspect CI. The GitHub CLI token could not read PR check rollups; the connected GitHub integration may provide status. Do not merge or upload corpus packages.
+- `./scripts/validate.sh`: PASS on pushed commit `eec5932`; all eight gates passed. The generated timing-only modification to `benchmarks/results/historical/stage_a_validation.json` was restored afterward. `MANIFEST.sha256` verifies.
+- GitHub Actions run 66 for `eec5932`: PASS, including the unified gate and offline reproduction runner.
+- The final R2 snapshots, marker-audit evidence, and documentation are committed and pushed. Draft PR #6 has an updated evidence-based description and remains **NEEDS FURTHER WORK**. Preserve untracked `GOAL.md`.
+- This handoff-only update will trigger another CI run; check it through the GitHub integration. Do not merge or upload corpus packages.
 
 ## Limitations to keep visible
 
