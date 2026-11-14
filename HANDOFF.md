@@ -21,11 +21,12 @@ Continue Draft PR #6 on feat/corpus-release-pipeline, based on the latest fetche
 - Package extraction now works on Python 3.11 without the unavailable TarFile.extractall(filter=...) API. It validates paths and symlink containment, extracts directories and files before relative symlinks, and normalizes file modes. Regression tests cover path traversal, symlink escapes, metadata normalization, and real package round trips.
 - RSS capture reads the child process's procfs VmHWM when available and falls back to child-specific wait4 usage for short-lived commands. This keeps the Python parent out of the measurement and no fixed 30 MB ceiling is enforced.
 - The pinned Rust 1.100 validation container completed ./scripts/validate.sh successfully on Python 3.11: formatting, strict Clippy, workspace tests, all 95 Python regression tests, corpus evidence, benchmark schemas, docs, and MANIFEST.sha256 passed. Dockerfile.validation installs rustfmt and Clippy. The host itself has no cargo executable.
+- Commit 5319855 (final package extraction and release evidence) is pushed to origin; Draft PR #6's body now reflects the qualified Masters release, Docker evidence, and checksum references. Two GitHub Actions runs for that head were observed in progress.
 
 ## Next actions
 
-1. Review the complete base-to-head diff, confirm tracked evidence and docs match the current releases, and commit the final updates.
-2. Push feat/corpus-release-pipeline, refresh the existing Draft PR #6 description with current provenance and verification evidence, and inspect hosted CI. Keep the PR Draft and unmerged.
+1. Inspect GitHub Actions for the latest PR head and address any failures; the full pinned-container validation gate already passes locally.
+2. Keep PR #6 Draft and unmerged for maintainer review.
 
 ## Evidence paths
 
