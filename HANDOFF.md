@@ -2,30 +2,33 @@
 
 ## Current objective
 
-Continue Draft PR #6 on `feat/corpus-release-pipeline`, based on the latest fetched `origin/main`. Keep it Draft and unmerged. Work in the required `ssh agents` workspace. Do not modify Evalis or add frontend, cloud, Kubernetes, replication, new CPI formats, Explorer filters, or the future 15-million-game corpus.
+Continue Draft PR #6 on feat/corpus-release-pipeline, based on the latest fetched origin/main. Keep it Draft and unmerged. Work in the required ssh agents workspace. Do not modify Evalis or add frontend, cloud, Kubernetes, replication, new CPI formats, Explorer filters, or the future 15-million-game corpus.
 
 ## Current state
 
-- Branch head before this follow-up is `01ec9b0`; latest fetched `origin/main` is `ddad720` and remains an ancestor.
-- All 13 pinned source archives are present and passed `./scripts/corpus.sh verify-sources --collection all --profile baseline`.
-- The event-level Masters qualification audit is deterministic and reconciles 42,612 source games: 29,640 verified OTB across 622 events, 1 verified online game, and 12,971 unresolved games across 365 events. Only verified OTB events are eligible for the next Masters release. Audit SHA-256: `a93763ac46a1e2c0653fe6ac5a4ab16c43ed4d53ca8132e0a806f29084f8c461`.
-- The existing Elite Online release and its verified package are available locally. Masters and Elite R2 release trees are available; the Masters package will be created from the qualified R3 release.
-- Docker/Compose deployment, safe package bootstrap, deep startup validation, and Rust atomic version publication are implemented. Read-only Compose bind mounts preserve the relative `current` symlink and immutable `versions/<id>` layout.
-- The production image built in the prior turn. The fixture container smoke passed after fixing the test-only named-volume override: health and readiness, both collections, real stored fixture PGNs, 96/96 concurrent requests, restart, read-only root and mounts, no published host ports, invalid requests, failed dataset starts, graceful SIGTERM. It used a read-only named-volume copy because the Docker daemon cannot see host bind paths from its namespace.
-- The first combined Python regression run had one Docker smoke error from invalid generated override YAML. That defect is fixed; the direct full fixture smoke now passes. Rerun the Docker regression suite and unified validation after the fix.
+- Implementation checkpoint: 9b06316. The branch is based on fetched origin/main ddad720.
+- All 13 pinned source archives are present and passed ./scripts/corpus.sh verify-sources --collection all --profile baseline.
+- The deterministic event-level Masters audit reconciles 42,612 accepted source games: 29,640 verified OTB across 622 events, 1 verified online game, and 12,971 unresolved games across 365 events. Only verified OTB event IDs are eligible for Masters.
+- A candidate Masters release built with 29,640 games, 705,718 positions at depth 40 and passed deep verification, but its codb build peak was 30,593,024 bytes, above the strict 30,000,000-byte limit. Do not qualify that candidate as the final release.
+- The Rust CLI now parses the large Masters audit through BufReader so ignored event evidence is not buffered in a Vec. This fix compiled in the pinned production image. The measured Masters release build after this change is still pending.
+- The production image with the streaming parser built successfully: image ID sha256:90e14eb57953d9ffe522071af9e169a984d3adffddac1c0e0e66220cc375526f, size 98,871,472 bytes.
+- The fixture Compose smoke passed on that image: health/readiness, both fixture collections, real fixture PGNs, 96/96 concurrent requests, restart, read-only root and mounts, no host ports, failed invalid starts, and graceful SIGTERM.
+- The existing Elite release remains unchanged: 429,150 games, 6,136,307 positions at depth 30. Its active binaries match the previously recorded independent rebuild hashes.
+- Earlier real Docker, HTTP, and package-bootstrap checks passed against the candidate Masters release, but release-specific evidence must be regenerated after the memory fix.
+- Docker-in-Docker cannot see workspace host bind paths, so integration smoke uses read-only named-volume copies. Normal Compose deployment continues to use read-only bind mounts.
 
 ## Next actions
 
-1. Review the final diff, update this handoff, and commit the implementation so the real release records a clean source commit.
-2. Rebuild and deeply verify Masters from the event-qualified 29,640-game policy; keep Elite unchanged. Package and verify both releases.
-3. Exercise Path A bootstrap from the two real packages into an isolated data root. Preserve the release IDs, checksums, and deep verification evidence.
-4. Run the real Compose smoke with both real releases. Record health, readiness, collection counts, both `e4,e5,Nf3` expectations, stored PGNs, failure cases, restart, graceful shutdown, read-only mounts, concurrent request results, and measured RSS. Be explicit that Docker-in-Docker requires a read-only named-volume copy if host binds remain unavailable.
-5. Refresh active documentation and benchmark evidence, preserve R2 evidence under `benchmarks/corpus/historical/2026.11-r2`, update `MANIFEST.sha256`, and run `./scripts/validate.sh`.
-6. Inspect the full base-to-head diff, push the existing feature branch, update Draft PR #6 with current evidence, and check CI. Do not mark ready or merge.
+1. Commit the streaming parser fix and updated smoke expectation from a clean worktree.
+2. Rebuild and deeply verify Masters. Confirm ingestion RSS is strictly below 30,000,000 bytes and its 29,640-game qualified event subset remains unchanged.
+3. Repackage both real releases and repeat Path A bootstrap into a fresh ignored directory.
+4. Regenerate release evidence, reproducibility hashes, package checksums, full HTTP check, and the real Docker Compose report for the final release IDs.
+5. Refresh current documentation, preserve R2 evidence, update MANIFEST.sha256, and run ./scripts/validate.sh.
+6. Review the complete base-to-head diff, push the existing branch, refresh Draft PR #6, and inspect CI. Do not mark ready or merge.
 
-## Evidence files
+## Evidence paths
 
-- `corpus/masters_event_qualification.json`: event-level classification evidence.
-- `benchmarks/corpus/historical/2026.11-r2/`: archived R2 evidence.
-- `docs/DOCKER_DEPLOYMENT.md`: provisioning, deployment, networking, and operations guide.
-- Local source archives, releases, packages, and build scratch remain under git-ignored `data/`; never commit them.
+- corpus/masters_event_qualification.json: per-event provenance and policy evidence.
+- benchmarks/corpus/historical/2026.11-r2/: preserved R2 evidence.
+- docs/DOCKER_DEPLOYMENT.md: provisioning, deployment, networking, and operations guide.
+- Source archives, releases, packages, and build scratch remain under git-ignored data/; never commit them.

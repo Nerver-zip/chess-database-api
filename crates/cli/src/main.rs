@@ -1028,10 +1028,10 @@ fn run_build(opts: BuildOptions) -> Result<()> {
             col == Collection::MastersOtb,
             "--masters-event-audit is only valid for the masters-otb collection"
         );
-        let bytes = std::fs::read(path).with_context(|| {
-            format!("Failed to read Masters event audit {}", path.display())
-        })?;
-        let audit: MastersEventAuditInput = serde_json::from_slice(&bytes).with_context(|| {
+        let audit_reader = BufReader::new(File::open(path).with_context(|| {
+            format!("Failed to open Masters event audit {}", path.display())
+        })?);
+        let audit: MastersEventAuditInput = serde_json::from_reader(audit_reader).with_context(|| {
             format!("Invalid Masters event audit JSON in {}", path.display())
         })?;
         anyhow::ensure!(

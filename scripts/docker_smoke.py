@@ -228,6 +228,7 @@ def check_live_api(codb: Path, roots: dict[str, Path], client: str,
         assert pgn.lstrip().startswith(b"[Event "), pgn[:200]
         queries[collection] = {
             "dataset_version": response["dataset_version"],
+            "position_http_response": response,
             "dataset_total_games": by_collection[collection]["total_games"],
             "cli_match": True,
             "expected_total_games_at_e4_e5_nf3": (
@@ -427,7 +428,7 @@ def main() -> int:
 
         expected = None
         if args.real:
-            expected = {"masters-otb": 5685, "elite-online": 30390}
+            expected = {"masters-otb": 3902, "elite-online": 30390}
         first = check_live_api(codb, roots, client, expected)
         check_bad_starts({"masters-otb": masters_volume, "elite-online": elite_volume,
                           "corrupt": corrupt_volume, "incomplete": incomplete_volume},
