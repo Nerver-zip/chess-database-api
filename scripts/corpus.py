@@ -719,7 +719,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
             "expected_cpi_bytes_estimate": cpi,
             "temporary_workspace_bytes_estimate": int(accepted * pl.get("temp_bytes_per_accepted_game", 0)),
             "memory_limits": {
-                "ingest_rss_ceiling_mib": 30,
+                "ingest_rss_measurement": "per-process VmHWM is recorded for each build step; no fixed ceiling",
                 "index_memory_limit_mib_default": 128,
             },
             "rebuild_time_seconds_estimate": int(
@@ -809,9 +809,11 @@ def run_measured(
     wall = time.monotonic() - t0
     peak_disk = sampler.finish()
     if peak_rss_bytes == 0:
-        if Path("/proc").is_dir():
-            raise CorpusError(f"Could not sample VmHWM for executed process: {cmd[0]}")
+        # Short-lived commands can exit before procfs is sampled; wait4 returns
+        # rusage for this child alone and does not include the Python orchestrator.
         peak_rss_bytes = ru.ru_maxrss * (1024 if sys.platform.startswith("linux") else 1)
+        if peak_rss_bytes == 0 and Path("/proc").is_dir():
+            raise CorpusError(f"Could not sample RSS for executed process: {cmd[0]}")
     return {
         "command": " ".join(cmd),
         "returncode": proc.returncode,
@@ -1514,6 +1516,64 @@ def extract_release_archive(archive: Path, destination: Path,
         raise CorpusError(f"invalid release package {archive}: {error}") from error
 
 
+def _extract_package_members_safely(tf: tarfile.TarFile, members: list[tarfile.TarInfo],
+                                    destination: Path) -> None:
+    directory_members = [member for member in members if member.isdir()]
+    file_members = [
+        member for member in members
+        if member.type in (tarfile.REGTYPE, tarfile.AREGTYPE)
+    ]
+    symlink_members = [member for member in members if member.issym()]
+
+    def path_for(member: tarfile.TarInfo) -> Path:
+        return destination.joinpath(*PurePosixPath(member.name).parts)
+
+    def ensure_parent_directories(member: tarfile.TarInfo) -> None:
+        parts = PurePosixPath(member.name).parts
+        parent = destination
+        for part in parts[:-1]:
+            parent = parent / part
+            if os.path.lexists(parent):
+                if parent.is_symlink() or not parent.is_dir():
+                    raise CorpusError(f"package member traverses a non-directory path: {member.name}")
+            else:
+                parent.mkdir(mode=0o755)
+
+    for member in sorted(directory_members, key=lambda item: (len(PurePosixPath(item.name).parts), item.name)):
+        ensure_parent_directories(member)
+        target = path_for(member)
+        if os.path.lexists(target):
+            if target.is_symlink() or not target.is_dir():
+                raise CorpusError(f"package directory conflicts with an existing entry: {member.name}")
+        else:
+            target.mkdir(mode=0o755)
+
+    for member in file_members:
+        ensure_parent_directories(member)
+        target = path_for(member)
+        if os.path.lexists(target):
+            raise CorpusError(f"package file conflicts with an existing entry: {member.name}")
+        source = tf.extractfile(member)
+        if source is None:
+            raise CorpusError(f"package file has no extractable data: {member.name}")
+        with source, target.open("xb") as output:
+            remaining = member.size
+            while remaining:
+                block = source.read(min(CHUNK, remaining))
+                if not block:
+                    raise CorpusError(f"package file is truncated: {member.name}")
+                output.write(block)
+                remaining -= len(block)
+        os.chmod(target, 0o644)
+
+    for member in symlink_members:
+        ensure_parent_directories(member)
+        target = path_for(member)
+        if os.path.lexists(target):
+            raise CorpusError(f"package symlink conflicts with an existing entry: {member.name}")
+        os.symlink(member.linkname, target)
+
+
 def _extract_release_archive_unchecked(archive: Path, destination: Path,
                                       expected_collection: str | None = None) -> Path:
     '''Verify the detached checksum and safely extract one complete release package.'''
@@ -1532,23 +1592,44 @@ def _extract_release_archive_unchecked(archive: Path, destination: Path,
         if not members:
             raise CorpusError("package archive is empty")
         roots: set[str] = set()
-        seen: set[str] = set()
+        entry_kinds: dict[str, str] = {}
         for member in members:
-            path = PurePosixPath(member.name)
-            if path.is_absolute() or not path.parts or any(part in ("", ".", "..") for part in path.parts):
+            raw_parts = member.name.split("/")
+            if member.isdir() and raw_parts and raw_parts[-1] == "":
+                raw_parts.pop()
+            if member.name.startswith("/") or not raw_parts or any(
+                part in ("", ".", "..") for part in raw_parts
+            ):
                 raise CorpusError(f"unsafe package path: {member.name}")
+            path = PurePosixPath(*raw_parts)
             roots.add(path.parts[0])
-            normalized_name = str(path)
-            if normalized_name in seen:
+            normalized_name = "/".join(raw_parts)
+            if normalized_name in entry_kinds:
                 raise CorpusError(f"duplicate package path: {member.name}")
-            seen.add(normalized_name)
-            if not (member.isdir() or member.isfile() or member.issym()):
-                raise CorpusError(f"unsupported package entry type: {member.name}")
-            if member.issym():
+            if member.isdir():
+                entry_kind = "directory"
+            elif member.type in (tarfile.REGTYPE, tarfile.AREGTYPE):
+                if member.size < 0:
+                    raise CorpusError(f"package file has an invalid size: {member.name}")
+                entry_kind = "file"
+            elif member.issym():
+                entry_kind = "symlink"
                 link = PurePosixPath(member.linkname)
                 resolved = posixpath.normpath(posixpath.join(str(path.parent), member.linkname))
                 if link.is_absolute() or resolved == ".." or resolved.startswith("../"):
                     raise CorpusError(f"package symlink escapes release root: {member.name}")
+            else:
+                raise CorpusError(f"unsupported package entry type: {member.name}")
+            entry_kinds[normalized_name] = entry_kind
+
+        for name in entry_kinds:
+            parts = name.split("/")
+            for index in range(1, len(parts)):
+                ancestor = "/".join(parts[:index])
+                if entry_kinds.get(ancestor) in ("file", "symlink"):
+                    raise CorpusError(
+                        f"package member traverses a non-directory entry: {name}"
+                    )
         if len(roots) != 1:
             raise CorpusError("package must contain exactly one top-level release directory")
         root_name = next(iter(roots))
@@ -1558,9 +1639,14 @@ def _extract_release_archive_unchecked(archive: Path, destination: Path,
             raise CorpusError(
                 f"package collection '{root_name}' does not match requested '{expected_collection}'"
             )
+        if destination.is_symlink():
+            raise CorpusError("package extraction destination must not be a symlink")
         destination.mkdir(parents=True, exist_ok=True)
+        if not destination.is_dir() or any(destination.iterdir()):
+            raise CorpusError("package extraction destination must be an empty directory")
+        destination = destination.resolve()
         try:
-            tf.extractall(destination, members=members, filter="data")
+            _extract_package_members_safely(tf, members, destination)
         except (OSError, tarfile.TarError, ValueError) as error:
             raise CorpusError(f"could not safely extract release package: {error}") from error
 

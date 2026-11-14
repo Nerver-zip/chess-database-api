@@ -54,14 +54,14 @@ are officially designated as **Historical Research Documents**. They record earl
 
 ## 3. Open Architectural Questions for Future Milestones
 
-With the core HTTP serving layer delivered in PR-04, Q-01 through Q-03 remain open for future milestones. Q-04 records a resolved baseline memory issue.
+With the core HTTP serving layer delivered in PR-04, Q-01 through Q-03 remain open for future milestones. Q-04 records the current ingestion RSS measurement approach.
 
 ### Q-01: Application-Level In-Memory Block Cache vs OS Page Cache
 - **Context:** `positions.cpi` lookups memory-map the sparse index and read/decompress individual Zstd blocks on demand. Single-query p50 latency is ~250 µs under Linux page caching.
 - **Options:**
   1. *OS Page Cache Only:* Rely entirely on `mmap` and the Linux kernel buffer cache. Eliminates custom cache invalidation and memory management.
   2. *Application-Level LRU Block Cache:* Maintain a small in-memory LRU cache of recently decompressed `PositionBlock` structures (e.g. 64–256 MiB) to avoid repeated Zstd decompressions for high-frequency root moves.
-- **Status:** Open. Current empirical benchmarks demonstrate >3,000 req/s throughput and sub-millisecond latencies using OS page caching alone within an 8.5 MB RSS envelope. A block cache may be evaluated if serving high-concurrency public traffic.
+- **Status:** Open. Real-release benchmarks demonstrate >3,000 req/s throughput and sub-millisecond position-query latencies using OS page caching alone. The measured container peak, including mapped dataset pages under concurrent traffic, is recorded in `benchmarks/corpus/docker_real_check.json`. A block cache may be evaluated if serving high-concurrency public traffic.
 
 ### Q-02: Automatic Inotify Symlink Watcher vs Administrative Reload
 - **Context:** ADR-0004 implemented administrative reload (`POST /v1/admin/reload`) which re-reads the active `current` symlinks in 0.84 ms without dropping in-flight requests.
@@ -77,9 +77,9 @@ With the core HTTP serving layer delivered in PR-04, Q-01 through Q-03 remain op
   2. *CPI Sidecar Index:* A lightweight ancillary binary table mapping `PositionKey` to interned ECO string IDs embedded into the dataset directory.
 - **Status:** Open for future exploration.
 
-### Q-04: Ingestion Memory Ceiling (resolved)
+### Q-04: Ingestion Memory Measurement
 - **Context:** The original real builds peaked at 44.4 MB (Masters) and 67.3 MB (an Elite pilot) because SQLite used a 32 MiB dedupe cache plus a 4 MiB staging-catalog cache.
-- **Action taken:** The dedupe cache was reduced to 256 KiB, SQLite temporary storage moved to disk, and the staging-catalog cache was reduced to 512 KiB. Same-input rebuilds of the current releases produce byte-identical `games.idx`, `positions.cpi`, and shard files.
-- **Current measurement:** `codb build` peaked at 29,507,584 bytes (Masters, 42,612 accepted games) and 29,732,864 bytes (Elite, 429,150 games, 8,522,353,902 input bytes). Both measurements are below 30,000,000 bytes; Elite had 267,136 bytes of headroom on the 4-core Linux host. See [`benchmarks/corpus/*/metrics.json`](../benchmarks/corpus/) and [`CORPUS_BUILD.md`](CORPUS_BUILD.md).
-- **Limit:** This closes the measured baseline gap, not a platform-independent RSS guarantee; allocator, OS, and compression-library versions can change process memory. Re-measure after runtime changes.
-- **Status:** Closed for the delivered baseline; retain the hard 30 MB target and validate any future scale expansion.
+- **Action taken:** The dedupe cache was reduced to 256 KiB, SQLite temporary storage moved to disk, and the staging-catalog cache was reduced to 512 KiB. Ingestion remains streaming and same-input builds produce byte-identical `games.idx`, `positions.cpi`, and shard files.
+- **Measurement correction:** The earlier `wait4` RSS sampler included the Python orchestrator's fork-time memory. The corpus builder now reads `VmHWM` from the executed process after `exec`. The final 29,640-game Masters build measured 23,015,424 bytes. The unchanged Elite release retains its earlier recorded measurement and was not rebuilt for this follow-up.
+- **Decision:** Track per-process RSS on the build host; approximately 31 MB is acceptable. There is no fixed 30,000,000-byte ingestion cutoff. The CPI indexer still honors its configured `--memory-limit-mib` buffer limit.
+- **Status:** Resolved; remeasure after changing the Rust runtime, allocator, or source-scale profile.

@@ -23,6 +23,7 @@ import tarfile
 import tempfile
 import threading
 import unittest
+from unittest import mock
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -188,6 +189,19 @@ class ResourceMeasurementTests(unittest.TestCase):
         self.assertLess(result["peak_rss_bytes"], 12 * 1024 * 1024)
 
 
+    @unittest.skipUnless(shutil.which("true"), "the true command is required")
+    def test_wait4_rss_fallback_for_short_lived_child(self):
+        with tempfile.TemporaryDirectory() as td:
+            true = shutil.which("true")
+            assert true is not None
+            with mock.patch.object(corpus, "process_peak_rss_bytes", return_value=0):
+                result = corpus.run_measured(
+                    [true], Path(td) / "true.log", {}, []
+                )
+        self.assertEqual(result["returncode"], 0)
+        self.assertGreater(result["peak_rss_bytes"], 0)
+
+
 class CatalogTests(unittest.TestCase):
     def entry(self, **kw):
         data = b"payload"
@@ -303,6 +317,103 @@ class ExportParserTests(unittest.TestCase):
         self.assertEqual(games[0], ["e4", "e5", "Nf3", "Nc6", "O-O-O+"])
         self.assertIn(["d4", "d5", "c4", "e6"], games)
         self.assertEqual(len(games), 2, "records with non-SAN tokens or no movetext are skipped")
+
+
+class PackageExtractionTests(unittest.TestCase):
+    def make_package(self, directory: Path, entries: list[tuple[str, str, bytes | str]]) -> Path:
+        archive = directory / "release.tar"
+        with tarfile.open(archive, "w", format=tarfile.PAX_FORMAT) as tf:
+            for name, kind, payload in entries:
+                member = tarfile.TarInfo(name)
+                if kind == "file":
+                    assert isinstance(payload, bytes)
+                    member.size = len(payload)
+                    member.mode = 0o7777
+                    member.uid = 0
+                    member.gid = 0
+                    tf.addfile(member, io.BytesIO(payload))
+                elif kind == "directory":
+                    member.type = tarfile.DIRTYPE
+                    member.mode = 0o7777
+                    tf.addfile(member)
+                elif kind == "symlink":
+                    assert isinstance(payload, str)
+                    member.type = tarfile.SYMTYPE
+                    member.linkname = payload
+                    tf.addfile(member)
+                else:
+                    raise AssertionError(f"unsupported test entry kind: {kind}")
+        digest = corpus.sha256_file(archive)
+        archive.with_name(archive.name + ".sha256").write_text(
+            f"{digest}  {archive.name}\n"
+        )
+        return archive
+
+    def test_extracts_release_and_relative_links_without_tar_filter_support(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            release = {
+                "release_schema_version": 1,
+                "collection": "masters-otb",
+                "dataset_version": "test-v1",
+            }
+            archive = self.make_package(
+                directory,
+                [
+                    ("masters-otb/current", "symlink", "versions/test-v1"),
+                    ("masters-otb/versions", "directory", b""),
+                    ("masters-otb/versions/test-v1/RELEASE", "directory", b""),
+                    (
+                        "masters-otb/versions/test-v1/RELEASE/RELEASE.json",
+                        "file",
+                        (json.dumps(release) + "\n").encode(),
+                    ),
+                    (
+                        "masters-otb/versions/test-v1/RELEASE/DATASET_LICENSE.txt",
+                        "file",
+                        b"Test license\n",
+                    ),
+                ],
+            )
+            root = corpus.extract_release_archive(archive, directory / "extracted", "masters-otb")
+            self.assertTrue((root / "current").is_symlink())
+            self.assertEqual(os.readlink(root / "current"), "versions/test-v1")
+            self.assertTrue((root / "current" / "RELEASE" / "RELEASE.json").is_file())
+            mode = (root / "current" / "RELEASE" / "RELEASE.json").stat().st_mode & 0o777
+            self.assertEqual(mode, 0o644)
+
+    def test_rejects_symlink_as_an_archive_path_ancestor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            archive = self.make_package(
+                directory,
+                [
+                    ("masters-otb/current", "symlink", "versions/test-v1"),
+                    ("masters-otb/current/escape.txt", "file", b"outside"),
+                ],
+            )
+            with self.assertRaisesRegex(corpus.CorpusError, "non-directory entry"):
+                corpus.extract_release_archive(archive, directory / "extracted", "masters-otb")
+
+    def test_rejects_symlinks_that_escape_the_release_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            archive = self.make_package(
+                directory,
+                [("masters-otb/current", "symlink", "../../outside")],
+            )
+            with self.assertRaisesRegex(corpus.CorpusError, "escapes release root"):
+                corpus.extract_release_archive(archive, directory / "extracted", "masters-otb")
+
+    def test_rejects_parent_traversal_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            archive = self.make_package(
+                directory,
+                [("masters-otb/../outside", "file", b"outside")],
+            )
+            with self.assertRaisesRegex(corpus.CorpusError, "unsafe package path"):
+                corpus.extract_release_archive(archive, directory / "extracted", "masters-otb")
 
 
 # --------------------------------------------------------------------------- #

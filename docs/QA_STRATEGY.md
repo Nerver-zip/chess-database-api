@@ -98,6 +98,10 @@ Offline tests cover release checksum verification, unsafe or incomplete package 
 
 ---
 
+### 4.3 Real-corpus Docker integration
+
+The opt-in acceptance run uses the final provisioned Masters and Elite releases and an independent digest-pinned HTTP client container on the same Docker network. The latest recorded run reached `http://codb:8080`, queried health/readiness/collections, checked the real `e4,e5,Nf3` totals (3,902 and 30,390), retrieved stored PGNs from both collections, and passed 96/96 concurrent requests. It then restarted the service and repeated readiness and deep dataset verification. Invalid mounts and corrupted or incomplete datasets were rejected, volumes and root filesystem were read-only, no host ports were published, administrative reload remained disabled, and SIGTERM shutdown completed. The observed runtime peak was 159,224 KiB under the 512 MiB container cap. Full evidence is in [`benchmarks/corpus/docker_real_check.json`](../benchmarks/corpus/docker_real_check.json); this is separate from the deterministic fixture smoke used in CI.
+
 ## 5. Automated Verification Gates
 
 Every pull request and commit must satisfy the complete verification gate:
@@ -131,6 +135,12 @@ python3 scripts/validate_docs.py
 
 # 8. Cryptographic contract manifest verification
 sha256sum -c MANIFEST.sha256
+```
+
+The pinned validation image includes the Rust formatting and lint components and runs the same gate without copying local datasets:
+
+```bash
+docker build --progress=plain -f Dockerfile.validation -t codb-validation:local .
 ```
 
 All 8 steps are bundled into the executable test harness:

@@ -12,7 +12,9 @@ The Docker image contains only the codb API executable and runtime libraries. Ma
 
 - Docker Engine and Docker Compose v2.
 - A checkout of this repository and enough local disk for release packages or source archives, extracted datasets, and build workspace.
-- For source rebuilds, the pinned source archives total about 8.66 GB. The plan command reports disk and memory estimates.
+- The current extracted release directories use 29,892,368 bytes (Masters, including the event audit) and 210,308,033 bytes (Elite). The verified packages are 38,072,320 and 210,370,560 bytes respectively.
+- For source rebuilds, the pinned source archives total about 8.66 GB. The largest measured build workspace was about 435.7 MB; leave additional room for source files, both published releases, and staging copies. `corpus.sh plan` reports source transfer and disk estimates.
+- Compose caps CODB at 512 MiB. The final real-corpus container smoke sampled 163,045,376 bytes (159,224 KiB) at peak under concurrent queries and PGN retrieval. RSS includes memory-mapped dataset pages and varies with query traffic.
 
 Build the host CLI used for bootstrap and verification:
 
@@ -133,6 +135,17 @@ Container-to-container HTTP requests do not use browser CORS and need no publish
 | CODB_LOG_LEVEL | info | Rust tracing filter |
 
 Compose also limits the process to 64 PIDs and 1,024 open files. Adjust limits only after measuring the real service workload. Dataset files are memory-mapped, so resident memory includes file-backed pages and depends on query traffic. The release directories require sizes recorded by the provisioning command; the host needs additional space for packages and bootstrap work. Run corpus.sh plan before rebuilding.
+
+## Real Release Acceptance Evidence
+
+The current real-corpus report is `benchmarks/corpus/docker_real_check.json`. It records a digest-pinned independent client reaching `http://codb:8080`, both release IDs and game counts, the opening baseline (3,902 Masters and 30,390 Elite games for `e4,e5,Nf3`), PGN retrieval from each collection, 96/96 concurrent requests, container restart, graceful SIGTERM, read-only mounts and root filesystem, no published host ports, and failure rejection for missing, wrong, incomplete, and corrupted releases. The Docker image measured 98,871,472 bytes. The test daemon could not access the workspace through bind paths, so this run used read-only named-volume copies; the normal Compose configuration mounts host release roots read-only.
+
+To reproduce after provisioning both real releases:
+
+~~~bash
+python3 scripts/docker_smoke.py --real --data-dir data \
+  --report-json benchmarks/corpus/docker_real_check.json
+~~~
 
 ## Safe Dataset Updates
 

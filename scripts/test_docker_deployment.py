@@ -46,6 +46,9 @@ class DockerDeploymentTests(unittest.TestCase):
         self.assertIn("data/", validation_ignore)
         self.assertIn(".git/", validation_ignore)
         self.assertIn(".env.*", validation_ignore)
+        validation_dockerfile = (REPO / "Dockerfile.validation").read_text()
+        self.assertIn("rustup component add rustfmt clippy", validation_dockerfile)
+        self.assertIn("RUN ./scripts/validate.sh", validation_dockerfile)
 
     @unittest.skipUnless(docker_daemon_available(), "Docker daemon is unavailable")
     def test_compose_configs_parse(self):

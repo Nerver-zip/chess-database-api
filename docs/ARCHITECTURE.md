@@ -11,7 +11,7 @@ status: current
 `chess-openings-db` is a modular, high-performance chess database and position indexing engine written in Rust. It ingests large, heterogeneous PGN corpora, enforces strict legal move validation, canonicalizes headers, eliminates duplicates with prefix-supersession, stores compressed games in persistent sharded CGB3 containers, and builds immutable Compact Position Indexes (CPI v2) using bounded-memory external sorting.
 
 The architecture is designed around explicit resource bounds:
-- **Streaming Ingestion Memory:** measured peak RSS remains below the 30 MB target for the verified releases; platform-specific builds must be measured independently.
+- **Streaming Ingestion Memory:** ingestion is streaming with O(1) memory scaling relative to input size. Record executed-process VmHWM for each build host; no fixed 30 MB release cutoff applies.
 - **Position Indexing Memory:** peak accumulation is bounded by the --memory-limit-mib option (default 128 MiB, configurable down to 16 MiB).
 - **HTTP Runtime:** Compose applies a 512 MiB memory cap, a 2 CPU quota, bounded request and reader-pool timeouts, and a reader-pool capacity of 1–64 per snapshot.
 - **Current Release Footprint:** exact corpus and container measurements are recorded in [CORPUS_BUILD.md](CORPUS_BUILD.md). The historical 15-million-game projection is research only, not a current deployment target.
@@ -204,14 +204,14 @@ Memory limits are strictly enforced across all components:
 
 | Component | Ingestion / Processing Strategy | Peak Memory Guarantee |
 | :--- | :--- | :--- |
-| **PGN Ingestion** | Streaming tokenization via `pgn-reader`, immediate legal validation | $< 30\text{ MB}$ RSS regardless of corpus size |
+| **PGN Ingestion** | Streaming tokenization via `pgn-reader`, immediate legal validation | O(1) memory scaling relative to input size; measure per-process RSS on the build host |
 | **Deduplication** | Disk-backed SQLite index in staging directory | 256 KiB SQLite cache plus a 512 KiB staging-catalog cache; temp store is disk-backed |
 | **CGB3 Storage** | Single active block buffer ($N = 512$ games) flushed to disk | $\approx 2\text{ MB}$ uncompressed block RAM |
 | **Position Indexing** | External merge sort with partitioned `.crun` spill files | Strictly bounded by `--memory-limit-mib` (default 128 MiB) |
 | **Opening Query** | Memory-mapped sparse index ($34\text{ B/entry}$) + single block cache | $< 10\text{ MB}$ query overhead |
 | **HTTP Serving** | Bounded reader pool plus memory-mapped CPI/games.idx | Reader count and request waits are bounded; process RSS includes touched file-backed pages and is measured against the real releases |
 
-> **Measured releases:** Build-step and container RSS measurements for the current releases are recorded in [CORPUS_BUILD.md](CORPUS_BUILD.md#92-build-performance-one-pass-kernel-rusage-and-workspace-sampling) and its Docker integration evidence.
+> **Measured releases:** Build-step and real-container RSS measurements are recorded in [CORPUS_BUILD.md](CORPUS_BUILD.md) and its Docker integration evidence.
 
 ---
 

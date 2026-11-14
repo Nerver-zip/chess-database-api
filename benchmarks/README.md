@@ -8,7 +8,7 @@ This directory houses the empirical performance benchmarks, scaling measurements
 benchmarks/
 ├── README.md               # Directory overview and methodology guide (this file)
 ├── production_cpi/         # Authoritative active production CPI index baselines (ADR-0003)
-├── corpus/                 # Real Masters/Elite release evidence and HTTP check results (PR-A)
+├── corpus/                 # Current real Masters/Elite, package, and Docker evidence
 └── results/                # Output destination for runtime benchmark executions
     └── historical/         # Preserved benchmark artifacts from completed research milestones
 ```
@@ -37,7 +37,7 @@ Each production CPI artifact verifies:
 
 ## 1.1 Real Corpus Evidence (`benchmarks/corpus/`)
 
-Small JSON records (release manifest, build report, quality report, per-step metrics, index report, dataset license notice, and the HTTP/CLI check) produced by `scripts/corpus.sh build` and `scripts/corpus.sh http-check` on the real Lichess-derived corpus. They are validated by [`scripts/validate_corpus_evidence.py`](../scripts/validate_corpus_evidence.py). Binary datasets are never committed; see [docs/CORPUS_BUILD.md](../docs/CORPUS_BUILD.md).
+Small JSON records (release manifest, build report, quality report, per-step metrics, index report, dataset license notice, event audit, package checksums, HTTP/CLI check, and real Docker smoke report) produced by the corpus and Docker acceptance workflows on the real Lichess-derived releases. They are validated by [`scripts/validate_corpus_evidence.py`](../scripts/validate_corpus_evidence.py). Binary datasets are never committed; see [docs/CORPUS_BUILD.md](../docs/CORPUS_BUILD.md).
 
 ---
 

@@ -1,8 +1,8 @@
-Dataset: masters-otb (codb-masters-otb-1794613202919732665-519790-fef699852dd26b42-cpi-d40)
+Dataset: masters-otb (codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40)
 License: Creative Commons Attribution-ShareAlike 4.0 International (https://creativecommons.org/licenses/by-sa/4.0/)
 
 This dataset is derived from the Lichess broadcast PGN archives published at https://database.lichess.org/#broadcasts under the Creative Commons Attribution-ShareAlike 4.0 International license (CC BY-SA 4.0), https://creativecommons.org/licenses/by-sa/4.0/ .
-Changes made: games were filtered (FIDE-rating thresholds, standard chess only, online-event exclusion, minimum length), deduplicated, and re-encoded into the CGB3 binary container; position statistics were aggregated into a CPI v2 index.
+Changes made: games were filtered (FIDE-rating thresholds, standard chess only, event-level verified OTB tournament allowlist, online/unresolved event exclusion, minimum length), deduplicated, and re-encoded into the CGB3 binary container; position statistics were aggregated into a CPI v2 index.
 ShareAlike: redistributed adaptations of this dataset must be licensed under CC BY-SA 4.0 or a compatible license.
 
 The chess-openings-db software is licensed MIT OR Apache-2.0; that license does not

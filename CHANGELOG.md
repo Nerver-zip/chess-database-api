@@ -14,13 +14,18 @@ All notable changes to `chess-openings-db` are documented in this file. The proj
   - Release provenance (`RELEASE/RELEASE.json`) and legal notice (`RELEASE/DATASET_LICENSE.txt`) bundled with every release.
   - `codb bench-lookup` (in-process CPI lookup latency on a published release) and a multi-process HTTP load client in `http-check`.
   - `docs/CORPUS_BUILD.md`, offline fixtures (`fixtures/corpus/`), and `scripts/test_corpus.py`.
+- **Dockerized Opening Explorer and portable real releases (PR #6 follow-up):**
+  - Multi-stage, non-root CODB API image and Compose deployment with read-only release mounts, restricted host exposure, health checks, bounded runtime settings, and shared-network access at `http://codb:8080`.
+  - Package checksum bootstrap and explicit pinned-source rebuild workflow; startup never fetches or rebuilds corpora.
+  - Real Masters event audit now qualifies a 29,640-game verified OTB subset; 1 online game and 12,971 unresolved games in the 42,612-game audit baseline are excluded.
+  - Atomic immutable release publication, per-process RSS measurement, and real container-to-container HTTP integration evidence for both collections.
 
 ### Changed
-- **Curation policy revision `2026.11-r2`:** Masters rejects explicit aborted, abandoned, no-contest, unplayed, unterminated, and rules-infraction `Termination` values in addition to online-event markers and historical games without event/venue provenance; Elite applies the same termination filter alongside its existing casual and bullet exclusions. Unknown termination values remain eligible. `ProvisionalRating` cannot be inferred because standard Lichess PGNs expose no provisional marker.
+- **Curation policy revisions `2026.11-r3` / `2026.11-r2`:** Masters r3 applies exact event-level verified OTB tournament IDs from the checked-in audit and excludes verified online and unresolved events; it retains termination and historical provenance filters. Elite r2 rejects explicit aborted, abandoned, no-contest, unplayed, unterminated, and rules-infraction `Termination` values alongside its casual and bullet exclusions. Unknown termination values remain eligible. `ProvisionalRating` cannot be inferred because standard Lichess PGNs expose no provisional marker.
 - Policy rejections are reported by stable category (`PolicyRejectionReason::category`).
 
 ### Fixed
-- Deduplication SQLite cache lowered from 2 MiB to 256 KiB, temp storage moved to disk, and staging-catalog cache lowered from 4 MiB to 512 KiB; current `codb build` peaks are 29.51 MB (Masters) and 29.73 MB (Elite), under the 30,000,000-byte budget on the measured host.
+- Deduplication SQLite cache is 256 KiB, temp storage is disk-backed, and the staging-catalog cache is 512 KiB. The corpus runner records executed-process `VmHWM`; ingestion RSS is measured per host and has no fixed 30 MB cutoff.
 - `docs/DATA_CONTRACTS.md` documented HTTP 422 for unsupported query parameters; the implementation (and the error table) return HTTP 400 `unsupported_parameter`.
 
 ---

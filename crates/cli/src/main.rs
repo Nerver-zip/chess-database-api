@@ -735,8 +735,8 @@ fn main() -> Result<()> {
             collection,
         } => {
             let collection: Collection = collection.into();
-            let active = publish_prebuilt_dataset(&candidate, &target, collection)
-                .with_context(|| {
+            let active =
+                publish_prebuilt_dataset(&candidate, &target, collection).with_context(|| {
                     format!(
                         "Failed to publish candidate dataset {} into {}",
                         candidate.display(),
@@ -1028,12 +1028,12 @@ fn run_build(opts: BuildOptions) -> Result<()> {
             col == Collection::MastersOtb,
             "--masters-event-audit is only valid for the masters-otb collection"
         );
-        let audit_reader = BufReader::new(File::open(path).with_context(|| {
-            format!("Failed to open Masters event audit {}", path.display())
-        })?);
-        let audit: MastersEventAuditInput = serde_json::from_reader(audit_reader).with_context(|| {
-            format!("Invalid Masters event audit JSON in {}", path.display())
-        })?;
+        let audit_reader =
+            BufReader::new(File::open(path).with_context(|| {
+                format!("Failed to open Masters event audit {}", path.display())
+            })?);
+        let audit: MastersEventAuditInput = serde_json::from_reader(audit_reader)
+            .with_context(|| format!("Invalid Masters event audit JSON in {}", path.display()))?;
         anyhow::ensure!(
             audit.schema_version == 1,
             "Unsupported Masters event audit schema version {}",
@@ -1054,11 +1054,11 @@ fn run_build(opts: BuildOptions) -> Result<()> {
             );
         }
         let online: std::collections::HashSet<String> = online_items
-            .into_iter()
+            .iter()
             .map(|slug| slug.to_ascii_lowercase())
             .collect();
         let otb: std::collections::HashSet<String> = otb_items
-            .into_iter()
+            .iter()
             .map(|slug| slug.to_ascii_lowercase())
             .collect();
         anyhow::ensure!(
@@ -3311,6 +3311,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap();
 
@@ -3384,6 +3385,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap();
 
@@ -3415,6 +3417,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap_err();
         assert!(err_mismatch.to_string().contains("checksum mismatch"));
@@ -3440,6 +3443,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap_err();
         assert!(err_malformed.to_string().contains("Malformed SHA-256"));
@@ -3467,6 +3471,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap_err();
         assert!(err_missing.to_string().contains("does not exist"));
@@ -3504,6 +3509,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap_err();
         assert!(err_altered.to_string().contains("checksum mismatch"));
@@ -3540,6 +3546,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap();
 
@@ -3605,6 +3612,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap();
 
@@ -3692,6 +3700,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap();
 

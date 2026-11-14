@@ -192,15 +192,14 @@ impl MastersOtbPolicy {
         // 3. Event-level provenance. When the audit is configured, exact tournament IDs
         // decide the event class; explicit per-game event, site, or broadcast markers still
         // reject a game from an otherwise verified tournament.
-        let tournament_slug =
-            broadcast_tournament_slug(game.metadata.broadcast_url.as_deref());
+        let tournament_slug = broadcast_tournament_slug(game.metadata.broadcast_url.as_deref());
         if let Some(slug) = tournament_slug.as_deref() {
             if self.verified_online_tournament_slugs.contains(slug) {
-                return PolicyVerdict::Rejected(
-                    PolicyRejectionReason::OnlineEventInMastersSource(format!(
+                return PolicyVerdict::Rejected(PolicyRejectionReason::OnlineEventInMastersSource(
+                    format!(
                         "official event audit classifies broadcast tournament '{slug}' as online"
-                    )),
-                );
+                    ),
+                ));
             }
         }
         if self.require_verified_otb_event {
@@ -219,9 +218,9 @@ impl MastersOtbPolicy {
                 );
             }
             if let Some(marker) = online_event_marker(game) {
-                return PolicyVerdict::Rejected(
-                    PolicyRejectionReason::OnlineEventInMastersSource(marker),
-                );
+                return PolicyVerdict::Rejected(PolicyRejectionReason::OnlineEventInMastersSource(
+                    marker,
+                ));
             }
         } else if let Some(marker) = online_event_marker(game) {
             return PolicyVerdict::Rejected(PolicyRejectionReason::OnlineEventInMastersSource(
@@ -656,9 +655,8 @@ mod tests {
             None,
             40,
         );
-        otb.metadata.broadcast_url = Some(
-            "https://lichess.org/broadcast/verified-otb-12/round-1/AbCd1234".into(),
-        );
+        otb.metadata.broadcast_url =
+            Some("https://lichess.org/broadcast/verified-otb-12/round-1/AbCd1234".into());
         assert_eq!(policy.evaluate(&otb), PolicyVerdict::Accepted);
 
         let mut explicit_online_site = otb.clone();
@@ -669,18 +667,16 @@ mod tests {
         ));
 
         let mut online = otb.clone();
-        online.metadata.broadcast_url = Some(
-            "https://lichess.org/broadcast/verified-online-7/round-3/XyZ12345".into(),
-        );
+        online.metadata.broadcast_url =
+            Some("https://lichess.org/broadcast/verified-online-7/round-3/XyZ12345".into());
         assert!(matches!(
             policy.evaluate(&online),
             PolicyVerdict::Rejected(PolicyRejectionReason::OnlineEventInMastersSource(_))
         ));
 
         let mut unresolved = otb;
-        unresolved.metadata.broadcast_url = Some(
-            "https://lichess.org/broadcast/unreviewed-13/round-2/QwEr1234".into(),
-        );
+        unresolved.metadata.broadcast_url =
+            Some("https://lichess.org/broadcast/unreviewed-13/round-2/QwEr1234".into());
         assert!(matches!(
             policy.evaluate(&unresolved),
             PolicyVerdict::Rejected(PolicyRejectionReason::UnverifiedMastersProvenance(_))

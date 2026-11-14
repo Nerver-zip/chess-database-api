@@ -4,7 +4,8 @@
       "accepted_games": 429150,
       "accounting_reconciled": true,
       "collection": "elite-online",
-      "reference_release_id": "codb-elite-online-1794610850844039764-517940-edce81ac7fe9ae24-cpi-d30",
+      "note": "Elite artifacts are byte-identical to two archived independent baseline rebuilds; the current Elite collection was not changed.",
+      "reference_release_id": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
       "reference_sha256": {
         "games.idx": "83125009540b3887c3b1ebd75e2435207aeb0e6a8e1e797a0b2d7d7eec309558",
         "positions.cpi": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
@@ -17,7 +18,7 @@
         "shards/shard_0000.cgb3": "5ecd991fc9b8df1798d05e3969f0b9e826da7bd8be4efb7f442a981b1daf3cbd"
       },
       "same_binary_artifacts": true,
-      "source_manifest": "data/releases/elite-online/RELEASE/sources.manifest.json",
+      "source_manifest": "data/releases/elite-online/current/RELEASE/sources.manifest.json",
       "wall_seconds": {
         "build": 659.244,
         "build-index": 19.614,
@@ -26,28 +27,28 @@
       }
     },
     "masters-otb": {
-      "accepted_games": 42612,
+      "accepted_games": 29640,
       "accounting_reconciled": true,
       "collection": "masters-otb",
-      "reference_release_id": "codb-masters-otb-1794610162183084363-517587-0484eb65735e8a55-cpi-d40",
+      "reference_release_id": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
       "reference_sha256": {
-        "games.idx": "bf45e5447fc54e59cde41c83104683f2768f3132c64f063db9e6df088969ba0a",
-        "positions.cpi": "4b8888d29992eee3e01828610bc74cc0258a372fa9b414e643a40aedaafdf05e",
-        "shards/shard_0000.cgb3": "3302bdafa7f65d86230f758f48703284e97f169cd556267acf5524946ec11ba0"
+        "games.idx": "66a7af7416f705eeabf0db3bd890eaf3f0904d3f76ad11731d8aa2c71896ee56",
+        "positions.cpi": "9939a5912e869eb7ce76c76c9cd201446adbbe96cf91d37fed01b7a5062d9e07",
+        "shards/shard_0000.cgb3": "e140017438a1e6ceb3c796a91ca870484a36f585f2d20a00bb9406bc6100dc34"
       },
-      "repeat_build_id": "codb-masters-otb-1794611555306328042-518848-ea9a3d6334b49bcb-cpi-d40",
+      "repeat_build_id": "codb-masters-otb-1794689662790457126-69025-aa1b2d40b77daeb4-cpi-d40",
       "repeat_sha256": {
-        "games.idx": "bf45e5447fc54e59cde41c83104683f2768f3132c64f063db9e6df088969ba0a",
-        "positions.cpi": "4b8888d29992eee3e01828610bc74cc0258a372fa9b414e643a40aedaafdf05e",
-        "shards/shard_0000.cgb3": "3302bdafa7f65d86230f758f48703284e97f169cd556267acf5524946ec11ba0"
+        "games.idx": "66a7af7416f705eeabf0db3bd890eaf3f0904d3f76ad11731d8aa2c71896ee56",
+        "positions.cpi": "9939a5912e869eb7ce76c76c9cd201446adbbe96cf91d37fed01b7a5062d9e07",
+        "shards/shard_0000.cgb3": "e140017438a1e6ceb3c796a91ca870484a36f585f2d20a00bb9406bc6100dc34"
       },
       "same_binary_artifacts": true,
-      "source_manifest": "data/releases/masters-otb/RELEASE/sources.manifest.json",
+      "source_manifest": "data/releases/masters-otb/current/RELEASE/sources.manifest.json",
       "wall_seconds": {
-        "build": 25.689,
-        "build-index": 2.666,
-        "report": 0.106,
-        "verify": 0.3
+        "build": 12.526203521,
+        "build-index": 1.796,
+        "report": 0.075,
+        "verify": 0.21
       }
     }
   }

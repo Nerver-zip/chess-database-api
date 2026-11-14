@@ -1705,9 +1705,6 @@ pub fn resolve_dataset_snapshot(dataset_dir: &Path) -> Result<PathBuf, StorageEr
     )))
 }
 
-/// Resolves a dataset directory path to its active data directory,
-/// supporting both versioned layouts (`target/current`) and legacy flat directories.
-
 /// Publishes a fully verified immutable dataset version into a stable dataset root.
 ///
 /// The candidate is resolved and deeply verified before any target mutation. The active version
@@ -1731,7 +1728,9 @@ pub fn publish_prebuilt_dataset(
     let candidate_manifest_path = candidate_snapshot.join("manifest.json");
     let candidate_manifest_bytes = fs::read(&candidate_manifest_path)?;
     let candidate_manifest: DatasetManifest = serde_json::from_slice(&candidate_manifest_bytes)
-        .map_err(|error| StorageError::Decoding(format!("Invalid candidate manifest.json: {error}")))?;
+        .map_err(|error| {
+            StorageError::Decoding(format!("Invalid candidate manifest.json: {error}"))
+        })?;
     if candidate_manifest.collection != expected_collection {
         return Err(StorageError::Integrity(format!(
             "Candidate collection '{}' does not match requested collection '{}'",
@@ -1751,7 +1750,11 @@ pub fn publish_prebuilt_dataset(
             "Candidate dataset build ID '{version_id}' is not a safe version directory name"
         )));
     }
-    if candidate_snapshot.file_name().and_then(|name| name.to_str()) != Some(version_id.as_str()) {
+    if candidate_snapshot
+        .file_name()
+        .and_then(|name| name.to_str())
+        != Some(version_id.as_str())
+    {
         return Err(StorageError::Integrity(format!(
             "Candidate snapshot directory '{}' does not match manifest build ID '{}'",
             candidate_snapshot.display(),
@@ -2347,7 +2350,6 @@ fn ensure_root_symlinks(target_dir: &Path) -> Result<(), StorageError> {
         {
             let _ = fs::remove_file(&cpi_link_path);
         }
-
     }
     Ok(())
 }

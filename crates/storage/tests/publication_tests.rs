@@ -181,7 +181,10 @@ fn test_prebuilt_publication_keeps_pinned_readers_valid_during_atomic_transition
     publish_prebuilt_dataset(&candidate_b, &target, Collection::MastersOtb).unwrap();
     reader_thread.join().unwrap();
 
-    assert!(failures.lock().unwrap().is_empty(), "concurrent opens failed");
+    assert!(
+        failures.lock().unwrap().is_empty(),
+        "concurrent opens failed"
+    );
     let counts = observed.lock().unwrap();
     assert!(!counts.is_empty(), "concurrent reader loop did not execute");
     assert!(
@@ -189,8 +192,15 @@ fn test_prebuilt_publication_keeps_pinned_readers_valid_during_atomic_transition
         "readers observed an incomplete or mixed snapshot: {counts:?}"
     );
     assert_eq!(pinned_reader.total_games(), 4);
-    assert!(old_snapshot.is_dir(), "the old immutable version must remain available");
-    assert!(verify_dataset(&old_snapshot, true).unwrap().deep_verification_passed);
+    assert!(
+        old_snapshot.is_dir(),
+        "the old immutable version must remain available"
+    );
+    assert!(
+        verify_dataset(&old_snapshot, true)
+            .unwrap()
+            .deep_verification_passed
+    );
     assert_eq!(DatasetReader::open(&target).unwrap().total_games(), 7);
 }
 
@@ -215,12 +225,20 @@ fn test_prebuilt_publication_preserves_known_good_active_version_after_candidate
         .path();
     fs::write(&shard, b"corrupt candidate shard").unwrap();
 
-    let error = publish_prebuilt_dataset(&candidate_b, &target, Collection::MastersOtb).unwrap_err();
+    let error =
+        publish_prebuilt_dataset(&candidate_b, &target, Collection::MastersOtb).unwrap_err();
     assert!(error.to_string().contains("checksum mismatch"));
-    assert_eq!(resolve_dataset_snapshot(&target).unwrap(), previous_snapshot);
+    assert_eq!(
+        resolve_dataset_snapshot(&target).unwrap(),
+        previous_snapshot
+    );
     assert!(previous_snapshot.is_dir());
     assert_eq!(DatasetReader::open(&target).unwrap().total_games(), 4);
-    assert!(verify_dataset(&target, true).unwrap().deep_verification_passed);
+    assert!(
+        verify_dataset(&target, true)
+            .unwrap()
+            .deep_verification_passed
+    );
 }
 
 #[test]
@@ -231,7 +249,9 @@ fn test_prebuilt_publication_rejects_wrong_collection_without_target_mutation() 
     create_dataset(&candidate, 2, 200).unwrap();
 
     let error = publish_prebuilt_dataset(&candidate, &target, Collection::EliteOnline).unwrap_err();
-    assert!(error.to_string().contains("does not match requested collection"));
+    assert!(error
+        .to_string()
+        .contains("does not match requested collection"));
     assert!(!target.join("current").exists());
 }
 

@@ -1,26 +1,27 @@
 {
   "accounting": {
-    "accepted_unique": 42612,
+    "accepted_unique": 29640,
     "completion_status": "CompleteEof",
-    "confirmed_duplicates": 29,
+    "confirmed_duplicates": 20,
     "quarantined": 0,
-    "rejected_by_policy": 183110,
+    "rejected_by_policy": 196097,
     "rejected_illegal": 0,
     "rejected_malformed": 0,
     "rejected_variant": 1727,
-    "superseded_prior": 11,
+    "superseded_prior": 5,
     "total_encountered": 227489
   },
-  "build_duration_secs": 30.101654087,
+  "build_duration_secs": 12.366196219,
   "collection": "masters-otb",
-  "dataset_build_id": "codb-masters-otb-1794613202380816347-519779-bf41458b81be4194",
+  "dataset_build_id": "codb-masters-otb-1794689403642290361-66941-66f5cda2410e6597",
   "is_reconciled": true,
   "policy_rejection_reasons": {
     "aborted_or_infraction": 3052,
     "below_rating_threshold": 152977,
     "missing_rating": 24285,
-    "online_event_in_masters_source": 2424,
-    "too_few_plies": 372
+    "online_event_in_masters_source": 2,
+    "too_few_plies": 372,
+    "unresolved_masters_provenance": 15409
   },
   "retained_matches_accepted": true,
   "source_archives": [
@@ -73,6 +74,6 @@
       "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-10.pgn.zst"
     }
   ],
-  "total_games": 42612,
-  "total_physical_bytes": 9391568
+  "total_games": 29640,
+  "total_physical_bytes": 6486356
 }

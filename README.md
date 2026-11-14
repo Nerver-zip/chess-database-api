@@ -11,7 +11,11 @@ A high-performance, compact, and reproducible chess game database and position-c
 
 The real-corpus pipeline delivers two isolated release collections and a read-only HTTP Opening Explorer. Release sizes, current game and index counts, licensing, provenance audit results, and test evidence are recorded in [docs/CORPUS_BUILD.md](docs/CORPUS_BUILD.md).
 
+Current verified releases contain 29,640 event-qualified Masters OTB games (705,718 positions at depth 40) and 429,150 Elite Online games (6,136,307 positions at depth 30). The real Docker integration served both collections simultaneously; `e4,e5,Nf3` returned 3,902 Masters games and 30,390 Elite games.
+
 The historical 15-million-game storage feasibility work remains in [docs/research/feasibility-report.md](docs/research/feasibility-report.md). Expanding to that future corpus is not required to run or validate the Docker service.
+
+For historical capacity context, the prior 15-million-game estimate projected **7.68 GB baseline** (**6.44 GB optimistic**, **9.98 GB conservative**). Its conservative case left **20 MB (0.2%)** under the 10 GB limit, so that estimate was conditional; it is separate from the current release sizes.
 
 ---
 

@@ -333,7 +333,9 @@ fn test_missing_lookup_file_error_names_path_and_preserves_io_kind() {
     };
 
     assert!(matches!(error, StorageError::Io(_)));
-    assert!(error.to_string().contains(missing.to_string_lossy().as_ref()));
+    assert!(error
+        .to_string()
+        .contains(missing.to_string_lossy().as_ref()));
 }
 
 #[test]

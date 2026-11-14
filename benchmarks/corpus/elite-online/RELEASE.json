@@ -18,8 +18,8 @@
       "size_bytes": 6866464
     },
     "manifest.json": {
-      "sha256": "00ec4e315cfa7f7a7fddc6d1d4daa965dee3334c3fe0340e5050d4707c87b1a2",
-      "size_bytes": 4521
+      "sha256": "0e5dd9b86710423f1aa246a8a54b0f5a08e334f5814a5cd6348dafcaacd2fbb4",
+      "size_bytes": 4520
     },
     "positions.cpi": {
       "sha256": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
@@ -49,14 +49,14 @@
   },
   "build_metrics_summary": {
     "peak_rss_bytes_by_step": {
-      "build": 29732864,
-      "build-index": 150679552,
-      "report": 29732864,
-      "verify": 137228288
+      "build": 30224384,
+      "build-index": 152408064,
+      "report": 30224384,
+      "verify": 137420800
     },
-    "total_wall_seconds": 677.635
+    "total_wall_seconds": 550.371
   },
-  "built_at": "2026-11-13T23:39:19Z",
+  "built_at": "2026-11-14T15:27:52Z",
   "collection": "elite-online",
   "commands": {
     "build": "./scripts/corpus.sh build --collection elite-online --profile baseline",
@@ -75,7 +75,7 @@
     },
     "version": "elite-online/2026.11-r2 (both>=2200 or 2400+2000, no bullet/ultrabullet, no casual, standard variant, min 6 plies, excludes explicit aborted or rules-infraction terminations)"
   },
-  "dataset_version": "codb-elite-online-1794613138720313973-519742-00d6e325118fc58c-cpi-d30",
+  "dataset_version": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
   "index": {
     "cpi_file_size_bytes": 132054643,
     "cpi_sha256": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
@@ -171,7 +171,7 @@
   },
   "tool": {
     "codb_version": "codb 0.1.0",
-    "git_commit": "7f4fa09f17522beb1f6e02d208ff1f85668c9f88",
-    "git_tree_dirty": false
+    "git_commit": "01ec9b074f839b0436cf4ec776c96b675d7e4fde",
+    "git_tree_dirty": true
   }
 }
