@@ -20,7 +20,7 @@ flowchart LR
     M4 --> M5["PR-04: Opening Explorer HTTP API<br/>(COMPLETED)"]
     M5 --> M5b["PR-A: Reproducible Corpus Release & Local Delivery<br/>(DELIVERED)"]
     M5b --> M5c["PR #6: Dockerized Opening Explorer & event-qualified Masters release<br/>(COMPLETED)"]
-    M5c --> M5d["PR #7: Locally supplied Gigabase evaluation<br/>(LOCAL EVALUATION COMPLETE; REVIEW PENDING)"]
+    M5c --> M5d["PR #7: Locally supplied Gigabase evaluation<br/>(LOCAL QA COMPLETE; RELEASE BLOCKED)"]
     M5d --> M6["Future: Advanced distribution and classification<br/>(PLANNED)"]
 ```
 
@@ -33,7 +33,7 @@ flowchart LR
 | **PR-04: Opening Explorer Read-Only HTTP API** | Production-ready HTTP query service (`codb-api`), `codb serve` command, lock-free CPI reads, pooled PGN decompression, atomic reload, and integration suites. | **Completed** | [ADR-0004](adr/0004-opening-explorer-http-api.md), `codb-api`, [docs/DATA_CONTRACTS.md#6](DATA_CONTRACTS.md#6-opening-explorer-http-api-contract). |
 | **PR-A: Reproducible Corpus Release** | Pinned source catalog, verified acquisition, release build/index/verify/package tooling, and local API checks. | **Delivered** | corpus/catalog.json, scripts/corpus.py, scripts/corpus.sh, [CORPUS_BUILD.md](CORPUS_BUILD.md). |
 | **PR #6: Dockerized Opening Explorer & event-qualified Masters release** | Independent API image, Compose deployment, verified package bootstrap, shared Docker network, exact event-level Masters audit, atomic version switch, and real-corpus container evidence. | **Completed** | [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md), scripts/audit_masters_events.py, scripts/docker_smoke.py. |
-| **PR #7: Locally supplied Gigabase qualification** | Structural inventory, opt-in source, identity, and complete-date gates, a checksummed attribution sidecar outside CGB3, safe local `.7z` extraction, and a deterministic 156,898-game r2 evaluation. The local-only package was verified through bootstrap and rollback and served in Docker with raw-PGN retrieval disabled. A publisher checksum and cleared upstream redistribution rights are still required before any public release. | **Local evaluation complete; Draft PR review pending** | [`benchmarks/gigabase/FINAL_REPORT.md`](../benchmarks/gigabase/FINAL_REPORT.md), `corpus/gigabase_source_qualification.json`, `scripts/local_gigabase_eval.py`, `crates/storage/src/dataset.rs`. |
+| **PR #7: Locally supplied Gigabase qualification** | Structural inventory, opt-in source, identity, and complete-date gates, a checksummed attribution sidecar outside CGB3, safe local `.7z` extraction, and a deterministic 156,898-game r2 evaluation. The local-only package passed bootstrap and rollback. Docker position queries and route-enabled internal QA passed beside unchanged Elite; all external deployment used read-only named-volume copies. A publisher checksum, upstream-rights review, and host bind-mount verification remain outstanding. | **Local QA complete; release eligibility and production use blocked; Draft PR review pending** | [`benchmarks/gigabase/FINAL_REPORT.md`](../benchmarks/gigabase/FINAL_REPORT.md), `corpus/gigabase_source_qualification.json`, `scripts/local_gigabase_eval.py`, `crates/storage/src/dataset.rs`. |
 | **Future: Replication & Precomputed ECO Trees** | Incremental dataset replication, CDN-friendly block distribution, and precomputed ECO opening classification trees. | **Planned** | Standalone tooling and index enhancements. |
 
 ---

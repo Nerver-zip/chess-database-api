@@ -1,6 +1,6 @@
 # Chess Openings DB (`codb`)
 
-> **Status: Draft PR #6 follow-up — Dockerized Opening Explorer and corpus qualification**
+> **Status: Draft PR #7 — local Gigabase qualification evaluation; not approved for release or production use**
 > This repository contains the scalable persistent game storage pipeline, bounded-memory CPI v2 indexer, atomic dataset publication engine, verified real corpus releases, and a Dockerized read-only Opening Explorer API.
 
 A high-performance, compact, and reproducible chess game database and position-centric indexing engine written in Rust. The system curates, deduplicates, compresses, and indexes high-quality chess games to power a position-based Opening Explorer through a lightweight, reusable API.

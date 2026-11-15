@@ -119,7 +119,8 @@
     "Policy-rejected records were not all replayed for move legality; accepted records passed the existing legal-move ingestion path.",
     "No independent event-level OTB audit was performed; every accepted record lacked Mode and relies on the publisher archive assertion.",
     "The local package is not approved for public redistribution or production service.",
-    "Docker-in-Docker could not bind-mount workspace paths or expose the debug port; read-only named volumes and an in-network client were used."
+    "Docker-in-Docker could not bind-mount workspace paths or expose the debug port; read-only named volumes and an in-network client were used.",
+    "Route-enabled retrieval was separately tested only in an isolated Docker network with read-only named-volume copies; host bind-mount behavior remains unverified in this Docker-in-Docker environment. An exact host-side procedure is documented in docs/DOCKER_DEPLOYMENT.md."
   ],
   "local_bootstrap_and_rollback": {
     "active_version_after_rollback": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
@@ -233,5 +234,9 @@
     "date": "2026-11-15",
     "gates_passed": 8,
     "result": "passed"
-  }
+  },
+  "archive_recheck_report": "ARCHIVE_RECHECK.json",
+  "archive_recheck_report_sha256": "8f13605c8a881a798baabab5965981fdd02fcee92c716a44d9bc7d801ca6722b",
+  "docker_api_retrieval_qa": "DOCKER_API_RETRIEVAL_QA.json",
+  "docker_api_retrieval_qa_sha256": "161aa9908dca7af1253ac863638de14bd262f229c41ca8f3f354801da3aa9b75"
 }

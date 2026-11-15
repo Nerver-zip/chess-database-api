@@ -2,7 +2,7 @@
 
 ## Current objective
 
-Complete PR #7 on `feat/gigabase-masters`: implement and document a source-qualified local Masters OTB evaluation from the user-supplied Lumbra's Gigabase archive, keep existing releases untouched, validate, push the branch, and maintain a dedicated Draft PR. Do not merge. The user authorized branch push and Draft PR work.
+Complete the user's requested PR #7 outcome: a real, verified, deployable Gigabase Masters release with Docker game retrieval. The branch, local r2 evaluation, package, and Draft PR are in place, but public/production release eligibility is unresolved because upstream rights are not cleared and the publisher supplied no checksum. Continue the independent technical work, preserve the old release and Elite snapshot, validate and push updates to the dedicated Draft PR, and do not merge. The user authorized branch push and Draft PR work.
 
 ## Current state
 
@@ -18,16 +18,22 @@ Complete PR #7 on `feat/gigabase-masters`: implement and document a source-quali
 - Existing production releases remain the separate Lichess-derived datasets: Masters has 29,640 games and Elite has 429,150. The publisher's CC BY-NC 4.0 statement does not resolve upstream rights. Do not publicly distribute or deploy this evaluation; no production catalog or release was changed.
 - Local package, bootstrap, rollback, opening coverage, overlap, source qualification, and Docker evidence are documented in `benchmarks/gigabase/FINAL_REPORT.md` and supporting JSON. The README, changelog, canonical corpus/licensing/API/architecture documents, and policy tests now describe r2.
 - Final `./scripts/validate.sh` passed all eight gates in Docker container `codb-pr7-rust-work` at `/workspace`, using Rust 1.100.0. This run included the latest README, CLI policy expectation, Docker evidence, and refreshed manifest. Cargo is unavailable on the workspace host. The result is recorded in `benchmarks/gigabase/REPRODUCIBILITY.json`.
+- Follow-up evidence added 2026-11-15: a second full extraction using pinned `py7zr 1.1.4` reproduced the locally pinned archive/member sizes and SHA-256 values. Machine report: `benchmarks/gigabase/ARCHIVE_RECHECK.json`. The 12.3 GB duplicate extraction has been deleted; the original archive and PGN remain under ignored `data/sources/`.
+- Route-enabled internal Docker QA now passes in a separate no-host-port network: both Masters and Elite PGN responses match `codb get-game` byte-for-byte; both position responses match CLI; 96/96 mixed concurrent requests pass; healthy startup/restart were 6.725/6.541 seconds and sampled peak RSS was 213,652 KiB. Read-only named-volume copies were used. Machine report: `benchmarks/gigabase/DOCKER_API_RETRIEVAL_QA.json`. This is internal API QA only and does not establish rights to serve users.
+- `scripts/docker_smoke.py` now verifies API PGN bytes against `codb get-game` and records healthy startup/restart durations. `OPENING_USEFULNESS.json` now records eight less-common lines, a Ruy Lopez transposition check, and CPI-derived position frequency statistics: median 1 observation in both indexes; positions with at least 100 games grew from 409 to 2,609. The candidate is heavily weighted to 2020–2026 (70.6%). These counts do not independently validate source-to-index correctness or game quality.
+- `FINAL_REPORT.md`, `INVENTORY.md`, `README.md`, `CHANGELOG.md`, `docs/ROADMAP.md`, and `docs/DOCKER_DEPLOYMENT.md` were updated. The Docker guide now contains an exact host bind-mount procedure for isolated QA and rollback; that procedure has not been run here.
+- After syncing the follow-up changes into `codb-pr7-rust-work:/workspace`, `./scripts/validate.sh` passed all eight gates on 2026-11-15. This included format, Clippy, workspace tests, 103 Python tests (2 skipped), production CPI and corpus evidence validators, historical benchmark validation, documentation links, and the checksum manifest. The script is the final verification record in `REPRODUCIBILITY.json`.
 
 ## Next actions
 
-1. Continue review on Draft PR #7; keep it unmerged.
-2. Public redistribution and Evalis deployment remain blocked pending publisher terms and upstream-rights review.
+1. Review the final diff, commit and push these updates, refresh PR #7's description with route-enabled QA and archive re-extraction evidence, and confirm it remains open and Draft.
+2. Keep the old Masters and Elite production pointers unchanged. Public redistribution and Evalis deployment remain blocked pending written publisher terms and upstream-rights review. The rights question is awaiting the user's response; do not contact the publisher without explicit authorization.
+3. If a host Docker daemon is available, follow the new private-network host bind-mount procedure in `docs/DOCKER_DEPLOYMENT.md`; record whether actual bind mounts pass. Do not describe the named-volume QA as bind-mount verification.
 
 ## Evidence paths
 
 - `benchmarks/gigabase/PLAN.md`, `INVENTORY.md`, `INVENTORY.json`, and `archive_inventory.json`
-- `benchmarks/gigabase/FINAL_REPORT.md`, `REPRODUCIBILITY.json`, `INDEPENDENT_REBUILD.json`, `QUALITY_REPORT.json`, `DOCKER_API_CHECK.json`, `OPENING_USEFULNESS.json`, and `SOURCE_OVERLAP.json`
+- `benchmarks/gigabase/FINAL_REPORT.md`, `REPRODUCIBILITY.json`, `INDEPENDENT_REBUILD.json`, `QUALITY_REPORT.json`, `ARCHIVE_RECHECK.json`, `DOCKER_API_CHECK.json`, `DOCKER_API_RETRIEVAL_QA.json`, `OPENING_USEFULNESS.json`, and `SOURCE_OVERLAP.json`
 - `corpus/gigabase_source_qualification.json`
 - `docs/CORPUS_BUILD.md`, `docs/CORPUS_AND_DEDUPLICATION.md`, `docs/LICENSING.md`, and `docs/DOCKER_DEPLOYMENT.md`
 - Source archive, extracted PGN, candidate datasets, package, and deployment experiments are under ignored `data/`; never commit them.

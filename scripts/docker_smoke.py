@@ -227,9 +227,15 @@ def check_live_api(codb: Path, roots: dict[str, Path], client: str,
         status, pgn = curl_from_client(
             client, f"/v1/collections/{collection}/games/{ids[0]}"
         )
+        cli_pgn_matches: bool | None = None
         if enable_game_retrieval:
             assert status == 200, (status, pgn)
             assert pgn.lstrip().startswith(b"[Event "), pgn[:200]
+            cli_pgn = run([
+                str(codb), "get-game", "--dataset", str(dataset), "--id", str(ids[0]),
+            ], timeout=120).stdout.encode()
+            cli_pgn_matches = pgn == cli_pgn
+            assert cli_pgn_matches, (collection, ids[0], len(pgn), len(cli_pgn))
         else:
             assert status == 404, (status, pgn)
         queries[collection] = {
@@ -250,6 +256,7 @@ def check_live_api(codb: Path, roots: dict[str, Path], client: str,
             "stored_game_bytes": len(pgn),
             "stored_game_sha256": hashlib.sha256(pgn).hexdigest() if pgn else None,
             "stored_game_is_pgn": pgn.lstrip().startswith(b"[Event ") if pgn else False,
+            "stored_game_matches_cli": cli_pgn_matches,
         }
 
 
@@ -427,9 +434,11 @@ def main() -> int:
             mount_type = "volume"
         populate_volume(masters_volume, roots["masters-otb"])
         populate_volume(elite_volume, roots["elite-online"])
+        startup_started = time.monotonic()
         run([*compose, "up", "-d"], timeout=1800)
         compose_started = True
         wait_healthy(project, container)
+        startup_time_to_healthy_seconds = time.monotonic() - startup_started
 
         run(["docker", "run", "-d", "--name", client, "--network", network,
              "--entrypoint", "/bin/sh", CLIENT_IMAGE, "-c", "while true; do sleep 3600; done"])
@@ -519,8 +528,10 @@ def main() -> int:
                             container])
         assert inspect_ports.stdout.strip() in ("null", "{}"), inspect_ports.stdout
 
+        restart_started = time.monotonic()
         run([*compose, "restart", "codb"], timeout=180)
         wait_healthy(project, container)
+        restart_time_to_healthy_seconds = time.monotonic() - restart_started
         second = check_live_api(codb, roots, client, expected, enable_game_retrieval)
         assert first == second, (first, second)
 
@@ -558,6 +569,8 @@ def main() -> int:
                 "concurrent_workers": 12,
             },
             "raw_game_route_enabled": enable_game_retrieval,
+            "startup_time_to_healthy_seconds": round(startup_time_to_healthy_seconds, 3),
+            "restart_time_to_healthy_seconds": round(restart_time_to_healthy_seconds, 3),
             "runtime_rss": {
                 "sampled_peak_kib": max(peak_rss),
                 "sampled_peak_bytes": max(peak_rss) * 1024,

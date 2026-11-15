@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "verification": {
+    "completed_at_utc": "2026-11-15T06:41:18Z",
+    "extraction_tool": "py7zr 1.1.4",
+    "full_reextraction_completed": true,
+    "archive_local_sha256_matched": true,
+    "member_local_sha256_matched": true,
+    "packed_stream_crc_metadata_available": false,
+    "publisher_checksum_available": false,
+    "publisher_exact_game_count_available": false,
+    "release_eligible": false,
+    "scope_note": "The full member was re-extracted and matched its existing locally pinned size and SHA-256. This verifies local byte reproducibility, not publisher authentication, upstream rights, or completeness against an exact publisher count. Packed-stream CRC metadata was unavailable."
+  },
+  "archive": {
+    "filename": "OTB_DATABASE.7z",
+    "size_bytes": 2570013439,
+    "sha256_local": "4e4209ccc1870e7fede557aae09b4dd40b721d4697db9b4c272ff0e4fbbdb500"
+  },
+  "member": {
+    "filename": "LumbrasGigabase_OTB_Complete.pgn",
+    "size_bytes": 12300428287,
+    "sha256_local": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759"
+  }
+}

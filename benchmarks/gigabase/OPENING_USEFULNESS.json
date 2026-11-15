@@ -76,7 +76,8 @@
   "limitations": [
     "Counts are indexed games at a position; greater counts do not establish stronger source quality, event independence, or legal rights.",
     "The new evaluation is not merged with the existing release. Its exact stable game ID overlap is reported separately in SOURCE_OVERLAP.json.",
-    "Single-process wall times include CLI startup and are descriptive; the in-process lookup benchmark excludes HTTP, JSON, and SAN derivation."
+    "Single-process wall times include CLI startup and are descriptive; the in-process lookup benchmark excludes HTTP, JSON, and SAN derivation.",
+    "The position-frequency distribution is derived from stored CPI v2 counts and is not an independent source-to-index oracle."
   ],
   "measurement_date": "2026-11-15",
   "queries": [
@@ -505,5 +506,154 @@
     }
   ],
   "schema_version": 1,
-  "scope": "Same Masters OTB query lines against the existing release and the local Gigabase evaluation. The game-count change measures corpus coverage, not game quality or source-rights clearance."
+  "scope": "Same Masters OTB query lines against the existing release and the local Gigabase evaluation. The game-count change measures corpus coverage, not game quality or source-rights clearance.",
+  "less_common_queries": [
+    {
+      "opening": "King's Gambit Accepted",
+      "moves": "e4,e5,f4,exf4,Nf3",
+      "existing_masters": {
+        "total_games": 6,
+        "position_key": "acb61bdc48c58c9bc7bc387f2e4ce2c0"
+      },
+      "gigabase_evaluation": {
+        "total_games": 76,
+        "position_key": "acb61bdc48c58c9bc7bc387f2e4ce2c0"
+      },
+      "game_count_ratio_new_to_existing": 12.667
+    },
+    {
+      "opening": "Budapest Gambit",
+      "moves": "d4,Nf6,c4,e5,dxe5,Ng4",
+      "existing_masters": {
+        "total_games": 12,
+        "position_key": "31e053c983d7c58bdf05be0d7f37e565"
+      },
+      "gigabase_evaluation": {
+        "total_games": 93,
+        "position_key": "31e053c983d7c58bdf05be0d7f37e565"
+      },
+      "game_count_ratio_new_to_existing": 7.75
+    },
+    {
+      "opening": "Scandinavian Defense",
+      "moves": "e4,d5,exd5,Qxd5,Nc3,Qa5",
+      "existing_masters": {
+        "total_games": 45,
+        "position_key": "ec86fee2432d402da145bdee0e3a0300"
+      },
+      "gigabase_evaluation": {
+        "total_games": 361,
+        "position_key": "ec86fee2432d402da145bdee0e3a0300"
+      },
+      "game_count_ratio_new_to_existing": 8.022
+    },
+    {
+      "opening": "Alekhine Defense",
+      "moves": "e4,Nf6,e5,Nd5,d4,d6",
+      "existing_masters": {
+        "total_games": 59,
+        "position_key": "784eb0073c6fd8f58034df6a598637fe"
+      },
+      "gigabase_evaluation": {
+        "total_games": 546,
+        "position_key": "784eb0073c6fd8f58034df6a598637fe"
+      },
+      "game_count_ratio_new_to_existing": 9.254
+    },
+    {
+      "opening": "Dutch Defense",
+      "moves": "d4,f5,c4,Nf6,g3",
+      "existing_masters": {
+        "total_games": 4,
+        "position_key": "e039aeb83c9b42b1ec4acfbbb7f2cea9"
+      },
+      "gigabase_evaluation": {
+        "total_games": 57,
+        "position_key": "e039aeb83c9b42b1ec4acfbbb7f2cea9"
+      },
+      "game_count_ratio_new_to_existing": 14.25
+    },
+    {
+      "opening": "Nimzo-Indian Defense",
+      "moves": "d4,Nf6,c4,e6,Nc3,Bb4",
+      "existing_masters": {
+        "total_games": 1011,
+        "position_key": "2525292028845b2d106291f6789ae1e6"
+      },
+      "gigabase_evaluation": {
+        "total_games": 4740,
+        "position_key": "2525292028845b2d106291f6789ae1e6"
+      },
+      "game_count_ratio_new_to_existing": 4.688
+    },
+    {
+      "opening": "Benko Gambit",
+      "moves": "d4,Nf6,c4,c5,d5,b5",
+      "existing_masters": {
+        "total_games": 77,
+        "position_key": "2d097ffb003aa36168beea8b14611b52"
+      },
+      "gigabase_evaluation": {
+        "total_games": 521,
+        "position_key": "2d097ffb003aa36168beea8b14611b52"
+      },
+      "game_count_ratio_new_to_existing": 6.766
+    },
+    {
+      "opening": "Trompowsky Attack",
+      "moves": "d4,Nf6,Bg5,e6,e3",
+      "existing_masters": {
+        "total_games": 2,
+        "position_key": "05dc4f6a61a56e56c5e06af226555376"
+      },
+      "gigabase_evaluation": {
+        "total_games": 29,
+        "position_key": "05dc4f6a61a56e56c5e06af226555376"
+      },
+      "game_count_ratio_new_to_existing": 14.5
+    }
+  ],
+  "transposition_checks": {
+    "method": "Queried two legal move orders that reach the same Ruy Lopez position against each CPI v2 dataset. The resulting PositionKey and aggregated game counts match within each dataset.",
+    "same_position_confirmed": true,
+    "sequences": [
+      {
+        "name": "main move order",
+        "moves": "e4,e5,Nf3,Nc6,Bb5"
+      },
+      {
+        "name": "transposed move order",
+        "moves": "e4,e5,Bb5,Nc6,Nf3"
+      }
+    ],
+    "existing_masters": {
+      "position_key": "d49c480da18e9cab4b1376a17217ee1d",
+      "total_games_for_each_sequence": 1786
+    },
+    "gigabase_evaluation": {
+      "position_key": "d49c480da18e9cab4b1376a17217ee1d",
+      "total_games_for_each_sequence": 8619
+    }
+  },
+  "position_frequency_distribution": {
+    "method": "For each CPI v2 position, sum the stored white-win, draw, and black-win counts across its moves. This yields the number of known-result game-position observations represented by that index entry. Median is calculated across all indexed positions.",
+    "existing_masters": {
+      "unique_positions": 705718,
+      "game_position_observations": 1150711,
+      "mean_games_per_position": 1.6305535638881252,
+      "median_games_per_position": 1,
+      "positions_with_at_least_10_games": 5999,
+      "positions_with_at_least_100_games": 409,
+      "positions_with_at_least_1000_games": 43
+    },
+    "gigabase_evaluation": {
+      "unique_positions": 3406233,
+      "game_position_observations": 6148632,
+      "mean_games_per_position": 1.8051119814763112,
+      "median_games_per_position": 1,
+      "positions_with_at_least_10_games": 31143,
+      "positions_with_at_least_100_games": 2609,
+      "positions_with_at_least_1000_games": 195
+    }
+  }
 }
