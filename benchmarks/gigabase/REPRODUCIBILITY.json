@@ -120,7 +120,8 @@
     "No independent event-level OTB audit was performed; every accepted record lacked Mode and relies on the publisher archive assertion.",
     "The local package is not approved for public redistribution or production service.",
     "Docker-in-Docker could not bind-mount workspace paths or expose the debug port; read-only named volumes and an in-network client were used.",
-    "Route-enabled retrieval was separately tested only in an isolated Docker network with read-only named-volume copies; host bind-mount behavior remains unverified in this Docker-in-Docker environment. An exact host-side procedure is documented in docs/DOCKER_DEPLOYMENT.md."
+    "Route-enabled retrieval was separately tested only in an isolated Docker network with read-only named-volume copies; host bind-mount behavior remains unverified in this Docker-in-Docker environment. An exact host-side procedure is documented in docs/DOCKER_DEPLOYMENT.md.",
+    "The selected-position CPI oracle replays canonical CGB3 games and shares the repository PositionKey function; it does not independently verify source PGN to CGB3 mapping."
   ],
   "local_bootstrap_and_rollback": {
     "active_version_after_rollback": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
@@ -233,10 +234,27 @@
     "command": "./scripts/validate.sh",
     "date": "2026-11-15",
     "gates_passed": 8,
-    "result": "passed"
+    "result": "passed",
+    "verification_scope": "Completed after adding the selected-position CPI oracle runner and report.",
+    "python_tests": 103,
+    "python_tests_skipped": 2
   },
   "archive_recheck_report": "ARCHIVE_RECHECK.json",
   "archive_recheck_report_sha256": "8f13605c8a881a798baabab5965981fdd02fcee92c716a44d9bc7d801ca6722b",
   "docker_api_retrieval_qa": "DOCKER_API_RETRIEVAL_QA.json",
-  "docker_api_retrieval_qa_sha256": "161aa9908dca7af1253ac863638de14bd262f229c41ca8f3f354801da3aa9b75"
+  "docker_api_retrieval_qa_sha256": "161aa9908dca7af1253ac863638de14bd262f229c41ca8f3f354801da3aa9b75",
+  "cpi_oracle": {
+    "report": "CPI_ORACLE.json",
+    "report_sha256": "5e5a62c8954dc3e952632ca2789d91b0fb1bc50baf18f490ec227527e324b80e",
+    "runner": "../../crates/cli/examples/audit_cpi_oracle.rs",
+    "dataset_build_id": "codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40",
+    "games_replayed": 156898,
+    "indexed_depth_plies": 40,
+    "target_lines_checked": 18,
+    "unique_target_positions": 17,
+    "exact_matches": 18,
+    "mismatches": 0,
+    "source_to_canonical_mapping_verified": false,
+    "shares_position_key_function_with_cpi": true
+  }
 }

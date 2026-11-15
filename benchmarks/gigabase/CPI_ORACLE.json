@@ -1,0 +1,2802 @@
+{
+  "schema_version": 1,
+  "method": "Stream every canonical CGB3 game from DatasetReader, replay up to the published CPI depth with Shakmaty, and independently aggregate first-visit position/next-move WDL counts for fixed opening positions. Compare the move-keyed aggregates against direct CPI v2 lookups. The scan validates every replayed move and excludes unknown-result games from WDL counts.",
+  "dataset_build_id": "codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40",
+  "dataset_games": 156898,
+  "games_iterated": 156898,
+  "indexed_depth_plies": 40,
+  "known_result_games_seen": 156898,
+  "unknown_result_games_seen": 0,
+  "target_positions": 17,
+  "target_lines": [
+    {
+      "opening": "Open Game",
+      "moves_san": "e4,e5",
+      "position_key": "0305315b4b4ca6920844931a6ef4b9a0",
+      "oracle": {
+        "total_games": 19294,
+        "white_wins": 6536,
+        "draws": 8006,
+        "black_wins": 4752,
+        "moves": [
+          {
+            "uci": "e1e2",
+            "white_wins": 0,
+            "draws": 1,
+            "black_wins": 0,
+            "total_games": 1
+          },
+          {
+            "uci": "f1e2",
+            "white_wins": 0,
+            "draws": 2,
+            "black_wins": 0,
+            "total_games": 2
+          },
+          {
+            "uci": "g1e2",
+            "white_wins": 6,
+            "draws": 3,
+            "black_wins": 3,
+            "total_games": 12
+          },
+          {
+            "uci": "a2a3",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 2
+          },
+          {
+            "uci": "b1c3",
+            "white_wins": 193,
+            "draws": 199,
+            "black_wins": 172,
+            "total_games": 564
+          },
+          {
+            "uci": "c2c3",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 1
+          },
+          {
+            "uci": "d2d3",
+            "white_wins": 9,
+            "draws": 10,
+            "black_wins": 10,
+            "total_games": 29
+          },
+          {
+            "uci": "g1f3",
+            "white_wins": 6031,
+            "draws": 7524,
+            "black_wins": 4329,
+            "total_games": 17884
+          },
+          {
+            "uci": "g2g3",
+            "white_wins": 3,
+            "draws": 2,
+            "black_wins": 0,
+            "total_games": 5
+          },
+          {
+            "uci": "f1c4",
+            "white_wins": 195,
+            "draws": 169,
+            "black_wins": 117,
+            "total_games": 481
+          },
+          {
+            "uci": "d2d4",
+            "white_wins": 44,
+            "draws": 41,
+            "black_wins": 46,
+            "total_games": 131
+          },
+          {
+            "uci": "f2f4",
+            "white_wins": 53,
+            "draws": 55,
+            "black_wins": 71,
+            "total_games": 179
+          },
+          {
+            "uci": "f1b5",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 2,
+            "total_games": 2
+          },
+          {
+            "uci": "d1h5",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "0305315b4b4ca6920844931a6ef4b9a0",
+        "total_games": 19294,
+        "white_wins": 6536,
+        "draws": 8006,
+        "black_wins": 4752,
+        "moves": [
+          {
+            "compact_move": 1350,
+            "uci": "g1f3",
+            "white_wins": 6031,
+            "draws": 7524,
+            "black_wins": 4329,
+            "total_games": 17884
+          },
+          {
+            "compact_move": 1153,
+            "uci": "b1c3",
+            "white_wins": 193,
+            "draws": 199,
+            "black_wins": 172,
+            "total_games": 564
+          },
+          {
+            "compact_move": 1669,
+            "uci": "f1c4",
+            "white_wins": 195,
+            "draws": 169,
+            "black_wins": 117,
+            "total_games": 481
+          },
+          {
+            "compact_move": 1869,
+            "uci": "f2f4",
+            "white_wins": 53,
+            "draws": 55,
+            "black_wins": 71,
+            "total_games": 179
+          },
+          {
+            "compact_move": 1739,
+            "uci": "d2d4",
+            "white_wins": 44,
+            "draws": 41,
+            "black_wins": 46,
+            "total_games": 131
+          },
+          {
+            "compact_move": 1227,
+            "uci": "d2d3",
+            "white_wins": 9,
+            "draws": 10,
+            "black_wins": 10,
+            "total_games": 29
+          },
+          {
+            "compact_move": 774,
+            "uci": "g1e2",
+            "white_wins": 6,
+            "draws": 3,
+            "black_wins": 3,
+            "total_games": 12
+          },
+          {
+            "compact_move": 1422,
+            "uci": "g2g3",
+            "white_wins": 3,
+            "draws": 2,
+            "black_wins": 0,
+            "total_games": 5
+          },
+          {
+            "compact_move": 773,
+            "uci": "f1e2",
+            "white_wins": 0,
+            "draws": 2,
+            "black_wins": 0,
+            "total_games": 2
+          },
+          {
+            "compact_move": 1032,
+            "uci": "a2a3",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 2
+          },
+          {
+            "compact_move": 2117,
+            "uci": "f1b5",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 2,
+            "total_games": 2
+          },
+          {
+            "compact_move": 772,
+            "uci": "e1e2",
+            "white_wins": 0,
+            "draws": 1,
+            "black_wins": 0,
+            "total_games": 1
+          },
+          {
+            "compact_move": 1162,
+            "uci": "c2c3",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 1
+          },
+          {
+            "compact_move": 2499,
+            "uci": "d1h5",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "Sicilian Defense",
+      "moves_san": "e4,c5",
+      "position_key": "29dc49c3e916a23e644d4afe02564aeb",
+      "oracle": {
+        "total_games": 30550,
+        "white_wins": 10802,
+        "draws": 10196,
+        "black_wins": 9552,
+        "moves": [
+          {
+            "uci": "f1e2",
+            "white_wins": 22,
+            "draws": 16,
+            "black_wins": 24,
+            "total_games": 62
+          },
+          {
+            "uci": "g1e2",
+            "white_wins": 33,
+            "draws": 27,
+            "black_wins": 32,
+            "total_games": 92
+          },
+          {
+            "uci": "b1a3",
+            "white_wins": 8,
+            "draws": 5,
+            "black_wins": 4,
+            "total_games": 17
+          },
+          {
+            "uci": "a2a3",
+            "white_wins": 10,
+            "draws": 5,
+            "black_wins": 15,
+            "total_games": 30
+          },
+          {
+            "uci": "b2b3",
+            "white_wins": 41,
+            "draws": 53,
+            "black_wins": 58,
+            "total_games": 152
+          },
+          {
+            "uci": "b1c3",
+            "white_wins": 812,
+            "draws": 696,
+            "black_wins": 828,
+            "total_games": 2336
+          },
+          {
+            "uci": "c2c3",
+            "white_wins": 516,
+            "draws": 657,
+            "black_wins": 589,
+            "total_games": 1762
+          },
+          {
+            "uci": "d2d3",
+            "white_wins": 49,
+            "draws": 26,
+            "black_wins": 51,
+            "total_games": 126
+          },
+          {
+            "uci": "g1f3",
+            "white_wins": 9143,
+            "draws": 8586,
+            "black_wins": 7736,
+            "total_games": 25465
+          },
+          {
+            "uci": "f2f3",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          },
+          {
+            "uci": "g2g3",
+            "white_wins": 25,
+            "draws": 22,
+            "black_wins": 28,
+            "total_games": 75
+          },
+          {
+            "uci": "h2h3",
+            "white_wins": 5,
+            "draws": 2,
+            "black_wins": 1,
+            "total_games": 8
+          },
+          {
+            "uci": "a2a4",
+            "white_wins": 4,
+            "draws": 0,
+            "black_wins": 4,
+            "total_games": 8
+          },
+          {
+            "uci": "b2b4",
+            "white_wins": 10,
+            "draws": 4,
+            "black_wins": 21,
+            "total_games": 35
+          },
+          {
+            "uci": "f1c4",
+            "white_wins": 3,
+            "draws": 1,
+            "black_wins": 0,
+            "total_games": 4
+          },
+          {
+            "uci": "c2c4",
+            "white_wins": 8,
+            "draws": 22,
+            "black_wins": 29,
+            "total_games": 59
+          },
+          {
+            "uci": "d2d4",
+            "white_wins": 77,
+            "draws": 48,
+            "black_wins": 108,
+            "total_games": 233
+          },
+          {
+            "uci": "f2f4",
+            "white_wins": 34,
+            "draws": 26,
+            "black_wins": 23,
+            "total_games": 83
+          },
+          {
+            "uci": "d1g4",
+            "white_wins": 2,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 2
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "29dc49c3e916a23e644d4afe02564aeb",
+        "total_games": 30550,
+        "white_wins": 10802,
+        "draws": 10196,
+        "black_wins": 9552,
+        "moves": [
+          {
+            "compact_move": 1350,
+            "uci": "g1f3",
+            "white_wins": 9143,
+            "draws": 8586,
+            "black_wins": 7736,
+            "total_games": 25465
+          },
+          {
+            "compact_move": 1153,
+            "uci": "b1c3",
+            "white_wins": 812,
+            "draws": 696,
+            "black_wins": 828,
+            "total_games": 2336
+          },
+          {
+            "compact_move": 1162,
+            "uci": "c2c3",
+            "white_wins": 516,
+            "draws": 657,
+            "black_wins": 589,
+            "total_games": 1762
+          },
+          {
+            "compact_move": 1739,
+            "uci": "d2d4",
+            "white_wins": 77,
+            "draws": 48,
+            "black_wins": 108,
+            "total_games": 233
+          },
+          {
+            "compact_move": 1097,
+            "uci": "b2b3",
+            "white_wins": 41,
+            "draws": 53,
+            "black_wins": 58,
+            "total_games": 152
+          },
+          {
+            "compact_move": 1227,
+            "uci": "d2d3",
+            "white_wins": 49,
+            "draws": 26,
+            "black_wins": 51,
+            "total_games": 126
+          },
+          {
+            "compact_move": 774,
+            "uci": "g1e2",
+            "white_wins": 33,
+            "draws": 27,
+            "black_wins": 32,
+            "total_games": 92
+          },
+          {
+            "compact_move": 1869,
+            "uci": "f2f4",
+            "white_wins": 34,
+            "draws": 26,
+            "black_wins": 23,
+            "total_games": 83
+          },
+          {
+            "compact_move": 1422,
+            "uci": "g2g3",
+            "white_wins": 25,
+            "draws": 22,
+            "black_wins": 28,
+            "total_games": 75
+          },
+          {
+            "compact_move": 773,
+            "uci": "f1e2",
+            "white_wins": 22,
+            "draws": 16,
+            "black_wins": 24,
+            "total_games": 62
+          },
+          {
+            "compact_move": 1674,
+            "uci": "c2c4",
+            "white_wins": 8,
+            "draws": 22,
+            "black_wins": 29,
+            "total_games": 59
+          },
+          {
+            "compact_move": 1609,
+            "uci": "b2b4",
+            "white_wins": 10,
+            "draws": 4,
+            "black_wins": 21,
+            "total_games": 35
+          },
+          {
+            "compact_move": 1032,
+            "uci": "a2a3",
+            "white_wins": 10,
+            "draws": 5,
+            "black_wins": 15,
+            "total_games": 30
+          },
+          {
+            "compact_move": 1025,
+            "uci": "b1a3",
+            "white_wins": 8,
+            "draws": 5,
+            "black_wins": 4,
+            "total_games": 17
+          },
+          {
+            "compact_move": 1487,
+            "uci": "h2h3",
+            "white_wins": 5,
+            "draws": 2,
+            "black_wins": 1,
+            "total_games": 8
+          },
+          {
+            "compact_move": 1544,
+            "uci": "a2a4",
+            "white_wins": 4,
+            "draws": 0,
+            "black_wins": 4,
+            "total_games": 8
+          },
+          {
+            "compact_move": 1669,
+            "uci": "f1c4",
+            "white_wins": 3,
+            "draws": 1,
+            "black_wins": 0,
+            "total_games": 4
+          },
+          {
+            "compact_move": 1923,
+            "uci": "d1g4",
+            "white_wins": 2,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 2
+          },
+          {
+            "compact_move": 1357,
+            "uci": "f2f3",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "French Defense",
+      "moves_san": "e4,e6,d4,d5",
+      "position_key": "cef233b6432700beb41464df682eb2a0",
+      "oracle": {
+        "total_games": 6799,
+        "white_wins": 2624,
+        "draws": 2471,
+        "black_wins": 1704,
+        "moves": [
+          {
+            "uci": "b1d2",
+            "white_wins": 628,
+            "draws": 697,
+            "black_wins": 434,
+            "total_games": 1759
+          },
+          {
+            "uci": "b1c3",
+            "white_wins": 1283,
+            "draws": 1078,
+            "black_wins": 763,
+            "total_games": 3124
+          },
+          {
+            "uci": "f1d3",
+            "white_wins": 26,
+            "draws": 30,
+            "black_wins": 28,
+            "total_games": 84
+          },
+          {
+            "uci": "c1e3",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 2,
+            "total_games": 2
+          },
+          {
+            "uci": "d1f3",
+            "white_wins": 0,
+            "draws": 2,
+            "black_wins": 1,
+            "total_games": 3
+          },
+          {
+            "uci": "e4d5",
+            "white_wins": 143,
+            "draws": 267,
+            "black_wins": 136,
+            "total_games": 546
+          },
+          {
+            "uci": "e4e5",
+            "white_wins": 544,
+            "draws": 397,
+            "black_wins": 340,
+            "total_games": 1281
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "cef233b6432700beb41464df682eb2a0",
+        "total_games": 6799,
+        "white_wins": 2624,
+        "draws": 2471,
+        "black_wins": 1704,
+        "moves": [
+          {
+            "compact_move": 1153,
+            "uci": "b1c3",
+            "white_wins": 1283,
+            "draws": 1078,
+            "black_wins": 763,
+            "total_games": 3124
+          },
+          {
+            "compact_move": 705,
+            "uci": "b1d2",
+            "white_wins": 628,
+            "draws": 697,
+            "black_wins": 434,
+            "total_games": 1759
+          },
+          {
+            "compact_move": 2332,
+            "uci": "e4e5",
+            "white_wins": 544,
+            "draws": 397,
+            "black_wins": 340,
+            "total_games": 1281
+          },
+          {
+            "compact_move": 2268,
+            "uci": "e4d5",
+            "white_wins": 143,
+            "draws": 267,
+            "black_wins": 136,
+            "total_games": 546
+          },
+          {
+            "compact_move": 1221,
+            "uci": "f1d3",
+            "white_wins": 26,
+            "draws": 30,
+            "black_wins": 28,
+            "total_games": 84
+          },
+          {
+            "compact_move": 1347,
+            "uci": "d1f3",
+            "white_wins": 0,
+            "draws": 2,
+            "black_wins": 1,
+            "total_games": 3
+          },
+          {
+            "compact_move": 1282,
+            "uci": "c1e3",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 2,
+            "total_games": 2
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "Caro-Kann Defense",
+      "moves_san": "e4,c6,d4,d5",
+      "position_key": "d5cb35da5c603e5750197b0107ccf149",
+      "oracle": {
+        "total_games": 5252,
+        "white_wins": 1887,
+        "draws": 1839,
+        "black_wins": 1526,
+        "moves": [
+          {
+            "uci": "b1d2",
+            "white_wins": 142,
+            "draws": 186,
+            "black_wins": 136,
+            "total_games": 464
+          },
+          {
+            "uci": "b1c3",
+            "white_wins": 303,
+            "draws": 343,
+            "black_wins": 281,
+            "total_games": 927
+          },
+          {
+            "uci": "c2c3",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          },
+          {
+            "uci": "f1d3",
+            "white_wins": 2,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 2
+          },
+          {
+            "uci": "f2f3",
+            "white_wins": 108,
+            "draws": 81,
+            "black_wins": 88,
+            "total_games": 277
+          },
+          {
+            "uci": "e4d5",
+            "white_wins": 344,
+            "draws": 402,
+            "black_wins": 315,
+            "total_games": 1061
+          },
+          {
+            "uci": "e4e5",
+            "white_wins": 988,
+            "draws": 827,
+            "black_wins": 705,
+            "total_games": 2520
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "d5cb35da5c603e5750197b0107ccf149",
+        "total_games": 5252,
+        "white_wins": 1887,
+        "draws": 1839,
+        "black_wins": 1526,
+        "moves": [
+          {
+            "compact_move": 2332,
+            "uci": "e4e5",
+            "white_wins": 988,
+            "draws": 827,
+            "black_wins": 705,
+            "total_games": 2520
+          },
+          {
+            "compact_move": 2268,
+            "uci": "e4d5",
+            "white_wins": 344,
+            "draws": 402,
+            "black_wins": 315,
+            "total_games": 1061
+          },
+          {
+            "compact_move": 1153,
+            "uci": "b1c3",
+            "white_wins": 303,
+            "draws": 343,
+            "black_wins": 281,
+            "total_games": 927
+          },
+          {
+            "compact_move": 705,
+            "uci": "b1d2",
+            "white_wins": 142,
+            "draws": 186,
+            "black_wins": 136,
+            "total_games": 464
+          },
+          {
+            "compact_move": 1357,
+            "uci": "f2f3",
+            "white_wins": 108,
+            "draws": 81,
+            "black_wins": 88,
+            "total_games": 277
+          },
+          {
+            "compact_move": 1221,
+            "uci": "f1d3",
+            "white_wins": 2,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 2
+          },
+          {
+            "compact_move": 1162,
+            "uci": "c2c3",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "Queen's Gambit Declined",
+      "moves_san": "d4,d5,c4,e6",
+      "position_key": "c064b955b36645befc30f6b3c0a1a4ad",
+      "oracle": {
+        "total_games": 5646,
+        "white_wins": 2093,
+        "draws": 2264,
+        "black_wins": 1289,
+        "moves": [
+          {
+            "uci": "a2a3",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          },
+          {
+            "uci": "b1c3",
+            "white_wins": 1179,
+            "draws": 1216,
+            "black_wins": 688,
+            "total_games": 3083
+          },
+          {
+            "uci": "e2e3",
+            "white_wins": 5,
+            "draws": 3,
+            "black_wins": 4,
+            "total_games": 12
+          },
+          {
+            "uci": "g1f3",
+            "white_wins": 881,
+            "draws": 1011,
+            "black_wins": 559,
+            "total_games": 2451
+          },
+          {
+            "uci": "g2g3",
+            "white_wins": 18,
+            "draws": 17,
+            "black_wins": 21,
+            "total_games": 56
+          },
+          {
+            "uci": "c1f4",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 1
+          },
+          {
+            "uci": "c4d5",
+            "white_wins": 9,
+            "draws": 17,
+            "black_wins": 16,
+            "total_games": 42
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "c064b955b36645befc30f6b3c0a1a4ad",
+        "total_games": 5646,
+        "white_wins": 2093,
+        "draws": 2264,
+        "black_wins": 1289,
+        "moves": [
+          {
+            "compact_move": 1153,
+            "uci": "b1c3",
+            "white_wins": 1179,
+            "draws": 1216,
+            "black_wins": 688,
+            "total_games": 3083
+          },
+          {
+            "compact_move": 1350,
+            "uci": "g1f3",
+            "white_wins": 881,
+            "draws": 1011,
+            "black_wins": 559,
+            "total_games": 2451
+          },
+          {
+            "compact_move": 1422,
+            "uci": "g2g3",
+            "white_wins": 18,
+            "draws": 17,
+            "black_wins": 21,
+            "total_games": 56
+          },
+          {
+            "compact_move": 2266,
+            "uci": "c4d5",
+            "white_wins": 9,
+            "draws": 17,
+            "black_wins": 16,
+            "total_games": 42
+          },
+          {
+            "compact_move": 1292,
+            "uci": "e2e3",
+            "white_wins": 5,
+            "draws": 3,
+            "black_wins": 4,
+            "total_games": 12
+          },
+          {
+            "compact_move": 1032,
+            "uci": "a2a3",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          },
+          {
+            "compact_move": 1858,
+            "uci": "c1f4",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 1
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "King's Indian Defense",
+      "moves_san": "d4,Nf6,c4,g6",
+      "position_key": "64b9095eee6a9086bd7741389222a904",
+      "oracle": {
+        "total_games": 5955,
+        "white_wins": 2225,
+        "draws": 2071,
+        "black_wins": 1659,
+        "moves": [
+          {
+            "uci": "b2b3",
+            "white_wins": 0,
+            "draws": 2,
+            "black_wins": 0,
+            "total_games": 2
+          },
+          {
+            "uci": "b1c3",
+            "white_wins": 1759,
+            "draws": 1601,
+            "black_wins": 1308,
+            "total_games": 4668
+          },
+          {
+            "uci": "g1f3",
+            "white_wins": 141,
+            "draws": 165,
+            "black_wins": 120,
+            "total_games": 426
+          },
+          {
+            "uci": "f2f3",
+            "white_wins": 60,
+            "draws": 37,
+            "black_wins": 53,
+            "total_games": 150
+          },
+          {
+            "uci": "g2g3",
+            "white_wins": 241,
+            "draws": 246,
+            "black_wins": 157,
+            "total_games": 644
+          },
+          {
+            "uci": "e2e4",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          },
+          {
+            "uci": "h2h4",
+            "white_wins": 23,
+            "draws": 18,
+            "black_wins": 18,
+            "total_games": 59
+          },
+          {
+            "uci": "d4d5",
+            "white_wins": 0,
+            "draws": 2,
+            "black_wins": 2,
+            "total_games": 4
+          },
+          {
+            "uci": "c1g5",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 1
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "64b9095eee6a9086bd7741389222a904",
+        "total_games": 5955,
+        "white_wins": 2225,
+        "draws": 2071,
+        "black_wins": 1659,
+        "moves": [
+          {
+            "compact_move": 1153,
+            "uci": "b1c3",
+            "white_wins": 1759,
+            "draws": 1601,
+            "black_wins": 1308,
+            "total_games": 4668
+          },
+          {
+            "compact_move": 1422,
+            "uci": "g2g3",
+            "white_wins": 241,
+            "draws": 246,
+            "black_wins": 157,
+            "total_games": 644
+          },
+          {
+            "compact_move": 1350,
+            "uci": "g1f3",
+            "white_wins": 141,
+            "draws": 165,
+            "black_wins": 120,
+            "total_games": 426
+          },
+          {
+            "compact_move": 1357,
+            "uci": "f2f3",
+            "white_wins": 60,
+            "draws": 37,
+            "black_wins": 53,
+            "total_games": 150
+          },
+          {
+            "compact_move": 1999,
+            "uci": "h2h4",
+            "white_wins": 23,
+            "draws": 18,
+            "black_wins": 18,
+            "total_games": 59
+          },
+          {
+            "compact_move": 2267,
+            "uci": "d4d5",
+            "white_wins": 0,
+            "draws": 2,
+            "black_wins": 2,
+            "total_games": 4
+          },
+          {
+            "compact_move": 1097,
+            "uci": "b2b3",
+            "white_wins": 0,
+            "draws": 2,
+            "black_wins": 0,
+            "total_games": 2
+          },
+          {
+            "compact_move": 1804,
+            "uci": "e2e4",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          },
+          {
+            "compact_move": 2434,
+            "uci": "c1g5",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 1
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "English Opening",
+      "moves_san": "c4,e5",
+      "position_key": "0d93bbb8bb0de39240600176c67bafad",
+      "oracle": {
+        "total_games": 2600,
+        "white_wins": 914,
+        "draws": 879,
+        "black_wins": 807,
+        "moves": [
+          {
+            "uci": "a2a3",
+            "white_wins": 12,
+            "draws": 7,
+            "black_wins": 8,
+            "total_games": 27
+          },
+          {
+            "uci": "b2b3",
+            "white_wins": 7,
+            "draws": 6,
+            "black_wins": 1,
+            "total_games": 14
+          },
+          {
+            "uci": "b1c3",
+            "white_wins": 452,
+            "draws": 471,
+            "black_wins": 446,
+            "total_games": 1369
+          },
+          {
+            "uci": "d2d3",
+            "white_wins": 62,
+            "draws": 35,
+            "black_wins": 34,
+            "total_games": 131
+          },
+          {
+            "uci": "e2e3",
+            "white_wins": 17,
+            "draws": 11,
+            "black_wins": 7,
+            "total_games": 35
+          },
+          {
+            "uci": "g1f3",
+            "white_wins": 26,
+            "draws": 19,
+            "black_wins": 12,
+            "total_games": 57
+          },
+          {
+            "uci": "g2g3",
+            "white_wins": 338,
+            "draws": 329,
+            "black_wins": 297,
+            "total_games": 964
+          },
+          {
+            "uci": "d2d4",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          },
+          {
+            "uci": "e2e4",
+            "white_wins": 0,
+            "draws": 1,
+            "black_wins": 1,
+            "total_games": 2
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "0d93bbb8bb0de39240600176c67bafad",
+        "total_games": 2600,
+        "white_wins": 914,
+        "draws": 879,
+        "black_wins": 807,
+        "moves": [
+          {
+            "compact_move": 1153,
+            "uci": "b1c3",
+            "white_wins": 452,
+            "draws": 471,
+            "black_wins": 446,
+            "total_games": 1369
+          },
+          {
+            "compact_move": 1422,
+            "uci": "g2g3",
+            "white_wins": 338,
+            "draws": 329,
+            "black_wins": 297,
+            "total_games": 964
+          },
+          {
+            "compact_move": 1227,
+            "uci": "d2d3",
+            "white_wins": 62,
+            "draws": 35,
+            "black_wins": 34,
+            "total_games": 131
+          },
+          {
+            "compact_move": 1350,
+            "uci": "g1f3",
+            "white_wins": 26,
+            "draws": 19,
+            "black_wins": 12,
+            "total_games": 57
+          },
+          {
+            "compact_move": 1292,
+            "uci": "e2e3",
+            "white_wins": 17,
+            "draws": 11,
+            "black_wins": 7,
+            "total_games": 35
+          },
+          {
+            "compact_move": 1032,
+            "uci": "a2a3",
+            "white_wins": 12,
+            "draws": 7,
+            "black_wins": 8,
+            "total_games": 27
+          },
+          {
+            "compact_move": 1097,
+            "uci": "b2b3",
+            "white_wins": 7,
+            "draws": 6,
+            "black_wins": 1,
+            "total_games": 14
+          },
+          {
+            "compact_move": 1804,
+            "uci": "e2e4",
+            "white_wins": 0,
+            "draws": 1,
+            "black_wins": 1,
+            "total_games": 2
+          },
+          {
+            "compact_move": 1739,
+            "uci": "d2d4",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "Ruy Lopez",
+      "moves_san": "e4,e5,Nf3,Nc6,Bb5",
+      "position_key": "d49c480da18e9cab4b1376a17217ee1d",
+      "oracle": {
+        "total_games": 8619,
+        "white_wins": 2925,
+        "draws": 3611,
+        "black_wins": 2083,
+        "moves": [
+          {
+            "uci": "f8b4",
+            "white_wins": 0,
+            "draws": 3,
+            "black_wins": 1,
+            "total_games": 4
+          },
+          {
+            "uci": "c6d4",
+            "white_wins": 12,
+            "draws": 8,
+            "black_wins": 3,
+            "total_games": 23
+          },
+          {
+            "uci": "f8c5",
+            "white_wins": 37,
+            "draws": 38,
+            "black_wins": 28,
+            "total_games": 103
+          },
+          {
+            "uci": "f7f5",
+            "white_wins": 56,
+            "draws": 60,
+            "black_wins": 56,
+            "total_games": 172
+          },
+          {
+            "uci": "a7a6",
+            "white_wins": 2240,
+            "draws": 2582,
+            "black_wins": 1635,
+            "total_games": 6457
+          },
+          {
+            "uci": "d7d6",
+            "white_wins": 6,
+            "draws": 10,
+            "black_wins": 5,
+            "total_games": 21
+          },
+          {
+            "uci": "f8d6",
+            "white_wins": 0,
+            "draws": 2,
+            "black_wins": 1,
+            "total_games": 3
+          },
+          {
+            "uci": "d8f6",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 2,
+            "total_games": 2
+          },
+          {
+            "uci": "g8f6",
+            "white_wins": 452,
+            "draws": 792,
+            "black_wins": 247,
+            "total_games": 1491
+          },
+          {
+            "uci": "g7g6",
+            "white_wins": 53,
+            "draws": 51,
+            "black_wins": 49,
+            "total_games": 153
+          },
+          {
+            "uci": "g8e7",
+            "white_wins": 69,
+            "draws": 65,
+            "black_wins": 56,
+            "total_games": 190
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "d49c480da18e9cab4b1376a17217ee1d",
+        "total_games": 8619,
+        "white_wins": 2925,
+        "draws": 3611,
+        "black_wins": 2083,
+        "moves": [
+          {
+            "compact_move": 2608,
+            "uci": "a7a6",
+            "white_wins": 2240,
+            "draws": 2582,
+            "black_wins": 1635,
+            "total_games": 6457
+          },
+          {
+            "compact_move": 2942,
+            "uci": "g8f6",
+            "white_wins": 452,
+            "draws": 792,
+            "black_wins": 247,
+            "total_games": 1491
+          },
+          {
+            "compact_move": 3390,
+            "uci": "g8e7",
+            "white_wins": 69,
+            "draws": 65,
+            "black_wins": 56,
+            "total_games": 190
+          },
+          {
+            "compact_move": 2421,
+            "uci": "f7f5",
+            "white_wins": 56,
+            "draws": 60,
+            "black_wins": 56,
+            "total_games": 172
+          },
+          {
+            "compact_move": 2998,
+            "uci": "g7g6",
+            "white_wins": 53,
+            "draws": 51,
+            "black_wins": 49,
+            "total_games": 153
+          },
+          {
+            "compact_move": 2237,
+            "uci": "f8c5",
+            "white_wins": 37,
+            "draws": 38,
+            "black_wins": 28,
+            "total_games": 103
+          },
+          {
+            "compact_move": 1770,
+            "uci": "c6d4",
+            "white_wins": 12,
+            "draws": 8,
+            "black_wins": 3,
+            "total_games": 23
+          },
+          {
+            "compact_move": 2803,
+            "uci": "d7d6",
+            "white_wins": 6,
+            "draws": 10,
+            "black_wins": 5,
+            "total_games": 21
+          },
+          {
+            "compact_move": 1661,
+            "uci": "f8b4",
+            "white_wins": 0,
+            "draws": 3,
+            "black_wins": 1,
+            "total_games": 4
+          },
+          {
+            "compact_move": 2813,
+            "uci": "f8d6",
+            "white_wins": 0,
+            "draws": 2,
+            "black_wins": 1,
+            "total_games": 3
+          },
+          {
+            "compact_move": 2939,
+            "uci": "d8f6",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 2,
+            "total_games": 2
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "Italian Game",
+      "moves_san": "e4,e5,Nf3,Nc6,Bc4",
+      "position_key": "8fa26f2277d263e91b7e13263fc0ab38",
+      "oracle": {
+        "total_games": 4382,
+        "white_wins": 1562,
+        "draws": 1665,
+        "black_wins": 1155,
+        "moves": [
+          {
+            "uci": "c6a5",
+            "white_wins": 2,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 2
+          },
+          {
+            "uci": "f8c5",
+            "white_wins": 652,
+            "draws": 682,
+            "black_wins": 443,
+            "total_games": 1777
+          },
+          {
+            "uci": "f7f5",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 1
+          },
+          {
+            "uci": "d7d6",
+            "white_wins": 53,
+            "draws": 49,
+            "black_wins": 48,
+            "total_games": 150
+          },
+          {
+            "uci": "g8f6",
+            "white_wins": 829,
+            "draws": 910,
+            "black_wins": 649,
+            "total_games": 2388
+          },
+          {
+            "uci": "g7g6",
+            "white_wins": 4,
+            "draws": 2,
+            "black_wins": 3,
+            "total_games": 9
+          },
+          {
+            "uci": "h7h6",
+            "white_wins": 2,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 3
+          },
+          {
+            "uci": "f8e7",
+            "white_wins": 19,
+            "draws": 22,
+            "black_wins": 11,
+            "total_games": 52
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "8fa26f2277d263e91b7e13263fc0ab38",
+        "total_games": 4382,
+        "white_wins": 1562,
+        "draws": 1665,
+        "black_wins": 1155,
+        "moves": [
+          {
+            "compact_move": 2942,
+            "uci": "g8f6",
+            "white_wins": 829,
+            "draws": 910,
+            "black_wins": 649,
+            "total_games": 2388
+          },
+          {
+            "compact_move": 2237,
+            "uci": "f8c5",
+            "white_wins": 652,
+            "draws": 682,
+            "black_wins": 443,
+            "total_games": 1777
+          },
+          {
+            "compact_move": 2803,
+            "uci": "d7d6",
+            "white_wins": 53,
+            "draws": 49,
+            "black_wins": 48,
+            "total_games": 150
+          },
+          {
+            "compact_move": 3389,
+            "uci": "f8e7",
+            "white_wins": 19,
+            "draws": 22,
+            "black_wins": 11,
+            "total_games": 52
+          },
+          {
+            "compact_move": 2998,
+            "uci": "g7g6",
+            "white_wins": 4,
+            "draws": 2,
+            "black_wins": 3,
+            "total_games": 9
+          },
+          {
+            "compact_move": 3063,
+            "uci": "h7h6",
+            "white_wins": 2,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 3
+          },
+          {
+            "compact_move": 2090,
+            "uci": "c6a5",
+            "white_wins": 2,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 2
+          },
+          {
+            "compact_move": 2421,
+            "uci": "f7f5",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 1
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "King's Gambit Accepted",
+      "moves_san": "e4,e5,f4,exf4,Nf3",
+      "position_key": "acb61bdc48c58c9bc7bc387f2e4ce2c0",
+      "oracle": {
+        "total_games": 76,
+        "white_wins": 18,
+        "draws": 27,
+        "black_wins": 31,
+        "moves": [
+          {
+            "uci": "d7d5",
+            "white_wins": 4,
+            "draws": 5,
+            "black_wins": 5,
+            "total_games": 14
+          },
+          {
+            "uci": "f7f5",
+            "white_wins": 0,
+            "draws": 1,
+            "black_wins": 0,
+            "total_games": 1
+          },
+          {
+            "uci": "g7g5",
+            "white_wins": 3,
+            "draws": 8,
+            "black_wins": 8,
+            "total_games": 19
+          },
+          {
+            "uci": "d7d6",
+            "white_wins": 3,
+            "draws": 5,
+            "black_wins": 4,
+            "total_games": 12
+          },
+          {
+            "uci": "g8f6",
+            "white_wins": 4,
+            "draws": 3,
+            "black_wins": 5,
+            "total_games": 12
+          },
+          {
+            "uci": "h7h6",
+            "white_wins": 1,
+            "draws": 2,
+            "black_wins": 2,
+            "total_games": 5
+          },
+          {
+            "uci": "f8e7",
+            "white_wins": 2,
+            "draws": 2,
+            "black_wins": 3,
+            "total_games": 7
+          },
+          {
+            "uci": "g8e7",
+            "white_wins": 1,
+            "draws": 1,
+            "black_wins": 4,
+            "total_games": 6
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "acb61bdc48c58c9bc7bc387f2e4ce2c0",
+        "total_games": 76,
+        "white_wins": 18,
+        "draws": 27,
+        "black_wins": 31,
+        "moves": [
+          {
+            "compact_move": 2486,
+            "uci": "g7g5",
+            "white_wins": 3,
+            "draws": 8,
+            "black_wins": 8,
+            "total_games": 19
+          },
+          {
+            "compact_move": 2291,
+            "uci": "d7d5",
+            "white_wins": 4,
+            "draws": 5,
+            "black_wins": 5,
+            "total_games": 14
+          },
+          {
+            "compact_move": 2803,
+            "uci": "d7d6",
+            "white_wins": 3,
+            "draws": 5,
+            "black_wins": 4,
+            "total_games": 12
+          },
+          {
+            "compact_move": 2942,
+            "uci": "g8f6",
+            "white_wins": 4,
+            "draws": 3,
+            "black_wins": 5,
+            "total_games": 12
+          },
+          {
+            "compact_move": 3389,
+            "uci": "f8e7",
+            "white_wins": 2,
+            "draws": 2,
+            "black_wins": 3,
+            "total_games": 7
+          },
+          {
+            "compact_move": 3390,
+            "uci": "g8e7",
+            "white_wins": 1,
+            "draws": 1,
+            "black_wins": 4,
+            "total_games": 6
+          },
+          {
+            "compact_move": 3063,
+            "uci": "h7h6",
+            "white_wins": 1,
+            "draws": 2,
+            "black_wins": 2,
+            "total_games": 5
+          },
+          {
+            "compact_move": 2421,
+            "uci": "f7f5",
+            "white_wins": 0,
+            "draws": 1,
+            "black_wins": 0,
+            "total_games": 1
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "Budapest Gambit",
+      "moves_san": "d4,Nf6,c4,e5,dxe5,Ng4",
+      "position_key": "31e053c983d7c58bdf05be0d7f37e565",
+      "oracle": {
+        "total_games": 93,
+        "white_wins": 46,
+        "draws": 21,
+        "black_wins": 26,
+        "moves": [
+          {
+            "uci": "b1c3",
+            "white_wins": 2,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 2
+          },
+          {
+            "uci": "e2e3",
+            "white_wins": 11,
+            "draws": 4,
+            "black_wins": 6,
+            "total_games": 21
+          },
+          {
+            "uci": "g1f3",
+            "white_wins": 11,
+            "draws": 6,
+            "black_wins": 9,
+            "total_games": 26
+          },
+          {
+            "uci": "g1h3",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 2
+          },
+          {
+            "uci": "e2e4",
+            "white_wins": 6,
+            "draws": 2,
+            "black_wins": 2,
+            "total_games": 10
+          },
+          {
+            "uci": "c1f4",
+            "white_wins": 15,
+            "draws": 9,
+            "black_wins": 8,
+            "total_games": 32
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "31e053c983d7c58bdf05be0d7f37e565",
+        "total_games": 93,
+        "white_wins": 46,
+        "draws": 21,
+        "black_wins": 26,
+        "moves": [
+          {
+            "compact_move": 1858,
+            "uci": "c1f4",
+            "white_wins": 15,
+            "draws": 9,
+            "black_wins": 8,
+            "total_games": 32
+          },
+          {
+            "compact_move": 1350,
+            "uci": "g1f3",
+            "white_wins": 11,
+            "draws": 6,
+            "black_wins": 9,
+            "total_games": 26
+          },
+          {
+            "compact_move": 1292,
+            "uci": "e2e3",
+            "white_wins": 11,
+            "draws": 4,
+            "black_wins": 6,
+            "total_games": 21
+          },
+          {
+            "compact_move": 1804,
+            "uci": "e2e4",
+            "white_wins": 6,
+            "draws": 2,
+            "black_wins": 2,
+            "total_games": 10
+          },
+          {
+            "compact_move": 1153,
+            "uci": "b1c3",
+            "white_wins": 2,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 2
+          },
+          {
+            "compact_move": 1478,
+            "uci": "g1h3",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 2
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "Scandinavian Defense",
+      "moves_san": "e4,d5,exd5,Qxd5,Nc3,Qa5",
+      "position_key": "ec86fee2432d402da145bdee0e3a0300",
+      "oracle": {
+        "total_games": 361,
+        "white_wins": 130,
+        "draws": 123,
+        "black_wins": 108,
+        "moves": [
+          {
+            "uci": "a1b1",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          },
+          {
+            "uci": "a2a3",
+            "white_wins": 0,
+            "draws": 1,
+            "black_wins": 0,
+            "total_games": 1
+          },
+          {
+            "uci": "g1f3",
+            "white_wins": 12,
+            "draws": 11,
+            "black_wins": 13,
+            "total_games": 36
+          },
+          {
+            "uci": "g2g3",
+            "white_wins": 6,
+            "draws": 6,
+            "black_wins": 2,
+            "total_games": 14
+          },
+          {
+            "uci": "h2h3",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          },
+          {
+            "uci": "b2b4",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 1
+          },
+          {
+            "uci": "f1c4",
+            "white_wins": 11,
+            "draws": 18,
+            "black_wins": 14,
+            "total_games": 43
+          },
+          {
+            "uci": "d2d4",
+            "white_wins": 100,
+            "draws": 87,
+            "black_wins": 77,
+            "total_games": 264
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "ec86fee2432d402da145bdee0e3a0300",
+        "total_games": 361,
+        "white_wins": 130,
+        "draws": 123,
+        "black_wins": 108,
+        "moves": [
+          {
+            "compact_move": 1739,
+            "uci": "d2d4",
+            "white_wins": 100,
+            "draws": 87,
+            "black_wins": 77,
+            "total_games": 264
+          },
+          {
+            "compact_move": 1669,
+            "uci": "f1c4",
+            "white_wins": 11,
+            "draws": 18,
+            "black_wins": 14,
+            "total_games": 43
+          },
+          {
+            "compact_move": 1350,
+            "uci": "g1f3",
+            "white_wins": 12,
+            "draws": 11,
+            "black_wins": 13,
+            "total_games": 36
+          },
+          {
+            "compact_move": 1422,
+            "uci": "g2g3",
+            "white_wins": 6,
+            "draws": 6,
+            "black_wins": 2,
+            "total_games": 14
+          },
+          {
+            "compact_move": 64,
+            "uci": "a1b1",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          },
+          {
+            "compact_move": 1032,
+            "uci": "a2a3",
+            "white_wins": 0,
+            "draws": 1,
+            "black_wins": 0,
+            "total_games": 1
+          },
+          {
+            "compact_move": 1487,
+            "uci": "h2h3",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          },
+          {
+            "compact_move": 1609,
+            "uci": "b2b4",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 1
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "Alekhine Defense",
+      "moves_san": "e4,Nf6,e5,Nd5,d4,d6",
+      "position_key": "784eb0073c6fd8f58034df6a598637fe",
+      "oracle": {
+        "total_games": 546,
+        "white_wins": 202,
+        "draws": 202,
+        "black_wins": 142,
+        "moves": [
+          {
+            "uci": "f1e2",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          },
+          {
+            "uci": "g1f3",
+            "white_wins": 110,
+            "draws": 120,
+            "black_wins": 67,
+            "total_games": 297
+          },
+          {
+            "uci": "f1c4",
+            "white_wins": 7,
+            "draws": 7,
+            "black_wins": 4,
+            "total_games": 18
+          },
+          {
+            "uci": "c2c4",
+            "white_wins": 77,
+            "draws": 69,
+            "black_wins": 61,
+            "total_games": 207
+          },
+          {
+            "uci": "f2f4",
+            "white_wins": 2,
+            "draws": 0,
+            "black_wins": 2,
+            "total_games": 4
+          },
+          {
+            "uci": "e5d6",
+            "white_wins": 6,
+            "draws": 6,
+            "black_wins": 7,
+            "total_games": 19
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "784eb0073c6fd8f58034df6a598637fe",
+        "total_games": 546,
+        "white_wins": 202,
+        "draws": 202,
+        "black_wins": 142,
+        "moves": [
+          {
+            "compact_move": 1350,
+            "uci": "g1f3",
+            "white_wins": 110,
+            "draws": 120,
+            "black_wins": 67,
+            "total_games": 297
+          },
+          {
+            "compact_move": 1674,
+            "uci": "c2c4",
+            "white_wins": 77,
+            "draws": 69,
+            "black_wins": 61,
+            "total_games": 207
+          },
+          {
+            "compact_move": 2788,
+            "uci": "e5d6",
+            "white_wins": 6,
+            "draws": 6,
+            "black_wins": 7,
+            "total_games": 19
+          },
+          {
+            "compact_move": 1669,
+            "uci": "f1c4",
+            "white_wins": 7,
+            "draws": 7,
+            "black_wins": 4,
+            "total_games": 18
+          },
+          {
+            "compact_move": 1869,
+            "uci": "f2f4",
+            "white_wins": 2,
+            "draws": 0,
+            "black_wins": 2,
+            "total_games": 4
+          },
+          {
+            "compact_move": 773,
+            "uci": "f1e2",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "Dutch Defense",
+      "moves_san": "d4,f5,c4,Nf6,g3",
+      "position_key": "e039aeb83c9b42b1ec4acfbbb7f2cea9",
+      "oracle": {
+        "total_games": 57,
+        "white_wins": 22,
+        "draws": 19,
+        "black_wins": 16,
+        "moves": [
+          {
+            "uci": "d7d6",
+            "white_wins": 3,
+            "draws": 1,
+            "black_wins": 2,
+            "total_games": 6
+          },
+          {
+            "uci": "e7e6",
+            "white_wins": 1,
+            "draws": 4,
+            "black_wins": 4,
+            "total_games": 9
+          },
+          {
+            "uci": "g7g6",
+            "white_wins": 18,
+            "draws": 14,
+            "black_wins": 10,
+            "total_games": 42
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "e039aeb83c9b42b1ec4acfbbb7f2cea9",
+        "total_games": 57,
+        "white_wins": 22,
+        "draws": 19,
+        "black_wins": 16,
+        "moves": [
+          {
+            "compact_move": 2998,
+            "uci": "g7g6",
+            "white_wins": 18,
+            "draws": 14,
+            "black_wins": 10,
+            "total_games": 42
+          },
+          {
+            "compact_move": 2868,
+            "uci": "e7e6",
+            "white_wins": 1,
+            "draws": 4,
+            "black_wins": 4,
+            "total_games": 9
+          },
+          {
+            "compact_move": 2803,
+            "uci": "d7d6",
+            "white_wins": 3,
+            "draws": 1,
+            "black_wins": 2,
+            "total_games": 6
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "Nimzo-Indian Defense",
+      "moves_san": "d4,Nf6,c4,e6,Nc3,Bb4",
+      "position_key": "2525292028845b2d106291f6789ae1e6",
+      "oracle": {
+        "total_games": 4740,
+        "white_wins": 1542,
+        "draws": 1831,
+        "black_wins": 1367,
+        "moves": [
+          {
+            "uci": "d1c2",
+            "white_wins": 318,
+            "draws": 508,
+            "black_wins": 299,
+            "total_games": 1125
+          },
+          {
+            "uci": "c1d2",
+            "white_wins": 21,
+            "draws": 23,
+            "black_wins": 15,
+            "total_games": 59
+          },
+          {
+            "uci": "d1d2",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 2
+          },
+          {
+            "uci": "a2a3",
+            "white_wins": 57,
+            "draws": 55,
+            "black_wins": 79,
+            "total_games": 191
+          },
+          {
+            "uci": "d1b3",
+            "white_wins": 10,
+            "draws": 12,
+            "black_wins": 8,
+            "total_games": 30
+          },
+          {
+            "uci": "e2e3",
+            "white_wins": 847,
+            "draws": 930,
+            "black_wins": 703,
+            "total_games": 2480
+          },
+          {
+            "uci": "g1f3",
+            "white_wins": 111,
+            "draws": 133,
+            "black_wins": 89,
+            "total_games": 333
+          },
+          {
+            "uci": "f2f3",
+            "white_wins": 122,
+            "draws": 109,
+            "black_wins": 123,
+            "total_games": 354
+          },
+          {
+            "uci": "g2g3",
+            "white_wins": 39,
+            "draws": 36,
+            "black_wins": 25,
+            "total_games": 100
+          },
+          {
+            "uci": "d1a4",
+            "white_wins": 0,
+            "draws": 1,
+            "black_wins": 0,
+            "total_games": 1
+          },
+          {
+            "uci": "c1f4",
+            "white_wins": 5,
+            "draws": 2,
+            "black_wins": 3,
+            "total_games": 10
+          },
+          {
+            "uci": "c1g5",
+            "white_wins": 11,
+            "draws": 22,
+            "black_wins": 22,
+            "total_games": 55
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "2525292028845b2d106291f6789ae1e6",
+        "total_games": 4740,
+        "white_wins": 1542,
+        "draws": 1831,
+        "black_wins": 1367,
+        "moves": [
+          {
+            "compact_move": 1292,
+            "uci": "e2e3",
+            "white_wins": 847,
+            "draws": 930,
+            "black_wins": 703,
+            "total_games": 2480
+          },
+          {
+            "compact_move": 643,
+            "uci": "d1c2",
+            "white_wins": 318,
+            "draws": 508,
+            "black_wins": 299,
+            "total_games": 1125
+          },
+          {
+            "compact_move": 1357,
+            "uci": "f2f3",
+            "white_wins": 122,
+            "draws": 109,
+            "black_wins": 123,
+            "total_games": 354
+          },
+          {
+            "compact_move": 1350,
+            "uci": "g1f3",
+            "white_wins": 111,
+            "draws": 133,
+            "black_wins": 89,
+            "total_games": 333
+          },
+          {
+            "compact_move": 1032,
+            "uci": "a2a3",
+            "white_wins": 57,
+            "draws": 55,
+            "black_wins": 79,
+            "total_games": 191
+          },
+          {
+            "compact_move": 1422,
+            "uci": "g2g3",
+            "white_wins": 39,
+            "draws": 36,
+            "black_wins": 25,
+            "total_games": 100
+          },
+          {
+            "compact_move": 706,
+            "uci": "c1d2",
+            "white_wins": 21,
+            "draws": 23,
+            "black_wins": 15,
+            "total_games": 59
+          },
+          {
+            "compact_move": 2434,
+            "uci": "c1g5",
+            "white_wins": 11,
+            "draws": 22,
+            "black_wins": 22,
+            "total_games": 55
+          },
+          {
+            "compact_move": 1091,
+            "uci": "d1b3",
+            "white_wins": 10,
+            "draws": 12,
+            "black_wins": 8,
+            "total_games": 30
+          },
+          {
+            "compact_move": 1858,
+            "uci": "c1f4",
+            "white_wins": 5,
+            "draws": 2,
+            "black_wins": 3,
+            "total_games": 10
+          },
+          {
+            "compact_move": 707,
+            "uci": "d1d2",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 2
+          },
+          {
+            "compact_move": 1539,
+            "uci": "d1a4",
+            "white_wins": 0,
+            "draws": 1,
+            "black_wins": 0,
+            "total_games": 1
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "Benko Gambit",
+      "moves_san": "d4,Nf6,c4,c5,d5,b5",
+      "position_key": "2d097ffb003aa36168beea8b14611b52",
+      "oracle": {
+        "total_games": 521,
+        "white_wins": 231,
+        "draws": 152,
+        "black_wins": 138,
+        "moves": [
+          {
+            "uci": "d1c2",
+            "white_wins": 10,
+            "draws": 5,
+            "black_wins": 10,
+            "total_games": 25
+          },
+          {
+            "uci": "b1d2",
+            "white_wins": 10,
+            "draws": 2,
+            "black_wins": 2,
+            "total_games": 14
+          },
+          {
+            "uci": "e2e3",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 1
+          },
+          {
+            "uci": "g1f3",
+            "white_wins": 28,
+            "draws": 19,
+            "black_wins": 21,
+            "total_games": 68
+          },
+          {
+            "uci": "f2f3",
+            "white_wins": 2,
+            "draws": 1,
+            "black_wins": 2,
+            "total_games": 5
+          },
+          {
+            "uci": "a2a4",
+            "white_wins": 2,
+            "draws": 2,
+            "black_wins": 3,
+            "total_games": 7
+          },
+          {
+            "uci": "c4b5",
+            "white_wins": 178,
+            "draws": 123,
+            "black_wins": 99,
+            "total_games": 400
+          },
+          {
+            "uci": "c1g5",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "2d097ffb003aa36168beea8b14611b52",
+        "total_games": 521,
+        "white_wins": 231,
+        "draws": 152,
+        "black_wins": 138,
+        "moves": [
+          {
+            "compact_move": 2138,
+            "uci": "c4b5",
+            "white_wins": 178,
+            "draws": 123,
+            "black_wins": 99,
+            "total_games": 400
+          },
+          {
+            "compact_move": 1350,
+            "uci": "g1f3",
+            "white_wins": 28,
+            "draws": 19,
+            "black_wins": 21,
+            "total_games": 68
+          },
+          {
+            "compact_move": 643,
+            "uci": "d1c2",
+            "white_wins": 10,
+            "draws": 5,
+            "black_wins": 10,
+            "total_games": 25
+          },
+          {
+            "compact_move": 705,
+            "uci": "b1d2",
+            "white_wins": 10,
+            "draws": 2,
+            "black_wins": 2,
+            "total_games": 14
+          },
+          {
+            "compact_move": 1544,
+            "uci": "a2a4",
+            "white_wins": 2,
+            "draws": 2,
+            "black_wins": 3,
+            "total_games": 7
+          },
+          {
+            "compact_move": 1357,
+            "uci": "f2f3",
+            "white_wins": 2,
+            "draws": 1,
+            "black_wins": 2,
+            "total_games": 5
+          },
+          {
+            "compact_move": 1292,
+            "uci": "e2e3",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 1
+          },
+          {
+            "compact_move": 2434,
+            "uci": "c1g5",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 1,
+            "total_games": 1
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "Trompowsky Attack",
+      "moves_san": "d4,Nf6,Bg5,e6,e3",
+      "position_key": "05dc4f6a61a56e56c5e06af226555376",
+      "oracle": {
+        "total_games": 29,
+        "white_wins": 7,
+        "draws": 14,
+        "black_wins": 8,
+        "moves": [
+          {
+            "uci": "c7c5",
+            "white_wins": 4,
+            "draws": 6,
+            "black_wins": 4,
+            "total_games": 14
+          },
+          {
+            "uci": "d7d5",
+            "white_wins": 0,
+            "draws": 2,
+            "black_wins": 0,
+            "total_games": 2
+          },
+          {
+            "uci": "b7b6",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 1
+          },
+          {
+            "uci": "h7h6",
+            "white_wins": 2,
+            "draws": 5,
+            "black_wins": 3,
+            "total_games": 10
+          },
+          {
+            "uci": "f8e7",
+            "white_wins": 0,
+            "draws": 1,
+            "black_wins": 1,
+            "total_games": 2
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "05dc4f6a61a56e56c5e06af226555376",
+        "total_games": 29,
+        "white_wins": 7,
+        "draws": 14,
+        "black_wins": 8,
+        "moves": [
+          {
+            "compact_move": 2226,
+            "uci": "c7c5",
+            "white_wins": 4,
+            "draws": 6,
+            "black_wins": 4,
+            "total_games": 14
+          },
+          {
+            "compact_move": 3063,
+            "uci": "h7h6",
+            "white_wins": 2,
+            "draws": 5,
+            "black_wins": 3,
+            "total_games": 10
+          },
+          {
+            "compact_move": 2291,
+            "uci": "d7d5",
+            "white_wins": 0,
+            "draws": 2,
+            "black_wins": 0,
+            "total_games": 2
+          },
+          {
+            "compact_move": 3389,
+            "uci": "f8e7",
+            "white_wins": 0,
+            "draws": 1,
+            "black_wins": 1,
+            "total_games": 2
+          },
+          {
+            "compact_move": 2673,
+            "uci": "b7b6",
+            "white_wins": 1,
+            "draws": 0,
+            "black_wins": 0,
+            "total_games": 1
+          }
+        ]
+      },
+      "exact_match": true
+    },
+    {
+      "opening": "Ruy Lopez transposition",
+      "moves_san": "e4,e5,Bb5,Nc6,Nf3",
+      "position_key": "d49c480da18e9cab4b1376a17217ee1d",
+      "oracle": {
+        "total_games": 8619,
+        "white_wins": 2925,
+        "draws": 3611,
+        "black_wins": 2083,
+        "moves": [
+          {
+            "uci": "f8b4",
+            "white_wins": 0,
+            "draws": 3,
+            "black_wins": 1,
+            "total_games": 4
+          },
+          {
+            "uci": "c6d4",
+            "white_wins": 12,
+            "draws": 8,
+            "black_wins": 3,
+            "total_games": 23
+          },
+          {
+            "uci": "f8c5",
+            "white_wins": 37,
+            "draws": 38,
+            "black_wins": 28,
+            "total_games": 103
+          },
+          {
+            "uci": "f7f5",
+            "white_wins": 56,
+            "draws": 60,
+            "black_wins": 56,
+            "total_games": 172
+          },
+          {
+            "uci": "a7a6",
+            "white_wins": 2240,
+            "draws": 2582,
+            "black_wins": 1635,
+            "total_games": 6457
+          },
+          {
+            "uci": "d7d6",
+            "white_wins": 6,
+            "draws": 10,
+            "black_wins": 5,
+            "total_games": 21
+          },
+          {
+            "uci": "f8d6",
+            "white_wins": 0,
+            "draws": 2,
+            "black_wins": 1,
+            "total_games": 3
+          },
+          {
+            "uci": "d8f6",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 2,
+            "total_games": 2
+          },
+          {
+            "uci": "g8f6",
+            "white_wins": 452,
+            "draws": 792,
+            "black_wins": 247,
+            "total_games": 1491
+          },
+          {
+            "uci": "g7g6",
+            "white_wins": 53,
+            "draws": 51,
+            "black_wins": 49,
+            "total_games": 153
+          },
+          {
+            "uci": "g8e7",
+            "white_wins": 69,
+            "draws": 65,
+            "black_wins": 56,
+            "total_games": 190
+          }
+        ]
+      },
+      "cpi": {
+        "position_key": "d49c480da18e9cab4b1376a17217ee1d",
+        "total_games": 8619,
+        "white_wins": 2925,
+        "draws": 3611,
+        "black_wins": 2083,
+        "moves": [
+          {
+            "compact_move": 2608,
+            "uci": "a7a6",
+            "white_wins": 2240,
+            "draws": 2582,
+            "black_wins": 1635,
+            "total_games": 6457
+          },
+          {
+            "compact_move": 2942,
+            "uci": "g8f6",
+            "white_wins": 452,
+            "draws": 792,
+            "black_wins": 247,
+            "total_games": 1491
+          },
+          {
+            "compact_move": 3390,
+            "uci": "g8e7",
+            "white_wins": 69,
+            "draws": 65,
+            "black_wins": 56,
+            "total_games": 190
+          },
+          {
+            "compact_move": 2421,
+            "uci": "f7f5",
+            "white_wins": 56,
+            "draws": 60,
+            "black_wins": 56,
+            "total_games": 172
+          },
+          {
+            "compact_move": 2998,
+            "uci": "g7g6",
+            "white_wins": 53,
+            "draws": 51,
+            "black_wins": 49,
+            "total_games": 153
+          },
+          {
+            "compact_move": 2237,
+            "uci": "f8c5",
+            "white_wins": 37,
+            "draws": 38,
+            "black_wins": 28,
+            "total_games": 103
+          },
+          {
+            "compact_move": 1770,
+            "uci": "c6d4",
+            "white_wins": 12,
+            "draws": 8,
+            "black_wins": 3,
+            "total_games": 23
+          },
+          {
+            "compact_move": 2803,
+            "uci": "d7d6",
+            "white_wins": 6,
+            "draws": 10,
+            "black_wins": 5,
+            "total_games": 21
+          },
+          {
+            "compact_move": 1661,
+            "uci": "f8b4",
+            "white_wins": 0,
+            "draws": 3,
+            "black_wins": 1,
+            "total_games": 4
+          },
+          {
+            "compact_move": 2813,
+            "uci": "f8d6",
+            "white_wins": 0,
+            "draws": 2,
+            "black_wins": 1,
+            "total_games": 3
+          },
+          {
+            "compact_move": 2939,
+            "uci": "d8f6",
+            "white_wins": 0,
+            "draws": 0,
+            "black_wins": 2,
+            "total_games": 2
+          }
+        ]
+      },
+      "exact_match": true
+    }
+  ],
+  "limitations": [
+    "The oracle starts from canonical CGB3 records, not the original source PGN, so it does not independently verify source-to-canonical mapping or upstream metadata preservation.",
+    "It shares the repository's compute_position_key function with CPI extraction; move replay and aggregation are independent, but the position-key encoding itself is not independently reimplemented.",
+    "Only the listed positions are independently aggregated; this is not a complete re-indexing of every position."
+  ]
+}
