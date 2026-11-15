@@ -141,13 +141,13 @@ Compose also limits the process to 64 PIDs and 1,024 open files. Adjust limits o
 
 The current real-corpus report is `benchmarks/corpus/docker_real_check.json`. It records a digest-pinned independent client reaching `http://codb:8080`, both release IDs and game counts, the opening baseline (3,902 Masters and 30,390 Elite games for `e4,e5,Nf3`), PGN retrieval from each collection, 96/96 concurrent requests, container restart, graceful SIGTERM, read-only mounts and root filesystem, no published host ports, and failure rejection for missing, wrong, incomplete, and corrupted releases. The Docker image measured 98,871,472 bytes. The test daemon could not access the workspace through bind paths, so this run used read-only named-volume copies; the normal Compose configuration mounts host release roots read-only.
 
-A separate [Gigabase local-evaluation report](../benchmarks/gigabase/FINAL_REPORT.md) records the source-qualified Masters snapshot served beside the unchanged Elite release. It was packaged and bootstrapped only inside the ignored evaluation workspace; it remains ineligible for the approved catalog, public distribution, or production use. The Docker run disabled raw-PGN retrieval and verified position statistics from a separate in-network client. In this Docker-in-Docker environment, the daemon could not resolve workspace bind paths or expose its loopback port to the workspace host, so the evaluation used read-only Docker-managed volumes. This is an environment-specific evaluation record, not a replacement for the approved real-release evidence above.
+A separate [Gigabase local-evaluation report](../benchmarks/gigabase/FINAL_REPORT.md) records the source-qualified Masters snapshot served beside the unchanged Elite release. It was packaged and bootstrapped only inside the ignored evaluation workspace; it remains ineligible for the approved catalog, public distribution, or production use. The initial Docker run disabled raw-PGN retrieval. A later route-enabled internal smoke used the provenance-corrected package, matched position and PGN responses to the CLI, and passed 96/96 concurrent requests. Both runs used read-only Docker-managed volumes. A direct read-only bind-mount probe failed because the Docker daemon reported that the checkout path did not exist from its filesystem; full Compose bind-mount verification remains outstanding. See [`DOCKER_API_PROVENANCE_RETRIEVAL_QA.json`](../benchmarks/gigabase/DOCKER_API_PROVENANCE_RETRIEVAL_QA.json). These are environment-specific evaluation results, not replacements for the approved real-release evidence above.
 
 The separate `scripts/local_gigabase_eval.py` workflow registers the supplied archive using local hashes, rebuilds it with the Gigabase-only qualification policy, creates a local-only package, bootstraps it into `data/work/gigabase-eval/deploy/masters-otb`, and rolls back to a retained snapshot. It does not add the source to the approved catalog or write to `data/releases/`. The package notice preserves the publisher's CC BY-NC 4.0 claim, the absent publisher checksum, and unresolved upstream rights. For a restricted local service, set `CODB_MASTERS_RELEASE_DIR` to the evaluation deployment root and `CODB_ENABLE_GAME_RETRIEVAL=false`; do not offer raw PGN to users. This package is a local evaluation artifact, not clearance for public or commercial deployment.
 
 ### Host-side bind-mount verification for the local Gigabase candidate
 
-The agent's Docker-in-Docker daemon could not resolve workspace bind paths, so the recorded Gigabase smoke tests used read-only named-volume copies. To verify the actual Compose bind mounts on a host with Docker access to the checkout, use a private external network and the isolated evaluation root. This procedure has not been run in the current environment.
+The corrected package was bootstrapped into an isolated root, queried, served by the real Docker smoke using read-only named-volume copies, and rolled back to the previous Masters snapshot. A separate read-only bind probe failed because the Docker daemon reported `bind source path does not exist`; a full Compose bind-mount run therefore remains unverified. To run that test on a host whose Docker daemon can access the checkout, use a private external network and a fresh ignored evaluation root.
 
 From the repository root, restore the candidate only under the ignored evaluation deployment path, then create a uniquely named network:
 
@@ -155,8 +155,8 @@ From the repository root, restore the candidate only under the ignored evaluatio
 REPO_DIR="$(pwd)"
 CODB_NETWORK_NAME=gigabase-host-qa
 python3 scripts/local_gigabase_eval.py bootstrap \
-  --package data/work/gigabase-eval/packages-r2-final5/masters-otb-codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40-local-evaluation.tar \
-  --target data/work/gigabase-eval/deploy/masters-otb-r2 \
+  --package data/work/gigabase-eval/packages-provenance-r1/masters-otb-codb-masters-otb-1794734897423894473-41647-72708103e81b880b-cpi-d40-local-evaluation.tar \
+  --target data/work/gigabase-eval/host-bind-qa/masters-otb \
   --previous-root data/releases/masters-otb \
   --codb target/release/codb
 docker network create "$CODB_NETWORK_NAME"
@@ -165,7 +165,7 @@ docker network create "$CODB_NETWORK_NAME"
 Start Compose with host bind mounts, no published host ports, and raw-PGN retrieval disabled:
 
 ~~~bash
-CODB_MASTERS_RELEASE_DIR="$REPO_DIR/data/work/gigabase-eval/deploy/masters-otb-r2" \
+CODB_MASTERS_RELEASE_DIR="$REPO_DIR/data/work/gigabase-eval/host-bind-qa/masters-otb" \
 CODB_ELITE_RELEASE_DIR="$REPO_DIR/data/releases/elite-online" \
 CODB_NETWORK_NAME="$CODB_NETWORK_NAME" \
 CODB_NETWORK_EXTERNAL=true \
@@ -188,7 +188,7 @@ docker inspect --format '{{json .Mounts}}' "$CODB_CONTAINER"
 docker inspect --format '{{json .HostConfig.PortBindings}}' "$CODB_CONTAINER"
 ~~~
 
-Confirm both dataset mounts report `RW:false`, and port bindings are `null` or empty. With `CODB_ENABLE_GAME_RETRIEVAL=false`, the game route should return 404. Only after written rights approval covers individual PGN retrieval for the intended audience should the internal QA be repeated with `CODB_ENABLE_GAME_RETRIEVAL=true`. In that case, select the first game ID from the isolated local snapshot, request it from a container on the private network, retrieve the same ID with `codb get-game`, and compare the two byte streams with `cmp`:
+Confirm both dataset mounts report `RW:false`, and port bindings are `null` or empty. With `CODB_ENABLE_GAME_RETRIEVAL=false`, the game route should return 404. A route-enabled named-volume smoke has been run strictly for private internal correctness QA; this does not clear user-facing retrieval. Do not enable the game route for an end-user audience until written rights approval covers that use. After approval, select the first game ID from the isolated local snapshot, request it from a container on the private network, retrieve the same ID with `codb get-game`, and compare the two byte streams with `cmp`:
 
 ~~~bash
 GAME_ID="$(python3 - <<'PY'
@@ -196,11 +196,11 @@ import sys
 from pathlib import Path
 sys.path.insert(0, 'scripts')
 import corpus
-root = Path('data/work/gigabase-eval/deploy/masters-otb-r2').resolve()
+root = Path('data/work/gigabase-eval/host-bind-qa/masters-otb').resolve()
 print(corpus.read_game_ids(corpus.current_version_dir(root))[0])
 PY
 )"
-CODB_MASTERS_RELEASE_DIR="$REPO_DIR/data/work/gigabase-eval/deploy/masters-otb-r2" \
+CODB_MASTERS_RELEASE_DIR="$REPO_DIR/data/work/gigabase-eval/host-bind-qa/masters-otb" \
 CODB_ELITE_RELEASE_DIR="$REPO_DIR/data/releases/elite-online" \
 CODB_NETWORK_NAME="$CODB_NETWORK_NAME" \
 CODB_NETWORK_EXTERNAL=true \
@@ -210,7 +210,7 @@ docker run --rm --network "$CODB_NETWORK_NAME" "$CLIENT_IMAGE" --fail --silent -
   "http://codb:8080/v1/collections/masters-otb/games/$GAME_ID" \
   > "$REPO_DIR/data/work/gigabase-eval/api-sample.pgn"
 target/release/codb get-game \
-  --dataset "$REPO_DIR/data/work/gigabase-eval/deploy/masters-otb-r2" \
+  --dataset "$REPO_DIR/data/work/gigabase-eval/host-bind-qa/masters-otb" \
   --id "$GAME_ID" > "$REPO_DIR/data/work/gigabase-eval/cli-sample.pgn"
 cmp "$REPO_DIR/data/work/gigabase-eval/api-sample.pgn" \
   "$REPO_DIR/data/work/gigabase-eval/cli-sample.pgn"
@@ -224,7 +224,7 @@ Stop the service and restore the prior snapshot in the isolated root when finish
 docker compose --project-name gigabase-host-qa -f compose.codb.yaml down
 docker network rm "$CODB_NETWORK_NAME"
 python3 scripts/local_gigabase_eval.py rollback \
-  --target data/work/gigabase-eval/deploy/masters-otb-r2 \
+  --target data/work/gigabase-eval/host-bind-qa/masters-otb \
   --version codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40 \
   --codb target/release/codb
 ~~~

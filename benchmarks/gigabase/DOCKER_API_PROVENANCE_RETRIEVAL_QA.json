@@ -1,0 +1,500 @@
+{
+  "api_address": "http://codb:8080",
+  "bad_dataset_starts_rejected": [
+    "missing collection mount",
+    "wrong collection path",
+    "incomplete dataset",
+    "corrupted CPI"
+  ],
+  "collections": {
+    "elite-online": {
+      "black_wins": 13661,
+      "cli_match": true,
+      "dataset_total_games": 429150,
+      "dataset_version": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
+      "draws": 2404,
+      "expected_total_games_at_e4_e5_nf3": null,
+      "position_http_response": {
+        "black_win_pct": 45.0,
+        "black_wins": 13661,
+        "collection": "elite-online",
+        "dataset_freshness": "2026-11-14T15:27:47Z",
+        "dataset_version": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
+        "draw_pct": 7.9,
+        "draws": 2404,
+        "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "moves": [
+          {
+            "black_win_pct": 44.8,
+            "black_wins": 10722,
+            "draw_pct": 7.8,
+            "draws": 1877,
+            "san": "Nc6",
+            "total_games": 23951,
+            "uci": "b8c6",
+            "white_win_pct": 47.4,
+            "white_wins": 11352
+          },
+          {
+            "black_win_pct": 48.1,
+            "black_wins": 1582,
+            "draw_pct": 9.5,
+            "draws": 311,
+            "san": "Nf6",
+            "total_games": 3291,
+            "uci": "g8f6",
+            "white_win_pct": 42.5,
+            "white_wins": 1398
+          },
+          {
+            "black_win_pct": 40.4,
+            "black_wins": 726,
+            "draw_pct": 7.9,
+            "draws": 142,
+            "san": "d6",
+            "total_games": 1799,
+            "uci": "d7d6",
+            "white_win_pct": 51.8,
+            "white_wins": 931
+          },
+          {
+            "black_win_pct": 54.3,
+            "black_wins": 345,
+            "draw_pct": 4.6,
+            "draws": 29,
+            "san": "f5",
+            "total_games": 635,
+            "uci": "f7f5",
+            "white_win_pct": 41.1,
+            "white_wins": 261
+          },
+          {
+            "black_win_pct": 42.2,
+            "black_wins": 216,
+            "draw_pct": 5.1,
+            "draws": 26,
+            "san": "d5",
+            "total_games": 512,
+            "uci": "d7d5",
+            "white_win_pct": 52.7,
+            "white_wins": 270
+          },
+          {
+            "black_win_pct": 34.4,
+            "black_wins": 32,
+            "draw_pct": 14.0,
+            "draws": 13,
+            "san": "Qe7",
+            "total_games": 93,
+            "uci": "d8e7",
+            "white_win_pct": 51.6,
+            "white_wins": 48
+          },
+          {
+            "black_win_pct": 37.8,
+            "black_wins": 14,
+            "draw_pct": 10.8,
+            "draws": 4,
+            "san": "Bc5",
+            "total_games": 37,
+            "uci": "f8c5",
+            "white_win_pct": 51.4,
+            "white_wins": 19
+          },
+          {
+            "black_win_pct": 35.7,
+            "black_wins": 10,
+            "draw_pct": 0.0,
+            "draws": 0,
+            "san": "c6",
+            "total_games": 28,
+            "uci": "c7c6",
+            "white_win_pct": 64.3,
+            "white_wins": 18
+          },
+          {
+            "black_win_pct": 30.4,
+            "black_wins": 7,
+            "draw_pct": 0.0,
+            "draws": 0,
+            "san": "f6",
+            "total_games": 23,
+            "uci": "f7f6",
+            "white_win_pct": 69.6,
+            "white_wins": 16
+          },
+          {
+            "black_win_pct": 66.7,
+            "black_wins": 4,
+            "draw_pct": 33.3,
+            "draws": 2,
+            "san": "a6",
+            "total_games": 6,
+            "uci": "a7a6",
+            "white_win_pct": 0.0,
+            "white_wins": 0
+          },
+          {
+            "black_win_pct": 33.3,
+            "black_wins": 2,
+            "draw_pct": 0.0,
+            "draws": 0,
+            "san": "Bd6",
+            "total_games": 6,
+            "uci": "f8d6",
+            "white_win_pct": 66.7,
+            "white_wins": 4
+          },
+          {
+            "black_win_pct": 0.0,
+            "black_wins": 0,
+            "draw_pct": 0.0,
+            "draws": 0,
+            "san": "b6",
+            "total_games": 2,
+            "uci": "b7b6",
+            "white_win_pct": 100.0,
+            "white_wins": 2
+          },
+          {
+            "black_win_pct": 0.0,
+            "black_wins": 0,
+            "draw_pct": 0.0,
+            "draws": 0,
+            "san": "c5",
+            "total_games": 2,
+            "uci": "c7c5",
+            "white_win_pct": 100.0,
+            "white_wins": 2
+          },
+          {
+            "black_win_pct": 0.0,
+            "black_wins": 0,
+            "draw_pct": 0.0,
+            "draws": 0,
+            "san": "Qf6",
+            "total_games": 2,
+            "uci": "d8f6",
+            "white_win_pct": 100.0,
+            "white_wins": 2
+          },
+          {
+            "black_win_pct": 0.0,
+            "black_wins": 0,
+            "draw_pct": 0.0,
+            "draws": 0,
+            "san": "Qh4",
+            "total_games": 1,
+            "uci": "d8h4",
+            "white_win_pct": 100.0,
+            "white_wins": 1
+          },
+          {
+            "black_win_pct": 0.0,
+            "black_wins": 0,
+            "draw_pct": 0.0,
+            "draws": 0,
+            "san": "Ke7",
+            "total_games": 1,
+            "uci": "e8e7",
+            "white_win_pct": 100.0,
+            "white_wins": 1
+          },
+          {
+            "black_win_pct": 100.0,
+            "black_wins": 1,
+            "draw_pct": 0.0,
+            "draws": 0,
+            "san": "h6",
+            "total_games": 1,
+            "uci": "h7h6",
+            "white_win_pct": 0.0,
+            "white_wins": 0
+          }
+        ],
+        "position_key": "3e88f9327e6dd0a7d3207fec0612d89d",
+        "total_games": 30390,
+        "white_win_pct": 47.1,
+        "white_wins": 14325
+      },
+      "sample_game_id": 27289182012770,
+      "stored_game_bytes": 908,
+      "stored_game_http_status": 200,
+      "stored_game_is_pgn": true,
+      "stored_game_matches_cli": true,
+      "stored_game_sha256": "4582b200b09fb9380284f0eaadf8fd74ec59842cb3c7a49d6ffd39cd332311b6",
+      "top_moves": [
+        {
+          "black_win_pct": 44.8,
+          "black_wins": 10722,
+          "draw_pct": 7.8,
+          "draws": 1877,
+          "san": "Nc6",
+          "total_games": 23951,
+          "uci": "b8c6",
+          "white_win_pct": 47.4,
+          "white_wins": 11352
+        },
+        {
+          "black_win_pct": 48.1,
+          "black_wins": 1582,
+          "draw_pct": 9.5,
+          "draws": 311,
+          "san": "Nf6",
+          "total_games": 3291,
+          "uci": "g8f6",
+          "white_win_pct": 42.5,
+          "white_wins": 1398
+        },
+        {
+          "black_win_pct": 40.4,
+          "black_wins": 726,
+          "draw_pct": 7.9,
+          "draws": 142,
+          "san": "d6",
+          "total_games": 1799,
+          "uci": "d7d6",
+          "white_win_pct": 51.8,
+          "white_wins": 931
+        }
+      ],
+      "total_games_at_e4_e5_nf3": 30390,
+      "white_wins": 14325
+    },
+    "masters-otb": {
+      "black_wins": 4329,
+      "cli_match": true,
+      "dataset_total_games": 156898,
+      "dataset_version": "codb-masters-otb-1794734897423894473-41647-72708103e81b880b-cpi-d40",
+      "draws": 7525,
+      "expected_total_games_at_e4_e5_nf3": null,
+      "position_http_response": {
+        "black_win_pct": 24.2,
+        "black_wins": 4329,
+        "collection": "masters-otb",
+        "dataset_freshness": "2026-11-15T09:28:25Z",
+        "dataset_version": "codb-masters-otb-1794734897423894473-41647-72708103e81b880b-cpi-d40",
+        "draw_pct": 42.1,
+        "draws": 7525,
+        "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+        "moves": [
+          {
+            "black_win_pct": 25.1,
+            "black_wins": 3943,
+            "draw_pct": 41.3,
+            "draws": 6497,
+            "san": "Nc6",
+            "total_games": 15716,
+            "uci": "b8c6",
+            "white_win_pct": 33.6,
+            "white_wins": 5276
+          },
+          {
+            "black_win_pct": 15.0,
+            "black_wins": 265,
+            "draw_pct": 50.7,
+            "draws": 897,
+            "san": "Nf6",
+            "total_games": 1770,
+            "uci": "g8f6",
+            "white_win_pct": 34.4,
+            "white_wins": 608
+          },
+          {
+            "black_win_pct": 31.2,
+            "black_wins": 112,
+            "draw_pct": 33.4,
+            "draws": 120,
+            "san": "d6",
+            "total_games": 359,
+            "uci": "d7d6",
+            "white_win_pct": 35.4,
+            "white_wins": 127
+          },
+          {
+            "black_win_pct": 33.3,
+            "black_wins": 6,
+            "draw_pct": 33.3,
+            "draws": 6,
+            "san": "d5",
+            "total_games": 18,
+            "uci": "d7d5",
+            "white_win_pct": 33.3,
+            "white_wins": 6
+          },
+          {
+            "black_win_pct": 16.7,
+            "black_wins": 3,
+            "draw_pct": 16.7,
+            "draws": 3,
+            "san": "Qe7",
+            "total_games": 18,
+            "uci": "d8e7",
+            "white_win_pct": 66.7,
+            "white_wins": 12
+          },
+          {
+            "black_win_pct": 0.0,
+            "black_wins": 0,
+            "draw_pct": 50.0,
+            "draws": 1,
+            "san": "f5",
+            "total_games": 2,
+            "uci": "f7f5",
+            "white_win_pct": 50.0,
+            "white_wins": 1
+          },
+          {
+            "black_win_pct": 0.0,
+            "black_wins": 0,
+            "draw_pct": 100.0,
+            "draws": 1,
+            "san": "c6",
+            "total_games": 1,
+            "uci": "c7c6",
+            "white_win_pct": 0.0,
+            "white_wins": 0
+          },
+          {
+            "black_win_pct": 0.0,
+            "black_wins": 0,
+            "draw_pct": 0.0,
+            "draws": 0,
+            "san": "f6",
+            "total_games": 1,
+            "uci": "f7f6",
+            "white_win_pct": 100.0,
+            "white_wins": 1
+          }
+        ],
+        "position_key": "3e88f9327e6dd0a7d3207fec0612d89d",
+        "total_games": 17885,
+        "white_win_pct": 33.7,
+        "white_wins": 6031
+      },
+      "sample_game_id": 161440433673307,
+      "stored_game_bytes": 930,
+      "stored_game_http_status": 200,
+      "stored_game_is_pgn": true,
+      "stored_game_matches_cli": true,
+      "stored_game_sha256": "18172e5c2bf00ed983c329db480221ace68e36886535b39b1dda9fb23cb3fc9d",
+      "top_moves": [
+        {
+          "black_win_pct": 25.1,
+          "black_wins": 3943,
+          "draw_pct": 41.3,
+          "draws": 6497,
+          "san": "Nc6",
+          "total_games": 15716,
+          "uci": "b8c6",
+          "white_win_pct": 33.6,
+          "white_wins": 5276
+        },
+        {
+          "black_win_pct": 15.0,
+          "black_wins": 265,
+          "draw_pct": 50.7,
+          "draws": 897,
+          "san": "Nf6",
+          "total_games": 1770,
+          "uci": "g8f6",
+          "white_win_pct": 34.4,
+          "white_wins": 608
+        },
+        {
+          "black_win_pct": 31.2,
+          "black_wins": 112,
+          "draw_pct": 33.4,
+          "draws": 120,
+          "san": "d6",
+          "total_games": 359,
+          "uci": "d7d6",
+          "white_win_pct": 35.4,
+          "white_wins": 127
+        }
+      ],
+      "total_games_at_e4_e5_nf3": 17885,
+      "white_wins": 6031
+    }
+  },
+  "completed_at_utc": "2026-11-15T09:57:05.093268+00:00",
+  "concurrent_requests": {
+    "concurrent_workers": 12,
+    "count": 96,
+    "expected_not_found": 0,
+    "successful": 96
+  },
+  "container_restart": {
+    "api_results_match_before_restart": true,
+    "deep_dataset_verification_after_restart": true,
+    "healthy_after_restart": true
+  },
+  "container_settings": {
+    "configured_user": "10001:10001",
+    "dataset_mount_mode": "read_only_named_volume_copy",
+    "elite_mount_read_only": true,
+    "image_id": "sha256:98b4eb159b5aaf0497edc839a5d3bb15916907bd13ff3536e9c58a2221fece5a",
+    "image_size_bytes": 99270656,
+    "masters_mount_read_only": true,
+    "no_host_ports_published": true,
+    "root_filesystem_read_only": true
+  },
+  "dataset_artifact": {
+    "accepted_games": 156898,
+    "build_id": "codb-masters-otb-1794734897423894473-41647-72708103e81b880b-cpi-d40",
+    "cgb3_games_index_cpi_and_attribution_match_prior_r2_candidate": true,
+    "manifest_source_metadata_matches_local_registration": true
+  },
+  "graceful_sigterm_shutdown": true,
+  "host_bind_mount_probe": {
+    "attempted": true,
+    "docker_error": "invalid mount config: bind source path does not exist",
+    "full_compose_bind_mount_qa_completed": false,
+    "read_only_candidate_bind_available": false
+  },
+  "host_bind_mounts_tested": false,
+  "http_checks": {
+    "admin_reload_status": 403,
+    "collections_status": 200,
+    "health_status": 200,
+    "invalid_position_status": 400,
+    "ready_status": 200,
+    "unknown_game_status": 404
+  },
+  "independent_client_image": "curlimages/curl@sha256:94e9e444bcba979c2ea12e27ae39bee4cd10bc7041a472c4727a558e213744e6",
+  "isolated_package_bootstrap": {
+    "accepted_games": 156898,
+    "active_version_after_rollback": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
+    "active_version_before_rollback": "codb-masters-otb-1794734897423894473-41647-72708103e81b880b-cpi-d40",
+    "e4_query_total_games": 70676,
+    "previous_masters_snapshot_retained": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
+    "production_release_roots_modified": false,
+    "restored_snapshot_games": 29640,
+    "rollback_passed": true,
+    "target": "data/work/gigabase-eval/docker-provenance-r1/deploy/masters-otb"
+  },
+  "mode": "real",
+  "network": "codb-smoke-net-7721debb0a",
+  "package": {
+    "path": "data/work/gigabase-eval/packages-provenance-r1/masters-otb-codb-masters-otb-1794734897423894473-41647-72708103e81b880b-cpi-d40-local-evaluation.tar",
+    "public_release_eligible": false,
+    "release_eligible": false,
+    "sha256_local": "2902a8c9668457c58fb19bceefa081636ba1d4aab193dd645cb8592766db28f8",
+    "size_bytes": 145346560,
+    "source_archive_and_pgn_included": false
+  },
+  "qa_scope": "isolated_internal_private_network_qa_only",
+  "raw_game_route_enabled": true,
+  "restart_time_to_healthy_seconds": 6.597,
+  "runtime_rss": {
+    "sampled_peak_bytes": 218079232,
+    "sampled_peak_kib": 212968,
+    "sampling_interval_milliseconds": 200
+  },
+  "schema_version": 1,
+  "service": "codb",
+  "source_rights_cleared_for_end_user_service": false,
+  "startup_time_to_healthy_seconds": 6.653,
+  "temporary_docker_network_removed_after_smoke": true,
+  "user_accessible": false
+}

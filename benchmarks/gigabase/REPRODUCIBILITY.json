@@ -235,7 +235,7 @@
     "date": "2026-11-15",
     "gates_passed": 8,
     "result": "passed",
-    "verification_scope": "Full validation includes the independent PGN parser spot-check report and reproducibility linkage, bounded-memory source-to-canonical audit updates, anonymized examples with small-stratum suppression, exact attribution-sidecar reconciliation, the six-case disk-backed deduplication golden integration test, and the provenance-corrected local manifest/build-report/dataset-manifest cross-checks and regression tests.",
+    "verification_scope": "Full validation passed after the provenance-corrected build/package evidence, the route-enabled Docker QA report, and the temporary-network cleanup change in scripts/docker_smoke.py. It includes the independent PGN parser spot-check report and reproducibility linkage, bounded-memory source-to-canonical audit updates, anonymized examples with small-stratum suppression, exact attribution-sidecar reconciliation, the six-case disk-backed deduplication golden integration test, provenance cross-check regression tests, documentation links, and contract checksum verification. The route-enabled Docker smoke was run separately and is recorded in DOCKER_API_PROVENANCE_RETRIEVAL_QA.json.",
     "python_tests": 105,
     "python_tests_skipped": 2
   },
@@ -459,11 +459,46 @@
       "extracted_and_deep_verified": true,
       "offline_query_passed": true,
       "source_archive_and_pgn_included": false,
-      "bootstrap_tested": false,
+      "bootstrap_tested": true,
       "release_status": "local_evaluation_only",
       "release_eligible": false,
-      "public_release_eligible": false
+      "public_release_eligible": false,
+      "bootstrap_target": "data/work/gigabase-eval/docker-provenance-r1/deploy/masters-otb",
+      "bootstrap_e4_query_games": 70676,
+      "rollback_tested": true,
+      "rollback_restored_build_id": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
+      "production_release_roots_modified": false
     },
-    "rights_and_publisher_authentication_resolved": false
-  }
+    "rights_and_publisher_authentication_resolved": false,
+    "docker_runtime_qa": {
+      "report": "DOCKER_API_PROVENANCE_RETRIEVAL_QA.json",
+      "report_sha256": "8a8d101f2a7df1e09f780fe1b7adabf5078c79bcc17623aba84694c32e9d018e",
+      "service_started_with_provenance_corrected_package": true,
+      "route_enabled_for_internal_private_network_qa": true,
+      "position_responses_match_cli": true,
+      "pgn_responses_match_cli": true,
+      "concurrent_requests": 96,
+      "concurrent_requests_passed": 96,
+      "startup_time_to_healthy_seconds": 6.653,
+      "restart_time_to_healthy_seconds": 6.597,
+      "sampled_peak_rss_kib": 212968,
+      "read_only_named_volume_mounts": true,
+      "read_only_root_filesystem": true,
+      "no_host_ports_published": true,
+      "restart_and_deep_verify_passed": true,
+      "graceful_shutdown_passed": true,
+      "qa_scope": "isolated_internal_private_network_qa_only",
+      "user_accessible": false,
+      "source_rights_cleared_for_end_user_service": false,
+      "temporary_docker_network_removed_after_smoke": true
+    },
+    "host_bind_mount_probe": {
+      "attempted": true,
+      "read_only_candidate_bind_available": false,
+      "docker_error": "invalid mount config: bind source path does not exist",
+      "full_compose_bind_mount_qa_completed": false
+    }
+  },
+  "docker_api_provenance_retrieval_qa": "DOCKER_API_PROVENANCE_RETRIEVAL_QA.json",
+  "docker_api_provenance_retrieval_qa_sha256": "8a8d101f2a7df1e09f780fe1b7adabf5078c79bcc17623aba84694c32e9d018e"
 }

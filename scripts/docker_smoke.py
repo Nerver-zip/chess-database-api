@@ -610,6 +610,7 @@ def main() -> int:
             subprocess.run(["docker", "rm", "-f", client], capture_output=True)
         if compose_started:
             subprocess.run([*compose, "down", "--remove-orphans"], capture_output=True)
+        subprocess.run(["docker", "network", "rm", network], capture_output=True)
         for volume in (masters_volume, elite_volume, corrupt_volume, incomplete_volume):
             subprocess.run(["docker", "volume", "rm", "-f", volume], capture_output=True)
         temp.cleanup()
