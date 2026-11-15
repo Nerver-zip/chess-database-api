@@ -1,0 +1,509 @@
+{
+  "existing_masters": {
+    "dataset_build_id": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
+    "lookup_benchmark": {
+      "collection": "masters-otb",
+      "dataset_build_id": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
+      "games_sampled": 5000,
+      "hit_first_pass": {
+        "count": 68502,
+        "hits": 68502,
+        "max_us": 5209.514999999999,
+        "p50_us": 5.215999999999999,
+        "p95_us": 10.834,
+        "p99_us": 11.161
+      },
+      "hit_warm_pass": {
+        "count": 68502,
+        "hits": 68502,
+        "max_us": 3462.695,
+        "p50_us": 5.219,
+        "p95_us": 10.868,
+        "p99_us": 11.216000000000001
+      },
+      "index_depth_plies": 40,
+      "miss_warm_pass": {
+        "count": 9786,
+        "hits": 0,
+        "max_us": 2298.29,
+        "p50_us": 4.5600000000000005,
+        "p95_us": 5.248,
+        "p99_us": 7.072
+      },
+      "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+      "unique_positions": 705718
+    },
+    "total_games": 29640,
+    "unique_positions_depth_40": 705718
+  },
+  "gigabase_evaluation": {
+    "dataset_build_id": "codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40",
+    "lookup_benchmark": {
+      "collection": "masters-otb",
+      "dataset_build_id": "codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40",
+      "games_sampled": 5000,
+      "hit_first_pass": {
+        "count": 68712,
+        "hits": 68712,
+        "max_us": 3391.8630000000003,
+        "p50_us": 5.482,
+        "p95_us": 11.061,
+        "p99_us": 11.440999999999999
+      },
+      "hit_warm_pass": {
+        "count": 68712,
+        "hits": 68712,
+        "max_us": 3457.3210000000004,
+        "p50_us": 5.478,
+        "p95_us": 11.049000000000001,
+        "p99_us": 11.571
+      },
+      "index_depth_plies": 40,
+      "miss_warm_pass": {
+        "count": 9816,
+        "hits": 0,
+        "max_us": 39.031,
+        "p50_us": 4.643000000000001,
+        "p95_us": 5.351,
+        "p99_us": 8.145000000000001
+      },
+      "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+      "unique_positions": 3406233
+    },
+    "total_games": 156898,
+    "unique_positions_depth_40": 3406233
+  },
+  "limitations": [
+    "Counts are indexed games at a position; greater counts do not establish stronger source quality, event independence, or legal rights.",
+    "The new evaluation is not merged with the existing release. Its exact stable game ID overlap is reported separately in SOURCE_OVERLAP.json.",
+    "Single-process wall times include CLI startup and are descriptive; the in-process lookup benchmark excludes HTTP, JSON, and SAN derivation."
+  ],
+  "measurement_date": "2026-11-15",
+  "queries": [
+    {
+      "existing_masters": {
+        "black_wins": 1992,
+        "draws": 1930,
+        "single_process_wall_ms": 2.289,
+        "top_moves": [
+          {
+            "san": "Nf3",
+            "total": 5110
+          },
+          {
+            "san": "Nc3",
+            "total": 463
+          },
+          {
+            "san": "c3",
+            "total": 283
+          }
+        ],
+        "total_games": 6043,
+        "white_wins": 2121
+      },
+      "game_count_ratio_new_to_existing": 5.055,
+      "gigabase_evaluation": {
+        "black_wins": 9552,
+        "draws": 10196,
+        "single_process_wall_ms": 2.606,
+        "top_moves": [
+          {
+            "san": "Nf3",
+            "total": 25465
+          },
+          {
+            "san": "Nc3",
+            "total": 2336
+          },
+          {
+            "san": "c3",
+            "total": 1762
+          }
+        ],
+        "total_games": 30550,
+        "white_wins": 10802
+      },
+      "moves": "e4,c5",
+      "opening": "Sicilian Defense"
+    },
+    {
+      "existing_masters": {
+        "black_wins": 995,
+        "draws": 1780,
+        "single_process_wall_ms": 1.969,
+        "top_moves": [
+          {
+            "san": "Nf3",
+            "total": 3901
+          },
+          {
+            "san": "Nc3",
+            "total": 157
+          },
+          {
+            "san": "Bc4",
+            "total": 77
+          }
+        ],
+        "total_games": 4187,
+        "white_wins": 1412
+      },
+      "game_count_ratio_new_to_existing": 4.608,
+      "gigabase_evaluation": {
+        "black_wins": 4752,
+        "draws": 8006,
+        "single_process_wall_ms": 2.62,
+        "top_moves": [
+          {
+            "san": "Nf3",
+            "total": 17884
+          },
+          {
+            "san": "Nc3",
+            "total": 564
+          },
+          {
+            "san": "Bc4",
+            "total": 481
+          }
+        ],
+        "total_games": 19294,
+        "white_wins": 6536
+      },
+      "moves": "e4,e5",
+      "opening": "Open Game"
+    },
+    {
+      "existing_masters": {
+        "black_wins": 408,
+        "draws": 794,
+        "single_process_wall_ms": 1.999,
+        "top_moves": [
+          {
+            "san": "a6",
+            "total": 1330
+          },
+          {
+            "san": "Nf6",
+            "total": 345
+          },
+          {
+            "san": "Nge7",
+            "total": 33
+          }
+        ],
+        "total_games": 1786,
+        "white_wins": 584
+      },
+      "game_count_ratio_new_to_existing": 4.826,
+      "gigabase_evaluation": {
+        "black_wins": 2083,
+        "draws": 3611,
+        "single_process_wall_ms": 2.623,
+        "top_moves": [
+          {
+            "san": "a6",
+            "total": 6457
+          },
+          {
+            "san": "Nf6",
+            "total": 1491
+          },
+          {
+            "san": "Nge7",
+            "total": 190
+          }
+        ],
+        "total_games": 8619,
+        "white_wins": 2925
+      },
+      "moves": "e4,e5,Nf3,Nc6,Bb5",
+      "opening": "Ruy Lopez"
+    },
+    {
+      "existing_masters": {
+        "black_wins": 298,
+        "draws": 449,
+        "single_process_wall_ms": 2.186,
+        "top_moves": [
+          {
+            "san": "Nf6",
+            "total": 600
+          },
+          {
+            "san": "Bc5",
+            "total": 474
+          },
+          {
+            "san": "d6",
+            "total": 62
+          }
+        ],
+        "total_games": 1147,
+        "white_wins": 400
+      },
+      "game_count_ratio_new_to_existing": 3.82,
+      "gigabase_evaluation": {
+        "black_wins": 1155,
+        "draws": 1665,
+        "single_process_wall_ms": 2.68,
+        "top_moves": [
+          {
+            "san": "Nf6",
+            "total": 2388
+          },
+          {
+            "san": "Bc5",
+            "total": 1777
+          },
+          {
+            "san": "d6",
+            "total": 150
+          }
+        ],
+        "total_games": 4382,
+        "white_wins": 1562
+      },
+      "moves": "e4,e5,Nf3,Nc6,Bc4",
+      "opening": "Italian Game"
+    },
+    {
+      "existing_masters": {
+        "black_wins": 323,
+        "draws": 501,
+        "single_process_wall_ms": 1.974,
+        "top_moves": [
+          {
+            "san": "Nc3",
+            "total": 665
+          },
+          {
+            "san": "e5",
+            "total": 262
+          },
+          {
+            "san": "Nd2",
+            "total": 257
+          }
+        ],
+        "total_games": 1327,
+        "white_wins": 503
+      },
+      "game_count_ratio_new_to_existing": 5.124,
+      "gigabase_evaluation": {
+        "black_wins": 1704,
+        "draws": 2471,
+        "single_process_wall_ms": 2.643,
+        "top_moves": [
+          {
+            "san": "Nc3",
+            "total": 3124
+          },
+          {
+            "san": "Nd2",
+            "total": 1759
+          },
+          {
+            "san": "e5",
+            "total": 1281
+          }
+        ],
+        "total_games": 6799,
+        "white_wins": 2624
+      },
+      "moves": "e4,e6,d4,d5",
+      "opening": "French Defense"
+    },
+    {
+      "existing_masters": {
+        "black_wins": 340,
+        "draws": 381,
+        "single_process_wall_ms": 2.0,
+        "top_moves": [
+          {
+            "san": "e5",
+            "total": 637
+          },
+          {
+            "san": "Nc3",
+            "total": 187
+          },
+          {
+            "san": "exd5",
+            "total": 174
+          }
+        ],
+        "total_games": 1116,
+        "white_wins": 395
+      },
+      "game_count_ratio_new_to_existing": 4.706,
+      "gigabase_evaluation": {
+        "black_wins": 1526,
+        "draws": 1839,
+        "single_process_wall_ms": 2.618,
+        "top_moves": [
+          {
+            "san": "e5",
+            "total": 2520
+          },
+          {
+            "san": "exd5",
+            "total": 1061
+          },
+          {
+            "san": "Nc3",
+            "total": 927
+          }
+        ],
+        "total_games": 5252,
+        "white_wins": 1887
+      },
+      "moves": "e4,c6,d4,d5",
+      "opening": "Caro-Kann Defense"
+    },
+    {
+      "existing_masters": {
+        "black_wins": 269,
+        "draws": 445,
+        "single_process_wall_ms": 1.979,
+        "top_moves": [
+          {
+            "san": "Nc3",
+            "total": 653
+          },
+          {
+            "san": "Nf3",
+            "total": 501
+          },
+          {
+            "san": "g3",
+            "total": 13
+          }
+        ],
+        "total_games": 1172,
+        "white_wins": 458
+      },
+      "game_count_ratio_new_to_existing": 4.817,
+      "gigabase_evaluation": {
+        "black_wins": 1289,
+        "draws": 2264,
+        "single_process_wall_ms": 2.705,
+        "top_moves": [
+          {
+            "san": "Nc3",
+            "total": 3083
+          },
+          {
+            "san": "Nf3",
+            "total": 2451
+          },
+          {
+            "san": "g3",
+            "total": 56
+          }
+        ],
+        "total_games": 5646,
+        "white_wins": 2093
+      },
+      "moves": "d4,d5,c4,e6",
+      "opening": "Queen's Gambit Declined"
+    },
+    {
+      "existing_masters": {
+        "black_wins": 262,
+        "draws": 301,
+        "single_process_wall_ms": 1.974,
+        "top_moves": [
+          {
+            "san": "Nc3",
+            "total": 660
+          },
+          {
+            "san": "g3",
+            "total": 132
+          },
+          {
+            "san": "Nf3",
+            "total": 77
+          }
+        ],
+        "total_games": 901,
+        "white_wins": 338
+      },
+      "game_count_ratio_new_to_existing": 6.609,
+      "gigabase_evaluation": {
+        "black_wins": 1659,
+        "draws": 2071,
+        "single_process_wall_ms": 2.58,
+        "top_moves": [
+          {
+            "san": "Nc3",
+            "total": 4668
+          },
+          {
+            "san": "g3",
+            "total": 644
+          },
+          {
+            "san": "Nf3",
+            "total": 426
+          }
+        ],
+        "total_games": 5955,
+        "white_wins": 2225
+      },
+      "moves": "d4,Nf6,c4,g6",
+      "opening": "King's Indian Defense"
+    },
+    {
+      "existing_masters": {
+        "black_wins": 148,
+        "draws": 164,
+        "single_process_wall_ms": 1.914,
+        "top_moves": [
+          {
+            "san": "Nc3",
+            "total": 253
+          },
+          {
+            "san": "g3",
+            "total": 194
+          },
+          {
+            "san": "d3",
+            "total": 29
+          }
+        ],
+        "total_games": 503,
+        "white_wins": 191
+      },
+      "game_count_ratio_new_to_existing": 5.169,
+      "gigabase_evaluation": {
+        "black_wins": 807,
+        "draws": 879,
+        "single_process_wall_ms": 2.611,
+        "top_moves": [
+          {
+            "san": "Nc3",
+            "total": 1369
+          },
+          {
+            "san": "g3",
+            "total": 964
+          },
+          {
+            "san": "d3",
+            "total": 131
+          }
+        ],
+        "total_games": 2600,
+        "white_wins": 914
+      },
+      "moves": "c4,e5",
+      "opening": "English Opening"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "Same Masters OTB query lines against the existing release and the local Gigabase evaluation. The game-count change measures corpus coverage, not game quality or source-rights clearance."
+}

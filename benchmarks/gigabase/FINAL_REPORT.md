@@ -1,105 +1,122 @@
 # Lumbra's Gigabase OTB Local Evaluation
 
 **Date:** 2026-11-15
-
-**Result:** Local evaluation complete; not release-eligible
-
-**Scope:** PR #7 source qualification and reproducible Masters OTB evaluation
+**Status:** Verified local evaluation; not eligible for public or production release
+**Scope:** PR #7 source qualification, local package installation, rollback, and restricted API evaluation
 
 ## Outcome
 
-The supplied archive produced a deeply verified, 40-ply Masters OTB evaluation dataset with **183,907 retained games**. A second independent build reproduced the deterministic dataset artifacts and accounting. The API loaded this snapshot beside the existing Elite Online snapshot, answered separate queries for both collections, and retrieved a Masters PGN by game ID.
+The r2 qualification policy retained **156,898 unique games** from 13,450,696 structurally parsed records. The resulting Masters dataset has a depth-40 CPI v2 index with 3,406,233 unique positions. A second independently executed build matched the deterministic artifacts and accounting, and both snapshots passed deep verification.
 
-This dataset remains a local evaluation. It was not added to `corpus/catalog.json`, packaged, or published. The publisher provides no checksum for this archive; the publisher's CC BY-NC 4.0 statement does not independently clear heterogeneous upstream records. Public redistribution and Evalis deployment remain blocked pending publisher terms and upstream-rights review.
+A checksum-covered package was created under ignored `data/work/gigabase-eval/`, extracted and verified, bootstrapped in an isolated root beside the prior Masters snapshot, and rolled back to that prior snapshot. A real Docker Compose run served the evaluation beside the unchanged Elite dataset with raw-PGN retrieval disabled. Queries from a separate client matched the CLI for both collections. No approved catalog entry or public/production release was created, and the existing Masters and Elite release pointers were not changed.
 
-The old Masters and Elite releases under `data/releases/` were not changed. The new dataset and source archive remain in git-ignored `data/` paths.
+The source screen cannot meet a one-million-game target without relaxing its reviewed gates: the full archive has only **943,493** records meeting the existing numeric rating threshold and both-player identity-confidence gates, before source allowlisting, date and play-mode checks, legality, termination, minimum length, and deduplication. The narrower r2 build retained 156,898. The additional records are not treated as quality-eligible Masters games merely to reach a target count.
 
-## Input and qualification
+## Source and rights
 
-The user-supplied `OTB_DATABASE.7z` is 2,570,013,439 bytes, with local SHA-256 `4e4209ccc1870e7fede557aae09b4dd40b721d4697db9b4c272ff0e4fbbdb500`. Its sole regular member, `LumbrasGigabase_OTB_Complete.pgn`, expands to 12,300,428,287 bytes and has local SHA-256 `87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759`. Neither local hash is publisher-authenticated. The publisher states “over 13 million” games but gives no exact count or checksum for this archive.
+The supplied `OTB_DATABASE.7z` is 2,570,013,439 bytes with local SHA-256 `4e4209ccc1870e7fede557aae09b4dd40b721d4697db9b4c272ff0e4fbbdb500`. Its sole regular member, `LumbrasGigabase_OTB_Complete.pgn`, is 12,300,428,287 bytes with local SHA-256 `87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759`. The [publisher download page](https://lumbrasgigabase.com/en/download-area-en/) lists OTB Complete version 2026-11-11 but provides no checksum or exact game count. Both hashes are local computations, not publisher authentication.
 
-The streaming inventory parsed 13,450,696 PGN records, found zero recoverable structural syntax errors, and reached clean EOF. This header inventory did not replay every record. During curation, retained games passed the existing legal-move ingestion path; records rejected before move replay were not all tested for legality.
+The publisher describes the main database as CC BY-NC 4.0 and documents heterogeneous upstream source categories on its [sources page](https://lumbrasgigabase.com/en/sources/). Its [B2B terms](https://lumbrasgigabase.com/en/commercial-licenses-en/) describe restricted internal development/closed-beta terms and separate commercial terms. These publisher statements do not independently establish rights for every upstream record. Source-level clearance remains unresolved, so the package is restricted to local internal evaluation and the service configuration disables raw-PGN retrieval.
 
-The opt-in policy is [`corpus/gigabase_source_qualification.json`](../../corpus/gigabase_source_qualification.json), policy ID `gigabase-otb/2026-11-r1`, SHA-256 `5d3577f4fc15b240e41c20c818a611db51f8929f00f1bdbbe41a77b5d1d33e39`. It:
+The inventory streamed all 13,450,696 PGN records, parsed every record boundary and header, encountered no recoverable structural syntax errors, and reached clean EOF. That scan did not replay every record. A full archive decompression check is recorded as passed, but the extraction tool/version was not preserved and packed-stream CRC metadata was unavailable. No publisher checksum was present.
 
-- allows only the 11 reviewed source tags listed below;
-- requires both player identity evidence values to be `Strong` or `Confirmed`;
-- applies the existing Masters numeric Elo thresholds to publisher-supplied values, without independently certifying them as official FIDE Elo;
-- rejects explicit non-OTB modes and games dated before 1970; and
-- relies on the publisher's archive-level OTB Complete assertion when `Mode` is absent. This is not an event-level OTB audit.
+## Qualification policy r2
 
-Retained games by `Source` tag:
+Policy ID: `gigabase-otb/2026-11-r2`
+Policy SHA-256: `9da7691b2b440e66711750b31f12d849b2b32fe1e77bf8752157b475d80e2e94`
 
-| Source tag | Games |
+The opt-in Gigabase policy is separate from the existing Lichess Masters policy. It allows 11 reviewed `Source` tags, requires both player identity values to be Strong or Confirmed, applies the existing Masters numeric thresholds to publisher-supplied Elo, requires a complete valid calendar date, rejects dates before 1970, rejects explicit non-OTB modes, and rejects games with online-event evidence in a Masters source. When `Mode` is absent, OTB provenance still relies on the publisher's archive-level OTB Complete assertion. No independent event audit was performed. Publisher-supplied Elo is not independently certified as official FIDE Elo.
+
+Accepted-game attribution by source tag is recorded outside CGB3. Counts are per source and may sum to more than the unique game count when a canonical game retained multiple attributions.
+
+| Source tag | Attributed accepted games |
 | --- | ---: |
-| LichessBroadcastAPI | 120,753 |
-| AnaSchaigorodsky | 24,051 |
-| GreekBase | 19,748 |
-| Britbase | 10,479 |
-| Federscacchi | 4,305 |
-| DanBase | 3,989 |
-| ChessScotland | 495 |
+| LichessBroadcastAPI | 105,652 |
+| AnaSchaigorodsky | 16,933 |
+| GreekBase | 16,647 |
+| Britbase | 10,127 |
+| Federscacchi | 3,643 |
+| DanBase | 3,431 |
+| ChessScotland | 380 |
 | SchachverbandRuhrgebiet | 48 |
 | NiedersächsischerSchachverband | 20 |
 | CanadianChessFederation | 18 |
 | NiederrheinischerSchachverband | 1 |
-| **Total** | **183,907** |
 
-These source tags and identity signals support the technical filter; they do not clear per-game upstream rights.
+All 156,898 retained records had missing `Mode`, so their OTB provenance is publisher-asserted rather than event-verified. The date gate rejected 52,625 records reaching that policy gate because their date was absent, partial, or not a valid calendar date. A synthetic policy end-to-end fixture covers accepted missing-Mode records, explicit correspondence mode, unapproved sources, identity confidence, partial dates, and stable-ID collision accounting. The source inventory observed no malformed record example; rejected records were not all replayed for move legality.
 
-## Accounting
+## Fail-closed accounting
 
 | Category | Records |
 | --- | ---: |
 | Total encountered | 13,450,696 |
-| Accepted unique | 183,907 |
-| Confirmed duplicates | 11 |
-| Superseded prior | 1 |
-| Rejected by policy | 13,266,762 |
+| Accepted unique | 156,898 |
+| Confirmed duplicates | 2 |
+| Superseded prior | 0 |
+| Rejected by policy | 13,293,782 |
 | Rejected variant | 0 |
 | Rejected illegal after move replay | 0 |
 | Rejected malformed | 0 |
-| Quarantined stable game ID collisions | 15 |
+| Quarantined stable game ID collisions | 14 |
 | **Reconciled total** | **13,450,696** |
 
-The policy rejection reasons are: 11,462,752 unqualified source records, 1,280,905 with untrusted player identity, 521,056 below the rating threshold, 1,385 with online-event evidence in a Masters source, 401 rejected under the historical-rating rule, 213 missing a rating, and 50 with non-OTB play mode. The 15 stable game ID collisions were quarantined and counted separately. All accounting categories reconcile, and retained canonical games equal accepted unique games.
+Policy rejections were: 11,462,752 unqualified sources; 1,280,905 with untrusted player identity; 495,614 below rating threshold; 52,625 with unverified dates; 1,361 with online-event evidence in a Masters source; 267 with unverified historical ratings; 208 missing a rating; and 50 with explicit non-OTB mode. Rejection-reason counts reconcile to `rejected_by_policy`; retained games equal accepted unique.
 
-## Dataset and determinism
+Retained candidates passed the existing legal-move ingestion path. Header- or policy-rejected records were not all replayed for legality. The streaming inventory's zero structural syntax errors is not a substitute for move replay.
+
+## Dataset, resource use, and determinism
 
 | Artifact | Result |
 | --- | ---: |
-| Dataset build ID | `codb-masters-otb-1794715589069977685-7428-388d105284a591ff-cpi-d40` |
-| Retained games | 183,907 |
-| CGB3 shard | 32,287,746 bytes; SHA-256 `713321e93357d929b07d5405cf69baa3b4a03f62d7785331ccb4e6bc3371402c` |
-| `games.idx` | 2,942,576 bytes; SHA-256 `d530ac939720d270864b9fb0ec475db3a27cb3dcf354a2f3a9a0684decf36b88` |
-| `positions.cpi` | 84,083,869 bytes; SHA-256 `01a38072ce7e07875373b9d6ce4a467082f2442e208df37ea62c55076b7c6ce8` |
-| CPI depth and unique positions | 40 plies; 3,945,392 positions |
-| Source attribution sidecar | 49,822,721 bytes; SHA-256 `3eecd9fb393396cfdbcbd3aa703b0cdcd5bf85b780689e45d85ff2e791ba94a1`; 183,907 entries |
-| Manifest-reported artifact bytes (excludes `manifest.json`) | 169,136,912 |
-| Immutable version directory bytes (includes `manifest.json`) | 169,139,860 |
+| Dataset build ID | `codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40` |
+| Games | 156,898 |
+| CGB3 shard | 27,616,251 bytes; SHA-256 `4d12fdb06c02471841223f8dbeb25d2bb396260bf5a092c67e600159c28209a2` |
+| `games.idx` | 2,510,432 bytes; SHA-256 `e2000c8edf7821eb75f70074de64cc84e4c6648e8013ec992715025d72ce7be6` |
+| `positions.cpi` | 72,656,173 bytes; SHA-256 `fe221a2360785809505efa479aaafaefa1438bbe94b1a93c3842e233cf03996d` |
+| CPI depth and unique positions | 40 plies; 3,406,233 positions |
+| Source-attribution sidecar | 42,508,720 bytes; SHA-256 `61af71afba5cd51ab62ae0ecd00f67f37f0e8c592121f03a408ef86fd67ab28b`; 156,898 entries |
+| Manifest-reported artifact bytes | 145,291,576 |
 
-The sidecar stores per-game source and identity attribution outside the CGB3 shard. Deep verification checks its checksum and one-to-one game-ID correspondence with `games.idx`; CGB3, CPI v2, and `games.idx` layouts remain unchanged.
+The independently rebuilt indexed snapshot was `codb-masters-otb-1794722373850654316-20882-6502a96286fd50cb-cpi-d40`. Both snapshots passed deep verification and matched accounting, policy reasons, source attribution, `games.idx`, CGB3, CPI statistics and hash, game count, and physical bytes. Build IDs and timestamps differ as expected. The CGB3, CPI v2, and `games.idx` binary layouts are unchanged. See [`INDEPENDENT_REBUILD.json`](INDEPENDENT_REBUILD.json).
 
-The first completed build took 143.686 seconds and its measured peak process RSS was 17,456 KiB. CPI indexing took 12.722 seconds, measured 126,064 KiB peak process RSS under the configured 128 MiB limit, and used 130,961,894 bytes of peak temporary spill space. It processed all 183,907 retained games, emitted 3,945,392 unique positions, and generated two external-sort runs with one merge pass. These are separate measurements: spill-space size is not RSS.
+The second build took 74.874 seconds with a sampled process `VmHWM` of 15,772 KiB. Its 40-ply index took 9.623 seconds; sampled process `VmHWM` was 125,824 KiB against the 128 MiB configured buffer limit. External sorting produced two runs and one merge pass, with 112,686,434 bytes of peak temporary spill space. RSS and spill-space measurements are separate. The resource sample and command are recorded in [`INDEPENDENT_REBUILD.json`](INDEPENDENT_REBUILD.json).
 
-An independent build, ID `codb-masters-otb-1794716076611874293-7628-d7c2bf1261c928a3-cpi-d40`, was deeply verified and matched deterministic fields, including accounting and rejection reasons, attribution, lookup index, CGB3 shard hash, CPI hash and statistics, game count, and snapshot bytes. The explicit field comparison is [`INDEPENDENT_REBUILD.json`](INDEPENDENT_REBUILD.json); build IDs and timestamps differ as expected. The aggregate quality report is [`QUALITY_REPORT.json`](QUALITY_REPORT.json).
+The final package is `data/work/gigabase-eval/packages-r2-final5/masters-otb-codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40-local-evaluation.tar`, 145,346,560 bytes, local SHA-256 `5e0b01011d4c1007fa5c2cca30f442cc94cf58c3fa31d91c92dd30c69733744f`. Its detached checksum was verified after extraction, artifact re-hashing, deep verification, and an offline query. The source archive and PGN are not package members. The CGB3 database itself contains the accepted game records, but the container API's stored-game route was disabled. The package and release metadata both say `local_evaluation_only`, `release_eligible: false`, and `public_release_eligible: false`.
 
-The existing releases still point to their previous immutable snapshots: Masters has 29,640 games and 29,892,368 deployed-tree bytes; Elite has 429,150 games and 210,308,033 deployed-tree bytes. No release pointer was switched.
+## Previous-release overlap and opening coverage
+
+An aggregate audit compared the prior Masters release with new Gigabase records attributed to `LichessBroadcastAPI`. It wrote no names, event strings, raw PGN, or game IDs. Exact stable-ID overlap was zero. There were 16,173 identical full move sequences, 5,716 normalized same-player/date/move candidates, and 242 same-player/date/event/round/move candidates. The 242 are direct manual-review candidates, not automatically classified cross-release duplicates; no cross-release deletion or merge occurred. See [`SOURCE_OVERLAP.json`](SOURCE_OVERLAP.json).
+
+The query counts below compare the same indexed positions before and after. They measure the number of records available at each opening position, not their quality or rights status.
+
+| Opening | Moves | Existing Masters | Gigabase evaluation | Count ratio |
+| --- | --- | ---: | ---: | ---: |
+| Sicilian Defense | `e4,c5` | 6,043 | 30,550 | 5.055x |
+| Open Game | `e4,e5` | 4,187 | 19,294 | 4.608x |
+| Ruy Lopez | `e4,e5,Nf3,Nc6,Bb5` | 1,786 | 8,619 | 4.826x |
+| Italian Game | `e4,e5,Nf3,Nc6,Bc4` | 1,147 | 4,382 | 3.820x |
+| French Defense | `e4,e6,d4,d5` | 1,327 | 6,799 | 5.124x |
+| Caro-Kann Defense | `e4,c6,d4,d5` | 1,116 | 5,252 | 4.706x |
+| Queen's Gambit Declined | `d4,d5,c4,e6` | 1,172 | 5,646 | 4.817x |
+| King's Indian Defense | `d4,Nf6,c4,g6` | 901 | 5,955 | 6.609x |
+| English Opening | `c4,e5` | 503 | 2,600 | 5.169x |
+
+At depth 40, unique positions increased from 705,718 to 3,406,233, while the accepted game count increased from 29,640 to 156,898. In-process warm lookup median was 5.219 microseconds for the old index and 5.478 microseconds for the new one; the respective p95 values were 10.868 and 11.049 microseconds. The lookup benchmark excludes HTTP, JSON, and SAN derivation. Full samples are in [`OPENING_USEFULNESS.json`](OPENING_USEFULNESS.json).
+
+## Package, bootstrap, and rollback
+
+The package was generated and verified only below ignored `data/work/gigabase-eval/`. Its checksum sidecar was verified after extraction, every listed artifact was re-hashed, the dataset passed `codb verify --deep`, and an offline `e4` query succeeded. The package omits the original `.7z` and `.pgn` inputs and excludes internal locks and prior pre-index versions.
+
+Bootstrap retained the previous Masters immutable version and activated the evaluation version under an isolated deployment root. The offline `e4` query returned 70,676 games on the evaluation version. Rollback atomically restored the original Masters build ID `codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40`; its `e4` query returned 14,138 games. These writes remained under ignored `data/work/gigabase-eval/`; `data/releases/masters-otb` and `data/releases/elite-online` were not changed.
 
 ## Docker API evaluation
 
-The local image `codb-gigabase-eval:local` (99,263,544 bytes) ran with a 512 MiB memory limit, two CPU limit, read-only root filesystem, and read-only dataset mounts. The service became ready about 5.2 seconds after container start. Its recorded process `VmHWM` was 220,396 KiB. Startup logs confirmed it loaded the Gigabase Masters snapshot and the existing Elite snapshot independently.
+The local Compose image loaded the 156,898-game evaluation snapshot beside the unchanged 429,150-game Elite snapshot. An independent, digest-pinned client confirmed readiness, collection listing, and `e4,e5,Nf3` position queries that matched the CLI for both collections. Masters returned 17,885 games at that line; Elite returned 30,390. The stored-game route returned 404 for both collections because `CODB_ENABLE_GAME_RETRIEVAL=false`. There were 96 concurrent requests: 48 successful position queries and 48 expected game-route 404 responses. Restart, deep mounted-dataset verification, and graceful SIGTERM shutdown passed.
 
-A separate client container on the Compose network passed readiness, collection listing, Masters and Elite position queries for `e4,e5,Nf3`, and Masters PGN retrieval (930-byte response). Masters returned 21,164 games (7,163 white wins, 8,887 draws, 5,114 black wins); Elite returned 30,390 games (14,325 white wins, 2,404 draws, 13,661 black wins). Ten warm sequential query samples per collection had median times of 0.812 ms for Masters and 0.839 ms for Elite. These are small local samples, not a load test. Full responses and timing samples are in [`DOCKER_API_CHECK.json`](DOCKER_API_CHECK.json).
+The container used a read-only root filesystem, user `10001:10001`, read-only dataset mounts, no published host ports, a 512 MiB memory limit, and a two-CPU limit. Its image was 99,270,656 bytes; sampled peak process RSS was 209,848 KiB in the final run. Docker-in-Docker could not resolve workspace bind paths or expose the debug port to the workspace host, so the real run used read-only Docker-managed volumes and an in-network client. Full evidence is in [`DOCKER_API_CHECK.json`](DOCKER_API_CHECK.json).
 
-The environment uses Docker-in-Docker. The daemon could not resolve the workspace path for the normal host bind mount, and the debug port was unreachable from the workspace host. The same service configuration was exercised with Docker-managed volumes populated from the verified local snapshots; both dataset mounts were read-only, and the in-network client reached the API. This limitation is specific to the test daemon.
+## Verification and remaining limits
 
-## Reproduction and limits
+`python3 -m unittest scripts/test_gigabase_eval.py scripts/test_docker_deployment.py` passed, including a Docker fixture run with the game route disabled. The final `./scripts/validate.sh` result is recorded in [`REPRODUCIBILITY.json`](REPRODUCIBILITY.json).
 
-The commands, source evidence, hashes, accounting, resource measurements, independent rebuild comparison, baseline IDs, and Docker results are summarized in [`REPRODUCIBILITY.json`](REPRODUCIBILITY.json). The safe local archive extraction steps are documented in [`docs/CORPUS_BUILD.md`](../../docs/CORPUS_BUILD.md).
-
-The build report records `checksum_verified: true` for locally checked input bytes. The source inventory separately records that a publisher checksum is unavailable; do not interpret this flag or the local SHA-256 values as publisher authentication. The source license remains `Unknown` in the dataset metadata because rights at the record level have not been cleared. No corpus package, public release, or Evalis deployment was created.
-
-## Verification
-
-`./scripts/validate.sh` passed all eight gates in the pinned Rust validation container on 2026-11-15: formatting, strict Clippy, workspace tests, Python regression suites, production CPI and corpus-evidence validators, historical benchmark validation, documentation links/frontmatter, and `MANIFEST.sha256`. The workspace host has no Cargo installation; validation used the repository's Rust 1.100.0 container.
+The publisher supplied no archive checksum or exact game count. The publisher's license statement does not clear heterogeneous upstream records; no independent event-level OTB audit was performed; publisher Elo was not independently certified as official FIDE Elo; and header/policy-rejected records were not all replayed. The evaluation package is not approved for public distribution, commercial use, or production service. The existing approved Masters and Elite releases remain the separate Lichess-derived datasets.

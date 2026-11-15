@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "policy_id": "gigabase-otb/2026-11-r1",
+  "policy_id": "gigabase-otb/2026-11-r2",
   "source_tag_allowlist": [
     "AnaSchaigorodsky",
     "Britbase",
@@ -21,6 +21,7 @@
   "missing_mode_basis": "publisher_otb_complete_assertion",
   "explicit_mode_policy": "reject_unless_explicit_otb",
   "pre_1970_policy": "reject_unverified_historical_elo",
+  "date_policy": "require_complete_valid_date_and_reject_pre_1970",
   "rating_semantics": "publisher_supplied_elo_unverified_as_official_fide",
   "rating_thresholds": {
     "both_at_least": 2200,
@@ -44,7 +45,7 @@
     "Missing Mode relies on the publisher's archive-level OTB assertion; it is not independent event-level verification.",
     "Both player identities must be publisher-labelled Strong or Confirmed; identity confidence does not establish play mode.",
     "Publisher-supplied Elo values are used with the existing numeric thresholds but are not independently certified as official FIDE ratings for each game.",
-    "Games dated before 1970 are excluded until historical rating values can be independently validated.",
+    "Games dated before 1970 are excluded until historical rating values can be independently validated; missing, partial, or invalid calendar dates are also excluded.",
     "The overall Gigabase license is CC BY-NC 4.0; a public or commercial Evalis integration requires separate terms."
   ]
 }

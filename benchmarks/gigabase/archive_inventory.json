@@ -64,7 +64,7 @@
       "LEDB": 15
     }
   },
-  "inventory_status": "archive integrity and full structural/header inventory verified; a 183,907-game source-qualified local Masters OTB evaluation passed deep verification; public release eligibility remains blocked by missing publisher checksum and unresolved rights",
+  "inventory_status": "Archive identity and full structural/header inventory verified; the current r2 source-qualified local Masters OTB evaluation retained 156,898 games and passed independent deep verification; a local-only package passed checksum verification, bootstrap, and rollback; public release eligibility remains blocked by the absent publisher checksum and unresolved upstream rights. The historical r1 evaluation is listed separately.",
   "parser_inventory": {
     "report_path": "benchmarks/gigabase/INVENTORY.json",
     "report_sha256": "f916e7ce0ac4ec7ab2abe9d24741d8029dbc4aeefbf2fd1d476a77d5435c11ab",
@@ -79,15 +79,35 @@
     "same_intersection_in_publisher_documented_rights_or_source_categories": 185547,
     "is_eligible_game_count": false
   },
+  "historical_local_evaluations": [
+    {
+      "policy_id": "gigabase-otb/2026-11-r1",
+      "accepted_unique_games": 183907,
+      "rejected_by_policy": 13266762,
+      "confirmed_duplicates": 11,
+      "superseded_prior": 1,
+      "quarantined_stable_id_collisions": 15,
+      "deep_verified": true,
+      "production_release_eligible": false,
+      "note": "Move legality is validated for retained candidates; records rejected by header/policy gates were not all replayed.",
+      "status": "historical_superseded_qualification"
+    }
+  ],
   "local_evaluation": {
-    "policy_id": "gigabase-otb/2026-11-r1",
-    "accepted_unique_games": 183907,
-    "rejected_by_policy": 13266762,
-    "confirmed_duplicates": 11,
-    "superseded_prior": 1,
-    "quarantined_stable_id_collisions": 15,
+    "policy_id": "gigabase-otb/2026-11-r2",
+    "dataset_build_id": "codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40",
+    "accepted_unique_games": 156898,
+    "rejected_by_policy": 13293782,
+    "confirmed_duplicates": 2,
+    "superseded_prior": 0,
+    "quarantined_stable_id_collisions": 14,
+    "unverified_game_date_rejections": 52625,
+    "unique_positions_depth_40": 3406233,
     "deep_verified": true,
+    "independent_rebuild_matched": true,
+    "local_package_verified": true,
+    "bootstrap_and_rollback_verified": true,
     "production_release_eligible": false,
-    "note": "Move legality is validated for retained candidates; records rejected by header/policy gates were not all replayed."
+    "note": "Move legality is validated for retained candidates; records rejected by header or policy gates were not all replayed. This is a local evaluation only; source rights remain unresolved."
   }
 }

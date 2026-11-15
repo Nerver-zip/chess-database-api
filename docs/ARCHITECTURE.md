@@ -104,7 +104,7 @@ flowchart TD
 - **Location:** [`crates/api/`](../crates/api/)
 - **Responsibilities:**
   - Production-ready, asynchronous, read-only HTTP Opening Explorer service built on Axum 0.8 and Tokio.
-  - Implements `/v1/explorer/position`, `/v1/collections/{collection}/games/{id}`, `/v1/collections`, `/health`, `/ready`, and `/v1/admin/reload`.
+  - Implements `/v1/explorer/position`, `/v1/collections`, `/health`, `/ready`, and `/v1/admin/reload`; the stored-PGN route is optional through `CODB_ENABLE_GAME_RETRIEVAL`.
   - Zero-copy, lock-free concurrent query execution directly against memory-mapped CPI v2 indexes.
   - Snapshot isolation pinning immutable version directories (`versions/vX/`) and atomic zero-downtime hot-reloading via `parking_lot::RwLock<Arc<DatasetSnapshot>>`.
   - Pooled, bounded threadpool execution for Zstandard CGB3 game decompression without blocking asynchronous request loops.
@@ -259,7 +259,7 @@ graph LR
     end
 
     CLIENT_WEB -->|HTTP GET /v1/explorer/position| DB_API
-    CLIENT_WEB -->|HTTP GET /v1/collections/.../games/...| DB_API
+    CLIENT_WEB -.->|optional HTTP GET /v1/collections/.../games/...| DB_API
     DB_API --> DB_INDEX
     DB_API --> DB_STORE
 ```

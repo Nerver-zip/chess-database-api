@@ -57,22 +57,29 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         Duration::from_secs(state.config.request_timeout_secs),
     );
 
-    // 3. Assemble routes
-    Router::new()
+    // 3. Assemble routes. Some restricted dataset licenses prohibit returning raw PGN to users.
+    let enable_game_retrieval = state.config.enable_game_retrieval;
+    let routes = Router::new()
         // Health and readiness probes
         .route("/health", get(health::health_check))
         .route("/ready", get(health::readiness_check))
-        // Collection and game retrieval
+        // Collection metadata
         .route("/v1/collections", get(collections::list_collections))
-        .route(
-            "/v1/collections/{collection}/games/{id}",
-            get(games::get_game_by_id),
-        )
         // Opening explorer position queries
         .route("/v1/explorer/position", get(explorer::query_position))
         // Admin snapshot reload
-        .route("/v1/admin/reload", post(admin::reload_snapshots))
-        // Middleware layers
+        .route("/v1/admin/reload", post(admin::reload_snapshots));
+    let routes = if enable_game_retrieval {
+        routes.route(
+            "/v1/collections/{collection}/games/{id}",
+            get(games::get_game_by_id),
+        )
+    } else {
+        routes
+    };
+
+    // Middleware layers
+    routes
         .layer(cors)
         .layer(timeout)
         .layer(TraceLayer::new_for_http())

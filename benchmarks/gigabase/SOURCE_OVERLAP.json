@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "method": "Stream all canonical games through DatasetReader; compare the previous Masters snapshot with new games whose sidecar includes Source=LichessBroadcastAPI. Game sequences use exact CompactMove vectors. Player names use codb-curate's existing normalization. Date comparison normalizes separators; year comparison is a broad candidate signal. Event and round remove non-alphanumeric ASCII characters and lowercase. No candidate is automatically deduplicated from this audit.",
+  "previous_release": {
+    "dataset_build_id": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
+    "total_games": 29640
+  },
+  "gigabase_evaluation": {
+    "dataset_build_id": "codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40",
+    "total_games": 156898
+  },
+  "candidate_source": "LichessBroadcastAPI",
+  "exact_stable_game_id_overlap": 0,
+  "lichess_api_games_with_identical_full_move_sequence": 16173,
+  "lichess_api_games_with_same_players_and_moves": 16068,
+  "lichess_api_games_with_same_players_date_and_moves": 5716,
+  "lichess_api_games_with_same_players_year_and_moves": 16065,
+  "lichess_api_games_with_same_players_date_event_round_and_moves": 242,
+  "same_players_date_moves_with_event_or_round_drift": 5474,
+  "deduplication_decision": "No cross-release deletion or merge was performed. Exact stable-ID and full metadata/move matches are direct overlap signals; move-only and relaxed metadata matches require manual review because equal moves alone do not prove the games are the same event record.",
+  "limitations": [
+    "The source tag is publisher-supplied provenance; the audit does not independently authenticate Lichess origin.",
+    "Player normalization intentionally follows existing deduplication behavior and may not catch every spelling or identity mismatch.",
+    "No raw PGN, player names, event names, or game IDs are written to this aggregate report."
+  ]
+}

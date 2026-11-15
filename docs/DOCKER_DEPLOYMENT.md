@@ -90,7 +90,7 @@ curl --fail --get 'http://127.0.0.1:8081/v1/explorer/position' \
   --data-urlencode 'moves=e4,e5,Nf3'
 ~~~
 
-Ordinary reads require no administrative token. The administrative reload route remains disabled unless an admin token is explicitly configured. Read-only queries and stored-game retrieval do not need it.
+Ordinary reads require no administrative token. The administrative reload route remains disabled unless an admin token is explicitly configured. Stored-game retrieval is enabled by default for compatibility; set `CODB_ENABLE_GAME_RETRIEVAL=false` when source terms permit derived position statistics but prohibit returning raw PGN to users. The position explorer and collection metadata remain available.
 
 ## Connect Another Compose Project
 
@@ -130,6 +130,7 @@ Container-to-container HTTP requests do not use browser CORS and need no publish
 | CODB_READER_POOL_TIMEOUT_SECS | 5 | 1–60 seconds waiting for a reader |
 | CODB_REQUEST_TIMEOUT_SECS | 15 | 1–300 seconds per request |
 | CODB_MAX_MOVE_PLIES | 200 | 1–512 plies per position request |
+| CODB_ENABLE_GAME_RETRIEVAL | true | `false` omits the raw-PGN game route and returns HTTP 404 there |
 | CODB_MEMORY_LIMIT | 512m | Docker memory cap |
 | CODB_CPU_LIMIT | 2 | Docker CPU quota |
 | CODB_LOG_LEVEL | info | Rust tracing filter |
@@ -140,7 +141,9 @@ Compose also limits the process to 64 PIDs and 1,024 open files. Adjust limits o
 
 The current real-corpus report is `benchmarks/corpus/docker_real_check.json`. It records a digest-pinned independent client reaching `http://codb:8080`, both release IDs and game counts, the opening baseline (3,902 Masters and 30,390 Elite games for `e4,e5,Nf3`), PGN retrieval from each collection, 96/96 concurrent requests, container restart, graceful SIGTERM, read-only mounts and root filesystem, no published host ports, and failure rejection for missing, wrong, incomplete, and corrupted releases. The Docker image measured 98,871,472 bytes. The test daemon could not access the workspace through bind paths, so this run used read-only named-volume copies; the normal Compose configuration mounts host release roots read-only.
 
-A separate [Gigabase local-evaluation report](../benchmarks/gigabase/FINAL_REPORT.md) records the 2026-11 source-qualified Masters snapshot served beside the unchanged Elite release. That dataset is not release-eligible and the test did not publish or package it. In this Docker-in-Docker environment, the daemon could not resolve workspace bind paths or expose its loopback port to the workspace host; the evaluation used read-only Docker-managed volumes and a separate in-network client container. This is an environment-specific evaluation record, not a replacement for the approved real-release evidence above.
+A separate [Gigabase local-evaluation report](../benchmarks/gigabase/FINAL_REPORT.md) records the source-qualified Masters snapshot served beside the unchanged Elite release. It was packaged and bootstrapped only inside the ignored evaluation workspace; it remains ineligible for the approved catalog, public distribution, or production use. The Docker run disabled raw-PGN retrieval and verified position statistics from a separate in-network client. In this Docker-in-Docker environment, the daemon could not resolve workspace bind paths or expose its loopback port to the workspace host, so the evaluation used read-only Docker-managed volumes. This is an environment-specific evaluation record, not a replacement for the approved real-release evidence above.
+
+The separate `scripts/local_gigabase_eval.py` workflow registers the supplied archive using local hashes, rebuilds it with the Gigabase-only qualification policy, creates a local-only package, bootstraps it into `data/work/gigabase-eval/deploy/masters-otb`, and rolls back to a retained snapshot. It does not add the source to the approved catalog or write to `data/releases/`. The package notice preserves the publisher's CC BY-NC 4.0 claim, the absent publisher checksum, and unresolved upstream rights. For a restricted local service, set `CODB_MASTERS_RELEASE_DIR` to the evaluation deployment root and `CODB_ENABLE_GAME_RETRIEVAL=false`; do not offer raw PGN to users. This package is a local evaluation artifact, not clearance for public or commercial deployment.
 
 To reproduce after provisioning both real releases:
 

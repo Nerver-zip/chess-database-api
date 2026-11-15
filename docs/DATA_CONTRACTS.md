@@ -357,6 +357,8 @@ The API returns HTTP 200 with zeroed game counters and an empty candidate move a
 ### 6.2 `GET /v1/collections/{collection}/games/{id}`
 Retrieves the full reconstructed game in standard PGN format by collection and 64-bit stable game ID.
 
+This route is registered by default. Operators may set `CODB_ENABLE_GAME_RETRIEVAL=false` (or pass `--enable-game-retrieval false`) for datasets whose terms allow position statistics but do not allow delivery of raw PGN to users. When disabled, the route is absent and Axum returns its router-level HTTP 404 response (without the `game_not_found` error envelope); position queries and collection metadata remain available.
+
 #### Path Parameters
 - `collection` (string): `"masters-otb"` or `"elite-online"`.
 - `id` (integer): 64-bit unsigned integer stable game ID (`u64`).
@@ -381,6 +383,10 @@ Retrieves the full reconstructed game in standard PGN format by collection and 6
 ```
 
 If the collection is valid but the game ID does not exist in the index, returns HTTP 404 (`game_not_found`).
+
+### 6.2.1 Server option: stored game retrieval
+
+`CODB_ENABLE_GAME_RETRIEVAL` / `--enable-game-retrieval` is a boolean option, defaulting to `true` for compatibility. Set it to `false` to omit the stored-game route from the HTTP router. Disabling the route does not alter CGB3 storage or local `codb get-game` access.
 
 ### 6.3 `GET /v1/collections`
 Returns summary status and metadata for all datasets loaded in the active server snapshot.

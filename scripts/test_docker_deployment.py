@@ -39,6 +39,9 @@ class DockerDeploymentTests(unittest.TestCase):
         self.assertIn("cap_drop:", compose)
         self.assertIn("external: ${CODB_NETWORK_EXTERNAL:-false}", compose)
         self.assertIn("--deep-validate-on-startup", compose)
+        self.assertIn("CODB_ENABLE_GAME_RETRIEVAL", compose)
+        self.assertIn("--enable-game-retrieval", compose)
+        self.assertIn("CODB_ENABLE_GAME_RETRIEVAL=true", (REPO / ".env.codb.example").read_text())
         self.assertNotIn("ports:", compose)
         self.assertIn(".env.*", (REPO / ".gitignore").read_text())
         self.assertIn("!.env.codb.example", (REPO / ".gitignore").read_text())
@@ -77,7 +80,8 @@ class DockerDeploymentTests(unittest.TestCase):
     @unittest.skipUnless(docker_daemon_available(), "Docker daemon is unavailable")
     def test_fixture_container_http_smoke(self):
         subprocess.run(
-            [sys.executable, str(REPO / "scripts" / "docker_smoke.py"), "--fixtures"],
+            [sys.executable, str(REPO / "scripts" / "docker_smoke.py"),
+             "--fixtures", "--disable-game-retrieval"],
             cwd=REPO, check=True, timeout=2400,
         )
 

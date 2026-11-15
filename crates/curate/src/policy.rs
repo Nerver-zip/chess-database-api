@@ -44,6 +44,8 @@ pub enum PolicyRejectionReason {
     NonOtbGigabaseMode(String),
     /// Gigabase-specific: the date is pre-1970 and its Elo values are not independently verified.
     UnverifiedGigabaseHistoricalRating(u16),
+    /// Gigabase-specific: the date is absent, partial, or not a valid calendar date.
+    UnverifiedGigabaseDate,
 }
 
 impl PolicyRejectionReason {
@@ -83,6 +85,7 @@ impl PolicyRejectionReason {
             PolicyRejectionReason::UnverifiedGigabaseHistoricalRating(_) => {
                 "unverified_historical_rating"
             }
+            PolicyRejectionReason::UnverifiedGigabaseDate => "unverified_game_date",
         }
     }
 }
@@ -95,6 +98,7 @@ pub fn early_filter_category(reason: &str) -> &'static str {
         "gigabase:untrusted_player_identity" => "untrusted_player_identity",
         "gigabase:non_otb_play_mode" => "non_otb_play_mode",
         "gigabase:unverified_historical_rating" => "unverified_historical_rating",
+        "gigabase:unverified_game_date" => "unverified_game_date",
         "Bullet" | "Bullet TC" => "bullet_or_ultrabullet",
         "Below rating threshold" => "below_rating_threshold",
         r if r.starts_with("Missing rating") => "missing_rating",
@@ -171,10 +175,36 @@ mod gigabase_policy_tests {
         let err = policy()
             .evaluate_source_metadata(
                 Some(&attribution(None, "Confirmed", "Confirmed")),
-                Some("1969.??.??"),
+                Some("1969.12.31"),
             )
             .unwrap_err();
         assert_eq!(err.category(), "unverified_historical_rating");
+    }
+
+    #[test]
+    fn rejects_missing_partial_and_invalid_gigabase_dates() {
+        for date in [
+            None,
+            Some("????.??.??"),
+            Some("2020.??.??"),
+            Some("2020.13.01"),
+            Some("2021.02.29"),
+        ] {
+            let err = policy()
+                .evaluate_source_metadata(Some(&attribution(None, "Confirmed", "Confirmed")), date)
+                .unwrap_err();
+            assert_eq!(err.category(), "unverified_game_date", "date: {date:?}");
+        }
+    }
+
+    #[test]
+    fn accepts_complete_leap_day_gigabase_date() {
+        assert!(policy()
+            .evaluate_source_metadata(
+                Some(&attribution(None, "Confirmed", "Confirmed")),
+                Some("2024.02.29")
+            )
+            .is_ok());
     }
 }
 
@@ -235,6 +265,9 @@ impl std::fmt::Display for PolicyRejectionReason {
                 f,
                 "Gigabase historical Elo before 1970 is not independently verified ({year})"
             ),
+            PolicyRejectionReason::UnverifiedGigabaseDate => {
+                write!(f, "Gigabase game date is absent, partial, or invalid")
+            }
         }
     }
 }
@@ -243,7 +276,7 @@ impl std::fmt::Display for PolicyRejectionReason {
 ///
 /// This policy is opt-in and does not change the existing Lichess Masters policy. Missing
 /// `Mode` relies on the publisher's OTB-Complete archive assertion; any present mode must
-/// explicitly identify over-the-board play.
+/// explicitly identify over-the-board play. Dates must be complete valid calendar dates.
 #[derive(Debug, Clone)]
 pub struct GigabaseOtbPolicy {
     allowed_source_tags: HashSet<String>,
@@ -287,11 +320,11 @@ impl GigabaseOtbPolicy {
             }
         }
 
-        if let Some(year) = date
-            .and_then(|date| date.split(['.', '-']).next())
-            .and_then(|year| year.parse::<u16>().ok())
-            .filter(|year| *year < 1970)
-        {
+        let Some((year, _, _)) = date.and_then(parse_complete_pgn_date) else {
+            return Err(PolicyRejectionReason::UnverifiedGigabaseDate);
+        };
+
+        if year < 1970 {
             return Err(PolicyRejectionReason::UnverifiedGigabaseHistoricalRating(
                 year,
             ));
@@ -299,6 +332,38 @@ impl GigabaseOtbPolicy {
 
         Ok(())
     }
+}
+
+fn parse_complete_pgn_date(value: &str) -> Option<(u16, u8, u8)> {
+    let bytes = value.as_bytes();
+    if bytes.len() != 10 || !matches!(bytes[4], b'.' | b'-') || bytes[7] != bytes[4] {
+        return None;
+    }
+    if !bytes
+        .iter()
+        .enumerate()
+        .all(|(index, byte)| matches!(index, 4 | 7) || byte.is_ascii_digit())
+    {
+        return None;
+    }
+
+    let year = value.get(0..4)?.parse::<u16>().ok()?;
+    let month = value.get(5..7)?.parse::<u8>().ok()?;
+    let day = value.get(8..10)?.parse::<u8>().ok()?;
+    if !(1000..=2999).contains(&year) || !(1..=12).contains(&month) {
+        return None;
+    }
+
+    let leap_year = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let days_in_month = match month {
+        2 if leap_year => 29,
+        2 => 28,
+        4 | 6 | 9 | 11 => 30,
+        _ => 31,
+    };
+    (1..=days_in_month)
+        .contains(&day)
+        .then_some((year, month, day))
 }
 
 fn is_trusted_gigabase_identity(value: Option<&str>) -> bool {

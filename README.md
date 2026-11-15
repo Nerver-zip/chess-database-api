@@ -222,7 +222,7 @@ Machine-readable JSON reports are written to `benchmarks/results/` (with complet
 
 ### Local Gigabase evaluation
 
-The opt-in `--gigabase-source-policy` path and `corpus.sh extract-local-7z` support local evaluation of a user-supplied Lumbra's Gigabase archive. The completed 183,907-game evaluation and its reproducibility evidence are in [`benchmarks/gigabase/FINAL_REPORT.md`](benchmarks/gigabase/FINAL_REPORT.md). Local SHA-256 values are not publisher checksums, the source carries publisher-stated CC BY-NC 4.0 terms with unresolved upstream rights, and this path does not create an approved or publicly distributable corpus release. See [Corpus Build](docs/CORPUS_BUILD.md), [source qualification policy](docs/CORPUS_AND_DEDUPLICATION.md), and [licensing limits](docs/LICENSING.md).
+The opt-in `--gigabase-source-policy` path and `corpus.sh extract-local-7z` support local evaluation of a user-supplied Lumbra's Gigabase archive. The current r2 evaluation retained 156,898 games; its reproducibility evidence is in [`benchmarks/gigabase/FINAL_REPORT.md`](benchmarks/gigabase/FINAL_REPORT.md). Local SHA-256 values are not publisher checksums, the source carries publisher-stated CC BY-NC 4.0 terms with unresolved upstream rights, and this path does not create an approved or publicly distributable corpus release. See [Corpus Build](docs/CORPUS_BUILD.md), [source qualification policy](docs/CORPUS_AND_DEDUPLICATION.md), and [licensing limits](docs/LICENSING.md).
 
 ---
 

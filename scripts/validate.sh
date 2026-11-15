@@ -48,6 +48,7 @@ python3 -m unittest \
     scripts/test_validate_benchmarks.py \
     scripts/test_bench_http.py \
     scripts/test_corpus.py \
+    scripts/test_gigabase_eval.py \
     scripts/test_docker_deployment.py \
     scripts/test_masters_event_audit.py
 echo "  [PASS] Python unit and regression tests passed."

@@ -386,6 +386,15 @@ enum Commands {
         #[arg(long, default_value = "5", env = "CODB_READER_POOL_TIMEOUT_SECS")]
         reader_pool_timeout_secs: u64,
 
+        /// Whether clients may retrieve stored PGN by stable game ID
+        #[arg(
+            long,
+            default_value_t = true,
+            env = "CODB_ENABLE_GAME_RETRIEVAL",
+            action = clap::ArgAction::Set
+        )]
+        enable_game_retrieval: bool,
+
         /// Optional secret token required for administrative operations (POST /v1/admin/reload)
         #[arg(long, env = "CODB_ADMIN_TOKEN")]
         admin_token: Option<String>,
@@ -934,6 +943,7 @@ fn main() -> Result<()> {
             reader_pool_timeout_secs,
             deep_validate_on_startup,
             admin_token,
+            enable_game_retrieval,
         } => {
             let origins = allowed_origins
                 .split(',')
@@ -953,6 +963,7 @@ fn main() -> Result<()> {
                 reader_pool_timeout_secs,
                 deep_validate_on_startup,
                 admin_token,
+                enable_game_retrieval,
             };
 
             let rt = tokio::runtime::Builder::new_multi_thread()
@@ -1328,6 +1339,7 @@ struct GigabaseSourcePolicyInput {
     missing_mode_basis: String,
     explicit_mode_policy: String,
     pre_1970_policy: String,
+    date_policy: String,
     rating_semantics: String,
     rating_thresholds: GigabaseRatingThresholdsInput,
 }
@@ -1420,6 +1432,10 @@ fn load_gigabase_source_policy(path: &Path) -> Result<LoadedGigabasePolicy> {
     anyhow::ensure!(
         input.pre_1970_policy == "reject_unverified_historical_elo",
         "Gigabase policy must reject pre-1970 records pending historical Elo validation"
+    );
+    anyhow::ensure!(
+        input.date_policy == "require_complete_valid_date_and_reject_pre_1970",
+        "Gigabase policy must require complete valid dates and reject pre-1970 records pending historical Elo validation"
     );
     anyhow::ensure!(
         input.rating_semantics == "publisher_supplied_elo_unverified_as_official_fide",
@@ -1622,7 +1638,7 @@ fn run_build(opts: BuildOptions) -> Result<()> {
     let event_qualification_enabled = event_qualification.is_some();
     let gigabase_policy_note = gigabase_qualification.as_ref().map(|loaded| {
         format!(
-            "Gigabase policy {} sha256={}: allowlisted Source tags; both identities Strong/Confirmed; publisher-supplied Elo uses the existing numeric thresholds but is not independently certified as official FIDE; missing Mode relies on the publisher's OTB Complete assertion, explicit non-OTB modes and pre-1970 games are rejected; standard chess, minimum four plies, explicit online and aborted/rules-infraction markers rejected",
+            "Gigabase policy {} sha256={}: allowlisted Source tags; both identities Strong/Confirmed; publisher-supplied Elo uses the existing numeric thresholds but is not independently certified as official FIDE; missing Mode relies on the publisher's OTB Complete assertion, explicit non-OTB modes and pre-1970 games are rejected; missing, partial, and invalid dates are rejected; standard chess, minimum four plies, explicit online and aborted/rules-infraction markers rejected",
             loaded.policy_id, loaded.sha256
         )
     });
@@ -3825,7 +3841,7 @@ mod tests {
             .unwrap();
         let policy_path = workspace_dir.join("corpus/gigabase_source_qualification.json");
         let loaded = load_gigabase_source_policy(&policy_path).unwrap();
-        assert_eq!(loaded.policy_id, "gigabase-otb/2026-11-r1");
+        assert_eq!(loaded.policy_id, "gigabase-otb/2026-11-r2");
         assert_eq!(loaded.sha256.len(), 64);
 
         let mut policy: serde_json::Value =
@@ -3884,8 +3900,16 @@ mod tests {
 "#
             )
         };
+        let incomplete_date = game(
+            "Incomplete Date Player",
+            "5",
+            "Britbase",
+            None,
+            "Federation Championship",
+        )
+        .replace("[Date \"2024.06.12\"]", "[Date \"2024.??.??\"]");
         let pgn = format!(
-            "{}{}{}{}{}",
+            "{}{}{}{}{}{}",
             game(
                 "Allowed Source Player",
                 "1",
@@ -3920,7 +3944,8 @@ mod tests {
                 "Britbase",
                 None,
                 "Open Austrian Team Blitz Championship"
-            )
+            ),
+            incomplete_date
         );
         std::fs::write(&pgn_path, pgn).unwrap();
 
@@ -3942,12 +3967,16 @@ mod tests {
 
         let report: serde_json::Value =
             serde_json::from_slice(&std::fs::read(report_path).unwrap()).unwrap();
-        assert_eq!(report["accounting"]["total_encountered"], 5);
+        assert_eq!(report["accounting"]["total_encountered"], 6);
         assert_eq!(report["accounting"]["accepted_unique"], 2);
-        assert_eq!(report["accounting"]["rejected_by_policy"], 2);
+        assert_eq!(report["accounting"]["rejected_by_policy"], 3);
         assert_eq!(report["accounting"]["quarantined"], 1);
         assert_eq!(report["policy_rejection_reasons"]["unqualified_source"], 1);
         assert_eq!(report["policy_rejection_reasons"]["non_otb_play_mode"], 1);
+        assert_eq!(
+            report["policy_rejection_reasons"]["unverified_game_date"],
+            1
+        );
         assert_eq!(report["quarantine_reasons"]["stable_game_id_collision"], 1);
 
         let reader = DatasetReader::open(&output_dir).unwrap();

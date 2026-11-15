@@ -92,7 +92,7 @@ Pinned archives live in profiles. `baseline` is the delivered corpus; add furthe
 
 No other source is approved. TWIC, PGN Mentor, Caissabase, KingBase, commercial databases, and community mirrors are excluded because their redistribution rights or upstream provenance cannot be established ([LICENSING.md](LICENSING.md)).
 
-### 4.3 User-supplied local `.7z` archives
+### 4.2 User-supplied local `.7z` archives
 
 An archive supplied directly by a user can be inventoried and extracted for local evaluation without being added to `corpus/catalog.json`:
 
@@ -109,7 +109,46 @@ python3 -m pip install -r scripts/requirements-corpus-archive.txt
 
 The command requires one regular member with a plain basename, checks the declared expansion size and compression ratio, extracts into a private temporary directory, confirms the actual size, hashes both archive and member, then atomically installs the output and a `*.local-source.json` record. Archive paths, directories, links, multiple members, output overwrites, and size-limit violations fail closed. The two optional hash arguments pin prior **local computations**; they do not become publisher checksums. The record marks `publisher_checksum_verified: false` and `release_eligible: false`. This local-only path does not bypass catalog rules: a source without a publisher checksum or an approved collection license cannot enter a corpus release.
 
-### 4.2 Source qualification and its limits
+### 4.3 Local Gigabase evaluation package
+
+The separate `scripts/local_gigabase_eval.py` workflow does not add Gigabase to `corpus/catalog.json` or to the approved releases. It verifies the archive and member against local evidence, rebuilds with the opt-in Gigabase policy, and creates a package that is explicitly marked local-evaluation-only. The archive and PGN are never included in that package. All write targets are confined to git-ignored `data/work/gigabase-eval/`; the standard `data/releases/masters-otb` and Elite roots are not changed.
+
+```bash
+python3 scripts/local_gigabase_eval.py register \
+  --archive data/sources/lumbra/OTB_DATABASE.7z \
+  --pgn data/sources/lumbra/extracted/LumbrasGigabase_OTB_Complete.pgn \
+  --local-record benchmarks/gigabase/archive_inventory.json
+
+python3 scripts/local_gigabase_eval.py build \
+  --registration data/work/gigabase-eval/source-registration.json \
+  --output-root data/work/gigabase-eval/candidate \
+  --codb target/release/codb
+
+python3 scripts/local_gigabase_eval.py package \
+  --root data/work/gigabase-eval/candidate \
+  --output-dir data/work/gigabase-eval/packages \
+  --codb target/release/codb
+
+python3 scripts/local_gigabase_eval.py bootstrap \
+  --package data/work/gigabase-eval/packages/masters-otb-<version>-local-evaluation.tar \
+  --previous-root data/releases/masters-otb \
+  --target data/work/gigabase-eval/deploy/masters-otb \
+  --codb target/release/codb
+```
+
+Bootstrap deep-verifies the package, retains the previous snapshot in the isolated evaluation root, atomically activates the Gigabase snapshot, and runs an offline opening query. A rollback republishes the retained previous immutable version through `codb publish`:
+
+```bash
+previous_id="$(basename "$(readlink -f data/releases/masters-otb/current)")"
+python3 scripts/local_gigabase_eval.py rollback \
+  --target data/work/gigabase-eval/deploy/masters-otb \
+  --version "$previous_id" \
+  --codb target/release/codb
+```
+
+For a restricted local position-statistics service, set `CODB_MASTERS_RELEASE_DIR=data/work/gigabase-eval/deploy/masters-otb` and `CODB_ENABLE_GAME_RETRIEVAL=false` before starting Compose. The disabled route does not serve raw PGN; local CLI retrieval remains an operator-only capability. The package is not an approved public or commercial release. The publisher's CC BY-NC 4.0 statement is retained as a publisher claim, publisher checksum is `null`, and unresolved upstream rights are recorded in `RELEASE/RELEASE.json` and `RELEASE/DATASET_LICENSE.txt`.
+
+### 4.4 Source qualification and its limits
 
 * **Masters OTB.** The broadcast archives can contain both OTB and online games. A separate event audit groups accepted baseline games by the broadcast tournament identifier and records official Lichess tournament metadata plus linked event or standings evidence. Verified online requires explicit event-level online or engine evidence. Verified OTB requires an official physical venue and a linked event page that matches both tournament identity and location. Missing Site venue data and high FIDE ratings do not prove play mode. Events that cannot be corroborated are unresolved and excluded from the release. See the complete per-event record in corpus/masters_event_qualification.json and the policy details in CORPUS_AND_DEDUPLICATION.md. The [Lichess Broadcast help](https://lichess.org/broadcast/help) notes that venue and other tournament fields are optional, so absence is not treated as online evidence.
 * **Elite Online.** The complete monthly archives are SHA-256 verified end to end. Ratings are Lichess Glicko-2 and are never pooled with FIDE Elo. Existing rated, variant, length, and time-control checks are enforced; explicit aborted, abandoned, no-contest, unplayed, unterminated, and rules-infraction `Termination` values are rejected. The months (2015-09 to 2017-03) were chosen because complete archives of that era are small enough to download in full and verify (0.5–2.2 GB each); modern monthly archives are tens of gigabytes. They span three calendar years at roughly quarterly spacing, but the corpus reflects 2015–2017 Lichess play and rating levels; recent play is not represented. A partial or truncated stream of a larger archive would **not** be a verified archive and is never produced by this tool.
