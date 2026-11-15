@@ -121,7 +121,7 @@
     "The local package is not approved for public redistribution or production service.",
     "Docker-in-Docker could not bind-mount workspace paths or expose the debug port; read-only named volumes and an in-network client were used.",
     "Route-enabled retrieval was separately tested only in an isolated Docker network with read-only named-volume copies; host bind-mount behavior remains unverified in this Docker-in-Docker environment. An exact host-side procedure is documented in docs/DOCKER_DEPLOYMENT.md.",
-    "The selected-position CPI oracle replays canonical CGB3 games and shares the repository PositionKey function; it does not independently verify source PGN to CGB3 mapping."
+    "The selected-position CPI oracle replays canonical CGB3 games and shares the repository PositionKey function. Source-to-canonical traceability is checked separately by SOURCE_CANONICAL_AUDIT.json, which uses the same Shakmaty visitor and stable-ID function as ingestion and is not independent parser validation."
   ],
   "local_bootstrap_and_rollback": {
     "active_version_after_rollback": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
@@ -235,7 +235,7 @@
     "date": "2026-11-15",
     "gates_passed": 8,
     "result": "passed",
-    "verification_scope": "Completed after adding the selected-position CPI oracle runner and report.",
+    "verification_scope": "Completed after adding the full source-to-canonical audit runner and report, with the final report and reproducibility evidence updated.",
     "python_tests": 103,
     "python_tests_skipped": 2
   },
@@ -256,5 +256,48 @@
     "mismatches": 0,
     "source_to_canonical_mapping_verified": false,
     "shares_position_key_function_with_cpi": true
+  },
+  "source_canonical_audit": {
+    "report": "SOURCE_CANONICAL_AUDIT.json",
+    "report_sha256": "476941a850f169b355732e319443ac4eb69195c8ac9b4b778cd2dfdf1294977c",
+    "runner": "../../crates/cli/examples/audit_source_canonical.rs",
+    "dataset_build_id": "codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40",
+    "source_pgn_sha256_local": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
+    "candidate_games": 156898,
+    "source_records_encountered": 13450696,
+    "source_records_passing_full_masters_policy": 156914,
+    "source_candidate_id_hits": 156913,
+    "unique_candidate_games_matched": 156898,
+    "candidate_games_without_source_match": 0,
+    "repeated_source_records_for_matched_ids": 15,
+    "repeated_id_source_records_attributed_to_canonical": 2,
+    "repeated_id_source_records_without_canonical_attribution": 13,
+    "source_records_passing_policy_without_candidate_id": 1,
+    "persisted_metadata_fields_compared": 15,
+    "content_mismatch_counts": {
+      "persisted_metadata_mismatches": 0,
+      "primary_source_attribution_mismatches": 0,
+      "move_sequence_mismatches": 0,
+      "starting_position_mismatches": 0,
+      "final_position_mismatches": 0
+    },
+    "exact_candidate_records": 156898,
+    "candidate_selection_accounting_reconciles": true,
+    "stratified_examples": 31,
+    "stratified_example_dimensions": [
+      "game_length_band",
+      "identity_tier",
+      "minimum_rating_band",
+      "play_mode_evidence",
+      "result",
+      "source_tag",
+      "year_band"
+    ],
+    "examples_include_game_ids_player_names_event_names_site_strings_or_raw_pgn": false,
+    "source_sha256_computed_by_runner": false,
+    "independent_pgn_parser": false,
+    "source_scan_duration_ms": 55294,
+    "repeated_id_verdicts_independently_reproduced": false,
+    "reproducible_command_template": "cargo run --release -p codb-cli --example audit_source_canonical -- <candidate-dataset-root> <source-pgn> <qualification-policy.json> <report.json> <source-sha256-local>"
   }
 }
