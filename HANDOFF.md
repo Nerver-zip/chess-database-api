@@ -6,7 +6,7 @@ Complete PR #7 on `feat/gigabase-masters`: implement and document a source-quali
 
 ## Current state
 
-- Branch `feat/gigabase-masters` is based on `origin/main` commit `56d39184a8c68b3d4a5883a423cf79b2a325f4eb`. Commits `a99e4e3` and `cb2d0d8` are pushed. Draft PR [#7](https://github.com/Nerver-zip/chess-openings-db/pull/7) is open against `main` and has not been merged.
+- Branch `feat/gigabase-masters` is based on `origin/main` commit `56d39184a8c68b3d4a5883a423cf79b2a325f4eb`; the r2 implementation and evidence are pushed. Draft PR [#7](https://github.com/Nerver-zip/chess-openings-db/pull/7) is open against `main`, its description reflects r2, and it has not been merged.
 - User-supplied archive `data/sources/lumbra/OTB_DATABASE.7z` is 2,570,013,439 bytes, local SHA-256 `4e4209ccc1870e7fede557aae09b4dd40b721d4697db9b4c272ff0e4fbbdb500`. Its sole regular member `LumbrasGigabase_OTB_Complete.pgn` is 12,300,428,287 bytes, local SHA-256 `87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759`. The publisher supplied no archive checksum or exact game count; these local hashes are not publisher-authenticated.
 - Streaming structural/header inventory found 13,450,696 records, no recoverable syntax errors, and clean EOF. It does not replay every record for move legality.
 - Current opt-in policy is `gigabase-otb/2026-11-r2`, SHA-256 `9da7691b2b440e66711750b31f12d849b2b32fe1e77bf8752157b475d80e2e94`. It allows 11 reviewed source tags, requires both identities Strong/Confirmed, applies the existing numeric Masters thresholds to publisher-supplied Elo, requires a complete valid calendar date, rejects pre-1970 dates and explicit non-OTB modes, and rejects online-event evidence in a Masters source. All accepted records lacked `Mode`, so OTB provenance relies on the publisher's archive-level OTB Complete assertion. There was no event-level OTB audit; publisher Elo was not independently certified as FIDE Elo.
@@ -21,7 +21,7 @@ Complete PR #7 on `feat/gigabase-masters`: implement and document a source-quali
 
 ## Next actions
 
-1. Confirm `git diff --check`, review the final diff, commit and push `feat/gigabase-masters`, and update PR #7's description if needed. Keep it Draft and unmerged.
+1. Continue review on Draft PR #7; keep it unmerged.
 2. Public redistribution and Evalis deployment remain blocked pending publisher terms and upstream-rights review.
 
 ## Evidence paths
