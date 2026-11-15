@@ -44,6 +44,8 @@ Small JSON records (release manifest, build report, quality report, per-step met
 
 This directory records the structural inventory, source qualification, independent rebuild, quality report, and Docker API check for the user-supplied Lumbra's Gigabase archive. The result is a local evaluation only: the publisher provides no archive checksum, upstream rights remain unresolved, and no approved corpus package or public release was created. Start with the [final report](gigabase/FINAL_REPORT.md) and [machine-readable reproducibility record](gigabase/REPRODUCIBILITY.json). The original archive and generated dataset stay under ignored `data/` paths.
 
+The independent parser evidence includes the original [144-game byte-window audit](gigabase/INDEPENDENT_PGN_AUDIT.json) and a supplemental [300,000-window targeted sample](gigabase/INDEPENDENT_PGN_AUDIT_TARGETED.json), documented in the [local runbook](gigabase/INDEPENDENT_PGN_AUDIT_RUNBOOK.md). The supplemental sample compared 227 unique candidate games with zero parser, legality, retrieval, metadata, move, board, or attribution mismatches. Four of ten supported source-tag strata missed the ten-game quota; the report records the exact categories. Its measured peak RSS was 339,388 KiB, with no fixed memory ceiling claim. The earlier mmap run recorded 1,386,212 KiB and also missed planned quotas; neither sample is a full-source parse. The local checker uses the external GPL-3.0-or-later `python-chess` package; neither checker nor wheel is part of CODB or the PR. The machine reports carry the exact hashes and the runbook explains the licensing boundary.
+
 ---
 
 ## 2. Runtime Results (`benchmarks/results/`)

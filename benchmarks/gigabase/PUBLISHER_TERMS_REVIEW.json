@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-11-15",
+  "sources": {
+    "download_page": {
+      "url": "https://lumbrasgigabase.com/en/download-area-en/",
+      "edition": "OTB Complete",
+      "page_version": "2026-11-11",
+      "publisher_description": "All OTB games as one PGN, containing the publisher's other OTB PGN files except LichessBroadcastDB; same data as its database files.",
+      "displayed_archive_size_gb": 2.57,
+      "license_claim": "CC BY-NC 4.0",
+      "license_summary_on_page": "Sharing is allowed with credit and non-commercial use; commercial use requires a separate license.",
+      "publisher_archive_checksum_visible": false
+    },
+    "sources_page": {
+      "url": "https://lumbrasgigabase.com/en/sources/",
+      "upstream_categories": [
+        "player-provided datasets",
+        "community projects",
+        "independent collections",
+        "legacy software dumps",
+        "official chess federations",
+        "academic datasets",
+        "historical archives"
+      ],
+      "disclosed_provenance_limit": "The publisher says reliable or binding licensing information is unavailable for some abandoned independent collections and historical archives.",
+      "lichess_scope_note": "The source page distinguishes LichessBroadcastAPI material from Lichess database dumps; OTB Complete excludes LichessBroadcastDB according to the download page."
+    },
+    "b2b_terms_page": {
+      "url": "https://lumbrasgigabase.com/en/commercial-licenses-en/",
+      "internal_development_free": true,
+      "closed_beta_free": true,
+      "maximum_nonpaying_testers": 50,
+      "maximum_evaluation_months": 6,
+      "derived_metadata_internal_use_permitted": true,
+      "end_user_bulk_exports_prohibited": true,
+      "direct_raw_pgn_downloads_to_end_users_prohibited": true,
+      "commercial_license_fees_apply_when_project_goes_live_to_end_users_per_page": true,
+      "noncommercial_use_option_listed_in_registration_form": true,
+      "project_registration_evidence_available": false
+    },
+    "creative_commons_deed": {
+      "url": "https://creativecommons.org/licenses/by-nc/4.0/",
+      "license": "CC BY-NC 4.0",
+      "summary": "Sharing and adaptation require attribution, a license link, and an indication of changes; commercial use is excluded.",
+      "deed_notes_other_permissions_may_be_needed": true
+    }
+  },
+  "evaluation": {
+    "publisher_statements_are_independent_rights_clearance": false,
+    "project_specific_terms_confirmed": false,
+    "upstream_rights_cleared": false,
+    "public_or_production_use_cleared": false,
+    "user_facing_pgn_retrieval_cleared": false,
+    "current_package_status": "local_evaluation_only",
+    "docker_route_enabled_run_was_private_internal_qa": true,
+    "publisher_contacted": false,
+    "notes": [
+      "The publisher pages are descriptions of its terms and source scope, not independent verification of upstream permissions.",
+      "The B2B page describes a capped closed-beta phase and prohibits direct raw-PGN downloads to end users. The intended Evalis audience and project registration have not been confirmed against those terms.",
+      "Private internal API correctness testing does not authorize user-facing game retrieval."
+    ]
+  }
+}

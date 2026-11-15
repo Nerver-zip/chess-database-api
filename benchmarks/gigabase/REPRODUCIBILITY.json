@@ -235,8 +235,8 @@
     "date": "2026-11-15",
     "gates_passed": 8,
     "result": "passed",
-    "verification_scope": "Full validation passed after the provenance-corrected build/package evidence, the route-enabled Docker QA report, and the temporary-network cleanup change in scripts/docker_smoke.py. It includes the independent PGN parser spot-check report and reproducibility linkage, bounded-memory source-to-canonical audit updates, anonymized examples with small-stratum suppression, exact attribution-sidecar reconciliation, the six-case disk-backed deduplication golden integration test, provenance cross-check regression tests, documentation links, and contract checksum verification. The route-enabled Docker smoke was run separately and is recorded in DOCKER_API_PROVENANCE_RETRIEVAL_QA.json.",
-    "python_tests": 105,
+    "verification_scope": "Full validation passed after the publisher-terms review, anonymized source-dedupe comparisons, rating-boundary tests, and supplemental 300,000-window independent-parser sample were added. It includes the 144-game and 227-game external parser reports and licensing/hash provenance, source-to-canonical and source-dedupe audits, exact attribution-sidecar reconciliation, the six-case disk-backed deduplication golden integration test, the source-dedupe example test, policy boundary coverage, the corpus and Docker regression suites, documentation links, production evidence validators, and contract checksum verification. The route-enabled Docker smoke was run separately and is recorded in DOCKER_API_PROVENANCE_RETRIEVAL_QA.json.",
+    "python_tests": 110,
     "python_tests_skipped": 2
   },
   "archive_recheck_report": "ARCHIVE_RECHECK.json",
@@ -355,7 +355,7 @@
   },
   "independent_pgn_audit": {
     "report": "INDEPENDENT_PGN_AUDIT.json",
-    "report_sha256": "689706caa0338a04202ddaf09a7c33eabe4a63585e9a9c88b48912ea58ad5235",
+    "report_sha256": "cd3bf2bf4e140d0e2b38574c6e9e3e8b996c85184f2280bb9c39a9424e2b7ff2",
     "audit_runner_path_local": "data/work/gigabase-eval/independent_pgn_sample_audit.py",
     "audit_runner_sha256_local": "e40405292fb07e2fb493db38b56cb27a6beba95636fd3de45b03f151b35d210b",
     "runner_included_in_repository": false,
@@ -500,5 +500,46 @@
     }
   },
   "docker_api_provenance_retrieval_qa": "DOCKER_API_PROVENANCE_RETRIEVAL_QA.json",
-  "docker_api_provenance_retrieval_qa_sha256": "8a8d101f2a7df1e09f780fe1b7adabf5078c79bcc17623aba84694c32e9d018e"
+  "docker_api_provenance_retrieval_qa_sha256": "8a8d101f2a7df1e09f780fe1b7adabf5078c79bcc17623aba84694c32e9d018e",
+  "publisher_terms_review": "PUBLISHER_TERMS_REVIEW.json",
+  "publisher_terms_review_sha256": "516bec5812664ba8c3901922c61b6e0f2ef3ed304084151db7de584c259afa4f",
+  "independent_pgn_audit_targeted": {
+    "report": "INDEPENDENT_PGN_AUDIT_TARGETED.json",
+    "report_sha256": "90bc3fae3428f969b33e20372266f38e10307df41aa1cae6c2d80e594d34ccd8",
+    "runner_path_local": "data/work/gigabase-eval/independent_pgn_targeted_audit.py",
+    "runner_sha256_local": "f24d1457b887e3bde572826883ab3771b669e7d86ee212dad849576832022fef",
+    "runner_in_repository_or_pr": false,
+    "external_parser": "python-chess 1.11.2 (distribution python-chess 1.999; GPL-3.0-or-later)",
+    "candidate_dataset_build_id": "codb-masters-otb-1794734897423894473-41647-72708103e81b880b-cpi-d40",
+    "source_pgn_sha256_from_local_inventory": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
+    "source_hash_recomputed": false,
+    "windows_requested": 300000,
+    "source_records_examined": 300000,
+    "source_bytes_read": 434132364,
+    "header_prefiltered_records_parsed": 4109,
+    "unique_candidate_games_compared": 227,
+    "all_sampled_comparisons_exact_and_legal": true,
+    "supported_strata_count": 27,
+    "supported_strata_quota_misses": {
+      "source_tag": {
+        "CanadianChessFederation": 0,
+        "ChessScotland": 5,
+        "Niedersa\u0308chsischerSchachverband": 0,
+        "SchachverbandRuhrgebiet": 0
+      }
+    },
+    "one_allowed_source_tag_below_quota_support": {
+      "tag": "NiederrheinischerSchachverband",
+      "candidate_games": 1
+    },
+    "duration_seconds": 100.238,
+    "process_peak_rss_kib": 339388,
+    "mmap_used": false,
+    "line_limit_bytes": 4194304,
+    "record_limit_bytes": 67108864,
+    "fixed_memory_ceiling_claimed": false
+  },
+  "source_dedupe_audit": "SOURCE_DEDUPE_AUDIT.json",
+  "source_dedupe_audit_sha256": "f51d8068ec4a5d34085d373f76eaaf78e16c6de0450a0f5276baca20f550621d",
+  "source_dedupe_audit_runner": "crates/cli/examples/audit_dedupe_source.rs"
 }

@@ -1,0 +1,332 @@
+{
+  "schema_version": 2,
+  "audit_kind": "source_derived_dedupe_comparisons",
+  "method": "Stream the complete supplied source PGN through the existing Shakmaty visitor and current Gigabase/Masters gates, replay every policy-passing record through the production disk-backed Deduplicator, and compare duplicate/supersession/quarantine records with their canonical CGB3 record. Comparison output contains only disposition labels, field names, strict move-prefix direction flags, and other boolean checks; it includes no move sequences or metadata values.",
+  "dataset_build_id": "codb-masters-otb-1794734897423894473-41647-72708103e81b880b-cpi-d40",
+  "source_pgn_filename": "LumbrasGigabase_OTB_Complete.pgn",
+  "source_pgn_size_bytes": 12300428287,
+  "gigabase_policy_id": "gigabase-otb/2026-11-r2",
+  "source_records_encountered": 13450696,
+  "source_visitor_rejections": 13292421,
+  "recoverable_syntax_errors": 0,
+  "source_records_parsed_after_early_gates": 158275,
+  "source_full_policy_rejections": 1361,
+  "source_records_passing_full_masters_policy": 156914,
+  "source_record_accounting_reconciles": true,
+  "dedupe_outcomes": {
+    "unique": 156665,
+    "transposition_different_game": 233,
+    "confirmed_duplicate": 2,
+    "superseded_prior": 0,
+    "quarantined_stable_id_collision": 14
+  },
+  "dedupe_outcomes_reconcile": true,
+  "comparison_records": 16,
+  "anonymized_examples_emitted": 16,
+  "candidate_lookup_failures": 0,
+  "metadata_drift_records": 16,
+  "metadata_drift_with_same_normalized_key": 2,
+  "metadata_drift_with_same_moves": 15,
+  "metadata_drift_with_different_moves": 1,
+  "source_moves_prefix_of_canonical_records": 1,
+  "canonical_moves_prefix_of_source_records": 0,
+  "confirmed_duplicates_with_source_prefix": 1,
+  "source_prefix_case_validated_as_truncation": true,
+  "prefix_classification_reconciles": true,
+  "source_attribution_missing_from_candidate_sidecar": 13,
+  "stable_id_collision_metadata_drift_records": 14,
+  "confirmed_duplicate_metadata_drift_records": 2,
+  "anonymized_comparisons": [
+    {
+      "example_index": 1,
+      "dedupe_disposition": "confirmed_duplicate",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": true,
+      "normalized_metadata_key_matches": true,
+      "metadata_fields_differing": [
+        "white_elo",
+        "time_control"
+      ],
+      "source_attribution_is_in_candidate_sidecar": true,
+      "moves_match": true,
+      "source_moves_are_strict_prefix_of_canonical": false,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": true
+    },
+    {
+      "example_index": 2,
+      "dedupe_disposition": "quarantined_stable_id_collision",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": true,
+      "normalized_metadata_key_matches": false,
+      "metadata_fields_differing": [
+        "event_text"
+      ],
+      "source_attribution_is_in_candidate_sidecar": true,
+      "moves_match": true,
+      "source_moves_are_strict_prefix_of_canonical": false,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": true
+    },
+    {
+      "example_index": 3,
+      "dedupe_disposition": "quarantined_stable_id_collision",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": true,
+      "normalized_metadata_key_matches": false,
+      "metadata_fields_differing": [
+        "white_elo",
+        "event_text"
+      ],
+      "source_attribution_is_in_candidate_sidecar": false,
+      "moves_match": true,
+      "source_moves_are_strict_prefix_of_canonical": false,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": true
+    },
+    {
+      "example_index": 4,
+      "dedupe_disposition": "quarantined_stable_id_collision",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": true,
+      "normalized_metadata_key_matches": false,
+      "metadata_fields_differing": [
+        "white_elo",
+        "event_text",
+        "site_text",
+        "eco"
+      ],
+      "source_attribution_is_in_candidate_sidecar": false,
+      "moves_match": true,
+      "source_moves_are_strict_prefix_of_canonical": false,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": true
+    },
+    {
+      "example_index": 5,
+      "dedupe_disposition": "quarantined_stable_id_collision",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": true,
+      "normalized_metadata_key_matches": false,
+      "metadata_fields_differing": [
+        "black_elo",
+        "event_text",
+        "site_text"
+      ],
+      "source_attribution_is_in_candidate_sidecar": false,
+      "moves_match": true,
+      "source_moves_are_strict_prefix_of_canonical": false,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": true
+    },
+    {
+      "example_index": 6,
+      "dedupe_disposition": "quarantined_stable_id_collision",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": true,
+      "normalized_metadata_key_matches": false,
+      "metadata_fields_differing": [
+        "white_elo",
+        "event_text",
+        "site_text"
+      ],
+      "source_attribution_is_in_candidate_sidecar": false,
+      "moves_match": true,
+      "source_moves_are_strict_prefix_of_canonical": false,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": true
+    },
+    {
+      "example_index": 7,
+      "dedupe_disposition": "quarantined_stable_id_collision",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": true,
+      "normalized_metadata_key_matches": false,
+      "metadata_fields_differing": [
+        "black_elo",
+        "event_text",
+        "site_text"
+      ],
+      "source_attribution_is_in_candidate_sidecar": false,
+      "moves_match": true,
+      "source_moves_are_strict_prefix_of_canonical": false,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": true
+    },
+    {
+      "example_index": 8,
+      "dedupe_disposition": "quarantined_stable_id_collision",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": true,
+      "normalized_metadata_key_matches": false,
+      "metadata_fields_differing": [
+        "event_text",
+        "site_text"
+      ],
+      "source_attribution_is_in_candidate_sidecar": false,
+      "moves_match": true,
+      "source_moves_are_strict_prefix_of_canonical": false,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": true
+    },
+    {
+      "example_index": 9,
+      "dedupe_disposition": "quarantined_stable_id_collision",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": true,
+      "normalized_metadata_key_matches": false,
+      "metadata_fields_differing": [
+        "event_text",
+        "site_text"
+      ],
+      "source_attribution_is_in_candidate_sidecar": false,
+      "moves_match": true,
+      "source_moves_are_strict_prefix_of_canonical": false,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": true
+    },
+    {
+      "example_index": 10,
+      "dedupe_disposition": "quarantined_stable_id_collision",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": true,
+      "normalized_metadata_key_matches": false,
+      "metadata_fields_differing": [
+        "event_text",
+        "site_text"
+      ],
+      "source_attribution_is_in_candidate_sidecar": false,
+      "moves_match": true,
+      "source_moves_are_strict_prefix_of_canonical": false,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": true
+    },
+    {
+      "example_index": 11,
+      "dedupe_disposition": "quarantined_stable_id_collision",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": true,
+      "normalized_metadata_key_matches": false,
+      "metadata_fields_differing": [
+        "white_elo",
+        "event_text",
+        "site_text",
+        "eco"
+      ],
+      "source_attribution_is_in_candidate_sidecar": false,
+      "moves_match": true,
+      "source_moves_are_strict_prefix_of_canonical": false,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": true
+    },
+    {
+      "example_index": 12,
+      "dedupe_disposition": "quarantined_stable_id_collision",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": true,
+      "normalized_metadata_key_matches": false,
+      "metadata_fields_differing": [
+        "black_elo",
+        "event_text",
+        "site_text"
+      ],
+      "source_attribution_is_in_candidate_sidecar": false,
+      "moves_match": true,
+      "source_moves_are_strict_prefix_of_canonical": false,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": true
+    },
+    {
+      "example_index": 13,
+      "dedupe_disposition": "quarantined_stable_id_collision",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": true,
+      "normalized_metadata_key_matches": false,
+      "metadata_fields_differing": [
+        "white_elo",
+        "event_text",
+        "site_text"
+      ],
+      "source_attribution_is_in_candidate_sidecar": false,
+      "moves_match": true,
+      "source_moves_are_strict_prefix_of_canonical": false,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": true
+    },
+    {
+      "example_index": 14,
+      "dedupe_disposition": "quarantined_stable_id_collision",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": true,
+      "normalized_metadata_key_matches": false,
+      "metadata_fields_differing": [
+        "black_elo",
+        "event_text",
+        "site_text"
+      ],
+      "source_attribution_is_in_candidate_sidecar": false,
+      "moves_match": true,
+      "source_moves_are_strict_prefix_of_canonical": false,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": true
+    },
+    {
+      "example_index": 15,
+      "dedupe_disposition": "quarantined_stable_id_collision",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": true,
+      "normalized_metadata_key_matches": false,
+      "metadata_fields_differing": [
+        "white_elo",
+        "event_text",
+        "site_text"
+      ],
+      "source_attribution_is_in_candidate_sidecar": false,
+      "moves_match": true,
+      "source_moves_are_strict_prefix_of_canonical": false,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": true
+    },
+    {
+      "example_index": 16,
+      "dedupe_disposition": "confirmed_duplicate",
+      "canonical_game_retrieved": true,
+      "source_stable_id_equals_canonical_stable_id": false,
+      "normalized_metadata_key_matches": true,
+      "metadata_fields_differing": [
+        "stable_game_id",
+        "site_text"
+      ],
+      "source_attribution_is_in_candidate_sidecar": true,
+      "moves_match": false,
+      "source_moves_are_strict_prefix_of_canonical": true,
+      "canonical_moves_are_strict_prefix_of_source": false,
+      "starting_position_matches": true,
+      "final_position_matches": false
+    }
+  ],
+  "report_contains_player_or_event_values": false,
+  "report_contains_stable_game_id_values": false,
+  "report_contains_raw_pgn": false,
+  "source_scan_duration_ms": 119922,
+  "limitations": [
+    "The source record parser, stable IDs, qualification policy, and deduplication outcomes use repository production implementations; this is traceability evidence, not an independent parser or deduplication algorithm.",
+    "Metadata comparison names fields that differ but emits no player, event, site, source ID, game ID, or raw PGN values.",
+    "Source-asserted OTB mode, publisher-supplied Elo provenance, publisher checksum, and upstream rights remain unresolved."
+  ]
+}

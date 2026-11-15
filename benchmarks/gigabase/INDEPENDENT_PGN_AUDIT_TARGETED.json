@@ -1,0 +1,494 @@
+{
+  "schema_version": 1,
+  "audit_kind": "independent_pgn_parser_targeted_byte_sample",
+  "scope": "Anonymized local technical evidence only; no rights, release, or event-level OTB claim.",
+  "candidate_dataset_build_id": "codb-masters-otb-1794734897423894473-41647-72708103e81b880b-cpi-d40",
+  "source": {
+    "size_bytes": 12300428287,
+    "sha256_from_local_inventory": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
+    "sha256_recomputed_by_targeted_audit": false,
+    "inventory_record_count": 13450696
+  },
+  "external_parser": {
+    "parser_package": "chess",
+    "parser_package_version": "1.11.2",
+    "distribution": "python-chess",
+    "distribution_version": "1.999",
+    "source": "PyPI wheel chess-1.11.2-py3-none-any.whl in local pip cache",
+    "license": "GPL-3.0-or-later",
+    "wheel_filename": "chess-1.11.2-py3-none-any.whl",
+    "wheel_sha256_local": "541cf40233bc7a76081a916abd013298dcf1c90e64a7450f8494c4d89ee5f238",
+    "installed_metadata_sha256_local": "b43ff2d5c9d07672abf6661bee1e6f9ae6b6e3f4ff0b99b3bd3a87c617f43f96",
+    "installed_license_sha256_local": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+    "runner_path_local": "data/work/gigabase-eval/independent_pgn_targeted_audit.py",
+    "runner_sha256_local": "f24d1457b887e3bde572826883ab3771b669e7d86ee212dad849576832022fef",
+    "helper_path_local": "data/work/gigabase-eval/independent_pgn_sample_audit.py",
+    "helper_sha256_local": "e40405292fb07e2fb493db38b56cb27a6beba95636fd3de45b03f151b35d210b",
+    "runner_in_git_or_pr": false,
+    "wheel_in_git_or_pr": false,
+    "repository_dependency": false
+  },
+  "method": {
+    "sampling": "Deterministic 300000-window uniform byte grid; seek/read each window to the next record boundary; apply header gates before independent move parsing; retain the lowest SHA-256 ranks per stratum.",
+    "canonical_retrieval": "Fetch only selected stable IDs with the production codb get-game CLI; compare persisted metadata, compact moves, start/final board, and sidecar attribution.",
+    "memory_controls": {
+      "mmap_used": false,
+      "maximum_line_bytes": 4194304,
+      "maximum_record_bytes": 67108864,
+      "candidate_id_membership": "in-memory SQLite database; RSS is measured but no fixed memory ceiling is claimed",
+      "sample_retention_limit": "at most quota per category plus a bounded union across categories",
+      "parser_objects_released_per_window": true
+    }
+  },
+  "scan": {
+    "windows_requested": 300000,
+    "windows_attempted": 300000,
+    "source_bytes_read": 434132364,
+    "source_records_examined": 300000,
+    "windows_without_boundary": 0,
+    "header_policy_prefilter_passes": 4109,
+    "python_chess_records_parsed": 4109,
+    "independent_parser_errors": 0,
+    "illegal_mainline_records": 0,
+    "candidate_sidecar_games": 156898,
+    "candidate_id_hits": 4109,
+    "unique_candidate_ids_sampled": 4109,
+    "repeated_candidate_id_hits": 0,
+    "policy_pass_records_without_candidate_id": 0,
+    "sampled_header_parse_failures": 0,
+    "source_tag_candidate_population_by_category": {
+      "AnaSchaigorodsky": 16933,
+      "Britbase": 10127,
+      "CanadianChessFederation": 18,
+      "ChessScotland": 380,
+      "DanBase": 3431,
+      "Federscacchi": 3643,
+      "GreekBase": 16647,
+      "LichessBroadcastAPI": 105652,
+      "NiederrheinischerSchachverband": 1,
+      "NiedersächsischerSchachverband": 20,
+      "SchachverbandRuhrgebiet": 48
+    }
+  },
+  "sampling": {
+    "quota_per_stratum": 10,
+    "deterministic_min_hash": true,
+    "supported_strata_count": 27,
+    "all_quotas_met": false,
+    "strata": {
+      "year_decade": {
+        "1970s": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 17,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "1980s": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 47,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "1990s": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 91,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "2000s": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 643,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "2010s": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 216,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "2020s": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 3095,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        }
+      },
+      "minimum_rating_band": {
+        "2000-2199": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 460,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "2200-2399": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 2335,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "2400+": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 1314,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        }
+      },
+      "game_length_band": {
+        "0-19_plies": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 37,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "20-39_plies": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 241,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "40-79_plies": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 1637,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "80+_plies": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 2194,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        }
+      },
+      "source_tag": {
+        "AnaSchaigorodsky": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 353,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "Britbase": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 250,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "CanadianChessFederation": {
+          "quota": 10,
+          "selected_games": 0,
+          "sampled_candidate_rows_observed_in_category": 0,
+          "quota_met": false,
+          "comparison": {
+            "metadata_exact_matches": 0,
+            "move_sequence_matches": 0,
+            "starting_position_matches": 0,
+            "final_position_matches": 0,
+            "sidecar_attribution_matches": 0,
+            "canonical_legal_games": 0
+          }
+        },
+        "ChessScotland": {
+          "quota": 10,
+          "selected_games": 5,
+          "sampled_candidate_rows_observed_in_category": 5,
+          "quota_met": false,
+          "comparison": {
+            "metadata_exact_matches": 5,
+            "move_sequence_matches": 5,
+            "starting_position_matches": 5,
+            "final_position_matches": 5,
+            "sidecar_attribution_matches": 5,
+            "canonical_legal_games": 5
+          }
+        },
+        "DanBase": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 73,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "Federscacchi": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 74,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "GreekBase": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 393,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "LichessBroadcastAPI": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 2961,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "NiedersächsischerSchachverband": {
+          "quota": 10,
+          "selected_games": 0,
+          "sampled_candidate_rows_observed_in_category": 0,
+          "quota_met": false,
+          "comparison": {
+            "metadata_exact_matches": 0,
+            "move_sequence_matches": 0,
+            "starting_position_matches": 0,
+            "final_position_matches": 0,
+            "sidecar_attribution_matches": 0,
+            "canonical_legal_games": 0
+          }
+        },
+        "SchachverbandRuhrgebiet": {
+          "quota": 10,
+          "selected_games": 0,
+          "sampled_candidate_rows_observed_in_category": 0,
+          "quota_met": false,
+          "comparison": {
+            "metadata_exact_matches": 0,
+            "move_sequence_matches": 0,
+            "starting_position_matches": 0,
+            "final_position_matches": 0,
+            "sidecar_attribution_matches": 0,
+            "canonical_legal_games": 0
+          }
+        }
+      },
+      "identity_tier": {
+        "Confirmed+Confirmed": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 3917,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "Confirmed+Strong": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 88,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "Strong+Confirmed": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 87,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        },
+        "Strong+Strong": {
+          "quota": 10,
+          "selected_games": 10,
+          "sampled_candidate_rows_observed_in_category": 17,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 10,
+            "move_sequence_matches": 10,
+            "starting_position_matches": 10,
+            "final_position_matches": 10,
+            "sidecar_attribution_matches": 10,
+            "canonical_legal_games": 10
+          }
+        }
+      }
+    },
+    "selected_unique_candidate_games": 227,
+    "sample_row_ids_names_event_site_moves_and_fen_in_report": false
+  },
+  "comparisons": {
+    "selected_games_retrieved": 227,
+    "comparison_classes": {
+      "exact_canonical_source_record": 227
+    },
+    "exact_canonical_samples": 227,
+    "metadata_exact_matches": 227,
+    "move_sequence_matches": 227,
+    "starting_position_matches": 227,
+    "final_position_matches": 227,
+    "sidecar_attribution_matches": 227,
+    "canonical_legal_games": 227,
+    "candidate_retrieval_failures": 0
+  },
+  "limitations": [
+    "This is a targeted byte-window sample, not a full-source Python parse; stratum quota misses are reported as such.",
+    "Stable-ID calculation and canonical decoding are not independent implementations; source rows are joined by the documented ID and retrieved through the production CLI.",
+    "Duplicate/collision classification is descriptive comparison evidence; the source dedupe audit separately uses the production deduplicator.",
+    "The GPL-3.0-or-later runner and wheel are local-only and absent from CODB and PR #7; this report does not provide an in-repository executable reproduction.",
+    "Publisher rights, event-level OTB play, and official FIDE Elo provenance remain unresolved."
+  ],
+  "duration_seconds": 100.238,
+  "process_peak_rss_kib": 339388
+}

@@ -12,7 +12,17 @@
     "parser_module_version": "1.11.2",
     "python_runtime_version": "3.13.5",
     "repository_dependency": false,
-    "used_by_production_build": false
+    "used_by_production_build": false,
+    "parser_package": "chess",
+    "parser_package_version": "1.11.2",
+    "parser_package_source": "PyPI wheel chess-1.11.2-py3-none-any.whl, retained in local pip cache",
+    "license": "GPL-3.0-or-later",
+    "wheel_filename": "chess-1.11.2-py3-none-any.whl",
+    "wheel_sha256_local": "541cf40233bc7a76081a916abd013298dcf1c90e64a7450f8494c4d89ee5f238",
+    "installed_metadata_sha256_local": "b43ff2d5c9d07672abf6661bee1e6f9ae6b6e3f4ff0b99b3bd3a87c617f43f96",
+    "installed_license_sha256_local": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+    "runner_in_git_or_pr": false,
+    "wheel_in_git_or_pr": false
   },
   "audit_runner_path_local": "data/work/gigabase-eval/independent_pgn_sample_audit.py",
   "audit_runner_sha256_local": "e40405292fb07e2fb493db38b56cb27a6beba95636fd3de45b03f151b35d210b",
@@ -111,5 +121,15 @@
     "Exact parser agreement does not establish source rights, event-level OTB play, or official Elo provenance."
   ],
   "duration_seconds": 166.453,
-  "process_peak_rss_kib": 1386212
+  "process_peak_rss_kib": 1386212,
+  "memory_interpretation": {
+    "completed_run_scope": "40,000-window byte-weighted sample only",
+    "completed_sample_peak_rss_kib": 1386212,
+    "completed_full_source_scan": false,
+    "completed_bounded_memory_full_source_scan": false,
+    "separate_buffered_full_scan_status": "interrupted_before_eof; no completion metrics or quota reconciliation were produced",
+    "separate_buffered_full_scan_maximum_line_bytes": 4194304,
+    "separate_buffered_full_scan_maximum_record_bytes": 67108864,
+    "bounded_memory_claim_supported": false
+  }
 }
