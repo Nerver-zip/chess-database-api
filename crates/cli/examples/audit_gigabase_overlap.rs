@@ -5,7 +5,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
-use codb_core::ParsedGame;
+use codb_core::{GameResult, ParsedGame};
 use codb_curate::dedupe::normalize_player_name;
 use codb_storage::DatasetReader;
 use serde::Deserialize;
@@ -47,6 +47,214 @@ struct FullMetadataMoves {
     moves: Vec<u16>,
 }
 
+#[derive(Default, serde::Serialize)]
+struct FieldAgreement {
+    equal: u64,
+    different: u64,
+    missing_in_previous: u64,
+    missing_in_candidate: u64,
+    missing_in_both: u64,
+}
+
+impl FieldAgreement {
+    fn observe<T: PartialEq>(&mut self, previous: Option<&T>, candidate: Option<&T>) {
+        match (previous, candidate) {
+            (Some(previous), Some(candidate)) if previous == candidate => self.equal += 1,
+            (Some(_), Some(_)) => self.different += 1,
+            (None, Some(_)) => self.missing_in_previous += 1,
+            (Some(_), None) => self.missing_in_candidate += 1,
+            (None, None) => self.missing_in_both += 1,
+        }
+    }
+}
+
+#[derive(Default, serde::Serialize)]
+struct SignatureFieldAgreements {
+    white_name: FieldAgreement,
+    black_name: FieldAgreement,
+    date: FieldAgreement,
+    event: FieldAgreement,
+    site: FieldAgreement,
+    round: FieldAgreement,
+    result: FieldAgreement,
+    white_elo: FieldAgreement,
+    black_elo: FieldAgreement,
+    eco: FieldAgreement,
+    time_control: FieldAgreement,
+    source_id: FieldAgreement,
+    broadcast_url: FieldAgreement,
+    starting_fen: FieldAgreement,
+    stable_white_name: FieldAgreement,
+    stable_black_name: FieldAgreement,
+    stable_date: FieldAgreement,
+    stable_round: FieldAgreement,
+    stable_source_id: FieldAgreement,
+    stable_id_preimage: FieldAgreement,
+}
+
+#[derive(Default, serde::Serialize)]
+struct SignatureCandidateEvidence {
+    candidate_games: u64,
+    distinct_signature_keys: u64,
+    candidate_games_with_one_previous_match: u64,
+    candidate_games_with_multiple_previous_matches: u64,
+    previous_record_pairs_compared: u64,
+    distinct_previous_records_matched: u64,
+    previous_records_matched_by_multiple_candidate_games: u64,
+    field_agreements: SignatureFieldAgreements,
+}
+
+#[derive(Clone)]
+struct ComparisonMetadata {
+    white: String,
+    black: String,
+    date: Option<String>,
+    event: Option<String>,
+    site: Option<String>,
+    round: Option<String>,
+    result: GameResult,
+    white_elo: Option<u16>,
+    black_elo: Option<u16>,
+    eco: Option<String>,
+    time_control: Option<String>,
+    source_id: Option<String>,
+    broadcast_url: Option<String>,
+    starting_fen: Option<String>,
+}
+
+impl From<&ParsedGame> for ComparisonMetadata {
+    fn from(game: &ParsedGame) -> Self {
+        Self {
+            white: game.metadata.white.clone(),
+            black: game.metadata.black.clone(),
+            date: game.metadata.date.clone(),
+            event: game.metadata.event.clone(),
+            site: game.metadata.site.clone(),
+            round: game.metadata.round.clone(),
+            result: game.metadata.result,
+            white_elo: game.metadata.white_elo,
+            black_elo: game.metadata.black_elo,
+            eco: game.metadata.eco.clone(),
+            time_control: game.metadata.time_control.clone(),
+            source_id: game.metadata.source_id.clone(),
+            broadcast_url: game.metadata.broadcast_url.clone(),
+            starting_fen: game.fen_start.clone(),
+        }
+    }
+}
+
+fn compare_signature_candidate(
+    evidence: &mut SignatureCandidateEvidence,
+    candidate: &ParsedGame,
+    previous_matches: &[ComparisonMetadata],
+    candidate_signature_counts: &mut HashMap<FullMetadataMoves, u64>,
+    signature_key: FullMetadataMoves,
+) {
+    evidence.candidate_games += 1;
+    *candidate_signature_counts.entry(signature_key).or_default() += 1;
+    match previous_matches.len() {
+        1 => evidence.candidate_games_with_one_previous_match += 1,
+        count if count > 1 => evidence.candidate_games_with_multiple_previous_matches += 1,
+        _ => unreachable!("signature candidates must have a previous match"),
+    }
+    evidence.previous_record_pairs_compared += previous_matches.len() as u64;
+
+    for previous in previous_matches {
+        let candidate_fields = &mut evidence.field_agreements;
+        candidate_fields
+            .white_name
+            .observe(Some(&previous.white), Some(&candidate.metadata.white));
+        candidate_fields
+            .black_name
+            .observe(Some(&previous.black), Some(&candidate.metadata.black));
+        candidate_fields
+            .date
+            .observe(previous.date.as_ref(), candidate.metadata.date.as_ref());
+        candidate_fields
+            .event
+            .observe(previous.event.as_ref(), candidate.metadata.event.as_ref());
+        candidate_fields
+            .site
+            .observe(previous.site.as_ref(), candidate.metadata.site.as_ref());
+        candidate_fields
+            .round
+            .observe(previous.round.as_ref(), candidate.metadata.round.as_ref());
+        candidate_fields
+            .result
+            .observe(Some(&previous.result), Some(&candidate.metadata.result));
+        candidate_fields.white_elo.observe(
+            previous.white_elo.as_ref(),
+            candidate.metadata.white_elo.as_ref(),
+        );
+        candidate_fields.black_elo.observe(
+            previous.black_elo.as_ref(),
+            candidate.metadata.black_elo.as_ref(),
+        );
+        candidate_fields
+            .eco
+            .observe(previous.eco.as_ref(), candidate.metadata.eco.as_ref());
+        candidate_fields.time_control.observe(
+            previous.time_control.as_ref(),
+            candidate.metadata.time_control.as_ref(),
+        );
+        candidate_fields.source_id.observe(
+            previous.source_id.as_ref(),
+            candidate.metadata.source_id.as_ref(),
+        );
+        candidate_fields.broadcast_url.observe(
+            previous.broadcast_url.as_ref(),
+            candidate.metadata.broadcast_url.as_ref(),
+        );
+        candidate_fields
+            .starting_fen
+            .observe(previous.starting_fen.as_ref(), candidate.fen_start.as_ref());
+        let previous_stable_white = normalized_stable_component(Some(&previous.white));
+        let candidate_stable_white = normalized_stable_component(Some(&candidate.metadata.white));
+        let previous_stable_black = normalized_stable_component(Some(&previous.black));
+        let candidate_stable_black = normalized_stable_component(Some(&candidate.metadata.black));
+        let previous_stable_date = normalized_stable_component(previous.date.as_deref());
+        let candidate_stable_date = normalized_stable_component(candidate.metadata.date.as_deref());
+        let previous_stable_round = normalized_stable_component(previous.round.as_deref());
+        let candidate_stable_round =
+            normalized_stable_component(candidate.metadata.round.as_deref());
+        let previous_stable_source_id = normalized_stable_component(previous.source_id.as_deref());
+        let candidate_stable_source_id =
+            normalized_stable_component(candidate.metadata.source_id.as_deref());
+        candidate_fields.stable_white_name.observe(
+            previous_stable_white.as_ref(),
+            candidate_stable_white.as_ref(),
+        );
+        candidate_fields.stable_black_name.observe(
+            previous_stable_black.as_ref(),
+            candidate_stable_black.as_ref(),
+        );
+        candidate_fields.stable_date.observe(
+            previous_stable_date.as_ref(),
+            candidate_stable_date.as_ref(),
+        );
+        candidate_fields.stable_round.observe(
+            previous_stable_round.as_ref(),
+            candidate_stable_round.as_ref(),
+        );
+        candidate_fields.stable_source_id.observe(
+            previous_stable_source_id.as_ref(),
+            candidate_stable_source_id.as_ref(),
+        );
+        let stable_id_preimage_matches = previous_stable_white == candidate_stable_white
+            && previous_stable_black == candidate_stable_black
+            && previous_stable_date == candidate_stable_date
+            && previous_stable_round == candidate_stable_round
+            && previous_stable_source_id == candidate_stable_source_id;
+        candidate_fields
+            .stable_id_preimage
+            .observe(Some(&true), Some(&stable_id_preimage_matches));
+    }
+}
+
+fn normalized_stable_component(value: Option<&str>) -> Option<String> {
+    value.map(|value| value.trim().to_ascii_lowercase())
+}
+
 #[derive(serde::Serialize)]
 struct OverlapReport {
     schema_version: u32,
@@ -60,6 +268,7 @@ struct OverlapReport {
     lichess_api_games_with_same_players_date_and_moves: u64,
     lichess_api_games_with_same_players_year_and_moves: u64,
     lichess_api_games_with_same_players_date_event_round_and_moves: u64,
+    same_signature_candidate_evidence: SignatureCandidateEvidence,
     same_players_date_moves_with_event_or_round_drift: u64,
     deduplication_decision: String,
     limitations: Vec<String>,
@@ -108,7 +317,7 @@ fn add_game(
     players_moves: &mut HashMap<(String, String, Vec<u16>), u64>,
     players_date_moves: &mut HashMap<PlayerDateMoves, u64>,
     players_year_moves: &mut HashMap<PlayerYearMoves, u64>,
-    full_metadata_moves: &mut HashMap<FullMetadataMoves, u64>,
+    signature_evidence: &mut HashMap<FullMetadataMoves, Vec<ComparisonMetadata>>,
 ) {
     let id = game.metadata.id;
     ids.insert(id);
@@ -135,16 +344,18 @@ fn add_game(
             moves: moves.clone(),
         })
         .or_default() += 1;
-    *full_metadata_moves
-        .entry(FullMetadataMoves {
-            white,
-            black,
-            date,
-            event,
-            round,
-            moves,
-        })
-        .or_default() += 1;
+    let key = FullMetadataMoves {
+        white,
+        black,
+        date,
+        event,
+        round,
+        moves,
+    };
+    signature_evidence
+        .entry(key)
+        .or_default()
+        .push(ComparisonMetadata::from(game));
 }
 
 fn count_matching_candidate_games<K: std::hash::Hash + Eq>(
@@ -217,7 +428,7 @@ fn run() -> Result<()> {
     let mut old_players_moves = HashMap::new();
     let mut old_players_date_moves = HashMap::new();
     let mut old_players_year_moves = HashMap::new();
-    let mut old_full_metadata_moves = HashMap::new();
+    let mut old_signature_evidence = HashMap::new();
     for item in old_reader.iter_games()? {
         add_game(
             &item?,
@@ -226,7 +437,7 @@ fn run() -> Result<()> {
             &mut old_players_moves,
             &mut old_players_date_moves,
             &mut old_players_year_moves,
-            &mut old_full_metadata_moves,
+            &mut old_signature_evidence,
         );
     }
 
@@ -276,27 +487,49 @@ fn run() -> Result<()> {
         },
         &old_players_year_moves,
     )?;
-    let full_metadata_moves = count_matching_candidate_games(
-        &new_reader,
-        &lichess_api_ids,
-        |game| {
-            let (white, black, date, event, round) = metadata_key(game);
-            FullMetadataMoves {
-                white,
-                black,
-                date,
-                event,
-                round,
-                moves: moves_key(game),
-            }
-        },
-        &old_full_metadata_moves,
-    )?;
+    let mut signature_evidence = SignatureCandidateEvidence::default();
+    let mut candidate_signature_counts = HashMap::new();
+    for item in new_reader.iter_games()? {
+        let game = item?;
+        if !lichess_api_ids.contains(&game.metadata.id) {
+            continue;
+        }
+        let (white, black, date, event, round) = metadata_key(&game);
+        let key = FullMetadataMoves {
+            white,
+            black,
+            date,
+            event,
+            round,
+            moves: moves_key(&game),
+        };
+        if let Some(previous_matches) = old_signature_evidence.get(&key) {
+            compare_signature_candidate(
+                &mut signature_evidence,
+                &game,
+                previous_matches,
+                &mut candidate_signature_counts,
+                key,
+            );
+        }
+    }
+    signature_evidence.distinct_signature_keys = candidate_signature_counts.len() as u64;
+    for (key, candidate_count) in candidate_signature_counts {
+        let previous_matches = old_signature_evidence
+            .get(&key)
+            .expect("candidate signature was counted only after a previous match");
+        signature_evidence.distinct_previous_records_matched += previous_matches.len() as u64;
+        if candidate_count > 1 {
+            signature_evidence.previous_records_matched_by_multiple_candidate_games +=
+                previous_matches.len() as u64;
+        }
+    }
+    let full_metadata_moves = signature_evidence.candidate_games;
 
     let event_or_round_drift = players_date_moves.saturating_sub(full_metadata_moves);
     let report = OverlapReport {
-        schema_version: 1,
-        method: "Stream all canonical games through DatasetReader; compare the previous Masters snapshot with new games whose sidecar includes Source=LichessBroadcastAPI. Game sequences use exact CompactMove vectors. Player names use codb-curate's existing normalization. Date comparison normalizes separators; year comparison is a broad candidate signal. Event and round remove non-alphanumeric ASCII characters and lowercase. No candidate is automatically deduplicated from this audit.".into(),
+        schema_version: 2,
+        method: "Stream all canonical games through DatasetReader; compare the previous Masters snapshot with new games whose sidecar includes Source=LichessBroadcastAPI. Game sequences use exact CompactMove vectors. Player names use codb-curate's existing normalization. Date comparison normalizes separators; year comparison is a broad candidate signal. Event and round remove non-alphanumeric ASCII characters and lowercase. For exact normalized player/date/event/round/move candidates, report match multiplicity and compare other persisted fields pairwise, distinguishing missing fields by side. Stable-ID preimage components use the same trim and ASCII lowercase rules as compute_stable_game_id; moves and collection already match by construction. Publish agreement counts only. No candidate is automatically deduplicated from this audit.".into(),
         previous_release: summary(&old_reader),
         gigabase_evaluation: summary(&new_reader),
         candidate_source: "LichessBroadcastAPI".into(),
@@ -306,11 +539,13 @@ fn run() -> Result<()> {
         lichess_api_games_with_same_players_date_and_moves: players_date_moves,
         lichess_api_games_with_same_players_year_and_moves: players_year_moves,
         lichess_api_games_with_same_players_date_event_round_and_moves: full_metadata_moves,
+        same_signature_candidate_evidence: signature_evidence,
         same_players_date_moves_with_event_or_round_drift: event_or_round_drift,
-        deduplication_decision: "No cross-release deletion or merge was performed. Exact stable-ID and full metadata/move matches are direct overlap signals; move-only and relaxed metadata matches require manual review because equal moves alone do not prove the games are the same event record.".into(),
+        deduplication_decision: "No cross-release deletion or merge was performed. Exact stable-ID overlap is a direct signal; a normalized player/date/event/round/move signature is a strong manual-review candidate, not proof of game identity. Additional field-agreement counts provide context but do not replace source-level adjudication.".into(),
         limitations: vec![
             "The source tag is publisher-supplied provenance; the audit does not independently authenticate Lichess origin.".into(),
             "Player normalization intentionally follows existing deduplication behavior and may not catch every spelling or identity mismatch.".into(),
+            "The prior snapshot has no comparable source-attribution sidecar; field agreement and stable-ID preimage agreement are not proof of common source identity.".into(),
             "No raw PGN, player names, event names, or game IDs are written to this aggregate report.".into(),
         ],
     };

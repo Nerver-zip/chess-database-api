@@ -1,12 +1,12 @@
 {
-  "schema_version": 1,
-  "method": "Stream all canonical games through DatasetReader; compare the previous Masters snapshot with new games whose sidecar includes Source=LichessBroadcastAPI. Game sequences use exact CompactMove vectors. Player names use codb-curate's existing normalization. Date comparison normalizes separators; year comparison is a broad candidate signal. Event and round remove non-alphanumeric ASCII characters and lowercase. No candidate is automatically deduplicated from this audit.",
+  "schema_version": 2,
+  "method": "Stream all canonical games through DatasetReader; compare the previous Masters snapshot with new games whose sidecar includes Source=LichessBroadcastAPI. Game sequences use exact CompactMove vectors. Player names use codb-curate's existing normalization. Date comparison normalizes separators; year comparison is a broad candidate signal. Event and round remove non-alphanumeric ASCII characters and lowercase. For exact normalized player/date/event/round/move candidates, report match multiplicity and compare other persisted fields pairwise, distinguishing missing fields by side. Stable-ID preimage components use the same trim and ASCII lowercase rules as compute_stable_game_id; moves and collection already match by construction. Publish agreement counts only. No candidate is automatically deduplicated from this audit.",
   "previous_release": {
     "dataset_build_id": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
     "total_games": 29640
   },
   "gigabase_evaluation": {
-    "dataset_build_id": "codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40",
+    "dataset_build_id": "codb-masters-otb-1794734897423894473-41647-72708103e81b880b-cpi-d40",
     "total_games": 156898
   },
   "candidate_source": "LichessBroadcastAPI",
@@ -16,11 +16,163 @@
   "lichess_api_games_with_same_players_date_and_moves": 5716,
   "lichess_api_games_with_same_players_year_and_moves": 16065,
   "lichess_api_games_with_same_players_date_event_round_and_moves": 242,
+  "same_signature_candidate_evidence": {
+    "candidate_games": 242,
+    "distinct_signature_keys": 242,
+    "candidate_games_with_one_previous_match": 242,
+    "candidate_games_with_multiple_previous_matches": 0,
+    "previous_record_pairs_compared": 242,
+    "distinct_previous_records_matched": 242,
+    "previous_records_matched_by_multiple_candidate_games": 0,
+    "field_agreements": {
+      "white_name": {
+        "equal": 237,
+        "different": 5,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 0
+      },
+      "black_name": {
+        "equal": 231,
+        "different": 11,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 0
+      },
+      "date": {
+        "equal": 242,
+        "different": 0,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 0
+      },
+      "event": {
+        "equal": 159,
+        "different": 83,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 0
+      },
+      "site": {
+        "equal": 199,
+        "different": 43,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 0
+      },
+      "round": {
+        "equal": 242,
+        "different": 0,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 0
+      },
+      "result": {
+        "equal": 242,
+        "different": 0,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 0
+      },
+      "white_elo": {
+        "equal": 164,
+        "different": 78,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 0
+      },
+      "black_elo": {
+        "equal": 165,
+        "different": 77,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 0
+      },
+      "eco": {
+        "equal": 242,
+        "different": 0,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 0
+      },
+      "time_control": {
+        "equal": 0,
+        "different": 0,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 222,
+        "missing_in_both": 20
+      },
+      "source_id": {
+        "equal": 0,
+        "different": 0,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 242,
+        "missing_in_both": 0
+      },
+      "broadcast_url": {
+        "equal": 0,
+        "different": 0,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 242,
+        "missing_in_both": 0
+      },
+      "starting_fen": {
+        "equal": 0,
+        "different": 0,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 242
+      },
+      "stable_white_name": {
+        "equal": 237,
+        "different": 5,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 0
+      },
+      "stable_black_name": {
+        "equal": 231,
+        "different": 11,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 0
+      },
+      "stable_date": {
+        "equal": 242,
+        "different": 0,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 0
+      },
+      "stable_round": {
+        "equal": 242,
+        "different": 0,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 0
+      },
+      "stable_source_id": {
+        "equal": 0,
+        "different": 0,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 242,
+        "missing_in_both": 0
+      },
+      "stable_id_preimage": {
+        "equal": 0,
+        "different": 242,
+        "missing_in_previous": 0,
+        "missing_in_candidate": 0,
+        "missing_in_both": 0
+      }
+    }
+  },
   "same_players_date_moves_with_event_or_round_drift": 5474,
-  "deduplication_decision": "No cross-release deletion or merge was performed. Exact stable-ID and full metadata/move matches are direct overlap signals; move-only and relaxed metadata matches require manual review because equal moves alone do not prove the games are the same event record.",
+  "deduplication_decision": "No cross-release deletion or merge was performed. Exact stable-ID overlap is a direct signal; a normalized player/date/event/round/move signature is a strong manual-review candidate, not proof of game identity. Additional field-agreement counts provide context but do not replace source-level adjudication.",
   "limitations": [
     "The source tag is publisher-supplied provenance; the audit does not independently authenticate Lichess origin.",
     "Player normalization intentionally follows existing deduplication behavior and may not catch every spelling or identity mismatch.",
+    "The prior snapshot has no comparable source-attribution sidecar; field agreement and stable-ID preimage agreement are not proof of common source identity.",
     "No raw PGN, player names, event names, or game IDs are written to this aggregate report."
   ]
 }

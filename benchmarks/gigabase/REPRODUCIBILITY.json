@@ -211,6 +211,21 @@
     "rights_note": "Source-level upstream rights remain unresolved; local evaluation only."
   },
   "source_overlap_report": "SOURCE_OVERLAP.json",
+  "source_overlap_report_sha256": "bfe1610120d718be05e3068f02c18d902bff3b28010dd6ce75f26dc9d0ec1fa4",
+  "source_overlap_audit_runner": "crates/cli/examples/audit_gigabase_overlap.rs",
+  "source_overlap_audit_runner_sha256": "be11e934457cd895388f0c13fca2f396451401f24aeba9560f78c8cee066d3df",
+  "source_overlap_audit_run": {
+    "command": "cargo run --offline --example audit_gigabase_overlap -- data/old-masters data/work/gigabase-eval/candidate-provenance-r1 benchmarks/gigabase/SOURCE_OVERLAP.json",
+    "previous_release_build_id": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
+    "candidate_build_id": "codb-masters-otb-1794734897423894473-41647-72708103e81b880b-cpi-d40",
+    "signature_candidate_games": 242,
+    "distinct_previous_records_matched": 242,
+    "previous_records_reused": 0,
+    "candidate_games_with_multiple_previous_matches": 0,
+    "stable_id_preimages_equal": 0,
+    "cross_release_records_removed_or_merged": 0,
+    "old_release_container_path_note": "data/old-masters was copied from data/releases/masters-otb into the Rust validation container because that container had no host bind mount for the production release root."
+  },
   "toolchain": {
     "build_container_id": "b56995429fced3af05f0ba9d8c367967802e27538733228ca6701f06bc11e63b",
     "build_container_id_kind": "Docker container ID",
@@ -235,7 +250,7 @@
     "date": "2026-11-15",
     "gates_passed": 8,
     "result": "passed",
-    "verification_scope": "Full validation passed after the publisher-terms review, anonymized source-dedupe comparisons, rating-boundary tests, and supplemental 300,000-window independent-parser sample were added. It includes the 144-game and 227-game external parser reports and licensing/hash provenance, source-to-canonical and source-dedupe audits, exact attribution-sidecar reconciliation, the six-case disk-backed deduplication golden integration test, the source-dedupe example test, policy boundary coverage, the corpus and Docker regression suites, documentation links, production evidence validators, and contract checksum verification. The route-enabled Docker smoke was run separately and is recorded in DOCKER_API_PROVENANCE_RETRIEVAL_QA.json.",
+    "verification_scope": "Full validation passed after the publisher-terms review, anonymized source-dedupe comparisons, rating-boundary tests, and supplemental 300,000-window independent-parser sample were added. It includes the 144-game and 227-game external parser reports and licensing/hash provenance, source-to-canonical and source-dedupe audits, exact attribution-sidecar reconciliation, the six-case disk-backed deduplication golden integration test, the source-dedupe example test, policy boundary coverage, the corpus and Docker regression suites, documentation links, production evidence validators, and contract checksum verification. The schema-2 cross-release overlap runner was compiled and executed separately against the pinned prior and corrected snapshots immediately before this validation; its report and runner hashes are recorded above. The route-enabled Docker smoke was run separately and is recorded in DOCKER_API_PROVENANCE_RETRIEVAL_QA.json.",
     "python_tests": 110,
     "python_tests_skipped": 2
   },
