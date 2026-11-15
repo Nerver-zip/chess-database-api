@@ -6,6 +6,7 @@ Complete the user's requested PR #7 outcome: a real, verified, deployable Gigaba
 
 ## Current state
 
+- The provenance-correction implementation and evidence are pushed to `feat/gigabase-masters`; PR [#7](https://github.com/Nerver-zip/chess-openings-db/pull/7) has an updated body and remains open, Draft, and unmerged. The latest full validation passed all eight gates.
 - Branch `feat/gigabase-masters` is based on `origin/main` commit `56d39184a8c68b3d4a5883a423cf79b2a325f4eb`. The branch includes a bounded-memory selected-position CPI oracle and a full source-to-canonical traceability scan with anonymized stratified examples. Draft PR [#7](https://github.com/Nerver-zip/chess-openings-db/pull/7) is open against `main`; it remains Draft and unmerged.
 - User-supplied archive `data/sources/lumbra/OTB_DATABASE.7z` is 2,570,013,439 bytes, local SHA-256 `4e4209ccc1870e7fede557aae09b4dd40b721d4697db9b4c272ff0e4fbbdb500`. Its sole regular member `LumbrasGigabase_OTB_Complete.pgn` is 12,300,428,287 bytes, local SHA-256 `87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759`. The publisher supplied no archive checksum or exact game count; these local hashes are not publisher-authenticated.
 - Streaming structural/header inventory found 13,450,696 records, no recoverable syntax errors, and clean EOF. It does not replay every record for move legality.
