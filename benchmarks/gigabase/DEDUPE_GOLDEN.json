@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "purpose": "Offline synthetic regression cases for difficult deduplication outcomes observed or relevant to the Gigabase evaluation.",
+  "source_evidence": {
+    "audit_report": "SOURCE_CANONICAL_AUDIT.json",
+    "audit_report_sha256": "51013d7df73373db57284ce9440d3f7a5bc5736029f0308e60f91d7de1058811",
+    "policy_pass_records": 156914,
+    "confirmed_duplicates": 2,
+    "repeated_candidate_id_hits": 15,
+    "repeated_candidate_id_verdicts": {
+      "confirmed_duplicate": 1,
+      "stable_id_collision_quarantined": 14
+    },
+    "confirmed_duplicates_without_candidate_id_hit": 1,
+    "source_row_metadata_included": false,
+    "source_row_identifiers_or_moves_included": false,
+    "relationship": "The source audit provides aggregate verdict counts only. Fixture rows below are synthetic policy regressions and do not reproduce source games or claim row-level correspondence."
+  },
+  "move_encoding": "Each move is a [from_square, to_square] pair using zero-based CompactMove square indices; promotions are omitted.",
+  "cases": [
+    {
+      "case_id": "normalized_metadata_drift_same_game",
+      "evidence_scope": "synthetic_regression_for_source_duplicate_verdict_class",
+      "records": [
+        {
+          "stable_id_ref": "distinct-record-a",
+          "white": "Alpha, Andrea",
+          "black": "Beta, Bernard",
+          "date": "2024.03.10",
+          "event": "Sample Open",
+          "round": "1",
+          "moves": [[12, 28], [52, 36], [6, 21]],
+          "expected_verdict": "Unique"
+        },
+        {
+          "stable_id_ref": "distinct-record-b",
+          "white": "Alpha, A.",
+          "black": "Beta, B.",
+          "date": "2024.09.02",
+          "event": "sample open",
+          "round": "1",
+          "moves": [[12, 28], [52, 36], [6, 21]],
+          "expected_verdict": "ConfirmedDuplicate"
+        }
+      ]
+    },
+    {
+      "case_id": "stable_id_reused_for_divergent_moves",
+      "evidence_scope": "synthetic_regression_for_source_collision_quarantine_class",
+      "records": [
+        {
+          "stable_id_ref": "same-stable-id",
+          "white": "Gamma, Given",
+          "black": "Delta, Person",
+          "date": "2023.05.04",
+          "event": "Sample Match",
+          "round": "2",
+          "moves": [[12, 28], [52, 36]],
+          "expected_verdict": "Unique"
+        },
+        {
+          "stable_id_ref": "same-stable-id",
+          "white": "Gamma, Given",
+          "black": "Delta, Person",
+          "date": "2023.05.04",
+          "event": "Sample Match",
+          "round": "2",
+          "moves": [[12, 28], [50, 34]],
+          "expected_verdict": "QuarantinedStableIdCollision"
+        }
+      ]
+    },
+    {
+      "case_id": "stable_id_reused_across_event_metadata_drift",
+      "evidence_scope": "synthetic_regression_for_source_collision_quarantine_class",
+      "records": [
+        {
+          "stable_id_ref": "same-stable-id",
+          "white": "Epsilon, Player",
+          "black": "Zeta, Player",
+          "date": "2022.11.12",
+          "event": "Sample Event A",
+          "round": "3",
+          "moves": [[12, 28], [52, 36], [6, 21]],
+          "expected_verdict": "Unique"
+        },
+        {
+          "stable_id_ref": "same-stable-id",
+          "white": "Epsilon, Player",
+          "black": "Zeta, Player",
+          "date": "2022.11.12",
+          "event": "Sample Event B",
+          "round": "3",
+          "moves": [[12, 28], [52, 36], [6, 21]],
+          "expected_verdict": "QuarantinedStableIdCollision"
+        }
+      ]
+    },
+    {
+      "case_id": "same_moves_distinct_metadata_is_not_collapsed",
+      "evidence_scope": "synthetic_policy_regression",
+      "records": [
+        {
+          "stable_id_ref": "distinct-record-a",
+          "white": "Eta, Player",
+          "black": "Theta, Player",
+          "date": "2021.04.07",
+          "event": "Sample Event A",
+          "round": "1",
+          "moves": [[12, 28], [50, 34]],
+          "expected_verdict": "Unique"
+        },
+        {
+          "stable_id_ref": "distinct-record-b",
+          "white": "Iota, Player",
+          "black": "Kappa, Player",
+          "date": "2021.06.08",
+          "event": "Sample Event B",
+          "round": "4",
+          "moves": [[12, 28], [50, 34]],
+          "expected_verdict": "TranspositionDifferentGame"
+        }
+      ]
+    },
+    {
+      "case_id": "prefix_supersession_and_late_truncated_copy",
+      "evidence_scope": "synthetic_policy_regression",
+      "records": [
+        {
+          "stable_id_ref": "short-relay",
+          "white": "Lambda, Liam",
+          "black": "Mu, Marius",
+          "date": "2020.08.01",
+          "event": "Sample Championship",
+          "round": "5",
+          "moves": [[12, 28]],
+          "expected_verdict": "Unique"
+        },
+        {
+          "stable_id_ref": "full-relay",
+          "white": "Lambda, L.",
+          "black": "Mu, M.",
+          "date": "2020.08.01",
+          "event": "sample championship",
+          "round": "5",
+          "moves": [[12, 28], [52, 36], [6, 21]],
+          "expected_verdict": "SupersedesPrevious"
+        },
+        {
+          "stable_id_ref": "late-short-relay",
+          "white": "Lambda, Liam",
+          "black": "Mu, Marius",
+          "date": "2020.08.01",
+          "event": "Sample Championship",
+          "round": "5",
+          "moves": [[12, 28]],
+          "expected_verdict": "ConfirmedDuplicate"
+        }
+      ]
+    },
+    {
+      "case_id": "divergent_moves_are_independent_games",
+      "evidence_scope": "synthetic_policy_regression",
+      "records": [
+        {
+          "stable_id_ref": "distinct-record-a",
+          "white": "Nu, Player",
+          "black": "Xi, Player",
+          "date": "2019.02.03",
+          "event": "Sample Event",
+          "round": "6",
+          "moves": [[12, 28], [52, 36]],
+          "expected_verdict": "Unique"
+        },
+        {
+          "stable_id_ref": "distinct-record-b",
+          "white": "Nu, Player",
+          "black": "Xi, Player",
+          "date": "2019.02.03",
+          "event": "Sample Event",
+          "round": "6",
+          "moves": [[12, 28], [50, 34]],
+          "expected_verdict": "Unique"
+        }
+      ]
+    }
+  ]
+}

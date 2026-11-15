@@ -7,6 +7,7 @@ use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
 use codb_core::{Collection, GameSourceAttribution, IngestionStats, ParsedGame};
+use codb_curate::dedupe::{DedupeError, Deduplicator, DuplicateVerdict};
 use codb_curate::policy::{GigabaseOtbPolicy, MastersOtbPolicy, PolicyVerdict};
 use codb_ingest::{
     build_pgn_reader, is_recoverable_pgn_syntax_error, resync_after_syntax_error,
@@ -18,6 +19,8 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use shakmaty::fen::Fen;
 use shakmaty::{CastlingMode, Chess, Position};
+
+const MIN_STRATUM_GAMES_FOR_EXAMPLE: u64 = 50;
 
 #[derive(Deserialize)]
 struct QualificationPolicy {
@@ -32,13 +35,6 @@ struct AttributionLine {
 
 #[derive(Clone, Debug, Serialize)]
 struct AnonymizedExample {
-    source_tag: String,
-    year_band: String,
-    minimum_rating_band: String,
-    game_length_band: String,
-    result: String,
-    identity_tier: String,
-    play_mode_evidence: String,
     persisted_metadata_fields_match: bool,
     source_attribution_matches: bool,
     move_sequence_matches: bool,
@@ -87,9 +83,73 @@ struct SourceCanonicalReport {
     final_position_mismatches: u64,
     exact_candidate_records: u64,
     candidate_selection_accounting_reconciles: bool,
+    dedupe_replay: DedupeReplayReport,
+    stratified_examples_minimum_stratum_size: u64,
+    stratified_examples_suppressed_strata: u64,
     source_scan_duration_ms: u128,
     stratified_examples: Vec<StratifiedExample>,
     limitations: Vec<String>,
+}
+
+#[derive(Default, Serialize)]
+struct DedupeReplayReport {
+    unique: u64,
+    transposition_different_game: u64,
+    confirmed_duplicates: u64,
+    superseded_prior: u64,
+    quarantined_stable_id_collision: u64,
+    expected_attribution_records: u64,
+    observed_attribution_records: u64,
+    missing_attribution_records: u64,
+    unexpected_attribution_records: u64,
+    expected_attributed_games: u64,
+    observed_attributed_games: u64,
+    attribution_sidecar_matches: bool,
+    verdict_counts_match_build_accounting: bool,
+    candidate_id_hit_verdicts: DedupeVerdictCounts,
+    repeated_id_verdicts: DedupeVerdictCounts,
+    without_candidate_id_verdicts: DedupeVerdictCounts,
+    source_hit_verdicts_reconcile: bool,
+}
+
+#[derive(Clone, Copy)]
+enum DedupeOutcome {
+    Unique,
+    TranspositionDifferentGame,
+    ConfirmedDuplicate,
+    SupersededPrior,
+    QuarantinedStableIdCollision,
+}
+
+#[derive(Default, Serialize)]
+struct DedupeVerdictCounts {
+    unique: u64,
+    transposition_different_game: u64,
+    confirmed_duplicates: u64,
+    superseded_prior: u64,
+    quarantined_stable_id_collision: u64,
+}
+
+impl DedupeVerdictCounts {
+    fn record(&mut self, outcome: DedupeOutcome) {
+        match outcome {
+            DedupeOutcome::Unique => self.unique += 1,
+            DedupeOutcome::TranspositionDifferentGame => self.transposition_different_game += 1,
+            DedupeOutcome::ConfirmedDuplicate => self.confirmed_duplicates += 1,
+            DedupeOutcome::SupersededPrior => self.superseded_prior += 1,
+            DedupeOutcome::QuarantinedStableIdCollision => {
+                self.quarantined_stable_id_collision += 1
+            }
+        }
+    }
+
+    fn total(&self) -> u64 {
+        self.unique
+            + self.transposition_different_game
+            + self.confirmed_duplicates
+            + self.superseded_prior
+            + self.quarantined_stable_id_collision
+    }
 }
 
 struct ExampleChoice {
@@ -216,8 +276,6 @@ fn strata(game: &ParsedGame, attribution: &GameSourceAttribution) -> Vec<(String
 }
 
 fn example_summary(
-    game: &ParsedGame,
-    attribution: &GameSourceAttribution,
     persisted_metadata_matches: bool,
     source_attribution_matches: bool,
     move_sequence_matches: bool,
@@ -225,20 +283,6 @@ fn example_summary(
     final_position_matches: bool,
 ) -> AnonymizedExample {
     AnonymizedExample {
-        source_tag: attribution
-            .source_tag
-            .clone()
-            .unwrap_or_else(|| "missing".to_owned()),
-        year_band: year_band(game),
-        minimum_rating_band: minimum_rating_band(game),
-        game_length_band: game_length_band(game),
-        result: game.metadata.result.to_str().to_owned(),
-        identity_tier: identity_tier(attribution),
-        play_mode_evidence: if attribution.mode.is_some() {
-            "explicit_mode".to_owned()
-        } else {
-            "publisher_archive_assertion".to_owned()
-        },
         persisted_metadata_fields_match: persisted_metadata_matches,
         source_attribution_matches,
         move_sequence_matches,
@@ -257,6 +301,16 @@ fn record_candidate_games(connection: &mut Connection, reader: &DatasetReader) -
              game_id BLOB PRIMARY KEY NOT NULL,
              source_attributions_json TEXT NOT NULL DEFAULT '[]',
              matched_count INTEGER NOT NULL DEFAULT 0
+         ) WITHOUT ROWID;
+         CREATE TABLE expected_attributions (
+             game_id BLOB NOT NULL,
+             source_json TEXT NOT NULL,
+             PRIMARY KEY (game_id, source_json)
+         ) WITHOUT ROWID;
+         CREATE TABLE observed_attributions (
+             game_id BLOB NOT NULL,
+             source_json TEXT NOT NULL,
+             PRIMARY KEY (game_id, source_json)
          ) WITHOUT ROWID;",
     )?;
 
@@ -289,6 +343,9 @@ fn attach_source_attribution(connection: &mut Connection, reader: &DatasetReader
         let mut update = transaction.prepare_cached(
             "UPDATE candidates SET source_attributions_json = ?1 WHERE game_id = ?2",
         )?;
+        let mut insert_attribution = transaction.prepare_cached(
+            "INSERT INTO observed_attributions (game_id, source_json) VALUES (?1, ?2)",
+        )?;
         for (line_index, line) in BufReader::new(File::open(&path)?).lines().enumerate() {
             let line = line?;
             let attribution: AttributionLine = serde_json::from_str(&line).with_context(|| {
@@ -301,11 +358,133 @@ fn attach_source_attribution(connection: &mut Connection, reader: &DatasetReader
                     "source-attribution ID does not resolve to one candidate game"
                 ));
             }
+            for source in &attribution.source_attributions {
+                let source_json = serde_json::to_string(source)?;
+                insert_attribution.execute(params![bytes.as_slice(), source_json])?;
+            }
             count += 1;
         }
     }
     transaction.commit()?;
     Ok(count)
+}
+
+fn add_expected_attribution(
+    connection: &Connection,
+    game_id: u64,
+    game: &ParsedGame,
+) -> Result<()> {
+    let attribution = game
+        .metadata
+        .source_attribution
+        .as_ref()
+        .ok_or_else(|| anyhow!("policy-passing Gigabase game has no source attribution"))?;
+    if attribution.source_tag.as_deref().is_none_or(str::is_empty) {
+        return Err(anyhow!(
+            "policy-passing Gigabase game has an empty Source tag"
+        ));
+    }
+    let source_json = serde_json::to_string(attribution)?;
+    let id = id_bytes(game_id);
+    connection.execute(
+        "INSERT OR IGNORE INTO expected_attributions (game_id, source_json) VALUES (?1, ?2)",
+        params![id.as_slice(), source_json],
+    )?;
+    Ok(())
+}
+
+fn supersede_expected_attributions(
+    connection: &Connection,
+    old_id: u64,
+    new_game: &ParsedGame,
+) -> Result<()> {
+    let old_id_bytes = id_bytes(old_id);
+    let new_id_bytes = id_bytes(new_game.metadata.id);
+    let existing: u64 = connection.query_row(
+        "SELECT COUNT(*) FROM expected_attributions WHERE game_id = ?1",
+        params![old_id_bytes.as_slice()],
+        |row| row.get(0),
+    )?;
+    if existing == 0 {
+        return Err(anyhow!(
+            "superseded source game {old_id} has no expected attribution"
+        ));
+    }
+    connection.execute(
+        "INSERT OR IGNORE INTO expected_attributions (game_id, source_json)
+         SELECT ?1, source_json FROM expected_attributions WHERE game_id = ?2",
+        params![new_id_bytes.as_slice(), old_id_bytes.as_slice()],
+    )?;
+    connection.execute(
+        "DELETE FROM expected_attributions WHERE game_id = ?1",
+        params![old_id_bytes.as_slice()],
+    )?;
+    add_expected_attribution(connection, new_game.metadata.id, new_game)
+}
+
+fn compare_source_attribution_sets(connection: &Connection) -> Result<DedupeReplayReport> {
+    let expected_attribution_records =
+        connection.query_row("SELECT COUNT(*) FROM expected_attributions", [], |row| {
+            row.get(0)
+        })?;
+    let observed_attribution_records =
+        connection.query_row("SELECT COUNT(*) FROM observed_attributions", [], |row| {
+            row.get(0)
+        })?;
+    let missing_attribution_records = connection.query_row(
+        "SELECT COUNT(*) FROM expected_attributions AS expected
+         WHERE NOT EXISTS (
+             SELECT 1 FROM observed_attributions AS observed
+             WHERE observed.game_id = expected.game_id
+               AND observed.source_json = expected.source_json
+         )",
+        [],
+        |row| row.get(0),
+    )?;
+    let unexpected_attribution_records = connection.query_row(
+        "SELECT COUNT(*) FROM observed_attributions AS observed
+         WHERE NOT EXISTS (
+             SELECT 1 FROM expected_attributions AS expected
+             WHERE expected.game_id = observed.game_id
+               AND expected.source_json = observed.source_json
+         )",
+        [],
+        |row| row.get(0),
+    )?;
+    let expected_attributed_games = connection.query_row(
+        "SELECT COUNT(DISTINCT game_id) FROM expected_attributions",
+        [],
+        |row| row.get(0),
+    )?;
+    let observed_attributed_games = connection.query_row(
+        "SELECT COUNT(DISTINCT game_id) FROM observed_attributions",
+        [],
+        |row| row.get(0),
+    )?;
+    Ok(DedupeReplayReport {
+        expected_attribution_records,
+        observed_attribution_records,
+        missing_attribution_records,
+        unexpected_attribution_records,
+        expected_attributed_games,
+        observed_attributed_games,
+        attribution_sidecar_matches: missing_attribution_records == 0
+            && unexpected_attribution_records == 0
+            && expected_attributed_games == observed_attributed_games,
+        ..DedupeReplayReport::default()
+    })
+}
+
+fn dedupe_outcome(verdict: Option<&DuplicateVerdict>) -> DedupeOutcome {
+    match verdict {
+        Some(DuplicateVerdict::Unique) => DedupeOutcome::Unique,
+        Some(DuplicateVerdict::TranspositionDifferentGame) => {
+            DedupeOutcome::TranspositionDifferentGame
+        }
+        Some(DuplicateVerdict::ConfirmedDuplicate { .. }) => DedupeOutcome::ConfirmedDuplicate,
+        Some(DuplicateVerdict::SupersedesPrevious { .. }) => DedupeOutcome::SupersededPrior,
+        None => DedupeOutcome::QuarantinedStableIdCollision,
+    }
 }
 
 fn run() -> Result<()> {
@@ -344,6 +523,7 @@ fn run() -> Result<()> {
 
     let temp_dir = tempfile::tempdir().context("creating bounded-memory audit database")?;
     let mut connection = Connection::open(temp_dir.path().join("source-candidates.sqlite"))?;
+    let mut deduplicator = Deduplicator::new_disk(&temp_dir.path().join("source-dedupe.sqlite"))?;
     let candidate_games = record_candidate_games(&mut connection, &reader)?;
     if candidate_games != reader.total_games() {
         return Err(anyhow!(
@@ -387,6 +567,7 @@ fn run() -> Result<()> {
     let mut starting_position_mismatches = 0u64;
     let mut final_position_mismatches = 0u64;
     let mut exact_candidate_records = 0u64;
+    let mut dedupe_replay = DedupeReplayReport::default();
     let mut consecutive_syntax_errors = 0usize;
     let mut examples: BTreeMap<(String, String), ExampleChoice> = BTreeMap::new();
 
@@ -419,6 +600,44 @@ fn run() -> Result<()> {
                 }
                 source_records_passing_full_masters_policy += 1;
 
+                let dedupe_verdict = match deduplicator.evaluate(&source_game) {
+                    Ok(verdict) => Some(verdict),
+                    Err(DedupeError::IdCollision { .. }) => {
+                        dedupe_replay.quarantined_stable_id_collision += 1;
+                        None
+                    }
+                    Err(error) => return Err(error.into()),
+                };
+                let dedupe_outcome = dedupe_outcome(dedupe_verdict.as_ref());
+                if let Some(verdict) = dedupe_verdict {
+                    match verdict {
+                        DuplicateVerdict::Unique => {
+                            dedupe_replay.unique += 1;
+                            add_expected_attribution(
+                                &connection,
+                                source_game.metadata.id,
+                                &source_game,
+                            )?;
+                        }
+                        DuplicateVerdict::TranspositionDifferentGame => {
+                            dedupe_replay.transposition_different_game += 1;
+                            add_expected_attribution(
+                                &connection,
+                                source_game.metadata.id,
+                                &source_game,
+                            )?;
+                        }
+                        DuplicateVerdict::ConfirmedDuplicate { canonical_id, .. } => {
+                            dedupe_replay.confirmed_duplicates += 1;
+                            add_expected_attribution(&connection, canonical_id, &source_game)?;
+                        }
+                        DuplicateVerdict::SupersedesPrevious { old_id, .. } => {
+                            dedupe_replay.superseded_prior += 1;
+                            supersede_expected_attributions(&connection, old_id, &source_game)?;
+                        }
+                    }
+                }
+
                 let id = id_bytes(source_game.metadata.id);
                 let candidate: Option<(String, u64)> = candidate_lookup
                     .query_row(params![id.as_slice()], |row| {
@@ -426,8 +645,14 @@ fn run() -> Result<()> {
                     })
                     .optional()?;
                 let Some((attributions_json, previous_matches)) = candidate else {
+                    dedupe_replay
+                        .without_candidate_id_verdicts
+                        .record(dedupe_outcome);
                     continue;
                 };
+                dedupe_replay
+                    .candidate_id_hit_verdicts
+                    .record(dedupe_outcome);
                 source_candidate_id_hits += 1;
                 let source_attributions: Vec<GameSourceAttribution> =
                     serde_json::from_str(&attributions_json)
@@ -472,8 +697,6 @@ fn run() -> Result<()> {
                     unique_candidate_games_matched += 1;
                     if let Some(attribution) = source_game.metadata.source_attribution.as_ref() {
                         let summary = example_summary(
-                            &source_game,
-                            attribution,
                             metadata_matches,
                             source_attribution_matches,
                             moves_match,
@@ -504,6 +727,7 @@ fn run() -> Result<()> {
                         }
                     }
                 } else {
+                    dedupe_replay.repeated_id_verdicts.record(dedupe_outcome);
                     repeated_source_records_for_matched_ids += 1;
                     if source_attribution_matches {
                         repeated_id_source_records_attributed_to_canonical += 1;
@@ -547,20 +771,49 @@ fn run() -> Result<()> {
             + build_ingestion_accounting.superseded_prior
             + build_ingestion_accounting.quarantined;
 
+    let stratified_examples_suppressed_strata = examples
+        .values()
+        .filter(|choice| choice.count < MIN_STRATUM_GAMES_FOR_EXAMPLE)
+        .count() as u64;
     let stratified_examples: Vec<StratifiedExample> = examples
         .into_iter()
+        .filter(|(_, choice)| choice.count >= MIN_STRATUM_GAMES_FOR_EXAMPLE)
         .map(|((dimension, stratum), choice)| StratifiedExample {
             dimension,
             stratum,
             unique_candidate_games_in_stratum: choice.count,
-            selection: "Anonymized representative with the lowest stable game ID in this stratum; the ID and player/event metadata are omitted.".to_owned(),
+            selection: "Deterministic representative; record identifiers and all non-stratum metadata are omitted.".to_owned(),
             example: choice.example,
         })
         .collect();
 
+    let sidecar_replay = compare_source_attribution_sets(&connection)?;
+    dedupe_replay.expected_attribution_records = sidecar_replay.expected_attribution_records;
+    dedupe_replay.observed_attribution_records = sidecar_replay.observed_attribution_records;
+    dedupe_replay.missing_attribution_records = sidecar_replay.missing_attribution_records;
+    dedupe_replay.unexpected_attribution_records = sidecar_replay.unexpected_attribution_records;
+    dedupe_replay.expected_attributed_games = sidecar_replay.expected_attributed_games;
+    dedupe_replay.observed_attributed_games = sidecar_replay.observed_attributed_games;
+    dedupe_replay.attribution_sidecar_matches = sidecar_replay.attribution_sidecar_matches;
+
+    dedupe_replay.verdict_counts_match_build_accounting = dedupe_replay.unique
+        + dedupe_replay.transposition_different_game
+        == build_ingestion_accounting.accepted_unique
+        && dedupe_replay.confirmed_duplicates == build_ingestion_accounting.confirmed_duplicates
+        && dedupe_replay.superseded_prior == build_ingestion_accounting.superseded_prior
+        && dedupe_replay.quarantined_stable_id_collision == build_ingestion_accounting.quarantined;
+    dedupe_replay.source_hit_verdicts_reconcile = dedupe_replay.candidate_id_hit_verdicts.total()
+        == source_candidate_id_hits
+        && dedupe_replay.repeated_id_verdicts.total() == repeated_source_records_for_matched_ids
+        && dedupe_replay.without_candidate_id_verdicts.total()
+            == source_records_passing_policy_without_candidate_id;
+    let dedupe_replay_checks_pass = dedupe_replay.attribution_sidecar_matches
+        && dedupe_replay.verdict_counts_match_build_accounting
+        && dedupe_replay.source_hit_verdicts_reconcile;
+
     let report = SourceCanonicalReport {
         schema_version: 1,
-        method: "Stream the supplied source PGN with the repository's Shakmaty visitor and the exact source-tag allowlist, match parsed stable IDs against candidate IDs held in a temporary SQLite table, retrieve each matched canonical CGB3 game, and compare persisted metadata, sidecar attribution, compact moves, starting FEN, and final legal board. The report contains only anonymized stratum summaries.".to_owned(),
+        method: "Stream the supplied source PGN with the repository's Shakmaty visitor and exact source-tag allowlist; replay qualifying records through the repository's disk-backed deduplicator; compare its expected attribution set with the complete candidate sidecar; and join source records to candidate CGB3 games to compare persisted metadata, compact moves, starting FEN, and final legal board. The report suppresses small strata and omits record identifiers and non-stratum metadata from examples.".to_owned(),
         dataset_build_id: reader.manifest().dataset_build_id.clone(),
         build_ingestion_accounting,
         source_pgn_filename: source_pgn
@@ -593,15 +846,19 @@ fn run() -> Result<()> {
         final_position_mismatches,
         exact_candidate_records,
         candidate_selection_accounting_reconciles,
+        dedupe_replay,
+        stratified_examples_minimum_stratum_size: MIN_STRATUM_GAMES_FOR_EXAMPLE,
+        stratified_examples_suppressed_strata,
         source_scan_duration_ms,
         stratified_examples,
         limitations: vec![
             "Source parsing and stable game ID calculation use the repository's existing Shakmaty visitor and core ID function; this audit verifies source-to-storage traceability and serialization but is not an independent PGN parser.".to_owned(),
             "The temporary SQLite candidate-ID table keeps audit memory bounded and uses stable content-derived IDs rather than source record offsets.".to_owned(),
-            "Repeated stable-ID hits can represent confirmed duplicates or quarantined collisions. The audit reports sidecar-attributed and unattributed repeats separately and reconciles the aggregate build accounting, but does not independently reproduce every deduplication verdict.".to_owned(),
+            "The source stream is replayed through the repository's disk-backed Deduplicator, and its verdict counts and expected attribution set are compared with build accounting and the emitted sidecar. This reuses the production deduplication implementation and is not an independent deduplication algorithm.".to_owned(),
             "The source PGN SHA-256 is supplied from a separate local file hash check before the scan; this runner does not recompute it while parsing.".to_owned(),
             "The source's heterogeneous upstream rights and archive-level OTB assertion remain unresolved; exact source matching does not establish legal rights or independent event play mode.".to_owned(),
             "Publisher-supplied Elo remains unverified as contemporaneous official FIDE Elo.".to_owned(),
+            "Strata containing fewer than 50 accepted games are suppressed. Each emitted example includes only its single stratum label and comparison booleans, not other game metadata.".to_owned(),
         ],
     };
 
@@ -614,13 +871,14 @@ fn run() -> Result<()> {
     output.sync_all()?;
 
     println!(
-        "matched {}/{} candidate games from {} source records; {} exact records; {} missing candidates; {} repeated source hits; report {}",
+        "matched {}/{} candidate games from {} source records; {} exact records; {} missing candidates; {} repeated source hits; dedupe and sidecar checks {}; report {}",
         unique_candidate_games_matched,
         candidate_games,
         source_records_encountered,
         exact_candidate_records,
         candidate_games_without_source_match,
         repeated_source_records_for_matched_ids,
+        if dedupe_replay_checks_pass { "passed" } else { "failed" },
         report_path.display()
     );
 
@@ -633,6 +891,7 @@ fn run() -> Result<()> {
         || final_position_mismatches != 0
         || exact_candidate_records != unique_candidate_games_matched
         || !candidate_selection_accounting_reconciles
+        || !dedupe_replay_checks_pass
     {
         return Err(anyhow!(
             "source-to-canonical audit failed one or more identity, duplication, or content checks"
