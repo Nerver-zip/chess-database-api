@@ -235,7 +235,7 @@
     "date": "2026-11-15",
     "gates_passed": 8,
     "result": "passed",
-    "verification_scope": "Full validation includes the bounded-memory source-to-canonical audit updates, anonymized examples with small-stratum suppression, exact attribution-sidecar reconciliation, and the six-case disk-backed deduplication golden integration test.",
+    "verification_scope": "Full validation includes the independent PGN parser spot-check report and reproducibility linkage, bounded-memory source-to-canonical audit updates, anonymized examples with small-stratum suppression, exact attribution-sidecar reconciliation, and the six-case disk-backed deduplication golden integration test.",
     "python_tests": 103,
     "python_tests_skipped": 2
   },
@@ -352,5 +352,37 @@
     "source_linkage": "Aggregate duplicate and stable-ID collision verdict counts only; fixture records are synthetic.",
     "source_row_metadata_included": false,
     "independent_deduplication_implementation": false
+  },
+  "independent_pgn_audit": {
+    "report": "INDEPENDENT_PGN_AUDIT.json",
+    "report_sha256": "689706caa0338a04202ddaf09a7c33eabe4a63585e9a9c88b48912ea58ad5235",
+    "audit_runner_path_local": "data/work/gigabase-eval/independent_pgn_sample_audit.py",
+    "audit_runner_sha256_local": "e40405292fb07e2fb493db38b56cb27a6beba95636fd3de45b03f151b35d210b",
+    "runner_included_in_repository": false,
+    "external_parser": "python-chess 1.11.2 (distribution python-chess 1.999)",
+    "python_runtime_version": "3.13.5",
+    "candidate_dataset_build_id": "codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40",
+    "source_pgn_sha256_local": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
+    "byte_offsets_requested": 40000,
+    "source_records_examined": 40000,
+    "candidate_id_hits": 551,
+    "unique_candidate_games_compared": 144,
+    "source_parser_errors": 0,
+    "illegal_source_mainlines": 0,
+    "illegal_candidate_mainlines": 0,
+    "candidate_retrieval_failures": 0,
+    "move_sequence_mismatches": 0,
+    "starting_position_mismatches": 0,
+    "final_position_mismatches": 0,
+    "all_sampled_source_rows_reconciled": true,
+    "selection_is_byte_weighted_not_game_weighted": true,
+    "target_quotas_met": false,
+    "suppressed_dimension_cells_below_fifty": 19,
+    "limitations": [
+      "The independent parser checked a sample, not the full source PGN.",
+      "Stable-ID matching was independently reimplemented, but candidate CGB3 records were retrieved through the production CLI.",
+      "The audit runner is local-only and is not included in the Draft PR.",
+      "This evidence does not establish source rights, event-level OTB play, or official Elo provenance."
+    ]
   }
 }
