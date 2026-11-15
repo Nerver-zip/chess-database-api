@@ -6,7 +6,7 @@ Complete the user's requested PR #7 outcome: a real, verified, deployable Gigaba
 
 ## Current state
 
-- Branch `feat/gigabase-masters` is based on `origin/main` commit `56d39184a8c68b3d4a5883a423cf79b2a325f4eb`; the r2 implementation and evidence are pushed. Draft PR [#7](https://github.com/Nerver-zip/chess-openings-db/pull/7) is open against `main`, its description reflects r2, and it has not been merged.
+- Branch `feat/gigabase-masters` is based on `origin/main` commit `56d39184a8c68b3d4a5883a423cf79b2a325f4eb`; follow-up evidence is pushed at `e4f574e` (`docs: add Gigabase retrieval QA evidence`). Draft PR [#7](https://github.com/Nerver-zip/chess-openings-db/pull/7) is open against `main`, its description includes the archive recheck and route-enabled internal QA, and it remains Draft/unmerged.
 - User-supplied archive `data/sources/lumbra/OTB_DATABASE.7z` is 2,570,013,439 bytes, local SHA-256 `4e4209ccc1870e7fede557aae09b4dd40b721d4697db9b4c272ff0e4fbbdb500`. Its sole regular member `LumbrasGigabase_OTB_Complete.pgn` is 12,300,428,287 bytes, local SHA-256 `87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759`. The publisher supplied no archive checksum or exact game count; these local hashes are not publisher-authenticated.
 - Streaming structural/header inventory found 13,450,696 records, no recoverable syntax errors, and clean EOF. It does not replay every record for move legality.
 - Current opt-in policy is `gigabase-otb/2026-11-r2`, SHA-256 `9da7691b2b440e66711750b31f12d849b2b32fe1e77bf8752157b475d80e2e94`. It allows 11 reviewed source tags, requires both identities Strong/Confirmed, applies the existing numeric Masters thresholds to publisher-supplied Elo, requires a complete valid calendar date, rejects pre-1970 dates and explicit non-OTB modes, and rejects online-event evidence in a Masters source. All accepted records lacked `Mode`, so OTB provenance relies on the publisher's archive-level OTB Complete assertion. There was no event-level OTB audit; publisher Elo was not independently certified as FIDE Elo.
@@ -26,9 +26,10 @@ Complete the user's requested PR #7 outcome: a real, verified, deployable Gigaba
 
 ## Next actions
 
-1. Review the final diff, commit and push these updates, refresh PR #7's description with route-enabled QA and archive re-extraction evidence, and confirm it remains open and Draft.
-2. Keep the old Masters and Elite production pointers unchanged. Public redistribution and Evalis deployment remain blocked pending written publisher terms and upstream-rights review. The rights question is awaiting the user's response; do not contact the publisher without explicit authorization.
-3. If a host Docker daemon is available, follow the new private-network host bind-mount procedure in `docs/DOCKER_DEPLOYMENT.md`; record whether actual bind mounts pass. Do not describe the named-volume QA as bind-mount verification.
+1. Keep PR #7 Draft and unmerged. The worktree is clean and the pushed head is `e4f574e`.
+2. Public redistribution and Evalis deployment remain blocked pending written publisher terms and upstream-rights review. The rights question is awaiting the user's response; do not contact the publisher without explicit authorization.
+3. If a host Docker daemon is available, follow the private-network host bind-mount procedure in `docs/DOCKER_DEPLOYMENT.md`; record whether actual bind mounts pass. Do not describe the named-volume QA as bind-mount verification.
+4. Before any production claim, close the recorded source evidence gaps: event-level OTB review, independent Elo validation, anonymized stratified source-to-canonical examples, a source-derived metadata-drift dedupe golden set, and an independent source-to-CPI oracle where feasible.
 
 ## Evidence paths
 
