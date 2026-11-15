@@ -9,6 +9,7 @@ benchmarks/
 ├── README.md               # Directory overview and methodology guide (this file)
 ├── production_cpi/         # Authoritative active production CPI index baselines (ADR-0003)
 ├── corpus/                 # Current real Masters/Elite, package, and Docker evidence
+├── gigabase/               # Local-only Lumbra Gigabase source evaluation evidence
 └── results/                # Output destination for runtime benchmark executions
     └── historical/         # Preserved benchmark artifacts from completed research milestones
 ```
@@ -38,6 +39,10 @@ Each production CPI artifact verifies:
 ## 1.1 Real Corpus Evidence (`benchmarks/corpus/`)
 
 Small JSON records (release manifest, build report, quality report, per-step metrics, index report, dataset license notice, event audit, package checksums, HTTP/CLI check, and real Docker smoke report) produced by the corpus and Docker acceptance workflows on the real Lichess-derived releases. They are validated by [`scripts/validate_corpus_evidence.py`](../scripts/validate_corpus_evidence.py). Binary datasets are never committed; see [docs/CORPUS_BUILD.md](../docs/CORPUS_BUILD.md).
+
+## 1.2 Local Gigabase Evaluation (`benchmarks/gigabase/`)
+
+This directory records the structural inventory, source qualification, independent rebuild, quality report, and Docker API check for the user-supplied Lumbra's Gigabase archive. The result is a local evaluation only: the publisher provides no archive checksum, upstream rights remain unresolved, and no approved corpus package or public release was created. Start with the [final report](gigabase/FINAL_REPORT.md) and [machine-readable reproducibility record](gigabase/REPRODUCIBILITY.json). The original archive and generated dataset stay under ignored `data/` paths.
 
 ---
 

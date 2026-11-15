@@ -1,7 +1,8 @@
 use codb_core::{
     compute_stable_game_id, Collection, CompactMove, GameMetadata, GameResult,
-    IngestionCompletionStatus, IngestionStats, ParsedGame,
+    GameSourceAttribution, IngestionCompletionStatus, IngestionStats, ParsedGame,
 };
+use codb_curate::policy::{is_aborted_or_infraction_termination, GigabaseOtbPolicy};
 use pgn_reader::{RawTag, Reader, SanPlus, Visitor};
 use shakmaty::fen::Fen;
 use shakmaty::{CastlingMode, Chess, Move, Position, Role, Square};
@@ -49,6 +50,35 @@ pub struct GameTags {
     pub game_url: Option<String>,
     pub broadcast_url: Option<String>,
     pub game_id_tag: Option<String>,
+    pub source_tag: Option<String>,
+    pub source_quality: Option<String>,
+    pub white_fide_id: Option<String>,
+    pub black_fide_id: Option<String>,
+    pub white_identity_evidence: Option<String>,
+    pub black_identity_evidence: Option<String>,
+    pub mode: Option<String>,
+}
+
+impl GameTags {
+    fn source_attribution(&self) -> Option<GameSourceAttribution> {
+        let attribution = GameSourceAttribution {
+            source_tag: self.source_tag.clone(),
+            source_quality: self.source_quality.clone(),
+            white_fide_id: self.white_fide_id.clone(),
+            black_fide_id: self.black_fide_id.clone(),
+            white_identity_evidence: self.white_identity_evidence.clone(),
+            black_identity_evidence: self.black_identity_evidence.clone(),
+            mode: self.mode.clone(),
+        };
+        (attribution.source_tag.is_some()
+            || attribution.source_quality.is_some()
+            || attribution.white_fide_id.is_some()
+            || attribution.black_fide_id.is_some()
+            || attribution.white_identity_evidence.is_some()
+            || attribution.black_identity_evidence.is_some()
+            || attribution.mode.is_some())
+        .then_some(attribution)
+    }
 }
 
 /// Computes a deterministic completeness score for PGN date strings:
@@ -189,6 +219,7 @@ pub struct ShakmatyGameVisitor {
     pub collection: Collection,
     pub next_id: u64,
     pub early_policy_filter: bool,
+    gigabase_policy: Option<GigabaseOtbPolicy>,
 }
 
 impl ShakmatyGameVisitor {
@@ -197,11 +228,17 @@ impl ShakmatyGameVisitor {
             collection,
             next_id: starting_id,
             early_policy_filter: false,
+            gigabase_policy: None,
         }
     }
 
     pub fn with_early_policy_filter(mut self, enabled: bool) -> Self {
         self.early_policy_filter = enabled;
+        self
+    }
+
+    pub fn with_gigabase_policy(mut self, policy: GigabaseOtbPolicy) -> Self {
+        self.gigabase_policy = Some(policy);
         self
     }
 }
@@ -277,6 +314,13 @@ impl Visitor for ShakmatyGameVisitor {
                     tags.game_id_tag = Some(trimmed.to_string());
                 }
             }
+            b"Source" => tags.source_tag = Some(trimmed.to_string()),
+            b"SourceQuality" => tags.source_quality = Some(trimmed.to_string()),
+            b"WhiteFideId" => tags.white_fide_id = Some(trimmed.to_string()),
+            b"BlackFideId" => tags.black_fide_id = Some(trimmed.to_string()),
+            b"IdentityEvidenceWhite" => tags.white_identity_evidence = Some(trimmed.to_string()),
+            b"IdentityEvidenceBlack" => tags.black_identity_evidence = Some(trimmed.to_string()),
+            b"Mode" => tags.mode = Some(trimmed.to_string()),
             b"Round" => {
                 if !trimmed.is_empty() && trimmed != "?" {
                     tags.round = Some(trimmed.to_string());
@@ -294,8 +338,7 @@ impl Visitor for ShakmatyGameVisitor {
                 }
             }
             b"Termination" => {
-                tags.aborted_or_infraction |=
-                    codb_curate::policy::is_aborted_or_infraction_termination(trimmed);
+                tags.aborted_or_infraction |= is_aborted_or_infraction_termination(trimmed);
             }
             b"Variant" => tags.variant = Some(trimmed.to_string()),
             b"FEN" => tags.fen_start = Some(trimmed.to_string()),
@@ -312,6 +355,17 @@ impl Visitor for ShakmatyGameVisitor {
             return ControlFlow::Break(Err(IngestError::MalformedPgn(
                 "Missing PGN header tags".into(),
             )));
+        }
+
+        if let Some(policy) = &self.gigabase_policy {
+            if let Err(reason) = policy
+                .evaluate_source_metadata(tags.source_attribution().as_ref(), tags.date.as_deref())
+            {
+                return ControlFlow::Break(Err(IngestError::RejectedByPolicy(format!(
+                    "gigabase:{}",
+                    reason.category()
+                ))));
+            }
         }
 
         if self.early_policy_filter && tags.aborted_or_infraction {
@@ -543,6 +597,7 @@ impl Visitor for ShakmatyGameVisitor {
             movetext.tags.round.as_deref(),
             &movetext.moves,
         );
+        let source_attribution = movetext.tags.source_attribution();
 
         let meta = GameMetadata {
             id,
@@ -560,6 +615,7 @@ impl Visitor for ShakmatyGameVisitor {
             time_control: movetext.tags.time_control,
             source_id,
             broadcast_url,
+            source_attribution,
         };
 
         Ok(ParsedGame {
@@ -1102,6 +1158,50 @@ mod tests {
             Some("https://lichess.org/a9tcp02g")
         );
         assert_eq!(games[3].metadata.broadcast_url, None);
+    }
+
+    #[test]
+    fn captures_gigabase_source_fields_without_exposing_them_as_persisted_metadata() {
+        let pgn = r#"
+[Event "Federation Open"]
+[Site "City"]
+[Date "2024.01.01"]
+[White "Player A"]
+[Black "Player B"]
+[WhiteElo "2450"]
+[BlackElo "2300"]
+[WhiteFideId "123456"]
+[BlackFideId "654321"]
+[Source "Britbase"]
+[SourceQuality "1"]
+[IdentityEvidenceWhite "Confirmed"]
+[IdentityEvidenceBlack "Strong"]
+[Mode "Correspondence"]
+[Result "1-0"]
+
+1. e4 e5 1-0
+"#;
+        let mut stats = IngestionStats::default();
+        let games = parse_pgn_stream(pgn.as_bytes(), Collection::MastersOtb, &mut stats).unwrap();
+        let attribution = games[0].metadata.source_attribution.as_ref().unwrap();
+
+        assert_eq!(attribution.source_tag.as_deref(), Some("Britbase"));
+        assert_eq!(attribution.source_quality.as_deref(), Some("1"));
+        assert_eq!(attribution.white_fide_id.as_deref(), Some("123456"));
+        assert_eq!(attribution.black_fide_id.as_deref(), Some("654321"));
+        assert_eq!(
+            attribution.white_identity_evidence.as_deref(),
+            Some("Confirmed")
+        );
+        assert_eq!(
+            attribution.black_identity_evidence.as_deref(),
+            Some("Strong")
+        );
+        assert_eq!(attribution.mode.as_deref(), Some("Correspondence"));
+        assert!(serde_json::to_value(&games[0].metadata)
+            .unwrap()
+            .get("source_attribution")
+            .is_none());
     }
 
     #[test]

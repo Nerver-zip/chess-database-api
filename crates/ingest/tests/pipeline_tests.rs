@@ -1,6 +1,8 @@
 use codb_core::{Collection, IngestionCompletionStatus};
 use codb_curate::dedupe::Deduplicator;
+use codb_curate::policy::GigabaseOtbPolicy;
 use codb_ingest::pipeline::{CuratedPipeline, MemoryGameConsumer};
+use std::collections::HashSet;
 use std::io::Cursor;
 
 const PGN_FILE_1: &str = r#"[Event "Broadcast 1"]
@@ -109,4 +111,108 @@ fn test_curated_pipeline_max_games_limit() {
         pipeline.stats.completion_status,
         IngestionCompletionStatus::PartialLimitReached
     );
+}
+
+#[test]
+fn test_gigabase_policy_reconciles_source_identity_mode_and_history_rejections() {
+    let pgn = r#"[Event "Open A"]
+[Site "City"]
+[Date "2024.01.01"]
+[White "Player A"]
+[Black "Player B"]
+[WhiteElo "2400"]
+[BlackElo "2200"]
+[Source "Britbase"]
+[IdentityEvidenceWhite "Confirmed"]
+[IdentityEvidenceBlack "Strong"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 1-0
+
+[Event "Open B"]
+[Site "City"]
+[Date "2024.01.01"]
+[White "Player C"]
+[Black "Player D"]
+[WhiteElo "2400"]
+[BlackElo "2200"]
+[Source "Historical Archive"]
+[IdentityEvidenceWhite "Confirmed"]
+[IdentityEvidenceBlack "Strong"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 1-0
+
+[Event "Open C"]
+[Site "City"]
+[Date "2024.01.01"]
+[White "Player E"]
+[Black "Player F"]
+[WhiteElo "2400"]
+[BlackElo "2200"]
+[Source "Britbase"]
+[IdentityEvidenceWhite "NoMatch"]
+[IdentityEvidenceBlack "Confirmed"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 1-0
+
+[Event "Open D"]
+[Site "City"]
+[Date "2024.01.01"]
+[White "Player G"]
+[Black "Player H"]
+[WhiteElo "2400"]
+[BlackElo "2200"]
+[Source "Britbase"]
+[IdentityEvidenceWhite "Confirmed"]
+[IdentityEvidenceBlack "Confirmed"]
+[Mode "Correspondence"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 1-0
+
+[Event "Open E"]
+[Site "City"]
+[Date "1968.01.01"]
+[White "Player I"]
+[Black "Player J"]
+[WhiteElo "2400"]
+[BlackElo "2200"]
+[Source "Britbase"]
+[IdentityEvidenceWhite "Confirmed"]
+[IdentityEvidenceBlack "Confirmed"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 1-0
+"#;
+
+    let policy = GigabaseOtbPolicy::new(HashSet::from(["Britbase".to_owned()]));
+    let mut pipeline = CuratedPipeline::new(
+        Collection::MastersOtb,
+        Deduplicator::new(),
+        MemoryGameConsumer::new(),
+    )
+    .with_gigabase_source_qualification(policy);
+
+    pipeline.process_stream(Cursor::new(pgn)).unwrap();
+
+    assert_eq!(pipeline.stats.total_encountered, 5);
+    assert_eq!(pipeline.stats.accepted_unique, 1);
+    assert_eq!(pipeline.stats.rejected_by_policy, 4);
+    assert_eq!(pipeline.policy_rejection_reasons["unqualified_source"], 1);
+    assert_eq!(
+        pipeline.policy_rejection_reasons["untrusted_player_identity"],
+        1
+    );
+    assert_eq!(pipeline.policy_rejection_reasons["non_otb_play_mode"], 1);
+    assert_eq!(
+        pipeline.policy_rejection_reasons["unverified_historical_rating"],
+        1
+    );
+    assert!(pipeline.stats.is_reconciled());
+    assert!(pipeline
+        .stats
+        .verify_retained_count(pipeline.consumer.games.len()));
+    assert_eq!(pipeline.consumer.games.len(), 1);
 }

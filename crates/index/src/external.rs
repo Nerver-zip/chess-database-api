@@ -754,6 +754,7 @@ mod tests {
                 time_control: None,
                 source_id: None,
                 broadcast_url: None,
+                source_attribution: None,
             },
             moves,
             fen_start: None,

@@ -4,11 +4,16 @@ use std::io::{BufReader, BufWriter, Cursor, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+mod inventory;
+
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
-use codb_core::{Collection, IngestionCompletionStatus, IngestionStats, ParsedGame, PositionKey};
+use codb_core::{
+    Collection, GameSourceAttribution, IngestionCompletionStatus, IngestionStats, ParsedGame,
+    PositionKey,
+};
 use codb_curate::dedupe::{Deduplicator, DuplicateVerdict};
-use codb_curate::policy::{EliteOnlinePolicy, MastersOtbPolicy, PolicyVerdict};
+use codb_curate::policy::{EliteOnlinePolicy, GigabaseOtbPolicy, MastersOtbPolicy, PolicyVerdict};
 use codb_index::position::{
     compute_position_key, extract_game_positions, DiskPositionIndex, ImmutablePositionIndex,
     SqlitePositionIndex,
@@ -21,12 +26,14 @@ use codb_ingest::reader::{
 use codb_storage::format::{export_to_pgn, GameBlock};
 use codb_storage::{
     compute_file_sha256, publish_prebuilt_dataset, verify_dataset, CurationPolicyMetadata,
-    DatasetReader, DatasetWriter, DatasetWriterConfig, ShardReader, SourceArchiveMetadata,
-    StorageError,
+    DatasetReader, DatasetWriter, DatasetWriterConfig, FileChecksumMetadata, ShardReader,
+    SourceArchiveMetadata, StorageError,
 };
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use shakmaty::uci::UciMove;
 use shakmaty::{Chess, Position};
+use tempfile::NamedTempFile;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -82,6 +89,21 @@ enum Commands {
         max_games: Option<usize>,
     },
 
+    /// Inventory PGN structure and metadata tags with bounded memory
+    Inventory {
+        /// Input PGN or PGN.zst file
+        #[arg(short, long)]
+        input: PathBuf,
+
+        /// Output JSON report (stdout when omitted)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Directory for temporary disk-backed aggregation
+        #[arg(long, default_value = "data/work")]
+        scratch_dir: PathBuf,
+    },
+
     /// Build a persistent curated dataset with bounded memory, sharded CGB3 storage, and global game lookup
     Build {
         /// Optional manifest JSON file listing input source archives
@@ -127,6 +149,10 @@ enum Commands {
         /// Masters event audit JSON used to reject online and unresolved tournament events
         #[arg(long, requires = "collection")]
         masters_event_audit: Option<PathBuf>,
+
+        /// Gigabase source qualification JSON (separate from the Lichess event audit)
+        #[arg(long, requires = "collection")]
+        gigabase_source_policy: Option<PathBuf>,
     },
 
     /// Compute a machine-readable dataset quality report (distributions and coverage)
@@ -693,10 +719,12 @@ fn main() -> Result<()> {
             dedupe_mode,
             report_json,
             masters_event_audit,
+            gigabase_source_policy,
         } => {
             run_build(BuildOptions {
                 report_json,
                 masters_event_audit,
+                gigabase_source_policy,
                 manifest,
                 input,
                 collection,
@@ -787,6 +815,38 @@ fn main() -> Result<()> {
                 "Throughput:           {:.1} games/sec",
                 stats.total_encountered as f64 / elapsed.max(1e-9)
             );
+        }
+
+        Commands::Inventory {
+            input,
+            output,
+            scratch_dir,
+        } => {
+            anyhow::ensure!(
+                input.as_os_str() != "-",
+                "inventory requires a regular input file"
+            );
+            let metadata = std::fs::symlink_metadata(&input)
+                .with_context(|| format!("Failed to inspect input file {}", input.display()))?;
+            anyhow::ensure!(
+                metadata.file_type().is_file(),
+                "inventory input must be a regular non-symlink file"
+            );
+            let input_size = metadata.len();
+            let input_sha256 = compute_file_sha256(&input)
+                .with_context(|| format!("Failed to hash input file {}", input.display()))?;
+            let reader = open_auto_detect_reader(&input)
+                .with_context(|| format!("Failed to open input stream {}", input.display()))?;
+            let report =
+                inventory::inventory_pgn(reader, &input, input_size, input_sha256, &scratch_dir)?;
+            let output_bytes = serde_json::to_vec_pretty(&report)?;
+            if let Some(path) = output {
+                std::fs::write(&path, output_bytes).with_context(|| {
+                    format!("Failed to write inventory report {}", path.display())
+                })?;
+            } else {
+                println!("{}", String::from_utf8(output_bytes)?);
+            }
         }
 
         Commands::Bench {
@@ -909,10 +969,27 @@ fn main() -> Result<()> {
 
 struct DatasetWriterConsumer<'a> {
     writer: &'a mut DatasetWriter,
+    source_attribution: Option<SourceAttributionStore>,
+}
+
+impl DatasetWriterConsumer<'_> {
+    fn finish_source_attribution(
+        &mut self,
+        output_dir: &Path,
+        expected_game_count: u64,
+    ) -> std::result::Result<Option<FileChecksumMetadata>, String> {
+        self.source_attribution
+            .take()
+            .map(|store| store.write_jsonl(output_dir, expected_game_count))
+            .transpose()
+    }
 }
 
 impl<'a> GameConsumer for DatasetWriterConsumer<'a> {
     fn accept_game(&mut self, game: ParsedGame) -> std::result::Result<(), String> {
+        if let Some(store) = &mut self.source_attribution {
+            store.add(game.metadata.id, game.metadata.source_attribution.as_ref())?;
+        }
         self.writer.push_game(game).map_err(|e| e.to_string())
     }
 
@@ -921,10 +998,232 @@ impl<'a> GameConsumer for DatasetWriterConsumer<'a> {
         old_id: u64,
         new_game: ParsedGame,
     ) -> std::result::Result<(), String> {
+        let new_id = new_game.metadata.id;
+        let source_attribution = new_game.metadata.source_attribution.clone();
         self.writer
             .handle_superseded_game(old_id, new_game)
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?;
+        if let Some(store) = &mut self.source_attribution {
+            store.supersede(old_id, new_id, source_attribution.as_ref())?;
+        }
+        Ok(())
     }
+
+    fn record_duplicate_source(
+        &mut self,
+        canonical_id: u64,
+        duplicate_game: ParsedGame,
+    ) -> std::result::Result<(), String> {
+        if let Some(store) = &mut self.source_attribution {
+            store.add(
+                canonical_id,
+                duplicate_game.metadata.source_attribution.as_ref(),
+            )?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Serialize)]
+struct SourceAttributionOutputLine {
+    schema_version: u32,
+    game_id: u64,
+    source_attributions: Vec<GameSourceAttribution>,
+}
+
+struct SourceAttributionStore {
+    _scratch_file: NamedTempFile,
+    conn: Connection,
+}
+
+impl SourceAttributionStore {
+    fn new() -> Result<Self> {
+        let scratch_file =
+            NamedTempFile::new().context("creating source-attribution scratch file")?;
+        let conn = Connection::open(scratch_file.path())
+            .context("opening source-attribution scratch database")?;
+        conn.execute_batch(
+            "PRAGMA journal_mode = OFF;
+             PRAGMA synchronous = OFF;
+             PRAGMA temp_store = FILE;
+             PRAGMA cache_size = -512;
+             CREATE TABLE game_sources (
+                 game_id BLOB NOT NULL,
+                 source_json TEXT NOT NULL,
+                 PRIMARY KEY (game_id, source_json)
+             ) WITHOUT ROWID;",
+        )?;
+        Ok(Self {
+            _scratch_file: scratch_file,
+            conn,
+        })
+    }
+
+    fn add(
+        &mut self,
+        game_id: u64,
+        attribution: Option<&GameSourceAttribution>,
+    ) -> std::result::Result<(), String> {
+        let attribution = attribution
+            .ok_or_else(|| "accepted Gigabase game is missing source attribution".to_owned())?;
+        if attribution.source_tag.as_deref().is_none_or(str::is_empty) {
+            return Err("accepted Gigabase game has an empty Source tag".into());
+        }
+        let source_json = serde_json::to_string(attribution).map_err(|error| error.to_string())?;
+        let game_id = game_id.to_be_bytes();
+        self.conn
+            .execute(
+                "INSERT OR IGNORE INTO game_sources (game_id, source_json) VALUES (?1, ?2)",
+                params![game_id.as_slice(), source_json],
+            )
+            .map_err(|error| error.to_string())?;
+        Ok(())
+    }
+
+    fn supersede(
+        &mut self,
+        old_id: u64,
+        new_id: u64,
+        attribution: Option<&GameSourceAttribution>,
+    ) -> std::result::Result<(), String> {
+        let old_id = old_id.to_be_bytes();
+        let new_id = new_id.to_be_bytes();
+        let tx = self.conn.transaction().map_err(|error| error.to_string())?;
+        let existing: u64 = tx
+            .query_row(
+                "SELECT COUNT(*) FROM game_sources WHERE game_id = ?1",
+                params![old_id.as_slice()],
+                |row| row.get(0),
+            )
+            .map_err(|error| error.to_string())?;
+        if existing == 0 {
+            return Err("superseded Gigabase game has no source attribution".into());
+        }
+        tx.execute(
+            "INSERT OR IGNORE INTO game_sources (game_id, source_json)
+             SELECT ?1, source_json FROM game_sources WHERE game_id = ?2",
+            params![new_id.as_slice(), old_id.as_slice()],
+        )
+        .map_err(|error| error.to_string())?;
+        tx.execute(
+            "DELETE FROM game_sources WHERE game_id = ?1",
+            params![old_id.as_slice()],
+        )
+        .map_err(|error| error.to_string())?;
+        let source_json = serde_json::to_string(
+            attribution
+                .ok_or_else(|| "superseding Gigabase game is missing attribution".to_owned())?,
+        )
+        .map_err(|error| error.to_string())?;
+        tx.execute(
+            "INSERT OR IGNORE INTO game_sources (game_id, source_json) VALUES (?1, ?2)",
+            params![new_id.as_slice(), source_json],
+        )
+        .map_err(|error| error.to_string())?;
+        tx.commit().map_err(|error| error.to_string())
+    }
+
+    fn write_jsonl(
+        self,
+        output_dir: &Path,
+        expected_game_count: u64,
+    ) -> Result<FileChecksumMetadata, String> {
+        const MAX_SOURCE_ATTRIBUTIONS_PER_GAME: usize = 64;
+        let filename = "source-attribution.jsonl";
+        let sidecar_path = output_dir.join(filename);
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&sidecar_path)
+            .map_err(|error| error.to_string())?;
+        let mut writer = BufWriter::new(file);
+        let mut statement = self
+            .conn
+            .prepare("SELECT game_id, source_json FROM game_sources ORDER BY game_id, source_json")
+            .map_err(|error| error.to_string())?;
+        let mut rows = statement.query([]).map_err(|error| error.to_string())?;
+        let mut current_id: Option<u64> = None;
+        let mut attributions = Vec::new();
+        let mut games_written = 0u64;
+
+        while let Some(row) = rows.next().map_err(|error| error.to_string())? {
+            let id_bytes: Vec<u8> = row.get(0).map_err(|error| error.to_string())?;
+            let id_array: [u8; 8] = id_bytes
+                .try_into()
+                .map_err(|_| "invalid game ID key in source-attribution database".to_owned())?;
+            let game_id = u64::from_be_bytes(id_array);
+            let source_json: String = row.get(1).map_err(|error| error.to_string())?;
+            let attribution: GameSourceAttribution =
+                serde_json::from_str(&source_json).map_err(|error| error.to_string())?;
+
+            if current_id.is_some_and(|id| id != game_id) {
+                write_source_attribution_line(
+                    &mut writer,
+                    current_id.unwrap(),
+                    std::mem::take(&mut attributions),
+                    MAX_SOURCE_ATTRIBUTIONS_PER_GAME,
+                )?;
+                games_written += 1;
+            }
+            current_id = Some(game_id);
+            attributions.push(attribution);
+            if attributions.len() > MAX_SOURCE_ATTRIBUTIONS_PER_GAME {
+                return Err(format!(
+                    "game {game_id} has more than {MAX_SOURCE_ATTRIBUTIONS_PER_GAME} source attribution records"
+                ));
+            }
+        }
+        if let Some(game_id) = current_id {
+            write_source_attribution_line(
+                &mut writer,
+                game_id,
+                attributions,
+                MAX_SOURCE_ATTRIBUTIONS_PER_GAME,
+            )?;
+            games_written += 1;
+        }
+        if games_written != expected_game_count {
+            return Err(format!(
+                "source-attribution game count ({games_written}) does not match accepted unique count ({expected_game_count})"
+            ));
+        }
+        writer.flush().map_err(|error| error.to_string())?;
+        writer
+            .get_ref()
+            .sync_all()
+            .map_err(|error| error.to_string())?;
+        drop(writer);
+        let file_size_bytes = std::fs::metadata(&sidecar_path)
+            .map_err(|error| error.to_string())?
+            .len();
+        let sha256 = compute_file_sha256(&sidecar_path).map_err(|error| error.to_string())?;
+        Ok(FileChecksumMetadata {
+            filename: filename.into(),
+            file_size_bytes,
+            sha256,
+            entry_count: games_written,
+        })
+    }
+}
+
+fn write_source_attribution_line(
+    writer: &mut BufWriter<File>,
+    game_id: u64,
+    source_attributions: Vec<GameSourceAttribution>,
+    max_sources: usize,
+) -> std::result::Result<(), String> {
+    if source_attributions.is_empty() || source_attributions.len() > max_sources {
+        return Err(format!(
+            "game {game_id} has an invalid number of source attribution records"
+        ));
+    }
+    let record = SourceAttributionOutputLine {
+        schema_version: 1,
+        game_id,
+        source_attributions,
+    };
+    serde_json::to_writer(&mut *writer, &record).map_err(|error| error.to_string())?;
+    writer.write_all(b"\n").map_err(|error| error.to_string())
 }
 
 #[derive(Debug, Deserialize)]
@@ -995,6 +1294,7 @@ fn open_auto_detect_reader(path: &Path) -> Result<Box<dyn Read + Send>> {
 struct BuildOptions {
     report_json: Option<PathBuf>,
     masters_event_audit: Option<PathBuf>,
+    gigabase_source_policy: Option<PathBuf>,
     manifest: Option<PathBuf>,
     input: Vec<PathBuf>,
     collection: CollectionArg,
@@ -1019,10 +1319,144 @@ struct MastersEventPolicyInput {
     verified_otb_tournament_slugs: Vec<String>,
 }
 
+#[derive(Deserialize)]
+struct GigabaseSourcePolicyInput {
+    schema_version: u32,
+    policy_id: String,
+    source_tag_allowlist: Vec<String>,
+    identity_values_required_for_both_players: Vec<String>,
+    missing_mode_basis: String,
+    explicit_mode_policy: String,
+    pre_1970_policy: String,
+    rating_semantics: String,
+    rating_thresholds: GigabaseRatingThresholdsInput,
+}
+
+#[derive(Deserialize)]
+struct GigabaseRatingThresholdsInput {
+    both_at_least: u16,
+    one_at_least: u16,
+    other_at_least: u16,
+}
+
+#[derive(Debug)]
+struct LoadedGigabasePolicy {
+    policy: GigabaseOtbPolicy,
+    policy_id: String,
+    sha256: String,
+}
+
+const APPROVED_GIGABASE_SOURCE_TAGS: [&str; 11] = [
+    "AnaSchaigorodsky",
+    "Britbase",
+    "CanadianChessFederation",
+    "ChessScotland",
+    "DanBase",
+    "Federscacchi",
+    "GreekBase",
+    "LichessBroadcastAPI",
+    "NiederrheinischerSchachverband",
+    "NiedersächsischerSchachverband",
+    "SchachverbandRuhrgebiet",
+];
+
+fn load_gigabase_source_policy(path: &Path) -> Result<LoadedGigabasePolicy> {
+    let metadata = std::fs::symlink_metadata(path)
+        .with_context(|| format!("reading Gigabase policy metadata {}", path.display()))?;
+    anyhow::ensure!(
+        metadata.file_type().is_file(),
+        "Gigabase source policy must be a regular non-symlink file: {}",
+        path.display()
+    );
+    let bytes = std::fs::read(path)
+        .with_context(|| format!("reading Gigabase source policy {}", path.display()))?;
+    let input: GigabaseSourcePolicyInput = serde_json::from_slice(&bytes)
+        .with_context(|| format!("parsing Gigabase source policy {}", path.display()))?;
+    anyhow::ensure!(
+        input.schema_version == 1,
+        "unsupported Gigabase source policy schema"
+    );
+    anyhow::ensure!(
+        !input.policy_id.trim().is_empty(),
+        "Gigabase policy_id is required"
+    );
+    anyhow::ensure!(
+        input
+            .source_tag_allowlist
+            .iter()
+            .all(|tag| !tag.trim().is_empty())
+            && input
+                .source_tag_allowlist
+                .iter()
+                .all(|tag| tag.trim() == tag),
+        "Gigabase source allowlist contains an empty or untrimmed value"
+    );
+    let allowed_source_tags: std::collections::HashSet<String> =
+        input.source_tag_allowlist.iter().cloned().collect();
+    anyhow::ensure!(
+        allowed_source_tags.len() == input.source_tag_allowlist.len(),
+        "Gigabase source allowlist contains duplicate tags"
+    );
+    let approved_source_tags: std::collections::HashSet<String> = APPROVED_GIGABASE_SOURCE_TAGS
+        .iter()
+        .map(|tag| (*tag).to_owned())
+        .collect();
+    anyhow::ensure!(
+        allowed_source_tags == approved_source_tags,
+        "Gigabase source allowlist differs from the source categories reviewed for this release"
+    );
+    anyhow::ensure!(
+        input.identity_values_required_for_both_players == ["Confirmed", "Strong"],
+        "Gigabase policy must require both player identities to be Confirmed or Strong"
+    );
+    anyhow::ensure!(
+        input.missing_mode_basis == "publisher_otb_complete_assertion",
+        "Gigabase policy must record its missing-Mode publisher assertion"
+    );
+    anyhow::ensure!(
+        input.explicit_mode_policy == "reject_unless_explicit_otb",
+        "Gigabase policy must reject explicit modes unless they say OTB"
+    );
+    anyhow::ensure!(
+        input.pre_1970_policy == "reject_unverified_historical_elo",
+        "Gigabase policy must reject pre-1970 records pending historical Elo validation"
+    );
+    anyhow::ensure!(
+        input.rating_semantics == "publisher_supplied_elo_unverified_as_official_fide",
+        "Gigabase policy must keep publisher-supplied Elo distinct from verified official FIDE ratings"
+    );
+    anyhow::ensure!(
+        input.rating_thresholds.both_at_least == 2200
+            && input.rating_thresholds.one_at_least == 2400
+            && input.rating_thresholds.other_at_least == 2000,
+        "Gigabase policy must preserve the existing Masters numeric rating thresholds"
+    );
+    let sha256 = compute_file_sha256(path)
+        .with_context(|| format!("hashing Gigabase source policy {}", path.display()))?;
+    Ok(LoadedGigabasePolicy {
+        policy: GigabaseOtbPolicy::new(allowed_source_tags),
+        policy_id: input.policy_id,
+        sha256,
+    })
+}
+
 fn run_build(opts: BuildOptions) -> Result<()> {
     let mut resolved_inputs = Vec::new();
     let mut source_metas = Vec::new();
     let col: Collection = opts.collection.into();
+    let gigabase_qualification = if let Some(path) = opts.gigabase_source_policy.as_ref() {
+        anyhow::ensure!(
+            col == Collection::MastersOtb,
+            "--gigabase-source-policy is only valid for masters-otb"
+        );
+        anyhow::ensure!(
+            opts.masters_event_audit.is_none(),
+            "--gigabase-source-policy and --masters-event-audit are mutually exclusive"
+        );
+        Some(load_gigabase_source_policy(path)?)
+    } else {
+        None
+    };
     let event_qualification = if let Some(path) = opts.masters_event_audit.as_ref() {
         anyhow::ensure!(
             col == Collection::MastersOtb,
@@ -1186,13 +1620,21 @@ fn run_build(opts: BuildOptions) -> Result<()> {
     println!("Deduplication Mode:  {:?}", opts.dedupe_mode);
 
     let event_qualification_enabled = event_qualification.is_some();
+    let gigabase_policy_note = gigabase_qualification.as_ref().map(|loaded| {
+        format!(
+            "Gigabase policy {} sha256={}: allowlisted Source tags; both identities Strong/Confirmed; publisher-supplied Elo uses the existing numeric thresholds but is not independently certified as official FIDE; missing Mode relies on the publisher's OTB Complete assertion, explicit non-OTB modes and pre-1970 games are rejected; standard chess, minimum four plies, explicit online and aborted/rules-infraction markers rejected",
+            loaded.policy_id, loaded.sha256
+        )
+    });
     let curation_policy = match col {
         Collection::MastersOtb => CurationPolicyMetadata {
             min_rating_both: 2200,
             min_rating_one: 2400,
             min_rating_other: 2000,
             min_plies: 4,
-            extra_criteria: if event_qualification_enabled {
+            extra_criteria: if let Some(policy_note) = gigabase_policy_note {
+                policy_note
+            } else if event_qualification_enabled {
                 "Exact event-level audit allowlist: verified online and unresolved tournaments excluded; verified OTB venue corroborated by linked event source; direct online platform Site tags excluded; historical exception pre-1970 requires named event and venue; explicit aborted or rules-infraction Termination values excluded".into()
             } else {
                 "Online-event marker exclusion; historical exception pre-1970 requires named event and venue; explicit aborted or rules-infraction Termination values excluded".into()
@@ -1232,12 +1674,22 @@ fn run_build(opts: BuildOptions) -> Result<()> {
     };
 
     let start = Instant::now();
+    let attribution_store = if gigabase_qualification.is_some() {
+        Some(SourceAttributionStore::new()?)
+    } else {
+        None
+    };
+    let attribution_output_dir = dataset_writer.staging_directory().to_path_buf();
     let consumer = DatasetWriterConsumer {
         writer: &mut dataset_writer,
+        source_attribution: attribution_store,
     };
     let mut pipeline = CuratedPipeline::new(col, deduplicator, consumer)
         .with_max_games(opts.max_games)
         .with_log_progress(true);
+    if let Some(loaded) = &gigabase_qualification {
+        pipeline = pipeline.with_gigabase_source_qualification(loaded.policy.clone());
+    }
     if let Some((require_verified, online, otb)) = event_qualification {
         pipeline = pipeline.with_masters_event_qualification(online, otb, require_verified);
     }
@@ -1256,11 +1708,17 @@ fn run_build(opts: BuildOptions) -> Result<()> {
         }
     }
 
-    let stats = pipeline.stats;
-    let policy_rejection_reasons = pipeline.policy_rejection_reasons;
+    let stats = pipeline.stats.clone();
+    let policy_rejection_reasons = pipeline.policy_rejection_reasons.clone();
+    let quarantine_reasons = pipeline.quarantine_reasons.clone();
+    let source_attribution = pipeline
+        .consumer
+        .finish_source_attribution(&attribution_output_dir, stats.accepted_unique)
+        .map_err(anyhow::Error::msg)?;
+    drop(pipeline);
     println!("\nFinalizing persistent dataset...");
     let manifest = dataset_writer
-        .finalize(stats.clone(), source_metas)
+        .finalize_with_source_attribution(stats.clone(), source_metas, source_attribution)
         .context("Failed to finalize persistent dataset")?;
 
     let elapsed = start.elapsed().as_secs_f64();
@@ -1271,8 +1729,12 @@ fn run_build(opts: BuildOptions) -> Result<()> {
     println!("Duplicates Removed:  {}", stats.confirmed_duplicates);
     println!("Superseded Prior:    {}", stats.superseded_prior);
     println!("Policy Rejections:   {}", stats.rejected_by_policy);
+    println!("Quarantined:         {}", stats.quarantined);
     for (reason, n) in &policy_rejection_reasons {
         println!("  - {reason}: {n}");
+    }
+    for (reason, n) in &quarantine_reasons {
+        println!("  - quarantined {reason}: {n}");
     }
     println!("Shards Created:      {}", manifest.shards.len());
     println!(
@@ -1297,6 +1759,13 @@ fn run_build(opts: BuildOptions) -> Result<()> {
             "is_reconciled": stats.is_reconciled(),
             "retained_matches_accepted": stats.verify_retained_count(manifest.total_games as usize),
             "policy_rejection_reasons": policy_rejection_reasons,
+            "quarantine_reasons": quarantine_reasons,
+            "gigabase_source_policy": gigabase_qualification.as_ref().map(|loaded| {
+                serde_json::json!({
+                    "policy_id": loaded.policy_id,
+                    "sha256": loaded.sha256,
+                })
+            }),
             "total_physical_bytes": manifest.total_physical_bytes,
             "build_duration_secs": elapsed,
             "source_archives": manifest.source_archives,
@@ -3312,6 +3781,7 @@ mod tests {
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
+            gigabase_source_policy: None,
         })
         .unwrap();
 
@@ -3344,6 +3814,180 @@ mod tests {
         assert_eq!(game.metadata.id, any_game_id);
         let pgn = reader.get_game_pgn(any_game_id).unwrap();
         assert!(!pgn.is_empty());
+    }
+
+    #[test]
+    fn test_gigabase_policy_configuration_cannot_expand_reviewed_source_set() {
+        let workspace_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        let policy_path = workspace_dir.join("corpus/gigabase_source_qualification.json");
+        let loaded = load_gigabase_source_policy(&policy_path).unwrap();
+        assert_eq!(loaded.policy_id, "gigabase-otb/2026-11-r1");
+        assert_eq!(loaded.sha256.len(), 64);
+
+        let mut policy: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&policy_path).unwrap()).unwrap();
+        policy["source_tag_allowlist"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::Value::String("Legacy Software Dump".into()));
+        let tmp = tempfile::tempdir().unwrap();
+        let altered_policy_path = tmp.path().join("expanded_policy.json");
+        std::fs::write(
+            &altered_policy_path,
+            serde_json::to_vec_pretty(&policy).unwrap(),
+        )
+        .unwrap();
+
+        let error = load_gigabase_source_policy(&altered_policy_path).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("differs from the source categories reviewed"));
+    }
+
+    #[test]
+    fn test_gigabase_policy_build_writes_verified_attribution_sidecar() {
+        let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let workspace_dir = manifest_dir.parent().unwrap().parent().unwrap();
+        let policy_path = workspace_dir.join("corpus/gigabase_source_qualification.json");
+        let tmp = tempfile::tempdir().unwrap();
+        let pgn_path = tmp.path().join("gigabase_fixture.pgn");
+        let output_dir = tmp.path().join("gigabase_dataset");
+        let report_path = tmp.path().join("build_report.json");
+
+        let game = |white: &str, round: &str, source: &str, mode: Option<&str>, event: &str| {
+            let mode_tag = mode
+                .map(|value| format!("[Mode \"{value}\"]\n"))
+                .unwrap_or_default();
+            format!(
+                r#"[Event "{event}"]
+[Site "London ENG"]
+[Date "2024.06.12"]
+[Round "{round}"]
+[White "{white}"]
+[Black "Player B"]
+[WhiteElo "2450"]
+[BlackElo "2300"]
+[WhiteFideId "123456"]
+[BlackFideId "654321"]
+[Source "{source}"]
+[SourceQuality "3"]
+[IdentityEvidenceWhite "Strong"]
+[IdentityEvidenceBlack "Confirmed"]
+{mode_tag}[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 1-0
+
+"#
+            )
+        };
+        let pgn = format!(
+            "{}{}{}{}{}",
+            game(
+                "Allowed Source Player",
+                "1",
+                "Britbase",
+                None,
+                "Federation Championship"
+            ),
+            game(
+                "Excluded Source Player",
+                "2",
+                "Legacy Software Dump",
+                None,
+                "Federation Championship"
+            ),
+            game(
+                "Correspondence Player",
+                "3",
+                "Britbase",
+                Some("Correspondence"),
+                "Federation Championship"
+            ),
+            game(
+                "Collision Player",
+                "4",
+                "Britbase",
+                None,
+                "Federation Championship"
+            ),
+            game(
+                "Collision Player",
+                "4",
+                "Britbase",
+                None,
+                "Open Austrian Team Blitz Championship"
+            )
+        );
+        std::fs::write(&pgn_path, pgn).unwrap();
+
+        run_build(BuildOptions {
+            report_json: Some(report_path.clone()),
+            masters_event_audit: None,
+            gigabase_source_policy: Some(policy_path),
+            manifest: None,
+            input: vec![pgn_path],
+            collection: CollectionArg::MastersOtb,
+            output: output_dir.clone(),
+            max_games: None,
+            block_capacity: 4,
+            max_games_per_shard: 8,
+            zstd_level: 3,
+            dedupe_mode: DedupeModeArg::Disk,
+        })
+        .unwrap();
+
+        let report: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(report_path).unwrap()).unwrap();
+        assert_eq!(report["accounting"]["total_encountered"], 5);
+        assert_eq!(report["accounting"]["accepted_unique"], 2);
+        assert_eq!(report["accounting"]["rejected_by_policy"], 2);
+        assert_eq!(report["accounting"]["quarantined"], 1);
+        assert_eq!(report["policy_rejection_reasons"]["unqualified_source"], 1);
+        assert_eq!(report["policy_rejection_reasons"]["non_otb_play_mode"], 1);
+        assert_eq!(report["quarantine_reasons"]["stable_game_id_collision"], 1);
+
+        let reader = DatasetReader::open(&output_dir).unwrap();
+        assert_eq!(reader.total_games(), 2);
+        let attribution = reader.manifest().source_attribution.as_ref().unwrap();
+        assert_eq!(attribution.filename, "source-attribution.jsonl");
+        assert_eq!(attribution.entry_count, 2);
+        let attribution_sha256 = attribution.sha256.clone();
+        drop(reader);
+
+        let snapshot = codb_storage::resolve_dataset_snapshot(&output_dir).unwrap();
+        let attribution_line =
+            std::fs::read_to_string(snapshot.join("source-attribution.jsonl")).unwrap();
+        assert!(attribution_line.contains("Britbase"));
+        assert!(!attribution_line.contains("Legacy Software Dump"));
+
+        run_build_index(BuildIndexOptions {
+            dataset: &output_dir,
+            depth_plies: Some(4),
+            expected_collection: Some(Collection::MastersOtb),
+            memory_limit_mib: 16,
+            max_merge_fan_in: 4,
+            positions_per_block: 16,
+            zstd_level: 3,
+            json: false,
+        })
+        .unwrap();
+        let indexed_reader = DatasetReader::open(&output_dir).unwrap();
+        assert_eq!(indexed_reader.manifest().total_games, 2);
+        assert_eq!(
+            indexed_reader
+                .manifest()
+                .source_attribution
+                .as_ref()
+                .unwrap()
+                .sha256,
+            attribution_sha256
+        );
+        drop(indexed_reader);
+        run_verify(&output_dir, true).unwrap();
     }
 
     #[test]
@@ -3386,6 +4030,7 @@ mod tests {
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
+            gigabase_source_policy: None,
         })
         .unwrap();
 
@@ -3418,6 +4063,7 @@ mod tests {
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
+            gigabase_source_policy: None,
         })
         .unwrap_err();
         assert!(err_mismatch.to_string().contains("checksum mismatch"));
@@ -3444,6 +4090,7 @@ mod tests {
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
+            gigabase_source_policy: None,
         })
         .unwrap_err();
         assert!(err_malformed.to_string().contains("Malformed SHA-256"));
@@ -3472,6 +4119,7 @@ mod tests {
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
+            gigabase_source_policy: None,
         })
         .unwrap_err();
         assert!(err_missing.to_string().contains("does not exist"));
@@ -3510,6 +4158,7 @@ mod tests {
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
+            gigabase_source_policy: None,
         })
         .unwrap_err();
         assert!(err_altered.to_string().contains("checksum mismatch"));
@@ -3547,6 +4196,7 @@ mod tests {
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
+            gigabase_source_policy: None,
         })
         .unwrap();
 
@@ -3613,6 +4263,7 @@ mod tests {
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
+            gigabase_source_policy: None,
         })
         .unwrap();
 
@@ -3701,6 +4352,7 @@ mod tests {
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
+            gigabase_source_policy: None,
         })
         .unwrap();
 

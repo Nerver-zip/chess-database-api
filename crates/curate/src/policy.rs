@@ -1,4 +1,4 @@
-use codb_core::ParsedGame;
+use codb_core::{GameSourceAttribution, ParsedGame};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,6 +33,17 @@ pub enum PolicyRejectionReason {
     UnverifiedMastersProvenance(String),
     /// Masters OTB only: a pre-1970 game without a named event and venue.
     HistoricalWithoutProvenance,
+    /// Gigabase-specific: source tag is absent or is outside the reviewed source allowlist.
+    UnqualifiedGigabaseSource(Option<String>),
+    /// Gigabase-specific: both player identities are not publisher-labelled Strong/Confirmed.
+    UntrustedGigabasePlayerIdentity {
+        white: Option<String>,
+        black: Option<String>,
+    },
+    /// Gigabase-specific: the PGN explicitly says the game was not over the board.
+    NonOtbGigabaseMode(String),
+    /// Gigabase-specific: the date is pre-1970 and its Elo values are not independently verified.
+    UnverifiedGigabaseHistoricalRating(u16),
 }
 
 impl PolicyRejectionReason {
@@ -64,6 +75,14 @@ impl PolicyRejectionReason {
                 "unresolved_masters_provenance"
             }
             PolicyRejectionReason::HistoricalWithoutProvenance => "historical_without_provenance",
+            PolicyRejectionReason::UnqualifiedGigabaseSource(_) => "unqualified_source",
+            PolicyRejectionReason::UntrustedGigabasePlayerIdentity { .. } => {
+                "untrusted_player_identity"
+            }
+            PolicyRejectionReason::NonOtbGigabaseMode(_) => "non_otb_play_mode",
+            PolicyRejectionReason::UnverifiedGigabaseHistoricalRating(_) => {
+                "unverified_historical_rating"
+            }
         }
     }
 }
@@ -72,11 +91,90 @@ impl PolicyRejectionReason {
 /// the stable categories of [`PolicyRejectionReason::category`].
 pub fn early_filter_category(reason: &str) -> &'static str {
     match reason {
+        "gigabase:unqualified_source" => "unqualified_source",
+        "gigabase:untrusted_player_identity" => "untrusted_player_identity",
+        "gigabase:non_otb_play_mode" => "non_otb_play_mode",
+        "gigabase:unverified_historical_rating" => "unverified_historical_rating",
         "Bullet" | "Bullet TC" => "bullet_or_ultrabullet",
         "Below rating threshold" => "below_rating_threshold",
         r if r.starts_with("Missing rating") => "missing_rating",
         "Aborted or rules infraction" => "aborted_or_infraction",
         _ => "other_policy",
+    }
+}
+
+#[cfg(test)]
+mod gigabase_policy_tests {
+    use super::*;
+
+    fn attribution(mode: Option<&str>, white: &str, black: &str) -> GameSourceAttribution {
+        GameSourceAttribution {
+            source_tag: Some("Britbase".into()),
+            source_quality: Some("1".into()),
+            white_fide_id: Some("123456".into()),
+            black_fide_id: Some("654321".into()),
+            white_identity_evidence: Some(white.into()),
+            black_identity_evidence: Some(black.into()),
+            mode: mode.map(str::to_owned),
+        }
+    }
+
+    fn policy() -> GigabaseOtbPolicy {
+        GigabaseOtbPolicy::new(HashSet::from(["Britbase".to_owned()]))
+    }
+
+    #[test]
+    fn accepts_documented_source_with_trusted_identities_and_missing_mode() {
+        assert!(policy()
+            .evaluate_source_metadata(
+                Some(&attribution(None, "Confirmed", "Strong")),
+                Some("2020.01.01")
+            )
+            .is_ok());
+    }
+
+    #[test]
+    fn rejects_sources_outside_allowlist() {
+        let mut source = attribution(None, "Confirmed", "Confirmed");
+        source.source_tag = Some("Historical Archive".into());
+        let err = policy()
+            .evaluate_source_metadata(Some(&source), Some("2020.01.01"))
+            .unwrap_err();
+        assert_eq!(err.category(), "unqualified_source");
+    }
+
+    #[test]
+    fn rejects_untrusted_identity_and_explicit_non_otb_mode() {
+        let err = policy()
+            .evaluate_source_metadata(
+                Some(&attribution(None, "NoMatch", "Confirmed")),
+                Some("2020.01.01"),
+            )
+            .unwrap_err();
+        assert_eq!(err.category(), "untrusted_player_identity");
+
+        let err = policy()
+            .evaluate_source_metadata(
+                Some(&attribution(
+                    Some("Correspondence"),
+                    "Confirmed",
+                    "Confirmed",
+                )),
+                Some("2020.01.01"),
+            )
+            .unwrap_err();
+        assert_eq!(err.category(), "non_otb_play_mode");
+    }
+
+    #[test]
+    fn rejects_pre_1970_publisher_elo_without_historical_validation() {
+        let err = policy()
+            .evaluate_source_metadata(
+                Some(&attribution(None, "Confirmed", "Confirmed")),
+                Some("1969.??.??"),
+            )
+            .unwrap_err();
+        assert_eq!(err.category(), "unverified_historical_rating");
     }
 }
 
@@ -119,8 +217,103 @@ impl std::fmt::Display for PolicyRejectionReason {
             PolicyRejectionReason::HistoricalWithoutProvenance => {
                 write!(f, "Pre-1970 game without named event and venue")
             }
+            PolicyRejectionReason::UnqualifiedGigabaseSource(source) => {
+                write!(f, "Gigabase source is not approved: {:?}", source)
+            }
+            PolicyRejectionReason::UntrustedGigabasePlayerIdentity { white, black } => write!(
+                f,
+                "Gigabase player identity is not Strong or Confirmed (White: {:?}, Black: {:?})",
+                white, black
+            ),
+            PolicyRejectionReason::NonOtbGigabaseMode(mode) => {
+                write!(
+                    f,
+                    "Gigabase Mode does not establish over-the-board play: {mode}"
+                )
+            }
+            PolicyRejectionReason::UnverifiedGigabaseHistoricalRating(year) => write!(
+                f,
+                "Gigabase historical Elo before 1970 is not independently verified ({year})"
+            ),
         }
     }
+}
+
+/// Additional source gates for a Lumbra's Gigabase OTB build.
+///
+/// This policy is opt-in and does not change the existing Lichess Masters policy. Missing
+/// `Mode` relies on the publisher's OTB-Complete archive assertion; any present mode must
+/// explicitly identify over-the-board play.
+#[derive(Debug, Clone)]
+pub struct GigabaseOtbPolicy {
+    allowed_source_tags: HashSet<String>,
+}
+
+impl GigabaseOtbPolicy {
+    pub fn new(allowed_source_tags: HashSet<String>) -> Self {
+        Self {
+            allowed_source_tags,
+        }
+    }
+
+    pub fn evaluate_source_metadata(
+        &self,
+        source: Option<&GameSourceAttribution>,
+        date: Option<&str>,
+    ) -> Result<(), PolicyRejectionReason> {
+        let source_tag = source.and_then(|metadata| metadata.source_tag.as_deref());
+        if source_tag.is_none_or(|tag| !self.allowed_source_tags.contains(tag)) {
+            return Err(PolicyRejectionReason::UnqualifiedGigabaseSource(
+                source_tag.map(str::to_owned),
+            ));
+        }
+
+        let white_identity =
+            source.and_then(|metadata| metadata.white_identity_evidence.as_deref());
+        let black_identity =
+            source.and_then(|metadata| metadata.black_identity_evidence.as_deref());
+        if !is_trusted_gigabase_identity(white_identity)
+            || !is_trusted_gigabase_identity(black_identity)
+        {
+            return Err(PolicyRejectionReason::UntrustedGigabasePlayerIdentity {
+                white: white_identity.map(str::to_owned),
+                black: black_identity.map(str::to_owned),
+            });
+        }
+
+        if let Some(mode) = source.and_then(|metadata| metadata.mode.as_deref()) {
+            if !is_explicit_otb_mode(mode) {
+                return Err(PolicyRejectionReason::NonOtbGigabaseMode(mode.to_owned()));
+            }
+        }
+
+        if let Some(year) = date
+            .and_then(|date| date.split(['.', '-']).next())
+            .and_then(|year| year.parse::<u16>().ok())
+            .filter(|year| *year < 1970)
+        {
+            return Err(PolicyRejectionReason::UnverifiedGigabaseHistoricalRating(
+                year,
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+fn is_trusted_gigabase_identity(value: Option<&str>) -> bool {
+    value.is_some_and(|value| {
+        value.eq_ignore_ascii_case("Strong") || value.eq_ignore_ascii_case("Confirmed")
+    })
+}
+
+fn is_explicit_otb_mode(value: &str) -> bool {
+    let normalized: String = value
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect();
+    matches!(normalized.as_str(), "otb" | "overtheboard")
 }
 
 /// Masters OTB Inclusion Policy
@@ -505,6 +698,7 @@ mod tests {
                 time_control: tc.map(|s| s.into()),
                 source_id: None,
                 broadcast_url: None,
+                source_attribution: None,
             },
             moves: vec![CompactMove::new(12, 28, None); plies],
             fen_start: None,

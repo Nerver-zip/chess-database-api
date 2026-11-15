@@ -220,6 +220,17 @@ impl GameLocation {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GameSourceAttribution {
+    pub source_tag: Option<String>,
+    pub source_quality: Option<String>,
+    pub white_fide_id: Option<String>,
+    pub black_fide_id: Option<String>,
+    pub white_identity_evidence: Option<String>,
+    pub black_identity_evidence: Option<String>,
+    pub mode: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GameMetadata {
     pub id: u64,
     pub collection: Collection,
@@ -239,6 +250,9 @@ pub struct GameMetadata {
     /// Tournament or broadcast-level URL provenance (e.g. `BroadcastURL`), never conflated with per-game `source_id`.
     #[serde(default)]
     pub broadcast_url: Option<String>,
+    /// Source and identity tags used for curation and sidecar attribution. Not part of CGB3.
+    #[serde(skip)]
+    pub source_attribution: Option<GameSourceAttribution>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

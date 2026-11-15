@@ -34,6 +34,7 @@ fn make_game(
             time_control: Some("5400+30".into()),
             source_id: Some(format!("https://lichess.org/broadcast/test/{}", id)),
             broadcast_url: None,
+            source_attribution: None,
         },
         moves,
         fen_start: None,

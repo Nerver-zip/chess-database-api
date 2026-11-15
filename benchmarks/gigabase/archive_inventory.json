@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "archive": {
+    "filename": "OTB_DATABASE.7z",
+    "relative_path": "data/sources/lumbra/OTB_DATABASE.7z",
+    "format": "7z",
+    "size_bytes": 2570013439,
+    "sha256": "4e4209ccc1870e7fede557aae09b4dd40b721d4697db9b4c272ff0e4fbbdb500",
+    "sha256_kind": "locally_computed",
+    "publisher_sha256_available": false,
+    "packed_stream_crc_metadata_available": false,
+    "full_decompression_check": "passed"
+  },
+  "publisher": {
+    "name": "Lumbra's Gigabase",
+    "product": "OTB Complete",
+    "version": "2026-11-11",
+    "download_page": "https://lumbrasgigabase.com/en/download-area-en/",
+    "sources_page": "https://lumbrasgigabase.com/en/sources/",
+    "licensing_page": "https://lumbrasgigabase.com/en/commercial-licenses-en/",
+    "license": "CC BY-NC 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-nc/4.0/",
+    "publisher_description": "All OTB games as one PGN; contains the other OTB PGN files except LichessBroadcastDB; described as the same data as the database files.",
+    "publisher_game_count": null,
+    "publisher_checksum": null,
+    "publisher_metadata_note": "The publisher page provides neither a game count nor a checksum. Local SHA-256 values are not publisher-authenticated.",
+    "publisher_game_count_claim": "Over 13 million games; no exact count stated.",
+    "publisher_game_count_claim_url": "https://lumbrasgigabase.com/en/"
+  },
+  "members": [
+    {
+      "filename": "LumbrasGigabase_OTB_Complete.pgn",
+      "relative_path": "data/sources/lumbra/extracted/LumbrasGigabase_OTB_Complete.pgn",
+      "type": "regular_file",
+      "size_bytes": 12300428287,
+      "sha256": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
+      "sha256_kind": "locally_computed",
+      "archive_timestamp_utc": "2026-11-11T02:40:59.876535Z"
+    }
+  ],
+  "preliminary_source_tag_scan": {
+    "tag_lines": 13450696,
+    "distinct_values": 17,
+    "unparsed_lines": 0,
+    "method": "ripgrep --no-mmap line scan of lines beginning with [Source; one-pass streaming aggregation of matching lines",
+    "authoritative_game_count": false,
+    "values": {
+      "Legacy Software Dump": 4922559,
+      "Independent Collection": 3882200,
+      "Historical Archive": 2585591,
+      "AnaSchaigorodsky": 675531,
+      "LichessBroadcastAPI": 667945,
+      "Federscacchi": 202743,
+      "GreekBase": 151893,
+      "Britbase": 132832,
+      "DanBase": 122168,
+      "Community Project": 69080,
+      "SchachverbandRuhrgebiet": 17071,
+      "ChessScotland": 16056,
+      "VargaCsabaZoltan": 3307,
+      "NiedersächsischerSchachverband": 870,
+      "NiederrheinischerSchachverband": 607,
+      "CanadianChessFederation": 228,
+      "LEDB": 15
+    }
+  },
+  "inventory_status": "archive integrity and full structural/header inventory verified; a 183,907-game source-qualified local Masters OTB evaluation passed deep verification; public release eligibility remains blocked by missing publisher checksum and unresolved rights",
+  "parser_inventory": {
+    "report_path": "benchmarks/gigabase/INVENTORY.json",
+    "report_sha256": "f916e7ce0ac4ec7ab2abe9d24741d8029dbc4aeefbf2fd1d476a77d5435c11ab",
+    "method": "Streaming codb PGN structural/header inventory with disk-backed SQLite aggregates; no move legality replay.",
+    "records_encountered": 13450696,
+    "records_structurally_parsed": 13450696,
+    "recoverable_syntax_errors": 0,
+    "completion": "clean_eof",
+    "records_with_source_tag": 13450696,
+    "distinct_source_values": 17,
+    "rating_threshold_and_both_identities_strong_or_confirmed": 943493,
+    "same_intersection_in_publisher_documented_rights_or_source_categories": 185547,
+    "is_eligible_game_count": false
+  },
+  "local_evaluation": {
+    "policy_id": "gigabase-otb/2026-11-r1",
+    "accepted_unique_games": 183907,
+    "rejected_by_policy": 13266762,
+    "confirmed_duplicates": 11,
+    "superseded_prior": 1,
+    "quarantined_stable_id_collisions": 15,
+    "deep_verified": true,
+    "production_release_eligible": false,
+    "note": "Move legality is validated for retained candidates; records rejected by header/policy gates were not all replayed."
+  }
+}

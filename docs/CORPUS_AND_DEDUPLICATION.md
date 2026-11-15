@@ -50,6 +50,16 @@ pub struct MastersOtbPolicy {
    - Chess960, Fischer Random, and custom handicap variants are rejected.
    - At least 4 plies (2 full moves) to exclude accidental aborts and trivial forfeits.
 
+#### Opt-in Gigabase source qualification
+
+The CLI has a separate `--gigabase-source-policy` path for local evaluation of Lumbra's Gigabase. It accepts only the exact source-tag set reviewed in [`corpus/gigabase_source_qualification.json`](../corpus/gigabase_source_qualification.json), requires both publisher identity-evidence tags to be `Strong` or `Confirmed`, rejects every explicit `Mode` except `OTB` or `OverTheBoard`, and rejects pre-1970 records pending independent rating validation. Missing `Mode` relies on the publisher's archive-level “OTB Complete” assertion; it is not event-level verification. After these gates, the existing Masters numeric rating thresholds, legal move checks, minimum length, termination checks, and other Masters policy rules still apply.
+
+The ratings in this path are publisher-supplied Elo values. They are not independently verified as official FIDE ratings for each game. The path does not change the existing Masters or Elite policy defaults and is not enabled by the pinned Lichess catalog build.
+
+If a source-qualified candidate collides on stable game ID with a distinct normalized game record, the Gigabase path quarantines that candidate under `stable_game_id_collision`; the count is reported separately and included in accounting. Other deduplication errors remain fatal. This avoids publishing two records under one ID while preserving the existing duplicate and supersession rules.
+
+Accepted source and identity fields are kept in an optional `source-attribution.jsonl` sidecar. The sidecar has a manifest checksum and one sorted record per retained game; deep verification aligns each record's stable game ID with `games.idx`. It is outside CGB3, so the persisted binary layout and existing datasets remain compatible. The sidecar is attribution evidence, not a record-level license grant.
+
 ---
 
 ### 2.2 Elite Online Policy (`EliteOnlinePolicy`)

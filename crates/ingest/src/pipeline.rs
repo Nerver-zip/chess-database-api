@@ -1,6 +1,6 @@
 use codb_core::{Collection, IngestionCompletionStatus, IngestionStats, ParsedGame};
-use codb_curate::dedupe::{Deduplicator, DuplicateVerdict};
-use codb_curate::policy::{EliteOnlinePolicy, MastersOtbPolicy, PolicyVerdict};
+use codb_curate::dedupe::{DedupeError, Deduplicator, DuplicateVerdict};
+use codb_curate::policy::{EliteOnlinePolicy, GigabaseOtbPolicy, MastersOtbPolicy, PolicyVerdict};
 use std::collections::HashSet;
 use std::io::Read;
 use thiserror::Error;
@@ -26,6 +26,15 @@ pub enum PipelineError {
 pub trait GameConsumer {
     fn accept_game(&mut self, game: ParsedGame) -> Result<(), String>;
     fn supersede_game(&mut self, old_id: u64, new_game: ParsedGame) -> Result<(), String>;
+
+    /// Records additional source attribution for a duplicate of the retained canonical game.
+    fn record_duplicate_source(
+        &mut self,
+        _canonical_id: u64,
+        _duplicate_game: ParsedGame,
+    ) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// In-memory consumer for benchmarks, fixtures, and tests.
@@ -66,10 +75,13 @@ pub struct CuratedPipeline<C: GameConsumer> {
     deduplicator: Deduplicator,
     masters_policy: MastersOtbPolicy,
     elite_policy: EliteOnlinePolicy,
+    gigabase_policy: Option<GigabaseOtbPolicy>,
     pub consumer: C,
     pub stats: IngestionStats,
     /// Breakdown of `stats.rejected_by_policy` by stable reason category.
     pub policy_rejection_reasons: std::collections::BTreeMap<String, u64>,
+    /// Breakdown of `stats.quarantined` by stable reason category.
+    pub quarantine_reasons: std::collections::BTreeMap<String, u64>,
     pub transpositions_distinct: u64,
     pub max_games: Option<usize>,
     consecutive_syntax_errors: usize,
@@ -83,9 +95,11 @@ impl<C: GameConsumer> CuratedPipeline<C> {
             deduplicator,
             masters_policy: MastersOtbPolicy::default(),
             elite_policy: EliteOnlinePolicy::default(),
+            gigabase_policy: None,
             consumer,
             stats: IngestionStats::default(),
             policy_rejection_reasons: Default::default(),
+            quarantine_reasons: Default::default(),
             transpositions_distinct: 0,
             max_games: None,
             consecutive_syntax_errors: 0,
@@ -100,6 +114,12 @@ impl<C: GameConsumer> CuratedPipeline<C> {
 
     pub fn with_log_progress(mut self, log: bool) -> Self {
         self.log_progress = log;
+        self
+    }
+
+    /// Applies the source, identity, play-mode, and historical-rating gates for a Gigabase OTB build.
+    pub fn with_gigabase_source_qualification(mut self, policy: GigabaseOtbPolicy) -> Self {
+        self.gigabase_policy = Some(policy);
         self
     }
 
@@ -125,6 +145,9 @@ impl<C: GameConsumer> CuratedPipeline<C> {
         let mut pgn_reader = build_pgn_reader(reader);
         let mut visitor =
             ShakmatyGameVisitor::new(self.collection, 1).with_early_policy_filter(true);
+        if let Some(policy) = self.gigabase_policy.clone() {
+            visitor = visitor.with_gigabase_policy(policy);
+        }
 
         loop {
             // Check if limit reached
@@ -142,9 +165,19 @@ impl<C: GameConsumer> CuratedPipeline<C> {
 
                     match result {
                         Ok(game) => {
-                            let verdict = match self.collection {
-                                Collection::MastersOtb => self.masters_policy.evaluate(&game),
-                                Collection::EliteOnline => self.elite_policy.evaluate(&game),
+                            let verdict = if let Some(policy) = &self.gigabase_policy {
+                                match policy.evaluate_source_metadata(
+                                    game.metadata.source_attribution.as_ref(),
+                                    game.metadata.date.as_deref(),
+                                ) {
+                                    Ok(()) => self.masters_policy.evaluate(&game),
+                                    Err(reason) => PolicyVerdict::Rejected(reason),
+                                }
+                            } else {
+                                match self.collection {
+                                    Collection::MastersOtb => self.masters_policy.evaluate(&game),
+                                    Collection::EliteOnline => self.elite_policy.evaluate(&game),
+                                }
                             };
 
                             if let PolicyVerdict::Rejected(reason) = verdict {
@@ -154,28 +187,50 @@ impl<C: GameConsumer> CuratedPipeline<C> {
                                     .entry(reason.category().to_string())
                                     .or_insert(0) += 1;
                             } else {
-                                match self.deduplicator.evaluate(&game)? {
-                                    DuplicateVerdict::Unique => {
-                                        self.stats.accepted_unique += 1;
-                                        self.consumer
-                                            .accept_game(game)
-                                            .map_err(PipelineError::Consumer)?;
+                                let dedupe_verdict = match self.deduplicator.evaluate(&game) {
+                                    Ok(verdict) => Some(verdict),
+                                    Err(DedupeError::IdCollision { .. })
+                                        if self.gigabase_policy.is_some() =>
+                                    {
+                                        self.stats.quarantined += 1;
+                                        *self
+                                            .quarantine_reasons
+                                            .entry("stable_game_id_collision".to_owned())
+                                            .or_insert(0) += 1;
+                                        None
                                     }
-                                    DuplicateVerdict::TranspositionDifferentGame => {
-                                        self.stats.accepted_unique += 1;
-                                        self.transpositions_distinct += 1;
-                                        self.consumer
-                                            .accept_game(game)
-                                            .map_err(PipelineError::Consumer)?;
-                                    }
-                                    DuplicateVerdict::ConfirmedDuplicate { .. } => {
-                                        self.stats.confirmed_duplicates += 1;
-                                    }
-                                    DuplicateVerdict::SupersedesPrevious { old_id, .. } => {
-                                        self.stats.superseded_prior += 1;
-                                        self.consumer
-                                            .supersede_game(old_id, game)
-                                            .map_err(PipelineError::Consumer)?;
+                                    Err(error) => return Err(PipelineError::Dedupe(error)),
+                                };
+                                if let Some(dedupe_verdict) = dedupe_verdict {
+                                    match dedupe_verdict {
+                                        DuplicateVerdict::Unique => {
+                                            self.stats.accepted_unique += 1;
+                                            self.consumer
+                                                .accept_game(game)
+                                                .map_err(PipelineError::Consumer)?;
+                                        }
+                                        DuplicateVerdict::TranspositionDifferentGame => {
+                                            self.stats.accepted_unique += 1;
+                                            self.transpositions_distinct += 1;
+                                            self.consumer
+                                                .accept_game(game)
+                                                .map_err(PipelineError::Consumer)?;
+                                        }
+                                        DuplicateVerdict::ConfirmedDuplicate {
+                                            canonical_id,
+                                            ..
+                                        } => {
+                                            self.stats.confirmed_duplicates += 1;
+                                            self.consumer
+                                                .record_duplicate_source(canonical_id, game)
+                                                .map_err(PipelineError::Consumer)?;
+                                        }
+                                        DuplicateVerdict::SupersedesPrevious { old_id, .. } => {
+                                            self.stats.superseded_prior += 1;
+                                            self.consumer
+                                                .supersede_game(old_id, game)
+                                                .map_err(PipelineError::Consumer)?;
+                                        }
                                     }
                                 }
                             }

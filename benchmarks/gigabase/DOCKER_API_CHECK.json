@@ -1,0 +1,138 @@
+{
+  "image": {
+    "tag": "codb-gigabase-eval:local",
+    "image_id": "sha256:68ce0ee4e0fa74c149ba7c11f2b913a56e457f31248f714bd1b0234a70a48eb2",
+    "size_bytes": 99263544,
+    "service_container": "codb-gigabase-eval-codb-1"
+  },
+  "service": {
+    "started_at_utc": "2026-11-15T04:22:27.131282913Z",
+    "ready_by_utc": "2026-11-15T04:22:32.339481908Z",
+    "startup_to_ready_seconds": 5.208,
+    "health": "healthy",
+    "oom_killed": false,
+    "memory_limit_bytes": 536870912,
+    "cpu_limit_cores": 2,
+    "root_filesystem_read_only": true,
+    "dataset_mounts_read_only": true,
+    "mount_type": "Docker-managed local named volumes populated by docker cp",
+    "collection_snapshots": [
+      {
+        "collection": "masters-otb",
+        "dataset_version": "codb-masters-otb-1794715589069977685-7428-388d105284a591ff-cpi-d40",
+        "games": 183907
+      },
+      {
+        "collection": "elite-online",
+        "dataset_version": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
+        "games": 429150
+      }
+    ],
+    "codb_process_vm_hwm_kib": 220396,
+    "codb_process_vm_rss_kib_sampled": 218540
+  },
+  "host_integration": {
+    "standard_bind_mount_attempted": true,
+    "standard_bind_mount_result": "unavailable in this Docker-in-Docker environment",
+    "bind_error": "Docker daemon could not resolve workspace source path: bind source path does not exist",
+    "loopback_port_8082_test": "unreachable from the workspace host; Docker daemon is nested",
+    "container_network_client": "curlimages/curl:8.12.1 on codb-shared",
+    "container_network_checks_passed": true
+  },
+  "api": {
+    "readiness": {
+      "collections_loaded": [
+        "masters-otb",
+        "elite-online"
+      ],
+      "status": "ready"
+    },
+    "collections": {
+      "collections": [
+        {
+          "build_timestamp": "2026-11-15T04:06:38Z",
+          "collection": "masters-otb",
+          "cpi_available": true,
+          "cpi_depth_plies": 40,
+          "cpi_total_positions": 3945392,
+          "dataset_version": "codb-masters-otb-1794715589069977685-7428-388d105284a591ff-cpi-d40",
+          "format_version": "CGB3/v1",
+          "total_games": 183907
+        },
+        {
+          "build_timestamp": "2026-11-14T15:27:47Z",
+          "collection": "elite-online",
+          "cpi_available": true,
+          "cpi_depth_plies": 30,
+          "cpi_total_positions": 6136307,
+          "dataset_version": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
+          "format_version": "CGB3/v1",
+          "total_games": 429150
+        }
+      ]
+    },
+    "masters_e4_e5_nf3": {
+      "total_games": 21164,
+      "white_wins": 7163,
+      "draws": 8887,
+      "black_wins": 5114,
+      "dataset_version": "codb-masters-otb-1794715589069977685-7428-388d105284a591ff-cpi-d40",
+      "warm_query_timing": {
+        "samples_seconds": [
+          0.001281,
+          0.000828,
+          0.000834,
+          0.000793,
+          0.000814,
+          0.00086,
+          0.000808,
+          0.00081,
+          0.000772,
+          0.000764
+        ],
+        "sample_count": 10,
+        "min_seconds": 0.000764,
+        "median_seconds": 0.000812,
+        "p95_nearest_rank_seconds": 0.00086,
+        "max_seconds": 0.001281,
+        "method": "sequential warm requests from a persistent curl client container over the Compose network"
+      }
+    },
+    "elite_e4_e5_nf3": {
+      "total_games": 30390,
+      "white_wins": 14325,
+      "draws": 2404,
+      "black_wins": 13661,
+      "dataset_version": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
+      "warm_query_timing": {
+        "samples_seconds": [
+          0.000795,
+          0.000946,
+          0.00088,
+          0.000792,
+          0.000873,
+          0.000788,
+          0.000809,
+          0.000846,
+          0.00145,
+          0.000833
+        ],
+        "sample_count": 10,
+        "min_seconds": 0.000788,
+        "median_seconds": 0.0008395,
+        "p95_nearest_rank_seconds": 0.000946,
+        "max_seconds": 0.00145,
+        "method": "sequential warm requests from a persistent curl client container over the Compose network"
+      }
+    },
+    "masters_game_retrieval": {
+      "response_bytes": 930,
+      "contains_event_header": true,
+      "contains_movetext": true,
+      "resource_lookup_succeeded": true,
+      "game_id_in_public_evidence": false
+    }
+  },
+  "client_image_id": "sha256:5dce198cca467ce79994ed65e01d03882238f9efdd16a8c6f4bc55151c8a4a54",
+  "client_image_repo_digest": "curlimages/curl@sha256:94e9e444bcba979c2ea12e27ae39bee4cd10bc7041a472c4727a558e213744e6"
+}

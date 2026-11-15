@@ -140,6 +140,8 @@ Compose also limits the process to 64 PIDs and 1,024 open files. Adjust limits o
 
 The current real-corpus report is `benchmarks/corpus/docker_real_check.json`. It records a digest-pinned independent client reaching `http://codb:8080`, both release IDs and game counts, the opening baseline (3,902 Masters and 30,390 Elite games for `e4,e5,Nf3`), PGN retrieval from each collection, 96/96 concurrent requests, container restart, graceful SIGTERM, read-only mounts and root filesystem, no published host ports, and failure rejection for missing, wrong, incomplete, and corrupted releases. The Docker image measured 98,871,472 bytes. The test daemon could not access the workspace through bind paths, so this run used read-only named-volume copies; the normal Compose configuration mounts host release roots read-only.
 
+A separate [Gigabase local-evaluation report](../benchmarks/gigabase/FINAL_REPORT.md) records the 2026-11 source-qualified Masters snapshot served beside the unchanged Elite release. That dataset is not release-eligible and the test did not publish or package it. In this Docker-in-Docker environment, the daemon could not resolve workspace bind paths or expose its loopback port to the workspace host; the evaluation used read-only Docker-managed volumes and a separate in-network client container. This is an environment-specific evaluation record, not a replacement for the approved real-release evidence above.
+
 To reproduce after provisioning both real releases:
 
 ~~~bash

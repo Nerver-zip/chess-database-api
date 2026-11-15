@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "policy_id": "gigabase-otb/2026-11-r1",
+  "source_tag_allowlist": [
+    "AnaSchaigorodsky",
+    "Britbase",
+    "CanadianChessFederation",
+    "ChessScotland",
+    "DanBase",
+    "Federscacchi",
+    "GreekBase",
+    "LichessBroadcastAPI",
+    "NiederrheinischerSchachverband",
+    "NiedersächsischerSchachverband",
+    "SchachverbandRuhrgebiet"
+  ],
+  "identity_values_required_for_both_players": [
+    "Confirmed",
+    "Strong"
+  ],
+  "missing_mode_basis": "publisher_otb_complete_assertion",
+  "explicit_mode_policy": "reject_unless_explicit_otb",
+  "pre_1970_policy": "reject_unverified_historical_elo",
+  "rating_semantics": "publisher_supplied_elo_unverified_as_official_fide",
+  "rating_thresholds": {
+    "both_at_least": 2200,
+    "one_at_least": 2400,
+    "other_at_least": 2000
+  },
+  "rights_basis": {
+    "academic": "Publisher identifies AnaSchaigorodsky as CC BY 4.0.",
+    "federations": "Publisher identifies these as federation sources and states its raw-notation facts/public-domain position; this is a publisher claim, not an independent legal opinion.",
+    "lichess_api": "Publisher reports Lichess API data has no specific restrictive license; the Gigabase export remains under CC BY-NC 4.0."
+  },
+  "excluded_source_categories": {
+    "Community Project": "Upstream source and exact license are not enumerated per record.",
+    "Historical Archive": "Publisher says reliable/binding upstream license information is often unavailable.",
+    "Independent Collection": "Publisher says reliable/binding upstream license information is often unavailable.",
+    "LEDB": "Play mode is not established for this source tag; exclude until independently resolved.",
+    "Legacy Software Dump": "Publisher says reliable/binding upstream license information is often unavailable.",
+    "VargaCsabaZoltan": "Player-provided permission for this particular package is not independently documented."
+  },
+  "limitations": [
+    "Missing Mode relies on the publisher's archive-level OTB assertion; it is not independent event-level verification.",
+    "Both player identities must be publisher-labelled Strong or Confirmed; identity confidence does not establish play mode.",
+    "Publisher-supplied Elo values are used with the existing numeric thresholds but are not independently certified as official FIDE ratings for each game.",
+    "Games dated before 1970 are excluded until historical rating values can be independently validated.",
+    "The overall Gigabase license is CC BY-NC 4.0; a public or commercial Evalis integration requires separate terms."
+  ]
+}

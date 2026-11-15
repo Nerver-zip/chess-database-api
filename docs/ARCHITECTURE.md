@@ -224,14 +224,15 @@ flowchart TD
     CAT["corpus/catalog.json<br/>pinned sources, licenses, publisher SHA-256"] --> FETCH["scripts/corpus.py fetch<br/>HTTPS, resume, retry, checksum, atomic finalize"]
     FETCH --> SRC["data/sources/&lt;collection&gt;/*.pgn.zst<br/>(git-ignored)"]
     SRC --> BUILD["codb build --manifest<br/>policy, dedupe, CGB3"]
-    BUILD --> INDEX["codb build-index<br/>CPI v2, bounded memory"]
+    BUILD --> ATTR["Optional Gigabase source-attribution JSONL<br/>separate from CGB3"]
+    ATTR --> INDEX["codb build-index<br/>CPI v2, bounded memory"]
     INDEX --> VERIFY["codb verify --deep<br/>codb report"]
     VERIFY --> PUBLISH["codb publish<br/>complete immutable version + atomic current symlink"]
     PUBLISH --> PKG["corpus.py package<br/>verifiable .tar + SHA-256"]
     PUBLISH --> SERVE["codb serve (both collections)"]
 ```
 
-The orchestration adds no binary format and does not reimplement ingestion, curation, deduplication, storage, or index semantics. It builds in a private data/work/ workspace, deeply verifies a complete candidate, moves the immutable version under the stable data/releases/<collection>/versions/ root, and atomically replaces the relative current symlink. Previous versions remain in place for readers pinned to an older snapshot. See [CORPUS_BUILD.md](CORPUS_BUILD.md).
+The orchestration adds no binary format and does not reimplement ingestion, curation, deduplication, storage, or index semantics. It builds in a private data/work/ workspace, deeply verifies a complete candidate, moves the immutable version under the stable data/releases/<collection>/versions/ root, and atomically replaces the relative current symlink. Previous versions remain in place for readers pinned to an older snapshot. The opt-in Gigabase qualification path registers source tags and identity evidence in a checksummed JSONL sidecar; CGB3, CPI v2, and `games.idx` layouts are unchanged. See [CORPUS_BUILD.md](CORPUS_BUILD.md) and [DATA_CONTRACTS.md](DATA_CONTRACTS.md#4-dataset-manifest-contract-manifestjson).
 
 ---
 

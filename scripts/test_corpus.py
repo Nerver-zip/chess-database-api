@@ -22,6 +22,7 @@ import sys
 import tarfile
 import tempfile
 import threading
+import types
 import unittest
 from unittest import mock
 from pathlib import Path
@@ -303,6 +304,113 @@ class CatalogTests(unittest.TestCase):
     def test_unknown_profile_rejected(self):
         with self.assertRaisesRegex(corpus.CorpusError, "no profile"):
             corpus.select_sources(make_catalog([self.entry()]), "elite-online", "nope")
+
+
+class LocalArchiveExtractionTests(unittest.TestCase):
+    def install_fake_py7zr(self, member_records, payload: bytes):
+        class FakeArchive:
+            def __init__(self, _archive_path, mode):
+                if mode != "r":
+                    raise AssertionError("archive should be opened read-only")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, _type, _value, _traceback):
+                return False
+
+            def list(self):
+                return member_records
+
+            def extract(self, path, targets):
+                if targets != [member_records[0].filename]:
+                    raise AssertionError("only the selected member should be extracted")
+                (Path(path) / targets[0]).write_bytes(payload)
+
+        fake = types.SimpleNamespace(SevenZipFile=FakeArchive, __version__="test-1")
+        return mock.patch.dict(sys.modules, {"py7zr": fake})
+
+    @staticmethod
+    def member(
+        name="source.pgn",
+        *,
+        size=4,
+        compressed=4,
+        is_file=True,
+        is_directory=False,
+        is_symlink=False,
+        archivable=True,
+    ):
+        return types.SimpleNamespace(
+            filename=name,
+            uncompressed=size,
+            compressed=compressed,
+            is_file=is_file,
+            is_directory=is_directory,
+            is_symlink=is_symlink,
+            archivable=archivable,
+        )
+
+    def test_extracts_one_member_and_marks_hashes_local_only(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            archive = root / "input.7z"
+            archive.write_bytes(b"local archive bytes")
+            output = root / "source.pgn"
+            member = self.member()
+            with self.install_fake_py7zr([member], b"PGN\n"):
+                record = corpus.extract_local_7z(archive, "source.pgn", output)
+
+            self.assertEqual(output.read_bytes(), b"PGN\n")
+            self.assertEqual(record["archive_sha256_local"], sha(b"local archive bytes"))
+            self.assertEqual(record["member_sha256_local"], sha(b"PGN\n"))
+            self.assertIsNone(record["publisher_checksum"])
+            self.assertFalse(record["publisher_checksum_verified"])
+            self.assertFalse(record["release_eligible"])
+            self.assertTrue(Path(record["record_path"]).is_file())
+            self.assertFalse(Path(record["record_path"]).is_symlink())
+
+    def test_rejects_path_traversal_symlinks_and_multiple_members(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            archive = root / "input.7z"
+            archive.write_bytes(b"archive")
+            output = root / "source.pgn"
+            cases = [
+                [self.member(name="../source.pgn")],
+                [self.member(is_file=False, is_symlink=True)],
+                [self.member(), self.member(name="other.pgn")],
+            ]
+            for records in cases:
+                with self.subTest(records=records):
+                    with self.install_fake_py7zr(records, b"PGN\n"):
+                        with self.assertRaises(corpus.CorpusError):
+                            corpus.extract_local_7z(archive, "source.pgn", output)
+                    self.assertFalse(output.exists())
+
+    def test_rejects_expansion_limit_and_hash_mismatch_without_publication(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            archive = root / "input.7z"
+            archive.write_bytes(b"archive")
+            output = root / "source.pgn"
+            member = self.member(size=5, compressed=5)
+            with self.install_fake_py7zr([member], b"PGN\n"):
+                with self.assertRaises(corpus.CorpusError):
+                    corpus.extract_local_7z(
+                        archive, "source.pgn", output, max_expanded_bytes=4
+                    )
+            self.assertFalse(output.exists())
+
+            with self.install_fake_py7zr([self.member()], b"PGN\n"):
+                with self.assertRaises(corpus.ChecksumMismatch):
+                    corpus.extract_local_7z(
+                        archive,
+                        "source.pgn",
+                        output,
+                        expected_member_sha256="0" * 64,
+                    )
+            self.assertFalse(output.exists())
 
 
 class ExportParserTests(unittest.TestCase):

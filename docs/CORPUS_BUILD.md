@@ -8,7 +8,7 @@ status: current
 
 This document is the operational counterpart of CORPUS_AND_DEDUPLICATION.md (what is accepted), LICENSING.md (what may be redistributed), and ARCHITECTURE.md (where the tooling sits). It covers pinned source builds, event qualification, package bootstrap, and serving through codb or Docker Compose.
 
-The orchestration (`scripts/corpus.sh` → `scripts/corpus.py`, Python standard library only) never reimplements ingestion, curation, deduplication, indexing, or publication. It invokes `codb build`, `codb build-index`, `codb verify --deep`, and `codb report`.
+The orchestration (`scripts/corpus.sh` → `scripts/corpus.py`) never reimplements ingestion, curation, deduplication, indexing, or publication. The pinned-source workflow uses only the Python standard library; the opt-in local `.7z` extraction command uses the pinned optional dependency in `scripts/requirements-corpus-archive.txt`. The tool invokes `codb build`, `codb build-index`, `codb verify --deep`, and `codb report` for catalog releases.
 
 ## 1. Pipeline
 
@@ -35,7 +35,7 @@ data/releases/<collection>/ { versions/<id>/, current, RELEASE/ }
 | Requirement | Notes |
 | :--- | :--- |
 | Rust stable toolchain | `cargo build --release -p codb-cli` produces `target/release/codb`. |
-| Python 3.11+ | Standard library only; no `pip install`. |
+| Python 3.11+ | Standard library for the pinned catalog workflow. Install `scripts/requirements-corpus-archive.txt` only when using local `.7z` extraction. |
 | Network | HTTPS to `database.lichess.org`. Offline verification (`--offline`, `verify-sources`) needs none. |
 | Disk | See §3. The data directory defaults to `./data` (git-ignored); override with `--data-dir` or `CODB_DATA_DIR`. The tool refuses a data directory inside the repository unless it is under a git-ignored directory. |
 | Memory | Indexing honors `--memory-limit-mib` (default 128). Measured peaks are in §9. |
@@ -91,6 +91,23 @@ Pinned archives live in profiles. `baseline` is the delivered corpus; add furthe
 | `elite-online` | Lichess standard rated games, `database.lichess.org/standard/` | CC0 1.0 | 2015-09, 2015-12, 2016-03, 2016-06, 2016-09, 2016-12, 2017-03 (seven complete monthly archives) |
 
 No other source is approved. TWIC, PGN Mentor, Caissabase, KingBase, commercial databases, and community mirrors are excluded because their redistribution rights or upstream provenance cannot be established ([LICENSING.md](LICENSING.md)).
+
+### 4.3 User-supplied local `.7z` archives
+
+An archive supplied directly by a user can be inventoried and extracted for local evaluation without being added to `corpus/catalog.json`:
+
+```bash
+python3 -m pip install -r scripts/requirements-corpus-archive.txt
+./scripts/corpus.sh --data-dir data extract-local-7z \
+    --archive data/sources/lumbra/OTB_DATABASE.7z \
+    --member LumbrasGigabase_OTB_Complete.pgn \
+    --output data/sources/lumbra/extracted/LumbrasGigabase_OTB_Complete.pgn \
+    --max-expanded-bytes 68719476736 \
+    --expected-local-archive-sha256 <locally-recorded-hash> \
+    --expected-member-sha256 <locally-recorded-hash>
+```
+
+The command requires one regular member with a plain basename, checks the declared expansion size and compression ratio, extracts into a private temporary directory, confirms the actual size, hashes both archive and member, then atomically installs the output and a `*.local-source.json` record. Archive paths, directories, links, multiple members, output overwrites, and size-limit violations fail closed. The two optional hash arguments pin prior **local computations**; they do not become publisher checksums. The record marks `publisher_checksum_verified: false` and `release_eligible: false`. This local-only path does not bypass catalog rules: a source without a publisher checksum or an approved collection license cannot enter a corpus release.
 
 ### 4.2 Source qualification and its limits
 

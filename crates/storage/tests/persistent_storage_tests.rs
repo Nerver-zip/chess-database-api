@@ -3,9 +3,9 @@ use codb_core::{
     IngestionCompletionStatus, IngestionStats, ParsedGame,
 };
 use codb_storage::{
-    verify_dataset, CurationPolicyMetadata, DatasetReader, DatasetWriter, DatasetWriterConfig,
-    GameLookupReader, GameLookupWriter, ShardReader, ShardWriter, SourceArchiveMetadata,
-    StorageError,
+    compute_file_sha256, resolve_dataset_snapshot, verify_dataset, CurationPolicyMetadata,
+    DatasetReader, DatasetWriter, DatasetWriterConfig, FileChecksumMetadata, GameLookupReader,
+    GameLookupWriter, ShardReader, ShardWriter, SourceArchiveMetadata, StorageError,
 };
 use std::fs::File;
 use std::io::Write;
@@ -45,6 +45,7 @@ fn sample_game(id_seed: u64, collection: Collection, white: &str, black: &str) -
             time_control: Some("5400+30".into()),
             source_id: Some(format!("game-{}", id_seed)),
             broadcast_url: Some("https://lichess.org/broadcast/tata-steel-2025".into()),
+            source_attribution: None,
         },
         moves,
         fen_start: None,
@@ -234,6 +235,130 @@ fn test_dataset_writer_reader_multi_block_multi_shard_and_retrieval() {
     assert!(report.checksums_valid);
     assert!(report.accounting_reconciled);
     assert!(report.deep_verification_passed);
+}
+
+#[test]
+fn test_source_attribution_sidecar_is_published_and_checksum_verified() {
+    let tmp = tempdir().unwrap();
+    let target_dir = tmp.path().join("attributed_dataset");
+    let mut writer =
+        DatasetWriter::new(target_dir.clone(), DatasetWriterConfig::default()).unwrap();
+    let game = sample_game(700, Collection::MastersOtb, "Player A", "Player B");
+    let game_id = game.metadata.id;
+    writer.push_game(game).unwrap();
+
+    let sidecar_path = writer.staging_directory().join("source-attribution.jsonl");
+    let record = serde_json::json!({
+        "schema_version": 1,
+        "game_id": game_id,
+        "source_attributions": [{
+            "source_tag": "Britbase",
+            "source_quality": "3",
+            "white_fide_id": "1001",
+            "black_fide_id": "1002",
+            "white_identity_evidence": "Strong",
+            "black_identity_evidence": "Confirmed",
+            "mode": null
+        }]
+    });
+    let mut sidecar = File::create(&sidecar_path).unwrap();
+    serde_json::to_writer(&mut sidecar, &record).unwrap();
+    sidecar.write_all(b"\n").unwrap();
+    sidecar.sync_all().unwrap();
+    drop(sidecar);
+    let metadata = FileChecksumMetadata {
+        filename: "source-attribution.jsonl".into(),
+        file_size_bytes: std::fs::metadata(&sidecar_path).unwrap().len(),
+        sha256: compute_file_sha256(&sidecar_path).unwrap(),
+        entry_count: 1,
+    };
+    let stats = IngestionStats {
+        total_encountered: 1,
+        accepted_unique: 1,
+        confirmed_duplicates: 0,
+        superseded_prior: 0,
+        rejected_by_policy: 0,
+        rejected_variant: 0,
+        rejected_illegal: 0,
+        rejected_malformed: 0,
+        quarantined: 0,
+        completion_status: IngestionCompletionStatus::CompleteEof,
+    };
+
+    let manifest = writer
+        .finalize_with_source_attribution(stats, Vec::new(), Some(metadata))
+        .unwrap();
+    assert_eq!(
+        manifest.total_physical_bytes,
+        manifest.shards[0].file_size_bytes
+            + manifest.lookup_table.file_size_bytes
+            + manifest
+                .source_attribution
+                .as_ref()
+                .unwrap()
+                .file_size_bytes
+    );
+    assert_eq!(verify_dataset(&target_dir, true).unwrap().status, "PASS");
+
+    let snapshot_dir = resolve_dataset_snapshot(&target_dir).unwrap();
+    let published_sidecar = snapshot_dir.join("source-attribution.jsonl");
+    let mut corrupted = std::fs::OpenOptions::new()
+        .append(true)
+        .open(&published_sidecar)
+        .unwrap();
+    corrupted.write_all(b" ").unwrap();
+    drop(corrupted);
+
+    let error = verify_dataset(&target_dir, false).unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("Source attribution size mismatch"));
+}
+
+#[test]
+fn test_source_attribution_deep_verification_matches_lookup_ids() {
+    let tmp = tempdir().unwrap();
+    let target_dir = tmp.path().join("misattributed_dataset");
+    let mut writer =
+        DatasetWriter::new(target_dir.clone(), DatasetWriterConfig::default()).unwrap();
+    let game = sample_game(701, Collection::MastersOtb, "Player A", "Player B");
+    writer.push_game(game).unwrap();
+
+    let sidecar_path = writer.staging_directory().join("source-attribution.jsonl");
+    let record = serde_json::json!({
+        "schema_version": 1,
+        "game_id": 1,
+        "source_attributions": [{"source_tag": "Britbase"}]
+    });
+    let mut sidecar = File::create(&sidecar_path).unwrap();
+    serde_json::to_writer(&mut sidecar, &record).unwrap();
+    sidecar.write_all(b"\n").unwrap();
+    sidecar.sync_all().unwrap();
+    drop(sidecar);
+    let metadata = FileChecksumMetadata {
+        filename: "source-attribution.jsonl".into(),
+        file_size_bytes: std::fs::metadata(&sidecar_path).unwrap().len(),
+        sha256: compute_file_sha256(&sidecar_path).unwrap(),
+        entry_count: 1,
+    };
+    let stats = IngestionStats {
+        total_encountered: 1,
+        accepted_unique: 1,
+        confirmed_duplicates: 0,
+        superseded_prior: 0,
+        rejected_by_policy: 0,
+        rejected_variant: 0,
+        rejected_illegal: 0,
+        rejected_malformed: 0,
+        quarantined: 0,
+        completion_status: IngestionCompletionStatus::CompleteEof,
+    };
+
+    let error = writer
+        .finalize_with_source_attribution(stats, Vec::new(), Some(metadata))
+        .unwrap_err();
+    assert!(error.to_string().contains("does not match games.idx ID"));
+    assert!(!target_dir.join("current").exists());
 }
 
 #[test]

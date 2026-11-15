@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "evaluation_status": "complete_local_evaluation_not_release_eligible",
+  "release_eligible": false,
+  "production_published": false,
+  "source": {
+    "publisher": "Lumbra's Gigabase",
+    "product": "OTB Complete",
+    "publisher_version": "2026-11-11",
+    "publisher_claimed_license": "CC BY-NC 4.0",
+    "archive_filename": "OTB_DATABASE.7z",
+    "archive_size_bytes": 2570013439,
+    "archive_sha256_local": "4e4209ccc1870e7fede557aae09b4dd40b721d4697db9b4c272ff0e4fbbdb500",
+    "pgn_filename": "LumbrasGigabase_OTB_Complete.pgn",
+    "pgn_size_bytes": 12300428287,
+    "pgn_sha256_local": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
+    "publisher_checksum_available": false,
+    "publisher_exact_game_count_available": false,
+    "rights_note": "Source-level upstream rights remain unresolved; local evaluation only.",
+    "archive_inventory_path": "archive_inventory.json"
+  },
+  "inventory": {
+    "records_encountered": 13450696,
+    "structurally_parsed": 13450696,
+    "recoverable_syntax_errors": 0,
+    "clean_eof": true,
+    "method": "Streaming PGN header inventory; it does not replay every record.",
+    "report_sha256": "f916e7ce0ac4ec7ab2abe9d24741d8029dbc4aeefbf2fd1d476a77d5435c11ab",
+    "record_level_examples_included": false
+  },
+  "policy": {
+    "path": "corpus/gigabase_source_qualification.json",
+    "sha256": "5d3577f4fc15b240e41c20c818a611db51f8929f00f1bdbbe41a77b5d1d33e39",
+    "policy_id": "gigabase-otb/2026-11-r1",
+    "approved_source_tag_count": 11,
+    "source_tags_retained": {
+      "AnaSchaigorodsky": 24051,
+      "Britbase": 10479,
+      "CanadianChessFederation": 18,
+      "ChessScotland": 495,
+      "DanBase": 3989,
+      "Federscacchi": 4305,
+      "GreekBase": 19748,
+      "LichessBroadcastAPI": 120753,
+      "NiederrheinischerSchachverband": 1,
+      "NiedersächsischerSchachverband": 20,
+      "SchachverbandRuhrgebiet": 48
+    },
+    "missing_mode_basis": "Publisher OTB Complete assertion; not independent event-level verification.",
+    "identity_gate": "Both players must be Strong or Confirmed.",
+    "rating_gate": "Existing numeric thresholds applied to publisher-supplied Elo, not independently certified as official FIDE ratings.",
+    "historical_gate": "Pre-1970 games rejected.",
+    "rights_gate": "No public redistribution or production use cleared."
+  },
+  "build": {
+    "reproducible_command_template": "codb build --input data/sources/lumbra/extracted/LumbrasGigabase_OTB_Complete.pgn --collection masters-otb --gigabase-source-policy corpus/gigabase_source_qualification.json --output data/work/gigabase-eval/dataset --report-json data/work/gigabase-eval/build_report.json",
+    "duration_seconds": 143.685752969,
+    "process_peak_rss_kib": 17456,
+    "accounting": {
+      "accepted_unique": 183907,
+      "completion_status": "CompleteEof",
+      "confirmed_duplicates": 11,
+      "quarantined": 15,
+      "rejected_by_policy": 13266762,
+      "rejected_illegal": 0,
+      "rejected_malformed": 0,
+      "rejected_variant": 0,
+      "superseded_prior": 1,
+      "total_encountered": 13450696
+    },
+    "policy_rejection_reasons": {
+      "below_rating_threshold": 521056,
+      "missing_rating": 213,
+      "non_otb_play_mode": 50,
+      "online_event_in_masters_source": 1385,
+      "unqualified_source": 11462752,
+      "untrusted_player_identity": 1280905,
+      "unverified_historical_rating": 401
+    },
+    "quarantine_reasons": {
+      "stable_game_id_collision": 15
+    },
+    "local_checksum_semantics": "The manifest records checksum_verified=true for locally checked bytes. The publisher supplied no checksum; this is not publisher authentication."
+  },
+  "position_index": {
+    "reproducible_command_template": "codb build-index --dataset data/work/gigabase-eval/dataset --collection masters-otb --depth-plies 40 --memory-limit-mib 128 --json",
+    "memory_limit_mib": 128,
+    "process_peak_rss_kib": 126064,
+    "peak_temporary_bytes": 130961894,
+    "duration_ms": 12722,
+    "games_indexed": 183907,
+    "raw_observations": 7206177,
+    "repeated_positions_skipped": 8867,
+    "unique_positions": 3945392,
+    "unique_position_move_pairs": 4192157,
+    "runs_generated": 2,
+    "merge_passes": 1,
+    "cpi_size_bytes": 84083869,
+    "cpi_sha256": "01a38072ce7e07875373b9d6ce4a467082f2442e208df37ea62c55076b7c6ce8"
+  },
+  "dataset": {
+    "build_id": "codb-masters-otb-1794715589069977685-7428-388d105284a591ff-cpi-d40",
+    "collection": "masters-otb",
+    "games": 183907,
+    "total_physical_bytes": 169136912,
+    "format_version": "CGB3/v1",
+    "cpi_version": "CPI/v2",
+    "cpi_depth_plies": 40,
+    "unique_positions": 3945392,
+    "shards": [
+      {
+        "shard_id": 0,
+        "filename": "shard_0000.cgb3",
+        "file_size_bytes": 32287746,
+        "sha256": "713321e93357d929b07d5405cf69baa3b4a03f62d7785331ccb4e6bc3371402c",
+        "block_count": 360,
+        "game_count": 183907
+      }
+    ],
+    "lookup_table": {
+      "filename": "games.idx",
+      "file_size_bytes": 2942576,
+      "sha256": "d530ac939720d270864b9fb0ec475db3a27cb3dcf354a2f3a9a0684decf36b88",
+      "entry_count": 183907
+    },
+    "source_attribution": {
+      "filename": "source-attribution.jsonl",
+      "file_size_bytes": 49822721,
+      "sha256": "3eecd9fb393396cfdbcbd3aa703b0cdcd5bf85b780689e45d85ff2e791ba94a1",
+      "entry_count": 183907
+    },
+    "deep_verify_passed": true,
+    "quality_report": "QUALITY_REPORT.json",
+    "quality_report_sha256": "b37265e289c5400f511e06ae29a88390750dc2e6d5207facc412f7fb34deabf9",
+    "version_directory_bytes_including_manifest": 169139860,
+    "manifest_file_size_bytes": 2948
+  },
+  "independent_rebuild": {
+    "completed": true,
+    "deep_verify_passed": true,
+    "deterministic_content_match": true,
+    "compared_fields": [
+      "accounting",
+      "collection",
+      "curation policy",
+      "policy and quarantine reasons",
+      "source archives",
+      "source attribution",
+      "games.idx",
+      "CGB3 shard hashes",
+      "CPI hash and statistics",
+      "total games",
+      "total physical bytes"
+    ],
+    "build_ids_and_build_timestamps_differ_as_expected": true,
+    "build_id": "codb-masters-otb-1794716076611874293-7628-d7c2bf1261c928a3-cpi-d40",
+    "comparison_file": "INDEPENDENT_REBUILD.json",
+    "compared_manifest_fields": [
+      "accounting",
+      "collection",
+      "curation_policy",
+      "deduplication_policy_version",
+      "lookup_table",
+      "position_index",
+      "shards",
+      "source_archives",
+      "source_attribution",
+      "total_games",
+      "total_physical_bytes"
+    ],
+    "compared_build_report_fields": [
+      "accounting",
+      "collection",
+      "gigabase_source_policy",
+      "is_reconciled",
+      "policy_rejection_reasons",
+      "quarantine_reasons",
+      "retained_matches_accepted",
+      "source_archives",
+      "total_games",
+      "total_physical_bytes"
+    ]
+  },
+  "unchanged_local_baselines": {
+    "masters_otb": {
+      "dataset_build_id": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
+      "games": 29640,
+      "deployed_tree_bytes": 29892368
+    },
+    "elite_online": {
+      "dataset_build_id": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
+      "games": 429150,
+      "deployed_tree_bytes": 210308033
+    },
+    "modified_by_evaluation": false
+  },
+  "docker_api_check": "DOCKER_API_CHECK.json",
+  "limitations": [
+    "The source archive has no publisher checksum or exact publisher game count.",
+    "Source tags and player identity evidence do not independently prove legal provenance or OTB play at each event.",
+    "The publisher-supplied Elo values are not independently certified as official FIDE ratings.",
+    "Policy-rejected records were not all replayed for move legality; accepted records passed the existing legal-move ingestion path.",
+    "The Docker-in-Docker daemon could not bind-mount the workspace or expose its debug port back to the host; named volumes and an in-network client were used.",
+    "No approved package or public release was created because the source is not release-eligible."
+  ],
+  "toolchain": {
+    "rustc": "rustc 1.100.0 (0ef1bc386 2026-11-09)",
+    "cargo": "cargo 1.100.0 (3acc79c0c 2026-11-05)",
+    "build_container_id": "b56995429fced3af05f0ba9d8c367967802e27538733228ca6701f06bc11e63b",
+    "build_container_id_kind": "Docker container ID"
+  },
+  "docker_api_check_sha256": "836f4fb092cc3aa0113d4c99fbfb8cb14d55d6f4ae94a6cd87e905946b0fdfd3",
+  "validation": {
+    "command": "./scripts/validate.sh",
+    "result": "passed",
+    "gates_passed": 8,
+    "rustc": "rustc 1.100.0 (0ef1bc386 2026-11-09)",
+    "date": "2026-11-15"
+  }
+}

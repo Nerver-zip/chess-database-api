@@ -66,6 +66,7 @@ The reference Opening Explorer developed by Lichess (`lila-openingexplorer`) is 
 | **Caissabase** | Caissabase.co.uk | Ambiguous (TWIC derivative) | High legal risk | ~5.0 Million | Mixed / FIDE | **Excluded** |
 | **KingBase 2019** | Community mirror | Ambiguous / CC BY-SA claimed | Upstream provenance unverified | ~2.2 Million | FIDE Elo | **Excluded / Deferred** |
 | **FIDE Official PGN Relays** | FIDE | Proprietary / Terms vary | Requires event-by-event permission | Varies | FIDE Elo | **Requires Explicit Permission** |
+| **Lumbra's Gigabase OTB Complete** | Lumbra's Gigabase | Publisher claims CC BY-NC 4.0; heterogeneous upstream records | Not approved for redistribution; source-level rights are not cleared | >13 million (publisher claim) | Publisher-supplied Elo | **Excluded from the approved catalog; local evaluation only** |
 
 ---
 
@@ -92,6 +93,12 @@ Every release produced by `scripts/corpus.sh build` carries its own legal notice
 Release archives produced by `corpus.sh package` include these files unchanged. The license statements for the two Lichess sources are taken from [database.lichess.org](https://database.lichess.org/) and recorded in `corpus/catalog.json` (`licenses.*.statement_source`). The catalog refuses to fetch or build from any source whose license is not marked `approved` or is not in the collection's `allowed_licenses`. **This is an engineering control, not legal advice**: whether statistical aggregates (the CPI index) count as an adaptation for ShareAlike purposes should be confirmed by the distributing party. The conservative position, adopted by the release notice, is to treat the Masters CPI as covered.
 
 A locally generated release is not a published release: no dataset in this repository has been uploaded to any hosting destination. Operators deploying the Docker service must still provide the Masters attribution and preserve the release license notices; containerization does not change dataset terms. See [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) for the operator workflow.
+
+### 4.4 Lumbra's Gigabase local evaluation
+
+The [publisher's download page](https://lumbrasgigabase.com/en/download-area-en/) describes an OTB Complete edition and does not publish a source archive checksum. The [publisher's source catalog](https://lumbrasgigabase.com/en/sources/) identifies heterogeneous upstream categories, including Legacy Software Dump, Independent Collection, and Historical Archive records for which reliable original licensing information is often unavailable. The [commercial terms page](https://lumbrasgigabase.com/en/commercial-licenses-en/) describes limited internal development or closed-beta use and separate terms for commercial use. These are publisher statements, not independent rights clearance.
+
+The local `.7z` extraction path records hashes computed from the supplied archive and its extracted PGN. It marks those hashes as local, leaves `publisher_checksum` empty, and marks the record ineligible for a corpus release. The optional Gigabase curation policy is for local evaluation only. Neither a `Source` tag nor the publisher's aggregate license statement establishes redistribution permission for every included upstream record. Do not publish a Gigabase-derived dataset, Docker package, or public Evalis integration until the publisher terms and unresolved upstream rights are cleared. The existing approved Masters release remains the separate Lichess CC BY-SA dataset.
 
 ---
 

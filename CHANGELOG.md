@@ -7,6 +7,14 @@ All notable changes to `chess-openings-db` are documented in this file. The proj
 ## [Unreleased]
 
 ### Added
+- **PR #7: Local Gigabase source qualification and evaluation (Draft PR):**
+  - A streaming structural/header inventory for the supplied OTB Complete archive, with local archive/member hashes kept distinct from publisher authentication.
+  - An opt-in Masters-only source policy requiring a reviewed `Source` tag, Strong/Confirmed identity evidence for both players, and explicit rejection of non-OTB modes and pre-1970 records.
+  - A checksummed `source-attribution.jsonl` sidecar that records source and identity evidence per retained game without changing CGB3, CPI v2, or `games.idx` layouts.
+  - Source-qualified stable game ID collisions are quarantined and counted in the optional policy's accounting report; existing collection deduplication behavior remains unchanged.
+  - `corpus.sh extract-local-7z` for one-member extraction through pinned py7zr, with traversal/link rejection and expansion limits. Its output remains local-only and marked ineligible for a catalog release without a publisher checksum and approved rights.
+  - Completed a full local evaluation: 13,450,696 records accounted for, 183,907 retained games, a deterministic independent rebuild, deep verification, a 40-ply CPI, and Docker API queries against the isolated Masters snapshot and unchanged Elite release. See `benchmarks/gigabase/FINAL_REPORT.md`.
+  - No approved package or public release was created. Publisher checksum and upstream-rights gaps remain unresolved; the result is not cleared for public Evalis deployment.
 - **Reproducible corpus release workflow (PR-A):**
   - `corpus/catalog.json`: pinned source catalog (publisher, URL, archive period, license, expected size, publisher SHA-256, verified SHA-256, acquisition timestamp, provenance confidence, eligibility, notes) for the Lichess broadcast (CC BY-SA 4.0) and standard rated (CC0 1.0) archives.
   - `scripts/corpus.py` / `scripts/corpus.sh`: `plan`, `sources`, `fetch`, `verify-sources`, `pin`, `build`, `verify`, `report`, `package`, `verify-package`, `serve`, `http-check`. Resumable HTTPS downloads with retry/backoff, publisher-checksum verification, atomic finalization, disk-space and size safety limits, offline verification; builds in a private workspace with deep verification before atomic promotion; deterministic release packaging.

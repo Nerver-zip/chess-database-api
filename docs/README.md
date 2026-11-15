@@ -14,9 +14,9 @@ Welcome to the canonical technical documentation for `chess-openings-db`. Always
 
 - [System Architecture](ARCHITECTURE.md) — Comprehensive end-to-end architecture across all seven crates (`core`, `ingest`, `curate`, `storage`, `index`, `api`, `cli`), data flow, sharding layout, advisory locking, and memory bounds.
 - [Docker Deployment](DOCKER_DEPLOYMENT.md) — Provision verified releases, run the API with read-only mounts, and connect another container over a shared network.
-- [Corpus Build & Release Procedure](CORPUS_BUILD.md) — Step-by-step reproducible workflow from the pinned source catalog through checksum-verified acquisition, curated builds, CPI indexing, deep verification, release packaging, `codb serve`, and HTTP validation; resource requirements, license obligations, and failure recovery.
+- [Corpus Build & Release Procedure](CORPUS_BUILD.md) — Step-by-step reproducible workflow from the pinned source catalog through checksum-verified acquisition, curated builds, CPI indexing, deep verification, release packaging, `codb serve`, and HTTP validation; also documents local-only `.7z` extraction and its release restrictions.
 - [Data Contracts](DATA_CONTRACTS.md) — Normative binary format specifications for CGB3 containers (`shard_XXXX.cgb3`), global binary search index (`games.idx`), Compact Position Index (`positions.cpi`), domain models, and the current HTTP API payload schema.
-- [Corpus & Deduplication Policy](CORPUS_AND_DEDUPLICATION.md) — Rules governing collection segregation (`masters-otb` vs `elite-online`), rating isolation, speed category filtering, multi-key deduplication, prefix-supersession, and accounting reconciliation invariants.
+- [Corpus & Deduplication Policy](CORPUS_AND_DEDUPLICATION.md) — Rules governing collection segregation (`masters-otb` vs `elite-online`), rating isolation, speed category filtering, multi-key deduplication, prefix-supersession, accounting reconciliation invariants, and the opt-in Gigabase local-evaluation gates.
 
 ---
 
@@ -29,7 +29,7 @@ Welcome to the canonical technical documentation for `chess-openings-db`. Always
 
 ## 3. Governance, Licensing & Legal
 
-- [Licensing & Data Provenance](LICENSING.md) — Codebase dual-licensing (`LICENSE-MIT` / `LICENSE-APACHE`), clean-room zero-AGPL boundary, source dataset provenance (Lichess CC0 and CC BY-SA 4.0), and redistribution requirements.
+- [Licensing & Data Provenance](LICENSING.md) — Codebase dual-licensing (`LICENSE-MIT` / `LICENSE-APACHE`), clean-room zero-AGPL boundary, approved Lichess sources, local-only Gigabase rights limitations, and redistribution requirements.
 - [Contributor Guidelines](../CONTRIBUTING.md) — Contribution workflow, code formatting, PR standards, and local verification.
 - [Delivery Changelog](../CHANGELOG.md) — Versioned history of milestone deliverables and release capabilities.
 

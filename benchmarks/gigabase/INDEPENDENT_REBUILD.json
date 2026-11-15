@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "first_build_id": "codb-masters-otb-1794715589069977685-7428-388d105284a591ff-cpi-d40",
+  "independent_build_id": "codb-masters-otb-1794716076611874293-7628-d7c2bf1261c928a3-cpi-d40",
+  "build_ids_differ_as_expected": true,
+  "manifest_field_comparisons": {
+    "accounting": true,
+    "collection": true,
+    "curation_policy": true,
+    "deduplication_policy_version": true,
+    "lookup_table": true,
+    "position_index": true,
+    "shards": true,
+    "source_archives": true,
+    "source_attribution": true,
+    "total_games": true,
+    "total_physical_bytes": true
+  },
+  "build_report_field_comparisons": {
+    "accounting": true,
+    "collection": true,
+    "gigabase_source_policy": true,
+    "is_reconciled": true,
+    "policy_rejection_reasons": true,
+    "quarantine_reasons": true,
+    "retained_matches_accepted": true,
+    "source_archives": true,
+    "total_games": true,
+    "total_physical_bytes": true
+  },
+  "all_compared_fields_match": true,
+  "note": "Per-artifact hashes are represented in the compared shard, games.idx, CPI, and source-attribution manifest records. Build IDs and build timestamps intentionally differ."
+}

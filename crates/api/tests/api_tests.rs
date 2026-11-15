@@ -43,6 +43,7 @@ fn make_test_game(id: u64, collection: Collection, moves: Vec<CompactMove>) -> P
             time_control: Some("5400+30".into()),
             source_id: Some(format!("https://example.com/games/{}", id)),
             broadcast_url: None,
+            source_attribution: None,
         },
         moves,
         fen_start: None,

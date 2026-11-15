@@ -1400,6 +1400,7 @@ mod tests {
                 time_control: None,
                 source_id: None,
                 broadcast_url: None,
+                source_attribution: None,
             },
             moves: vec![
                 CompactMove::new(6, 21, None),  // 1. g1f3
@@ -1449,6 +1450,7 @@ mod tests {
                 time_control: None,
                 source_id: None,
                 broadcast_url: None,
+                source_attribution: None,
             },
             moves: vec![
                 CompactMove::new(12, 28, None), // e2e4
@@ -1484,6 +1486,7 @@ mod tests {
                 time_control: None,
                 source_id: None,
                 broadcast_url: None,
+                source_attribution: None,
             },
             moves: vec![
                 CompactMove::new(12, 28, None), // e2e4

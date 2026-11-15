@@ -188,6 +188,23 @@ Stored in the root of every dataset snapshot (`versions/vX/manifest.json`):
 }
 ```
 
+The current manifest also records `dataset_build_id`, `build_timestamp`, `format_version`, `schema_version`, `source_archives`, `curation_policy`, `deduplication_policy_version`, `accounting`, `total_games`, `total_physical_bytes`, and `is_complete`. `position_index` and `source_attribution` are optional fields with backward-compatible defaults. In `source_archives`, `checksum_verified` means the file matched the recorded or locally computed SHA-256; it does not, by itself, identify the hash as publisher-authenticated.
+
+Gigabase-qualified builds may include this optional registration:
+
+```json
+{
+  "source_attribution": {
+    "filename": "source-attribution.jsonl",
+    "file_size_bytes": 12345,
+    "sha256": "<64 lowercase hexadecimal characters>",
+    "entry_count": 1
+  }
+}
+```
+
+The referenced UTF-8 JSONL file contains one line per retained game, in ascending `game_id` order. Each line has `schema_version: 1`, `game_id`, and a non-empty `source_attributions` array of records containing the captured `Source`, `SourceQuality`, FIDE IDs, identity-evidence tags, and `Mode`. Deep verification checks the sidecar's regular-file type, size, hash, schema, sorted IDs, and one-to-one correspondence with `games.idx`. CPI publication preserves the same sidecar checksum. The sidecar is outside CGB3 and does not change any persisted binary layout.
+
 ---
 
 ## 5. CLI JSON Contracts
@@ -225,12 +242,15 @@ Stored in the root of every dataset snapshot (`versions/vX/manifest.json`):
   "is_reconciled": true,
   "retained_matches_accepted": true,
   "policy_rejection_reasons": { "below_rating_threshold": 0, "missing_rating": 0 },
+  "quarantine_reasons": { "stable_game_id_collision": 0 },
   "total_physical_bytes": 0,
   "build_duration_secs": 0.0,
   "source_archives": []
 }
 ```
 `policy_rejection_reasons` sums to `accounting.rejected_by_policy`. Category keys are defined in [CORPUS_AND_DEDUPLICATION.md](CORPUS_AND_DEDUPLICATION.md#31-machine-readable-rejection-categories).
+
+`quarantine_reasons` breaks down `accounting.quarantined`. The opt-in Gigabase source policy records stable game ID conflicts as `stable_game_id_collision`; other collections retain their existing fatal collision behavior.
 
 `codb report --dataset <dir> [--output <json>]` iterates every stored game and emits `results`, `unknown_result_games`, `years`, `months`, `min_player_rating_bins` (100-point bins of the lower rating; FIDE Elo for `masters-otb`, Glicko-2 for `elite-online`, never pooled), `plies_bins`, `speed_classes` (`elite-online` only), `time_control_raw_top20` (`masters-otb` only), `distinct_players_hash_estimate`, `distinct_events_hash_estimate`, and `missing_metadata` counts. Neither command changes any persisted binary format.
 
