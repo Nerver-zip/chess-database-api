@@ -8,6 +8,7 @@ This directory houses the empirical performance benchmarks, scaling measurements
 benchmarks/
 ├── README.md               # Directory overview and methodology guide (this file)
 ├── production_cpi/         # Authoritative active production CPI index baselines (ADR-0003)
+├── corpus/                 # Current real Masters/Elite, package, and Docker evidence
 └── results/                # Output destination for runtime benchmark executions
     └── historical/         # Preserved benchmark artifacts from completed research milestones
 ```
@@ -31,6 +32,12 @@ Each production CPI artifact verifies:
 2. Exact memory bound enforcement: peak heap allocation during external sort remains strictly below configured memory limit ($M$).
 3. CPI byte density and compression ratios against raw unindexed data.
 4. Sub-millisecond random access query latency percentiles ($p_{50}$, $p_{95}$, $p_{99}$) for Opening Explorer lookups.
+
+---
+
+## 1.1 Real Corpus Evidence (`benchmarks/corpus/`)
+
+Small JSON records (release manifest, build report, quality report, per-step metrics, index report, dataset license notice, event audit, package checksums, HTTP/CLI check, and real Docker smoke report) produced by the corpus and Docker acceptance workflows on the real Lichess-derived releases. They are validated by [`scripts/validate_corpus_evidence.py`](../scripts/validate_corpus_evidence.py). Binary datasets are never committed; see [docs/CORPUS_BUILD.md](../docs/CORPUS_BUILD.md).
 
 ---
 

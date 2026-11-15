@@ -1,0 +1,29 @@
+{
+  "packages": {
+    "elite-online": {
+      "archive_filename": "elite-online-codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30.tar",
+      "archive_sha256": "022d5bf1033c52119987de548e957478d670bc39bb38584833475732eb6ee3d7",
+      "archive_size_bytes": 210370560,
+      "checksum_file": "elite-online-codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30.tar.sha256",
+      "checksum_verified": true,
+      "release_id": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30"
+    },
+    "masters-otb": {
+      "archive_filename": "masters-otb-codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40.tar",
+      "archive_sha256": "1ee626b1ae8c42ddbe1e1caf94ab4513534551ad33b39c428dc94d2978a37eb4",
+      "archive_size_bytes": 38072320,
+      "checksum_file": "masters-otb-codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40.tar.sha256",
+      "checksum_verified": true,
+      "release_id": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40"
+    }
+  },
+  "path_a_bootstrap": {
+    "data_dir": "data/work/path-a-bootstrap-final",
+    "deep_verification_passed": true,
+    "release_ids": {
+      "elite-online": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
+      "masters-otb": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40"
+    }
+  },
+  "schema_version": 1
+}

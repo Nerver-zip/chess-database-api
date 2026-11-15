@@ -1,0 +1,37 @@
+{
+  "steps": {
+    "build": {
+      "command": "/home/agent/workspace/chess-openings-db/target/release/codb build --manifest /home/agent/workspace/chess-openings-db/data/work/elite-online-baseline-20261114T151841Z/sources.manifest.json --collection elite-online --output /home/agent/workspace/chess-openings-db/data/work/elite-online-baseline-20261114T151841Z/dataset --report-json /home/agent/workspace/chess-openings-db/data/work/elite-online-baseline-20261114T151841Z/build_report.json",
+      "returncode": 0,
+      "wall_seconds": 528.811,
+      "peak_rss_bytes": 30224384,
+      "peak_workspace_disk_bytes": 164081664,
+      "log": "/home/agent/workspace/chess-openings-db/data/work/elite-online-baseline-20261114T151841Z/logs/build.log"
+    },
+    "build-index": {
+      "command": "/home/agent/workspace/chess-openings-db/target/release/codb build-index --dataset /home/agent/workspace/chess-openings-db/data/work/elite-online-baseline-20261114T151841Z/dataset --collection elite-online --depth-plies 30 --memory-limit-mib 128 --json",
+      "returncode": 0,
+      "wall_seconds": 18.239,
+      "peak_rss_bytes": 152408064,
+      "peak_workspace_disk_bytes": 435736576,
+      "log": "/home/agent/workspace/chess-openings-db/data/work/elite-online-baseline-20261114T151841Z/logs/build-index.log"
+    },
+    "verify": {
+      "command": "/home/agent/workspace/chess-openings-db/target/release/codb verify --dataset /home/agent/workspace/chess-openings-db/data/work/elite-online-baseline-20261114T151841Z/dataset --deep",
+      "returncode": 0,
+      "wall_seconds": 2.182,
+      "peak_rss_bytes": 137420800,
+      "peak_workspace_disk_bytes": 215597056,
+      "log": "/home/agent/workspace/chess-openings-db/data/work/elite-online-baseline-20261114T151841Z/logs/verify.log"
+    },
+    "report": {
+      "command": "/home/agent/workspace/chess-openings-db/target/release/codb report --dataset /home/agent/workspace/chess-openings-db/data/work/elite-online-baseline-20261114T151841Z/dataset --output /home/agent/workspace/chess-openings-db/data/work/elite-online-baseline-20261114T151841Z/quality_report.json",
+      "returncode": 0,
+      "wall_seconds": 0.883,
+      "peak_rss_bytes": 30224384,
+      "peak_workspace_disk_bytes": 215605248,
+      "log": "/home/agent/workspace/chess-openings-db/data/work/elite-online-baseline-20261114T151841Z/logs/report.log"
+    }
+  },
+  "total_wall_seconds": 550.371
+}

@@ -1,0 +1,168 @@
+{
+  "host": "127.0.0.1",
+  "port": 43931,
+  "collections": {
+    "masters-otb": {
+      "cases": 131,
+      "mismatches": 0,
+      "strata": {
+        "common": 40,
+        "mid": 40,
+        "rare": 40,
+        "beyond_depth": 3,
+        "absent": 1,
+        "transposition_pairs": 3
+      },
+      "position_latency": {
+        "count": 1000,
+        "p50_us": 167.9,
+        "p95_us": 294.9,
+        "p99_us": 341.5,
+        "max_us": 2507.4
+      },
+      "game_retrieval_latency": {
+        "count": 200,
+        "p50_us": 1354.7,
+        "p95_us": 1487.6,
+        "p99_us": 1587.3,
+        "max_us": 1820.1
+      },
+      "concurrency": {
+        "1": {
+          "processes": 1,
+          "requests": 250,
+          "errors": 0,
+          "req_per_sec": 4109.8,
+          "p50_us": 156.5,
+          "p95_us": 273.4,
+          "p99_us": 345.3,
+          "max_us": 1061.7
+        },
+        "4": {
+          "processes": 4,
+          "requests": 1000,
+          "errors": 0,
+          "req_per_sec": 10670.5,
+          "p50_us": 266.4,
+          "p95_us": 446.0,
+          "p99_us": 773.5,
+          "max_us": 2800.7
+        },
+        "8": {
+          "processes": 8,
+          "requests": 2000,
+          "errors": 0,
+          "req_per_sec": 5020.3,
+          "p50_us": 550.0,
+          "p95_us": 2244.8,
+          "p99_us": 22039.0,
+          "max_us": 48593.1
+        },
+        "16": {
+          "processes": 16,
+          "requests": 4000,
+          "errors": 0,
+          "req_per_sec": 5186.4,
+          "p50_us": 995.7,
+          "p95_us": 4420.7,
+          "p99_us": 43151.3,
+          "max_us": 56228.3
+        },
+        "32": {
+          "processes": 32,
+          "requests": 8000,
+          "errors": 0,
+          "req_per_sec": 4692.0,
+          "p50_us": 3285.6,
+          "p95_us": 13247.7,
+          "p99_us": 53064.3,
+          "max_us": 69041.4
+        }
+      }
+    },
+    "elite-online": {
+      "cases": 131,
+      "mismatches": 0,
+      "strata": {
+        "common": 40,
+        "mid": 40,
+        "rare": 40,
+        "beyond_depth": 3,
+        "absent": 1,
+        "transposition_pairs": 3
+      },
+      "position_latency": {
+        "count": 1000,
+        "p50_us": 190.6,
+        "p95_us": 308.6,
+        "p99_us": 349.8,
+        "max_us": 528.0
+      },
+      "game_retrieval_latency": {
+        "count": 200,
+        "p50_us": 1154.2,
+        "p95_us": 1235.2,
+        "p99_us": 1268.3,
+        "max_us": 1304.2
+      },
+      "concurrency": {
+        "1": {
+          "processes": 1,
+          "requests": 250,
+          "errors": 0,
+          "req_per_sec": 4293.9,
+          "p50_us": 175.3,
+          "p95_us": 281.5,
+          "p99_us": 335.6,
+          "max_us": 1113.6
+        },
+        "4": {
+          "processes": 4,
+          "requests": 1000,
+          "errors": 0,
+          "req_per_sec": 8126.8,
+          "p50_us": 283.2,
+          "p95_us": 470.6,
+          "p99_us": 795.3,
+          "max_us": 28012.2
+        },
+        "8": {
+          "processes": 8,
+          "requests": 2000,
+          "errors": 0,
+          "req_per_sec": 5744.7,
+          "p50_us": 515.5,
+          "p95_us": 2053.6,
+          "p99_us": 23526.1,
+          "max_us": 47444.7
+        },
+        "16": {
+          "processes": 16,
+          "requests": 4000,
+          "errors": 0,
+          "req_per_sec": 3548.9,
+          "p50_us": 1798.4,
+          "p95_us": 5257.6,
+          "p99_us": 50318.4,
+          "max_us": 58458.8
+        },
+        "32": {
+          "processes": 32,
+          "requests": 8000,
+          "errors": 0,
+          "req_per_sec": 3189.5,
+          "p50_us": 4762.2,
+          "p95_us": 51058.4,
+          "p99_us": 55323.3,
+          "max_us": 72775.5
+        }
+      }
+    }
+  },
+  "startup_seconds": 1.664,
+  "server_peak_rss_bytes": 175431680,
+  "checks_total": 414,
+  "checks_failed": 0,
+  "failed": [],
+  "passed": true
+}

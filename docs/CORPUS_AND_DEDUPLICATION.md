@@ -37,8 +37,15 @@ pub struct MastersOtbPolicy {
    - Both players have FIDE Elo $\ge 2200$, OR
    - One player has FIDE Elo $\ge 2400$ and opponent has FIDE Elo $\ge 2000$.
 2. **Historical Era Exception (Pre-1970):**
-   - Official FIDE Elo lists did not exist prior to 1970. Pre-1970 games from verified master tournaments (e.g. Zurich 1953, AVRO 1938, St. Petersburg 1914) are accepted even if Elo headers are absent, provided player names and event headers are authentic.
-3. **Move Legality & Orthodox Position:**
+   - Official FIDE Elo lists did not exist prior to 1970. A pre-1970 game is accepted without Elo headers **only if the record names both the event and the venue** (`Event` and `Site` tags present and not `?`). A pre-1970 date alone is never sufficient (`HistoricalWithoutProvenance`). This is an executable check, not a statement of trust in the source: no historical archive is part of the pinned corpus catalog (see [CORPUS_BUILD.md](CORPUS_BUILD.md)).
+3. **Event-level OTB qualification for corpus releases:**
+   - Lichess broadcast PGNs do not provide a universal OTB flag. The event auditor groups accepted games by the exact first tournament identifier in BroadcastURL, then records official Broadcast API tournament IDs, names, format, location, website, and standings fields. It aggregates repeated games from the same event.
+   - **Verified online** requires explicit event-level metadata or an identifier naming online play or engine competition. A website hosted on a chess platform, a missing venue, and a high FIDE rating are not sufficient on their own.
+   - **Verified OTB** requires a physical location in the official event metadata plus a linked event or standings page that independently matches at least two tournament identity terms and a location term. The audit records the source URL, response hash, matched terms, and classification evidence.
+   - **Unresolved** covers unavailable metadata, missing venue information, or event and venue evidence that cannot be corroborated. These games are excluded from the Masters corpus release.
+   - The corpus release workflow applies exact tournament slugs from corpus/masters_event_qualification.json. Only verified OTB tournaments can pass; verified online events and unresolved or missing tournament IDs fail closed. A direct online platform Site value still rejects a game. The Lichess [Broadcast help](https://lichess.org/broadcast/help) describes event venue and related details as optional, so absent Site information does not itself imply online play.
+   - The source audit is preserved in every Masters release as RELEASE/MASTERS_EVENT_QUALIFICATION.json. It records aggregate game and event counts, the evidence policy, and per-event outcomes. The corpus.sh build workflow requires the audit; an ad hoc CLI build without the audit retains legacy marker checks and must not be represented as a provenance-qualified release.
+4. **Move Legality & Orthodox Position:**
    - Standard orthodox starting position (`rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1`) or verified orthodox legal custom FEN setup.
    - Chess960, Fischer Random, and custom handicap variants are rejected.
    - At least 4 plies (2 full moves) to exclude accidental aborts and trivial forfeits.
@@ -60,8 +67,9 @@ pub struct EliteOnlinePolicy {
 1. **Rating Thresholds:**
    - Both players have verified online rating $\ge 2200$, OR
    - One player $\ge 2400$ and opponent $\ge 2000$.
-   - Unrated and casual games are strictly rejected (`CasualUnratedGame`).
-   - Provisional ratings (e.g. marked with `?` or high $RD$) are rejected (`ProvisionalRating`).
+   - Casual games are rejected (`CasualUnratedGame`) when the `Event` label contains `casual`. The Lichess *standard rated* archives contain only rated games, so this check is a defensive backstop.
+   - **Provisional ratings:** The pinned Lichess PGN archives carry no provisional-rating marker, so this status cannot be distinguished from the exported Glicko-2 number and remains an explicit source limitation. Missing or unparsable ratings are rejected.
+   - **Termination:** The reader checks PGN Termination values during curated ingestion. Aborted, Abandoned, Rules infraction, No contest, Unplayed, and Unterminated are rejected as AbortedOrInfraction; Normal and Time forfeit remain eligible. Unknown and missing values are not reinterpreted.
 2. **Speed Category & Bullet Exclusion:**
    - **Bullet & UltraBullet are strictly excluded.** Extremely rapid time controls suffer from mouse slips, flag-hunting, and premoves that corrupt positional opening theory.
    - **Estimated Duration Formula:** Evaluated using estimated game length:
@@ -70,7 +78,7 @@ pub struct EliteOnlinePolicy {
    - Valid accepted time controls: Blitz ($180\text{s} \le T_{\text{est}} < 600\text{s}$), Rapid ($600\text{s} \le T_{\text{est}} < 1800\text{s}$), and Classical ($T_{\text{est}} \ge 1800\text{s}$).
 3. **Plies & Termination:**
    - Minimum 6 plies (3 full moves) to eliminate immediate resignations, disconnected connections, or pre-move blunders.
-   - Games terminated by rules infractions or pre-move disconnects are rejected.
+   - PGN Termination values that explicitly identify aborted, abandoned, unplayed, or rules-infraction games are rejected. Normal and Time forfeit are not rejected by this check.
 
 ---
 
@@ -85,8 +93,18 @@ When a candidate game is rejected during curation, it is classified into one of 
 - `TooFewPlies { plies, minimum }`: Game too short to reflect intentional opening play.
 - `NonStandardVariant(String)`: Chess960, Crazyhouse, Antichess, King of the Hill, etc.
 - `NonStandardStartingPosition(String)`: Illegal initial setup.
-- `AbortedOrInfraction(String)`: Abandoned before play or terminated by administrative infraction.
+- AbortedOrInfraction(String): the curated reader rejects explicit aborted, abandoned, no-contest, unplayed, unterminated, and rules-infraction Termination values.
+- OnlineEventInMastersSource: Masters OTB only; the event audit or a direct online platform Site identifies online play.
+- UnverifiedMastersProvenance: Masters OTB release only; no exact verified OTB broadcast tournament is present.
+- `HistoricalWithoutProvenance`: Masters OTB only; pre-1970 date without both event and venue.
 
+### 3.1 Machine-Readable Rejection Categories
+
+The release build report records stable snake_case policy categories: below rating threshold, missing or provisional rating, casual or unrated game, bullet or ultrabullet, too few plies, non-standard variant or start, aborted or infraction termination, online Masters event, unresolved Masters provenance, and historical game without provenance. These values sum exactly to rejected_by_policy. Variant and illegal-move rejections retain their separate accounting counters.
+
+### 3.2 Curation Policy Version
+
+Releases record curation_policy_version from the source catalog (masters-otb/2026.11-r3, elite-online/2026.11-r2). Masters revision r3 adds a reproducible event-level qualification audit and accepts only its verified OTB tournament allowlist; verified online and unresolved events are rejected before deduplication. It retains the explicit online Site guard and historical venue check. Elite revision r2 adds explicit Termination filtering for aborted, abandoned, rules-infraction, no-contest, unplayed, and unterminated games. Unknown termination values remain eligible. Standard Lichess PGNs do not provide a provisional-rating marker, so ProvisionalRating cannot be inferred. Dataset changes under r3 have a new release ID and regenerated CPI, checksums, and verification records. Datasets built under earlier revisions are not directly comparable.
 ---
 
 ## 4. Deduplication and Identity Architecture (`dedupe.rs`)

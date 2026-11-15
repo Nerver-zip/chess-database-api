@@ -225,7 +225,7 @@ impl MemoryDedupeStore {
 }
 
 /// Disk-backed temporary deduplication store using embedded SQLite.
-/// Scales to millions of games with bounded RAM consumption (<32 MB cache).
+/// Scales to millions of games with bounded RAM consumption and a 256 KiB SQLite page cache.
 pub struct DiskDedupeStore {
     conn: rusqlite::Connection,
 }
@@ -245,8 +245,8 @@ impl DiskDedupeStore {
         conn.execute_batch(
             "PRAGMA synchronous = NORMAL;
              PRAGMA journal_mode = WAL;
-             PRAGMA temp_store = MEMORY;
-             PRAGMA cache_size = -32000;
+             PRAGMA temp_store = FILE;
+             PRAGMA cache_size = -256;
              CREATE TABLE IF NOT EXISTS seen_games (
                  id INTEGER PRIMARY KEY,
                  move_hash INTEGER NOT NULL,

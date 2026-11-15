@@ -24,6 +24,7 @@ CANONICAL_DOCUMENTS = [
     "docs/ARCHITECTURE.md",
     "docs/DATA_CONTRACTS.md",
     "docs/CORPUS_AND_DEDUPLICATION.md",
+    "docs/CORPUS_BUILD.md",
     "docs/LICENSING.md",
     "docs/QA_STRATEGY.md",
     "docs/BENCHMARKS.md",

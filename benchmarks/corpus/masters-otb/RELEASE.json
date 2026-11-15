@@ -1,0 +1,221 @@
+{
+  "accepted_games": 29640,
+  "accounting": {
+    "accepted_unique": 29640,
+    "completion_status": "CompleteEof",
+    "confirmed_duplicates": 20,
+    "quarantined": 0,
+    "rejected_by_policy": 196097,
+    "rejected_illegal": 0,
+    "rejected_malformed": 0,
+    "rejected_variant": 1727,
+    "superseded_prior": 5,
+    "total_encountered": 227489
+  },
+  "artifacts": {
+    "RELEASE/DATASET_LICENSE.txt": {
+      "sha256": "7dc87a9ccd3771147cfeda50973feb99e4cc3e1f127c22f9bd045e459ed34d82",
+      "size_bytes": 1144
+    },
+    "RELEASE/MASTERS_EVENT_QUALIFICATION.json": {
+      "sha256": "a93763ac46a1e2c0653fe6ac5a4ab16c43ed4d53ca8132e0a806f29084f8c461",
+      "size_bytes": 8116109
+    },
+    "RELEASE/build_report.json": {
+      "sha256": "eb2ba05833099a49f916a782d0aa59b9e956753f7472ed1570dab199383c7ee6",
+      "size_bytes": 2932
+    },
+    "RELEASE/index_report.json": {
+      "sha256": "603a22792637dc3d7216fd7c2080cee8b33a1044ac7678c82e1de18efe9b8d94",
+      "size_bytes": 603
+    },
+    "RELEASE/metrics.json": {
+      "sha256": "65203264e8fbbacba4a39380e570e7d6382d3705aa8087bdf407b6837e9ed606",
+      "size_bytes": 2490
+    },
+    "RELEASE/quality_report.json": {
+      "sha256": "ce180573099dcf3eecacb6634710418bb7e70005da435e8bab00ad5756a1c314",
+      "size_bytes": 5181
+    },
+    "RELEASE/sources.manifest.json": {
+      "sha256": "3ce3cf47fedc4c48810ce4855a6dd6eea550d3096d3fb9d16daec960cd82317b",
+      "size_bytes": 2093
+    },
+    "RELEASE/verify_deep.txt": {
+      "sha256": "9783495636625609cefab2b6b156642e94364e7807003b1927eda25defe86dde",
+      "size_bytes": 533
+    },
+    "games.idx": {
+      "sha256": "66a7af7416f705eeabf0db3bd890eaf3f0904d3f76ad11731d8aa2c71896ee56",
+      "size_bytes": 474304
+    },
+    "manifest.json": {
+      "sha256": "1a103329d7bb2d09e39d96ea90d9e09ea04b8b7124720c2fb50f9955b4bfaee3",
+      "size_bytes": 4322
+    },
+    "positions.cpi": {
+      "sha256": "9939a5912e869eb7ce76c76c9cd201446adbbe96cf91d37fed01b7a5062d9e07",
+      "size_bytes": 15262380
+    },
+    "shards/shard_0000.cgb3": {
+      "sha256": "e140017438a1e6ceb3c796a91ca870484a36f585f2d20a00bb9406bc6100dc34",
+      "size_bytes": 6012052
+    }
+  },
+  "build_configuration": {
+    "block_capacity": 512,
+    "dedupe_mode": "disk",
+    "index_depth_plies": 40,
+    "memory_limit_mib": 128,
+    "profile": "baseline",
+    "source_order": [
+      "lichess-broadcast-2026-05",
+      "lichess-broadcast-2026-06",
+      "lichess-broadcast-2026-07",
+      "lichess-broadcast-2026-08",
+      "lichess-broadcast-2026-09",
+      "lichess-broadcast-2026-10"
+    ],
+    "zstd_level": 3
+  },
+  "build_metrics_summary": {
+    "peak_rss_bytes_by_step": {
+      "build": 23015424,
+      "build-index": 47996928,
+      "report": 9195520,
+      "verify": 21082112
+    },
+    "total_wall_seconds": 15.338
+  },
+  "built_at": "2026-11-14T20:50:06Z",
+  "collection": "masters-otb",
+  "commands": {
+    "build": "./scripts/corpus.sh build --collection masters-otb --profile baseline",
+    "fetch": "./scripts/corpus.sh fetch --collection masters-otb --profile baseline",
+    "serve": "./scripts/corpus.sh serve",
+    "verify": "codb verify --dataset <release-dir> --deep"
+  },
+  "curation_policy": {
+    "deduplication_policy_version": "v2-verified-prefix",
+    "metadata": {
+      "extra_criteria": "Exact event-level audit allowlist: verified online and unresolved tournaments excluded; verified OTB venue corroborated by linked event source; direct online platform Site tags excluded; historical exception pre-1970 requires named event and venue; explicit aborted or rules-infraction Termination values excluded",
+      "min_plies": 4,
+      "min_rating_both": 2200,
+      "min_rating_one": 2400,
+      "min_rating_other": 2000
+    },
+    "version": "masters-otb/2026.11-r3 (FIDE rating thresholds, standard chess, min 4 plies, exact event-level verified OTB allowlist; online and unresolved events excluded, historical exception pre-1970 requires named event and venue, aborted or rules-infraction terminations excluded)"
+  },
+  "dataset_version": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
+  "index": {
+    "cpi_file_size_bytes": 15262380,
+    "cpi_sha256": "9939a5912e869eb7ce76c76c9cd201446adbbe96cf91d37fed01b7a5062d9e07",
+    "depth_plies": 40,
+    "total_move_records": 744558,
+    "unique_positions": 705718
+  },
+  "inputs": [
+    {
+      "filename": "lichess_db_broadcast_2026-05.pgn.zst",
+      "id": "lichess-broadcast-2026-05",
+      "license": "CC-BY-SA-4.0",
+      "period": "2026-05",
+      "provenance_confidence": "medium",
+      "sha256": "d212987f7972a70268809ff6c726acff8bf0987161aacd7647b160f8564f6a53",
+      "size_bytes": 22912287,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-05.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_broadcast_2026-06.pgn.zst",
+      "id": "lichess-broadcast-2026-06",
+      "license": "CC-BY-SA-4.0",
+      "period": "2026-06",
+      "provenance_confidence": "medium",
+      "sha256": "65905d611c0d78d90ab57cd9edd3821f4119b46c22b5489fd7e265a74c6767b3",
+      "size_bytes": 22797518,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-06.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_broadcast_2026-07.pgn.zst",
+      "id": "lichess-broadcast-2026-07",
+      "license": "CC-BY-SA-4.0",
+      "period": "2026-07",
+      "provenance_confidence": "medium",
+      "sha256": "714d0eb99f99fca8d791142038b6c59b5ca6a51b3339bd3891a92f4bdffcbf0c",
+      "size_bytes": 24535400,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-07.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_broadcast_2026-08.pgn.zst",
+      "id": "lichess-broadcast-2026-08",
+      "license": "CC-BY-SA-4.0",
+      "period": "2026-08",
+      "provenance_confidence": "medium",
+      "sha256": "e227c35c3207ebade754849c1825982e2717ae82c013013d896778e27be77724",
+      "size_bytes": 31010232,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-08.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_broadcast_2026-09.pgn.zst",
+      "id": "lichess-broadcast-2026-09",
+      "license": "CC-BY-SA-4.0",
+      "period": "2026-09",
+      "provenance_confidence": "medium",
+      "sha256": "27a39d035767a30901b89602f33f2a7b27d4ab5025842071165fa079f8fff1df",
+      "size_bytes": 18414369,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-09.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_broadcast_2026-10.pgn.zst",
+      "id": "lichess-broadcast-2026-10",
+      "license": "CC-BY-SA-4.0",
+      "period": "2026-10",
+      "provenance_confidence": "medium",
+      "sha256": "d9c0c78c7ed8cd200723c9972b01a1cd35fd8568dd4b6324fbcc3ee7c07374c9",
+      "size_bytes": 22630351,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-10.pgn.zst"
+    }
+  ],
+  "license": {
+    "attribution_required": true,
+    "id": "CC-BY-SA-4.0",
+    "name": "Creative Commons Attribution-ShareAlike 4.0 International",
+    "notice_file": "RELEASE/DATASET_LICENSE.txt",
+    "share_alike": true,
+    "software_license": "MIT OR Apache-2.0 (software only; the dataset license is independent)",
+    "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+  },
+  "masters_event_qualification": {
+    "audit_file": "RELEASE/MASTERS_EVENT_QUALIFICATION.json",
+    "audit_sha256": "a93763ac46a1e2c0653fe6ac5a4ab16c43ed4d53ca8132e0a806f29084f8c461",
+    "baseline_audit_game_counts": {
+      "unresolved": {
+        "events": 365,
+        "games": 12971
+      },
+      "verified_online": {
+        "events": 1,
+        "games": 1
+      },
+      "verified_otb": {
+        "events": 622,
+        "games": 29640
+      }
+    },
+    "release_rejections": {
+      "unresolved_masters_provenance": 15409,
+      "verified_online_event": 2
+    },
+    "status": "verified_otb_subset"
+  },
+  "release_schema_version": 1,
+  "source_catalog": {
+    "catalog_content_sha256": "c65531fd3b205d8a4a04e5002ae0c82ba76b5c9b05ec61fe0ecabb69e6b95b7d",
+    "catalog_id": "codb-corpus-catalog-2026.11-r3"
+  },
+  "tool": {
+    "codb_version": "codb 0.1.0",
+    "git_commit": "fbc7cf1bcf64012aca087a59131bb5878d0f5023",
+    "git_tree_dirty": false
+  }
+}

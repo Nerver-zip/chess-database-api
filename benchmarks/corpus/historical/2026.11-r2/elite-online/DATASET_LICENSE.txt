@@ -1,0 +1,9 @@
+Dataset: elite-online (codb-elite-online-1794613138720313973-519742-00d6e325118fc58c-cpi-d30)
+License: Creative Commons CC0 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/)
+
+This dataset is derived from the Lichess standard rated games database published at https://database.lichess.org/ , which Lichess releases under Creative Commons CC0 1.0 (public domain dedication). Attribution is not legally required; provenance is preserved here for transparency.
+Ratings in this dataset are Lichess Glicko-2 ratings, not FIDE Elo, and must never be pooled or compared with the masters-otb collection.
+
+The chess-openings-db software is licensed MIT OR Apache-2.0; that license does not
+apply to this dataset. Source archives are listed with checksums in RELEASE/RELEASE.json.
+No claim is made that this license covers material outside the listed Lichess archives.

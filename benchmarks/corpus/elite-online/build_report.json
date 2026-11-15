@@ -1,0 +1,86 @@
+{
+  "accounting": {
+    "accepted_unique": 429150,
+    "completion_status": "CompleteEof",
+    "confirmed_duplicates": 45,
+    "quarantined": 0,
+    "rejected_by_policy": 46107551,
+    "rejected_illegal": 0,
+    "rejected_malformed": 0,
+    "rejected_variant": 0,
+    "superseded_prior": 16,
+    "total_encountered": 46536762
+  },
+  "build_duration_secs": 483.977138926,
+  "collection": "elite-online",
+  "dataset_build_id": "codb-elite-online-1794670048867433094-26867-849d47af65f78193",
+  "is_reconciled": true,
+  "policy_rejection_reasons": {
+    "aborted_or_infraction": 228742,
+    "below_rating_threshold": 32542858,
+    "bullet_or_ultrabullet": 13334669,
+    "missing_rating": 20,
+    "too_few_plies": 1262
+  },
+  "retained_matches_accepted": true,
+  "source_archives": [
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2015-09.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "c3f9b718b2dd80545ac00d0ee8122f863353a7b901fea6ba0be06bff5675bfa7",
+      "size_bytes": 547459020,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2015-09.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2015-12.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "83c6a8583e618d1321cb655e579010ccb1531593fbcf44622da5e8a5d2e99c4f",
+      "size_bytes": 757824089,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2015-12.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2016-03.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "11e8667a82a02199855f3aca83d6d4091d194dc4becf6d02a8001f0d9623b5c6",
+      "size_bytes": 1042258644,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-03.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2016-06.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "97ccde214a81d5e58867bedbeb510dfdd99418d9fb31b0995f5320a74b7d4502",
+      "size_bytes": 1093562696,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-06.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2016-09.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "3a4d18db787db558083aacb7c27ab3588f0745c1baaca37846b3f0d8b9677db3",
+      "size_bytes": 1213809361,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-09.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2016-12.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "285d09bcb7f47af2d58594ecee7da8c18f9e800fd7df2e0158b4fb5429f9a904",
+      "size_bytes": 1698298025,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-12.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2017-03.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "b319297e9270285635d615cbcd19a9b0d44747be3ff91d5b3eac41175b794320",
+      "size_bytes": 2169142067,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2017-03.pgn.zst"
+    }
+  ],
+  "total_games": 429150,
+  "total_physical_bytes": 78226924
+}

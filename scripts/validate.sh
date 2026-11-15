@@ -5,8 +5,8 @@
 # 1. cargo fmt --all -- --check
 # 2. cargo clippy --workspace --all-targets -- -D warnings
 # 3. cargo test --workspace
-# 4. python3 -m unittest for Python regression test suites
-# 5. python3 scripts/validate_production_cpi_benchmarks.py
+# 4. python3 -m unittest for Python regression test suites (including optional Docker smoke)
+# 5. python3 scripts/validate_production_cpi_benchmarks.py (+ validate_corpus_evidence.py)
 # 6. python3 scripts/validate_benchmarks.py
 # 7. python3 scripts/validate_docs.py
 # 8. sha256sum -c MANIFEST.sha256
@@ -46,13 +46,18 @@ python3 -m unittest \
     scripts/test_feasibility_alignment.py \
     scripts/test_reproduce_runner.py \
     scripts/test_validate_benchmarks.py \
-    scripts/test_bench_http.py
+    scripts/test_bench_http.py \
+    scripts/test_corpus.py \
+    scripts/test_docker_deployment.py \
+    scripts/test_masters_event_audit.py
 echo "  [PASS] Python unit and regression tests passed."
 
 echo ""
 echo "=== [5/8] Validating Production CPI benchmark artifacts ==="
 python3 scripts/validate_production_cpi_benchmarks.py
 echo "  [PASS] Production CPI benchmarks valid."
+python3 scripts/validate_corpus_evidence.py
+echo "  [PASS] Real-corpus release evidence valid."
 
 echo ""
 echo "=== [6/8] Validating historical benchmark schemas and accounting ==="

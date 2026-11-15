@@ -1,0 +1,177 @@
+{
+  "accepted_games": 429150,
+  "accounting": {
+    "accepted_unique": 429150,
+    "completion_status": "CompleteEof",
+    "confirmed_duplicates": 45,
+    "quarantined": 0,
+    "rejected_by_policy": 46107551,
+    "rejected_illegal": 0,
+    "rejected_malformed": 0,
+    "rejected_variant": 0,
+    "superseded_prior": 16,
+    "total_encountered": 46536762
+  },
+  "artifacts": {
+    "games.idx": {
+      "sha256": "83125009540b3887c3b1ebd75e2435207aeb0e6a8e1e797a0b2d7d7eec309558",
+      "size_bytes": 6866464
+    },
+    "manifest.json": {
+      "sha256": "0e5dd9b86710423f1aa246a8a54b0f5a08e334f5814a5cd6348dafcaacd2fbb4",
+      "size_bytes": 4520
+    },
+    "positions.cpi": {
+      "sha256": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
+      "size_bytes": 132054643
+    },
+    "shards/shard_0000.cgb3": {
+      "sha256": "5ecd991fc9b8df1798d05e3969f0b9e826da7bd8be4efb7f442a981b1daf3cbd",
+      "size_bytes": 71360460
+    }
+  },
+  "build_configuration": {
+    "block_capacity": 512,
+    "dedupe_mode": "disk",
+    "index_depth_plies": 30,
+    "memory_limit_mib": 128,
+    "profile": "baseline",
+    "source_order": [
+      "lichess-standard-2015-09",
+      "lichess-standard-2015-12",
+      "lichess-standard-2016-03",
+      "lichess-standard-2016-06",
+      "lichess-standard-2016-09",
+      "lichess-standard-2016-12",
+      "lichess-standard-2017-03"
+    ],
+    "zstd_level": 3
+  },
+  "build_metrics_summary": {
+    "peak_rss_bytes_by_step": {
+      "build": 30224384,
+      "build-index": 152408064,
+      "report": 30224384,
+      "verify": 137420800
+    },
+    "total_wall_seconds": 550.371
+  },
+  "built_at": "2026-11-14T15:27:52Z",
+  "collection": "elite-online",
+  "commands": {
+    "build": "./scripts/corpus.sh build --collection elite-online --profile baseline",
+    "fetch": "./scripts/corpus.sh fetch --collection elite-online --profile baseline",
+    "serve": "./scripts/corpus.sh serve",
+    "verify": "codb verify --dataset <release-dir> --deep"
+  },
+  "curation_policy": {
+    "deduplication_policy_version": "v2-verified-prefix",
+    "metadata": {
+      "extra_criteria": "Exclude Bullet and UltraBullet (<180s), casual games, and explicit aborted or rules-infraction Termination values",
+      "min_plies": 6,
+      "min_rating_both": 2200,
+      "min_rating_one": 2400,
+      "min_rating_other": 2000
+    },
+    "version": "elite-online/2026.11-r2 (both>=2200 or 2400+2000, no bullet/ultrabullet, no casual, standard variant, min 6 plies, excludes explicit aborted or rules-infraction terminations)"
+  },
+  "dataset_version": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
+  "index": {
+    "cpi_file_size_bytes": 132054643,
+    "cpi_sha256": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
+    "depth_plies": 30,
+    "total_move_records": 6739644,
+    "unique_positions": 6136307
+  },
+  "inputs": [
+    {
+      "filename": "lichess_db_standard_rated_2015-09.pgn.zst",
+      "id": "lichess-standard-2015-09",
+      "license": "CC0-1.0",
+      "period": "2015-09",
+      "provenance_confidence": "high",
+      "sha256": "c3f9b718b2dd80545ac00d0ee8122f863353a7b901fea6ba0be06bff5675bfa7",
+      "size_bytes": 547459020,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2015-09.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_standard_rated_2015-12.pgn.zst",
+      "id": "lichess-standard-2015-12",
+      "license": "CC0-1.0",
+      "period": "2015-12",
+      "provenance_confidence": "high",
+      "sha256": "83c6a8583e618d1321cb655e579010ccb1531593fbcf44622da5e8a5d2e99c4f",
+      "size_bytes": 757824089,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2015-12.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_standard_rated_2016-03.pgn.zst",
+      "id": "lichess-standard-2016-03",
+      "license": "CC0-1.0",
+      "period": "2016-03",
+      "provenance_confidence": "high",
+      "sha256": "11e8667a82a02199855f3aca83d6d4091d194dc4becf6d02a8001f0d9623b5c6",
+      "size_bytes": 1042258644,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-03.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_standard_rated_2016-06.pgn.zst",
+      "id": "lichess-standard-2016-06",
+      "license": "CC0-1.0",
+      "period": "2016-06",
+      "provenance_confidence": "high",
+      "sha256": "97ccde214a81d5e58867bedbeb510dfdd99418d9fb31b0995f5320a74b7d4502",
+      "size_bytes": 1093562696,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-06.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_standard_rated_2016-09.pgn.zst",
+      "id": "lichess-standard-2016-09",
+      "license": "CC0-1.0",
+      "period": "2016-09",
+      "provenance_confidence": "high",
+      "sha256": "3a4d18db787db558083aacb7c27ab3588f0745c1baaca37846b3f0d8b9677db3",
+      "size_bytes": 1213809361,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-09.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_standard_rated_2016-12.pgn.zst",
+      "id": "lichess-standard-2016-12",
+      "license": "CC0-1.0",
+      "period": "2016-12",
+      "provenance_confidence": "high",
+      "sha256": "285d09bcb7f47af2d58594ecee7da8c18f9e800fd7df2e0158b4fb5429f9a904",
+      "size_bytes": 1698298025,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-12.pgn.zst"
+    },
+    {
+      "filename": "lichess_db_standard_rated_2017-03.pgn.zst",
+      "id": "lichess-standard-2017-03",
+      "license": "CC0-1.0",
+      "period": "2017-03",
+      "provenance_confidence": "high",
+      "sha256": "b319297e9270285635d615cbcd19a9b0d44747be3ff91d5b3eac41175b794320",
+      "size_bytes": 2169142067,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2017-03.pgn.zst"
+    }
+  ],
+  "license": {
+    "attribution_required": false,
+    "id": "CC0-1.0",
+    "name": "Creative Commons CC0 1.0 Universal",
+    "notice_file": "RELEASE/DATASET_LICENSE.txt",
+    "share_alike": false,
+    "software_license": "MIT OR Apache-2.0 (software only; the dataset license is independent)",
+    "url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  "release_schema_version": 1,
+  "source_catalog": {
+    "catalog_content_sha256": "29fa763bea2dba409c90f8589aae3de5b75d10a1748985b87265bd225f179a45",
+    "catalog_id": "codb-corpus-catalog-2026.11-r2"
+  },
+  "tool": {
+    "codb_version": "codb 0.1.0",
+    "git_commit": "01ec9b074f839b0436cf4ec776c96b675d7e4fde",
+    "git_tree_dirty": true
+  }
+}

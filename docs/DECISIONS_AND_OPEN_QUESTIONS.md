@@ -35,6 +35,11 @@ The following architectural decisions have been evaluated, implemented, and acce
 - **Rationale:** Axum provides modular, zero-cost routing with first-class state sharing via `Arc`. CPI v2 position queries run 100% lock-free across concurrent worker threads directly against memory-mapped data (`DiskPositionIndex`), achieving sub-millisecond p50 latencies (~220–250 µs). CGB3 game decompression is offloaded to a bounded reader pool (`DatasetReaderPool`) on `tokio::task::spawn_blocking`.
 - **Zero-Downtime Reloading:** Pinned snapshots (`DatasetSnapshot`) are swapped atomically via `parking_lot::RwLock<Arc<DatasetSnapshot>>` upon `POST /v1/admin/reload`, allowing seamless updates under live traffic with zero dropped requests.
 
+### 1.7 Corpus Orchestration Outside the Rust Workspace
+- **Decision:** Source acquisition, release assembly, packaging, and HTTP validation live in `scripts/corpus.py` (Python standard library) driven by a pinned `corpus/catalog.json`, and invoke the existing `codb` CLI instead of adding download or release logic to the Rust crates.
+- **Rationale:** Acquisition and provenance are release-process concerns that change independently of storage formats; keeping them out of `codb-*` preserves the binary-format and determinism contracts and avoids new Rust dependencies (HTTP client, TLS). The catalog fails closed on missing checksums and unapproved licenses.
+- **Trade-off:** A second language in the repository; mitigated by stdlib-only code, offline tests in `validate.sh`, and no new dependencies.
+
 ---
 
 ## 2. Historical Research Classification
@@ -49,14 +54,14 @@ are officially designated as **Historical Research Documents**. They record earl
 
 ## 3. Open Architectural Questions for Future Milestones
 
-With the core HTTP serving layer delivered in PR-04, the following questions remain open for future distribution and enhancement milestones:
+With the core HTTP serving layer delivered in PR-04, Q-01 through Q-03 remain open for future milestones. Q-04 records the current ingestion RSS measurement approach.
 
 ### Q-01: Application-Level In-Memory Block Cache vs OS Page Cache
 - **Context:** `positions.cpi` lookups memory-map the sparse index and read/decompress individual Zstd blocks on demand. Single-query p50 latency is ~250 µs under Linux page caching.
 - **Options:**
   1. *OS Page Cache Only:* Rely entirely on `mmap` and the Linux kernel buffer cache. Eliminates custom cache invalidation and memory management.
   2. *Application-Level LRU Block Cache:* Maintain a small in-memory LRU cache of recently decompressed `PositionBlock` structures (e.g. 64–256 MiB) to avoid repeated Zstd decompressions for high-frequency root moves.
-- **Status:** Open. Current empirical benchmarks demonstrate >3,000 req/s throughput and sub-millisecond latencies using OS page caching alone within an 8.5 MB RSS envelope. A block cache may be evaluated if serving high-concurrency public traffic.
+- **Status:** Open. Real-release benchmarks demonstrate >3,000 req/s throughput and sub-millisecond position-query latencies using OS page caching alone. The measured container peak, including mapped dataset pages under concurrent traffic, is recorded in `benchmarks/corpus/docker_real_check.json`. A block cache may be evaluated if serving high-concurrency public traffic.
 
 ### Q-02: Automatic Inotify Symlink Watcher vs Administrative Reload
 - **Context:** ADR-0004 implemented administrative reload (`POST /v1/admin/reload`) which re-reads the active `current` symlinks in 0.84 ms without dropping in-flight requests.
@@ -71,3 +76,10 @@ With the core HTTP serving layer delivered in PR-04, the following questions rem
   1. *Client-Side Lookup:* Clients maintain an ECO dictionary mapping position keys to opening names.
   2. *CPI Sidecar Index:* A lightweight ancillary binary table mapping `PositionKey` to interned ECO string IDs embedded into the dataset directory.
 - **Status:** Open for future exploration.
+
+### Q-04: Ingestion Memory Measurement
+- **Context:** The original real builds peaked at 44.4 MB (Masters) and 67.3 MB (an Elite pilot) because SQLite used a 32 MiB dedupe cache plus a 4 MiB staging-catalog cache.
+- **Action taken:** The dedupe cache was reduced to 256 KiB, SQLite temporary storage moved to disk, and the staging-catalog cache was reduced to 512 KiB. Ingestion remains streaming and same-input builds produce byte-identical `games.idx`, `positions.cpi`, and shard files.
+- **Measurement correction:** The earlier `wait4` RSS sampler included the Python orchestrator's fork-time memory. The corpus builder now reads `VmHWM` from the executed process after `exec`. The final 29,640-game Masters build measured 23,015,424 bytes. The unchanged Elite release retains its earlier recorded measurement and was not rebuilt for this follow-up.
+- **Decision:** Track per-process RSS on the build host; approximately 31 MB is acceptable. There is no fixed 30,000,000-byte ingestion cutoff. The CPI indexer still honors its configured `--memory-limit-mib` buffer limit.
+- **Status:** Resolved; remeasure after changing the Rust runtime, allocator, or source-scale profile.

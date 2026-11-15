@@ -1,0 +1,87 @@
+name: chess-openings-db
+
+services:
+  codb:
+    image: codb-opening-explorer:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: ${CODB_MEMORY_LIMIT:-512m}
+    cpus: ${CODB_CPU_LIMIT:-2}
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 1024
+    environment:
+      RUST_LOG: ${CODB_LOG_LEVEL:-info}
+      CODB_ALLOWED_ORIGINS: ${CODB_ALLOWED_ORIGINS:-}
+    command:
+      - serve
+      - --masters-dataset
+      - /datasets/masters-otb
+      - --elite-dataset
+      - /datasets/elite-online
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --reader-pool-size
+      - "${CODB_READER_POOL_SIZE:-16}"
+      - --reader-pool-timeout-secs
+      - "${CODB_READER_POOL_TIMEOUT_SECS:-5}"
+      - --request-timeout-secs
+      - "${CODB_REQUEST_TIMEOUT_SECS:-15}"
+      - --max-move-plies
+      - "${CODB_MAX_MOVE_PLIES:-200}"
+      - --deep-validate-on-startup
+    volumes:
+      - type: bind
+        source: ${CODB_MASTERS_RELEASE_DIR:-${CODB_DATA_DIR:-./data}/releases/masters-otb}
+        target: /datasets/masters-otb
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CODB_ELITE_RELEASE_DIR:-${CODB_DATA_DIR:-./data}/releases/elite-online}
+        target: /datasets/elite-online
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      codb-shared:
+        aliases:
+          - codb
+    healthcheck:
+      test:
+        - CMD
+        - /usr/bin/curl
+        - --fail
+        - --silent
+        - --show-error
+        - http://127.0.0.1:8080/ready
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 90s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  codb-shared:
+    name: ${CODB_NETWORK_NAME:-codb-shared}
+    external: ${CODB_NETWORK_EXTERNAL:-false}

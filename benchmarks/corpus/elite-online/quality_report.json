@@ -1,0 +1,156 @@
+{
+  "accounting": {
+    "accepted_unique": 429150,
+    "completion_status": "CompleteEof",
+    "confirmed_duplicates": 45,
+    "quarantined": 0,
+    "rejected_by_policy": 46107551,
+    "rejected_illegal": 0,
+    "rejected_malformed": 0,
+    "rejected_variant": 0,
+    "superseded_prior": 16,
+    "total_encountered": 46536762
+  },
+  "collection": "elite-online",
+  "dataset_build_id": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
+  "distinct_events_hash_estimate": 4004,
+  "distinct_players_hash_estimate": 17573,
+  "manifest_total_games": 429150,
+  "min_player_rating_bins": {
+    "2000-2099": 13134,
+    "2100-2199": 20651,
+    "2200-2299": 250383,
+    "2300-2399": 100685,
+    "2400-2499": 33952,
+    "2500-2599": 8606,
+    "2600-2699": 1516,
+    "2700-2799": 189,
+    "2800-2899": 34
+  },
+  "missing_metadata": {
+    "date": 0,
+    "event": 0,
+    "site_or_source_id": 0,
+    "time_control": 712
+  },
+  "months": {
+    "2015-08": 14,
+    "2015-09": 7219,
+    "2015-11": 24,
+    "2015-12": 20398,
+    "2016-02": 112,
+    "2016-03": 64583,
+    "2016-05": 248,
+    "2016-06": 93886,
+    "2016-08": 200,
+    "2016-09": 80197,
+    "2016-11": 82,
+    "2016-12": 74126,
+    "2017-02": 107,
+    "2017-03": 87954
+  },
+  "notes": "Distinct players/events are counted by exact normalized name hash; the same person may appear under several spellings. Ratings are FIDE Elo for masters-otb and Lichess Glicko-2 for elite-online and must never be pooled.",
+  "plies_bins": {
+    "000-019": 3926,
+    "020-039": 35251,
+    "040-079": 194895,
+    "080-159": 188910,
+    "160+": 6168
+  },
+  "position_index": {
+    "block_count": 95880,
+    "custom_fen_games": 0,
+    "excluded_unknown_result_games": 0,
+    "file_size_bytes": 132054643,
+    "filename": "positions.cpi",
+    "format_version": "CPI/v2",
+    "games_indexed": 429150,
+    "games_processed": 429150,
+    "indexed_depth_plies": 30,
+    "positions_per_block": 64,
+    "raw_observations_extracted": 12760622,
+    "repeated_positions_skipped": 1847,
+    "sha256": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
+    "unique_position_move_pairs": 6739644,
+    "unique_positions": 6136307,
+    "zstd_level": 3
+  },
+  "results": {
+    "0-1": 189856,
+    "1-0": 206318,
+    "1/2-1/2": 32976
+  },
+  "source_archives": [
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2015-09.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "c3f9b718b2dd80545ac00d0ee8122f863353a7b901fea6ba0be06bff5675bfa7",
+      "size_bytes": 547459020,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2015-09.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2015-12.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "83c6a8583e618d1321cb655e579010ccb1531593fbcf44622da5e8a5d2e99c4f",
+      "size_bytes": 757824089,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2015-12.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2016-03.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "11e8667a82a02199855f3aca83d6d4091d194dc4becf6d02a8001f0d9623b5c6",
+      "size_bytes": 1042258644,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-03.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2016-06.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "97ccde214a81d5e58867bedbeb510dfdd99418d9fb31b0995f5320a74b7d4502",
+      "size_bytes": 1093562696,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-06.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2016-09.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "3a4d18db787db558083aacb7c27ab3588f0745c1baaca37846b3f0d8b9677db3",
+      "size_bytes": 1213809361,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-09.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2016-12.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "285d09bcb7f47af2d58594ecee7da8c18f9e800fd7df2e0158b4fb5429f9a904",
+      "size_bytes": 1698298025,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-12.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_standard_rated_2017-03.pgn.zst",
+      "license": "CC0-1.0",
+      "sha256": "b319297e9270285635d615cbcd19a9b0d44747be3ff91d5b3eac41175b794320",
+      "size_bytes": 2169142067,
+      "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2017-03.pgn.zst"
+    }
+  ],
+  "speed_class_note": "Only computed for elite-online (seconds-based Lichess TimeControl). For masters-otb the PGN TimeControl unit is not consistent across broadcasts, so only raw values are listed.",
+  "speed_classes": {
+    "blitz": 393240,
+    "classical": 929,
+    "rapid": 34269,
+    "unknown": 712
+  },
+  "time_control_raw_top20": {},
+  "total_games": 429150,
+  "unknown_result_games": 0,
+  "years": {
+    "2015": 27655,
+    "2016": 313434,
+    "2017": 88061
+  }
+}

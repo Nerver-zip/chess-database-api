@@ -4,6 +4,32 @@ All notable changes to `chess-openings-db` are documented in this file. The proj
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Reproducible corpus release workflow (PR-A):**
+  - `corpus/catalog.json`: pinned source catalog (publisher, URL, archive period, license, expected size, publisher SHA-256, verified SHA-256, acquisition timestamp, provenance confidence, eligibility, notes) for the Lichess broadcast (CC BY-SA 4.0) and standard rated (CC0 1.0) archives.
+  - `scripts/corpus.py` / `scripts/corpus.sh`: `plan`, `sources`, `fetch`, `verify-sources`, `pin`, `build`, `verify`, `report`, `package`, `verify-package`, `serve`, `http-check`. Resumable HTTPS downloads with retry/backoff, publisher-checksum verification, atomic finalization, disk-space and size safety limits, offline verification; builds in a private workspace with deep verification before atomic promotion; deterministic release packaging.
+  - `codb build --report-json` and `codb report` (machine-readable accounting, rejection reasons, and distributions).
+  - Release provenance (`RELEASE/RELEASE.json`) and legal notice (`RELEASE/DATASET_LICENSE.txt`) bundled with every release.
+  - `codb bench-lookup` (in-process CPI lookup latency on a published release) and a multi-process HTTP load client in `http-check`.
+  - `docs/CORPUS_BUILD.md`, offline fixtures (`fixtures/corpus/`), and `scripts/test_corpus.py`.
+- **Dockerized Opening Explorer and portable real releases (PR #6 follow-up):**
+  - Multi-stage, non-root CODB API image and Compose deployment with read-only release mounts, restricted host exposure, health checks, bounded runtime settings, and shared-network access at `http://codb:8080`.
+  - Package checksum bootstrap and explicit pinned-source rebuild workflow; startup never fetches or rebuilds corpora.
+  - Real Masters event audit now qualifies a 29,640-game verified OTB subset; 1 online game and 12,971 unresolved games in the 42,612-game audit baseline are excluded.
+  - Atomic immutable release publication, per-process RSS measurement, and real container-to-container HTTP integration evidence for both collections.
+
+### Changed
+- **Curation policy revisions `2026.11-r3` / `2026.11-r2`:** Masters r3 applies exact event-level verified OTB tournament IDs from the checked-in audit and excludes verified online and unresolved events; it retains termination and historical provenance filters. Elite r2 rejects explicit aborted, abandoned, no-contest, unplayed, unterminated, and rules-infraction `Termination` values alongside its casual and bullet exclusions. Unknown termination values remain eligible. `ProvisionalRating` cannot be inferred because standard Lichess PGNs expose no provisional marker.
+- Policy rejections are reported by stable category (`PolicyRejectionReason::category`).
+
+### Fixed
+- Deduplication SQLite cache is 256 KiB, temp storage is disk-backed, and the staging-catalog cache is 512 KiB. The corpus runner records executed-process `VmHWM`; ingestion RSS is measured per host and has no fixed 30 MB cutoff.
+- `docs/DATA_CONTRACTS.md` documented HTTP 422 for unsupported query parameters; the implementation (and the error table) return HTTP 400 `unsupported_parameter`.
+
+---
+
 ## [0.5.0] - 2026-11-06
 
 ### Added

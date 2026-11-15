@@ -1,0 +1,17 @@
+# Keep validation inputs while excluding generated and multi-gigabyte local data.
+data/
+target/
+.git/
+.env
+.env.*
+!.env.codb.example
+raw/
+downloads/
+scratch/
+tmp/
+**/*.zst
+*.db
+*.sqlite
+*.sqlite3
+*.rocksdb
+*.mdb

@@ -1,0 +1,32 @@
+{
+  "collection": "masters-otb",
+  "dataset_build_id": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
+  "games_sampled": 5000,
+  "hit_first_pass": {
+    "count": 68502,
+    "hits": 68502,
+    "max_us": 35.137,
+    "p50_us": 4.944,
+    "p95_us": 10.424000000000001,
+    "p99_us": 17.976
+  },
+  "hit_warm_pass": {
+    "count": 68502,
+    "hits": 68502,
+    "max_us": 40.616,
+    "p50_us": 4.95,
+    "p95_us": 10.442,
+    "p99_us": 17.779
+  },
+  "index_depth_plies": 40,
+  "miss_warm_pass": {
+    "count": 9786,
+    "hits": 0,
+    "max_us": 28.301,
+    "p50_us": 4.528,
+    "p95_us": 5.398,
+    "p99_us": 9.557
+  },
+  "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+  "unique_positions": 705718
+}

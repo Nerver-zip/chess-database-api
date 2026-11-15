@@ -1,0 +1,402 @@
+[Event "Rated Rapid game"]
+[Site "https://lichess.org/fx000001"]
+[Date "2016.06.15"]
+[White "elite_w1"]
+[Black "elite_b1"]
+[Result "0-1"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2310"]
+[BlackElo "2275"]
+[TimeControl "180+0"]
+[Variant "Standard"]
+
+1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 O-O 5. Bd3 d5 6. Nf3 c5 0-1
+
+[Event "Rated Blitz game"]
+[Site "https://lichess.org/fx000002"]
+[Date "2016.06.15"]
+[White "elite_w2"]
+[Black "elite_b2"]
+[Result "1/2-1/2"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2311"]
+[BlackElo "2275"]
+[TimeControl "300+3"]
+[Variant "Standard"]
+
+1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6 6. Be2 e5 1/2-1/2
+
+[Event "Rated Rapid game"]
+[Site "https://lichess.org/fx000003"]
+[Date "2016.06.15"]
+[White "elite_w3"]
+[Black "elite_b3"]
+[Result "1-0"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2312"]
+[BlackElo "2275"]
+[TimeControl "600+0"]
+[Variant "Standard"]
+
+1. c4 e5 2. Nc3 Nf6 3. Nf3 Nc6 4. g3 d5 5. cxd5 Nxd5 6. Bg2 Nb6 1-0
+
+[Event "Rated Blitz game"]
+[Site "https://lichess.org/fx000004"]
+[Date "2016.06.15"]
+[White "elite_w4"]
+[Black "elite_b4"]
+[Result "0-1"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2313"]
+[BlackElo "2275"]
+[TimeControl "900+10"]
+[Variant "Standard"]
+
+1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Be7 5. e3 O-O 6. Nf3 h6 0-1
+
+[Event "Rated Rapid game"]
+[Site "https://lichess.org/fx000005"]
+[Date "2016.06.15"]
+[White "elite_w5"]
+[Black "elite_b5"]
+[Result "1/2-1/2"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2314"]
+[BlackElo "2275"]
+[TimeControl "1800+0"]
+[Variant "Standard"]
+
+1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. e5 c5 5. a3 Bxc3+ 6. bxc3 Ne7 1/2-1/2
+
+[Event "Rated Blitz game"]
+[Site "https://lichess.org/fx000006"]
+[Date "2016.06.15"]
+[White "elite_w6"]
+[Black "elite_b6"]
+[Result "1-0"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2315"]
+[BlackElo "2275"]
+[TimeControl "180+0"]
+[Variant "Standard"]
+
+1. Nf3 d5 2. g3 Nf6 3. Bg2 e6 4. O-O Be7 5. d3 O-O 6. Nbd2 c5 1-0
+
+[Event "Rated Rapid game"]
+[Site "https://lichess.org/fx000007"]
+[Date "2016.06.15"]
+[White "elite_w7"]
+[Black "elite_b7"]
+[Result "0-1"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2316"]
+[BlackElo "2275"]
+[TimeControl "300+3"]
+[Variant "Standard"]
+
+1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 5. Ng3 Bg6 6. h4 h6 0-1
+
+[Event "Rated Blitz game"]
+[Site "https://lichess.org/fx000008"]
+[Date "2016.06.15"]
+[White "elite_w8"]
+[Black "elite_b8"]
+[Result "1/2-1/2"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2317"]
+[BlackElo "2275"]
+[TimeControl "600+0"]
+[Variant "Standard"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 1/2-1/2
+
+[Event "Rated Rapid game"]
+[Site "https://lichess.org/fx000009"]
+[Date "2016.06.15"]
+[White "elite_w9"]
+[Black "elite_b9"]
+[Result "1-0"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2318"]
+[BlackElo "2275"]
+[TimeControl "900+10"]
+[Variant "Standard"]
+
+1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 O-O 5. Bd3 d5 6. Nf3 c5 1-0
+
+[Event "Rated Blitz game"]
+[Site "https://lichess.org/fx000010"]
+[Date "2016.06.15"]
+[White "elite_w10"]
+[Black "elite_b10"]
+[Result "0-1"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2319"]
+[BlackElo "2275"]
+[TimeControl "1800+0"]
+[Variant "Standard"]
+
+1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6 6. Be2 e5 0-1
+
+[Event "Rated Rapid game"]
+[Site "https://lichess.org/fx000011"]
+[Date "2016.06.15"]
+[White "elite_w11"]
+[Black "elite_b11"]
+[Result "1/2-1/2"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2320"]
+[BlackElo "2275"]
+[TimeControl "180+0"]
+[Variant "Standard"]
+
+1. c4 e5 2. Nc3 Nf6 3. Nf3 Nc6 4. g3 d5 5. cxd5 Nxd5 6. Bg2 Nb6 1/2-1/2
+
+[Event "Rated Blitz game"]
+[Site "https://lichess.org/fx000012"]
+[Date "2016.06.15"]
+[White "elite_w12"]
+[Black "elite_b12"]
+[Result "1-0"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2321"]
+[BlackElo "2275"]
+[TimeControl "300+3"]
+[Variant "Standard"]
+
+1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Be7 5. e3 O-O 6. Nf3 h6 1-0
+
+[Event "Rated Rapid game"]
+[Site "https://lichess.org/fx000013"]
+[Date "2016.06.15"]
+[White "elite_w13"]
+[Black "elite_b13"]
+[Result "0-1"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2322"]
+[BlackElo "2275"]
+[TimeControl "600+0"]
+[Variant "Standard"]
+
+1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. e5 c5 5. a3 Bxc3+ 6. bxc3 Ne7 0-1
+
+[Event "Rated Blitz game"]
+[Site "https://lichess.org/fx000014"]
+[Date "2016.06.15"]
+[White "elite_w14"]
+[Black "elite_b14"]
+[Result "1/2-1/2"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2323"]
+[BlackElo "2275"]
+[TimeControl "900+10"]
+[Variant "Standard"]
+
+1. Nf3 d5 2. g3 Nf6 3. Bg2 e6 4. O-O Be7 5. d3 O-O 6. Nbd2 c5 1/2-1/2
+
+[Event "Rated Rapid game"]
+[Site "https://lichess.org/fx000015"]
+[Date "2016.06.15"]
+[White "elite_w15"]
+[Black "elite_b15"]
+[Result "1-0"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2324"]
+[BlackElo "2275"]
+[TimeControl "1800+0"]
+[Variant "Standard"]
+
+1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 5. Ng3 Bg6 6. h4 h6 1-0
+
+[Event "Rated Blitz game"]
+[Site "https://lichess.org/fx000016"]
+[Date "2016.06.15"]
+[White "elite_w16"]
+[Black "elite_b16"]
+[Result "0-1"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2325"]
+[BlackElo "2275"]
+[TimeControl "180+0"]
+[Variant "Standard"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 0-1
+
+[Event "Rated Blitz game"]
+[Site "https://lichess.org/fx000017"]
+[Date "2016.06.15"]
+[White "elite_w17"]
+[Black "elite_b17"]
+[Result "1/2-1/2"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2450"]
+[BlackElo "2050"]
+[TimeControl "300+0"]
+[Variant "Standard"]
+
+1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 O-O 5. Bd3 d5 6. Nf3 c5 1/2-1/2
+
+[Event "Rated Bullet game"]
+[Site "https://lichess.org/fx000018"]
+[Date "2016.06.15"]
+[White "elite_w18"]
+[Black "elite_b18"]
+[Result "1-0"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2500"]
+[BlackElo "2480"]
+[TimeControl "60+0"]
+[Variant "Standard"]
+
+1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6 6. Be2 e5 1-0
+
+[Event "Rated Bullet game"]
+[Site "https://lichess.org/fx000019"]
+[Date "2016.06.15"]
+[White "elite_w19"]
+[Black "elite_b19"]
+[Result "0-1"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2500"]
+[BlackElo "2480"]
+[TimeControl "60+0"]
+[Variant "Standard"]
+
+1. c4 e5 2. Nc3 Nf6 3. Nf3 Nc6 4. g3 d5 5. cxd5 Nxd5 6. Bg2 Nb6 0-1
+
+[Event "Rated Bullet game"]
+[Site "https://lichess.org/fx000020"]
+[Date "2016.06.15"]
+[White "elite_w20"]
+[Black "elite_b20"]
+[Result "1/2-1/2"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2500"]
+[BlackElo "2480"]
+[TimeControl "60+0"]
+[Variant "Standard"]
+
+1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Be7 5. e3 O-O 6. Nf3 h6 1/2-1/2
+
+[Event "Rated Bullet game"]
+[Site "https://lichess.org/fx000021"]
+[Date "2016.06.15"]
+[White "elite_w21"]
+[Black "elite_b21"]
+[Result "1-0"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2500"]
+[BlackElo "2480"]
+[TimeControl "180+0"]
+[Variant "Standard"]
+
+1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. e5 c5 5. a3 Bxc3+ 6. bxc3 Ne7 1-0
+
+[Event "Rated Blitz game"]
+[Site "https://lichess.org/fx000022"]
+[Date "2016.06.15"]
+[White "elite_w22"]
+[Black "elite_b22"]
+[Result "0-1"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2150"]
+[BlackElo "2100"]
+[TimeControl "180+0"]
+[Variant "Standard"]
+
+1. Nf3 d5 2. g3 Nf6 3. Bg2 e6 4. O-O Be7 5. d3 O-O 6. Nbd2 c5 0-1
+
+[Event "Rated Blitz game"]
+[Site "https://lichess.org/fx000023"]
+[Date "2016.06.15"]
+[White "elite_w23"]
+[Black "elite_b23"]
+[Result "1/2-1/2"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2399"]
+[BlackElo "1999"]
+[TimeControl "180+0"]
+[Variant "Standard"]
+
+1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 5. Ng3 Bg6 6. h4 h6 1/2-1/2
+
+[Event "Casual Blitz game"]
+[Site "https://lichess.org/fx000024"]
+[Date "2016.06.15"]
+[White "elite_w24"]
+[Black "elite_b24"]
+[Result "1-0"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2500"]
+[BlackElo "2500"]
+[TimeControl "180+0"]
+[Variant "Standard"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 1-0
+
+[Event "Rated Crazyhouse game"]
+[Site "https://lichess.org/fx000025"]
+[Date "2016.06.15"]
+[White "elite_w25"]
+[Black "elite_b25"]
+[Result "0-1"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2500"]
+[BlackElo "2500"]
+[TimeControl "180+0"]
+[Variant "Crazyhouse"]
+
+1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 O-O 5. Bd3 d5 6. Nf3 c5 0-1
+
+[Event "Rated Blitz game"]
+[Site "https://lichess.org/fx000001"]
+[Date "2016.06.15"]
+[White "elite_w26"]
+[Black "elite_b26"]
+[Result "1/2-1/2"]
+[UTCDate "2016.06.15"]
+[UTCTime "12:00:00"]
+[WhiteElo "2500"]
+[BlackElo "2500"]
+[TimeControl "180+0"]
+[Variant "Standard"]
+
+1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6 6. Be2 e5 1/2-1/2
+
+[Event "Rated Blitz game"]
+[Site "https://lichess.org/fxillegal"]
+[Date "2016.06.15"]
+[White "bad_w"]
+[Black "bad_b"]
+[Result "1-0"]
+[WhiteElo "2500"]
+[BlackElo "2500"]
+[TimeControl "180+0"]
+[Variant "Standard"]
+
+1. e4 e5 2. Ke3 Nc6 3. Nf3 Nf6 1-0

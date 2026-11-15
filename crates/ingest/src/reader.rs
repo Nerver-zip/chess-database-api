@@ -43,6 +43,7 @@ pub struct GameTags {
     pub result: GameResult,
     pub eco: Option<String>,
     pub time_control: Option<String>,
+    pub aborted_or_infraction: bool,
     pub variant: Option<String>,
     pub fen_start: Option<String>,
     pub game_url: Option<String>,
@@ -292,6 +293,10 @@ impl Visitor for ShakmatyGameVisitor {
                     tags.time_control = Some(trimmed.to_string());
                 }
             }
+            b"Termination" => {
+                tags.aborted_or_infraction |=
+                    codb_curate::policy::is_aborted_or_infraction_termination(trimmed);
+            }
             b"Variant" => tags.variant = Some(trimmed.to_string()),
             b"FEN" => tags.fen_start = Some(trimmed.to_string()),
             _ => {}
@@ -306,6 +311,12 @@ impl Visitor for ShakmatyGameVisitor {
         if tags.tag_count == 0 {
             return ControlFlow::Break(Err(IngestError::MalformedPgn(
                 "Missing PGN header tags".into(),
+            )));
+        }
+
+        if self.early_policy_filter && tags.aborted_or_infraction {
+            return ControlFlow::Break(Err(IngestError::RejectedByPolicy(
+                "Aborted or rules infraction".into(),
             )));
         }
 
@@ -726,6 +737,42 @@ mod tests {
         assert_eq!(g1.metadata.white_elo, Some(2855));
         assert_eq!(g1.metadata.result, GameResult::WhiteWins);
         assert_eq!(g1.moves.len(), 14); // 7 full moves = 14 plies
+    }
+
+    fn parse_curated_game_with_termination(termination: &str) -> Result<ParsedGame, IngestError> {
+        let pgn = format!(
+            "[Event \"Rated Standard\"]\n[White \"A\"]\n[Black \"B\"]\n[WhiteElo \"2400\"]\n[BlackElo \"2200\"]\n[TimeControl \"600+0\"]\n[Result \"1-0\"]\n[Termination \"{}\"]\n\n1. e4 e5 2. Nf3 Nc6 1-0\n",
+            termination
+        );
+        let mut reader = build_pgn_reader(pgn.as_bytes());
+        let mut visitor =
+            ShakmatyGameVisitor::new(Collection::EliteOnline, 1).with_early_policy_filter(true);
+        reader
+            .read_game(&mut visitor)
+            .expect("valid PGN")
+            .expect("one game")
+    }
+
+    #[test]
+    fn test_curated_reader_rejects_aborted_and_infraction_terminations() {
+        for termination in ["Abandoned", "Rules infraction", "Aborted"] {
+            match parse_curated_game_with_termination(termination) {
+                Err(IngestError::RejectedByPolicy(reason)) => {
+                    assert_eq!(reason, "Aborted or rules infraction");
+                }
+                other => panic!("Expected termination rejection for {termination}, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_curated_reader_keeps_normal_and_time_forfeit_terminations() {
+        for termination in ["Normal", "Time forfeit"] {
+            assert!(
+                parse_curated_game_with_termination(termination).is_ok(),
+                "{termination}"
+            );
+        }
     }
 
     #[test]

@@ -20,8 +20,9 @@ use codb_ingest::reader::{
 };
 use codb_storage::format::{export_to_pgn, GameBlock};
 use codb_storage::{
-    compute_file_sha256, verify_dataset, CurationPolicyMetadata, DatasetReader, DatasetWriter,
-    DatasetWriterConfig, ShardReader, SourceArchiveMetadata, StorageError,
+    compute_file_sha256, publish_prebuilt_dataset, verify_dataset, CurationPolicyMetadata,
+    DatasetReader, DatasetWriter, DatasetWriterConfig, ShardReader, SourceArchiveMetadata,
+    StorageError,
 };
 use serde::{Deserialize, Serialize};
 use shakmaty::uci::UciMove;
@@ -118,6 +119,25 @@ enum Commands {
         /// Deduplication mode: memory or disk (disk uses temporary SQLite with bounded RAM)
         #[arg(long, default_value = "disk")]
         dedupe_mode: DedupeModeArg,
+
+        /// Optional path for a machine-readable build report (accounting and rejection reasons)
+        #[arg(long)]
+        report_json: Option<PathBuf>,
+
+        /// Masters event audit JSON used to reject online and unresolved tournament events
+        #[arg(long, requires = "collection")]
+        masters_event_audit: Option<PathBuf>,
+    },
+
+    /// Compute a machine-readable dataset quality report (distributions and coverage)
+    Report {
+        /// Dataset directory path (release root or snapshot)
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// Output JSON file (stdout when omitted)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
     },
 
     /// Retrieve an individual game by stable ID from a persistent dataset
@@ -155,6 +175,21 @@ enum Commands {
         /// Perform deep game-level decompression and verification of every block
         #[arg(long)]
         deep: bool,
+    },
+
+    /// Publish a deeply verified staged snapshot into a stable versioned dataset root
+    Publish {
+        /// Staged dataset root containing a complete current snapshot
+        #[arg(long)]
+        candidate: PathBuf,
+
+        /// Stable dataset root that serves current and preserves previous versions
+        #[arg(long)]
+        target: PathBuf,
+
+        /// Collection identity required for the candidate
+        #[arg(long)]
+        collection: CollectionArg,
     },
 
     /// Run the end-to-end benchmark suite and write JSON reports
@@ -253,6 +288,21 @@ enum Commands {
         random_lookups: usize,
     },
 
+    /// Measure in-process CPI position lookup latency on a published dataset (no re-indexing)
+    BenchLookup {
+        /// Dataset directory path containing manifest.json and positions.cpi
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// Number of stored games to replay for sampling positions
+        #[arg(long, default_value = "5000")]
+        games: usize,
+
+        /// Output JSON file (stdout when omitted)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
     /// Export games from a persistent dataset to PGN format (stdout or file, optional .zst)
     Export {
         /// Dataset directory path containing manifest.json
@@ -291,15 +341,19 @@ enum Commands {
         allowed_origins: String,
 
         /// Global request timeout in seconds
-        #[arg(long, default_value = "15")]
+        #[arg(long, default_value = "15", env = "CODB_REQUEST_TIMEOUT_SECS")]
         request_timeout_secs: u64,
 
-        /// Maximum plies allowed in a move sequence query
-        #[arg(long, default_value = "200")]
+        /// Maximum plies allowed in a move sequence query (1-512)
+        #[arg(long, default_value = "200", env = "CODB_MAX_MOVE_PLIES")]
         max_move_plies: usize,
 
-        /// Capacity of reader pool per dataset snapshot
-        #[arg(long, default_value = "16")]
+        /// Deeply validate every dataset block before the service becomes ready
+        #[arg(long)]
+        deep_validate_on_startup: bool,
+
+        /// Capacity of reader pool per dataset snapshot (1-64)
+        #[arg(long, default_value = "16", env = "CODB_READER_POOL_SIZE")]
         reader_pool_size: usize,
 
         /// Maximum seconds to wait for an available reader from the pool before returning 503
@@ -617,6 +671,13 @@ fn open_pgn_reader(path: &Path) -> Result<Box<dyn Read + Send>> {
 }
 
 fn main() -> Result<()> {
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_ansi(false)
+        .try_init();
+
     let cli = Cli::parse();
 
     match cli.command {
@@ -630,8 +691,12 @@ fn main() -> Result<()> {
             max_games_per_shard,
             zstd_level,
             dedupe_mode,
+            report_json,
+            masters_event_audit,
         } => {
             run_build(BuildOptions {
+                report_json,
+                masters_event_audit,
                 manifest,
                 input,
                 collection,
@@ -642,6 +707,10 @@ fn main() -> Result<()> {
                 zstd_level,
                 dedupe_mode,
             })?;
+        }
+
+        Commands::Report { dataset, output } => {
+            run_report(&dataset, output.as_deref())?;
         }
 
         Commands::GetGame {
@@ -658,6 +727,28 @@ fn main() -> Result<()> {
 
         Commands::Verify { dataset, deep } => {
             run_verify(&dataset, deep)?;
+        }
+
+        Commands::Publish {
+            candidate,
+            target,
+            collection,
+        } => {
+            let collection: Collection = collection.into();
+            let active =
+                publish_prebuilt_dataset(&candidate, &target, collection).with_context(|| {
+                    format!(
+                        "Failed to publish candidate dataset {} into {}",
+                        candidate.display(),
+                        target.display()
+                    )
+                })?;
+            println!(
+                "Published {} into stable dataset root {} (active snapshot: {})",
+                collection,
+                target.display(),
+                active.display()
+            );
         }
 
         Commands::Ingest {
@@ -755,6 +846,14 @@ fn main() -> Result<()> {
             run_bench_dataset(&dataset, &output_dir, &run_name, random_lookups)?;
         }
 
+        Commands::BenchLookup {
+            dataset,
+            games,
+            output,
+        } => {
+            run_bench_lookup(&dataset, games, output.as_deref())?;
+        }
+
         Commands::Export {
             dataset,
             output,
@@ -773,6 +872,7 @@ fn main() -> Result<()> {
             max_move_plies,
             reader_pool_size,
             reader_pool_timeout_secs,
+            deep_validate_on_startup,
             admin_token,
         } => {
             let origins = allowed_origins
@@ -791,6 +891,7 @@ fn main() -> Result<()> {
                 max_move_plies,
                 reader_pool_size,
                 reader_pool_timeout_secs,
+                deep_validate_on_startup,
                 admin_token,
             };
 
@@ -892,6 +993,8 @@ fn open_auto_detect_reader(path: &Path) -> Result<Box<dyn Read + Send>> {
 }
 
 struct BuildOptions {
+    report_json: Option<PathBuf>,
+    masters_event_audit: Option<PathBuf>,
     manifest: Option<PathBuf>,
     input: Vec<PathBuf>,
     collection: CollectionArg,
@@ -903,10 +1006,77 @@ struct BuildOptions {
     dedupe_mode: DedupeModeArg,
 }
 
+#[derive(Deserialize)]
+struct MastersEventAuditInput {
+    schema_version: u32,
+    release_policy: MastersEventPolicyInput,
+}
+
+#[derive(Deserialize)]
+struct MastersEventPolicyInput {
+    require_verified_otb_event: bool,
+    verified_online_tournament_slugs: Vec<String>,
+    verified_otb_tournament_slugs: Vec<String>,
+}
+
 fn run_build(opts: BuildOptions) -> Result<()> {
     let mut resolved_inputs = Vec::new();
     let mut source_metas = Vec::new();
     let col: Collection = opts.collection.into();
+    let event_qualification = if let Some(path) = opts.masters_event_audit.as_ref() {
+        anyhow::ensure!(
+            col == Collection::MastersOtb,
+            "--masters-event-audit is only valid for the masters-otb collection"
+        );
+        let audit_reader =
+            BufReader::new(File::open(path).with_context(|| {
+                format!("Failed to open Masters event audit {}", path.display())
+            })?);
+        let audit: MastersEventAuditInput = serde_json::from_reader(audit_reader)
+            .with_context(|| format!("Invalid Masters event audit JSON in {}", path.display()))?;
+        anyhow::ensure!(
+            audit.schema_version == 1,
+            "Unsupported Masters event audit schema version {}",
+            audit.schema_version
+        );
+        let policy = audit.release_policy;
+        let online_items = &policy.verified_online_tournament_slugs;
+        let otb_items = &policy.verified_otb_tournament_slugs;
+        for slug in online_items.iter().chain(otb_items) {
+            anyhow::ensure!(
+                !slug.trim().is_empty()
+                    && slug.trim() == slug
+                    && slug.bytes().all(|byte| {
+                        byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.')
+                    }),
+                "Invalid Masters broadcast tournament slug in event audit: '{}'",
+                slug
+            );
+        }
+        let online: std::collections::HashSet<String> = online_items
+            .iter()
+            .map(|slug| slug.to_ascii_lowercase())
+            .collect();
+        let otb: std::collections::HashSet<String> = otb_items
+            .iter()
+            .map(|slug| slug.to_ascii_lowercase())
+            .collect();
+        anyhow::ensure!(
+            online.len() == online_items.len() && otb.len() == otb_items.len(),
+            "Masters event audit contains duplicate tournament slugs"
+        );
+        anyhow::ensure!(
+            online.is_disjoint(&otb),
+            "Masters event audit classifies at least one tournament as both online and OTB"
+        );
+        anyhow::ensure!(
+            !policy.require_verified_otb_event || !otb.is_empty(),
+            "Masters event audit requires verified OTB events but its allowlist is empty"
+        );
+        Some((policy.require_verified_otb_event, online, otb))
+    } else {
+        None
+    };
 
     if let Some(m_path) = opts.manifest {
         let file_bytes = std::fs::read(&m_path)
@@ -1015,20 +1185,25 @@ fn run_build(opts: BuildOptions) -> Result<()> {
     println!("Zstandard Level:     {}", opts.zstd_level);
     println!("Deduplication Mode:  {:?}", opts.dedupe_mode);
 
+    let event_qualification_enabled = event_qualification.is_some();
     let curation_policy = match col {
         Collection::MastersOtb => CurationPolicyMetadata {
             min_rating_both: 2200,
             min_rating_one: 2400,
             min_rating_other: 2000,
             min_plies: 4,
-            extra_criteria: "Historical exception pre-1970".into(),
+            extra_criteria: if event_qualification_enabled {
+                "Exact event-level audit allowlist: verified online and unresolved tournaments excluded; verified OTB venue corroborated by linked event source; direct online platform Site tags excluded; historical exception pre-1970 requires named event and venue; explicit aborted or rules-infraction Termination values excluded".into()
+            } else {
+                "Online-event marker exclusion; historical exception pre-1970 requires named event and venue; explicit aborted or rules-infraction Termination values excluded".into()
+            },
         },
         Collection::EliteOnline => CurationPolicyMetadata {
             min_rating_both: 2200,
             min_rating_one: 2400,
             min_rating_other: 2000,
             min_plies: 6,
-            extra_criteria: "Exclude Bullet and UltraBullet (<180s)".into(),
+            extra_criteria: "Exclude Bullet and UltraBullet (<180s), casual games, and explicit aborted or rules-infraction Termination values".into(),
         },
     };
 
@@ -1063,6 +1238,9 @@ fn run_build(opts: BuildOptions) -> Result<()> {
     let mut pipeline = CuratedPipeline::new(col, deduplicator, consumer)
         .with_max_games(opts.max_games)
         .with_log_progress(true);
+    if let Some((require_verified, online, otb)) = event_qualification {
+        pipeline = pipeline.with_masters_event_qualification(online, otb, require_verified);
+    }
 
     for path in &resolved_inputs {
         println!("Streaming from {}...", path.display());
@@ -1079,6 +1257,7 @@ fn run_build(opts: BuildOptions) -> Result<()> {
     }
 
     let stats = pipeline.stats;
+    let policy_rejection_reasons = pipeline.policy_rejection_reasons;
     println!("\nFinalizing persistent dataset...");
     let manifest = dataset_writer
         .finalize(stats.clone(), source_metas)
@@ -1092,6 +1271,9 @@ fn run_build(opts: BuildOptions) -> Result<()> {
     println!("Duplicates Removed:  {}", stats.confirmed_duplicates);
     println!("Superseded Prior:    {}", stats.superseded_prior);
     println!("Policy Rejections:   {}", stats.rejected_by_policy);
+    for (reason, n) in &policy_rejection_reasons {
+        println!("  - {reason}: {n}");
+    }
     println!("Shards Created:      {}", manifest.shards.len());
     println!(
         "Total Physical Size: {:.2} MB ({} bytes)",
@@ -1106,6 +1288,271 @@ fn run_build(opts: BuildOptions) -> Result<()> {
         stats.total_encountered as f64 / elapsed.max(1e-9)
     );
 
+    if let Some(report_path) = &opts.report_json {
+        let report = serde_json::json!({
+            "collection": col.to_string(),
+            "dataset_build_id": manifest.dataset_build_id,
+            "total_games": manifest.total_games,
+            "accounting": stats,
+            "is_reconciled": stats.is_reconciled(),
+            "retained_matches_accepted": stats.verify_retained_count(manifest.total_games as usize),
+            "policy_rejection_reasons": policy_rejection_reasons,
+            "total_physical_bytes": manifest.total_physical_bytes,
+            "build_duration_secs": elapsed,
+            "source_archives": manifest.source_archives,
+        });
+        std::fs::write(report_path, serde_json::to_vec_pretty(&report)?)
+            .with_context(|| format!("Failed to write report {}", report_path.display()))?;
+    }
+
+    Ok(())
+}
+
+/// Lichess-style speed class from `base+increment` seconds (base + 40 * inc).
+fn speed_class(tc: Option<&str>) -> &'static str {
+    let Some(tc) = tc else { return "unknown" };
+    let Some((b, i)) = tc.trim().split_once('+') else {
+        return "other_format";
+    };
+    match (b.parse::<u32>(), i.parse::<u32>()) {
+        (Ok(b), Ok(i)) => {
+            let est = b + 40 * i;
+            if est < 30 {
+                "ultrabullet"
+            } else if est < 180 {
+                "bullet"
+            } else if est < 480 {
+                "blitz"
+            } else if est < 1500 {
+                "rapid"
+            } else {
+                "classical"
+            }
+        }
+        _ => "other_format",
+    }
+}
+
+fn run_report(dataset: &Path, output: Option<&Path>) -> Result<()> {
+    use std::collections::{BTreeMap, HashSet};
+    let reader = DatasetReader::open(dataset)
+        .with_context(|| format!("Failed to open dataset at {}", dataset.display()))?;
+    let manifest = reader.manifest().clone();
+
+    let mut years: BTreeMap<String, u64> = BTreeMap::new();
+    let mut months: BTreeMap<String, u64> = BTreeMap::new();
+    let mut speeds: BTreeMap<&'static str, u64> = BTreeMap::new();
+    let mut results: BTreeMap<&'static str, u64> = BTreeMap::new();
+    let mut raw_tc: BTreeMap<String, u64> = BTreeMap::new();
+    let mut min_rating_bins: BTreeMap<String, u64> = BTreeMap::new();
+    let mut plies_bins: BTreeMap<String, u64> = BTreeMap::new();
+    let (mut missing_date, mut missing_event, mut missing_tc, mut missing_site) =
+        (0u64, 0u64, 0u64, 0u64);
+    let mut players: HashSet<u64> = HashSet::new();
+    let mut events: HashSet<u64> = HashSet::new();
+    let mut total = 0u64;
+
+    let fnv = |s: &str| -> u64 {
+        let mut h = 0xcbf29ce484222325u64;
+        for b in s.as_bytes() {
+            h ^= *b as u64;
+            h = h.wrapping_mul(0x100000001b3);
+        }
+        h
+    };
+
+    for game in reader.iter_games()? {
+        let game = game?;
+        total += 1;
+        let m = &game.metadata;
+        match m.date.as_deref() {
+            Some(d) if d.len() >= 4 && d[..4].chars().all(|c| c.is_ascii_digit()) => {
+                *years.entry(d[..4].to_string()).or_insert(0) += 1;
+                if d.len() >= 7
+                    && d.as_bytes()[4] == b'.'
+                    && d[5..7].chars().all(|c| c.is_ascii_digit())
+                {
+                    *months.entry(d[..7].replace('.', "-")).or_insert(0) += 1;
+                }
+            }
+            _ => missing_date += 1,
+        }
+        if m.event.is_none() {
+            missing_event += 1;
+        }
+        if m.site.is_none() && m.source_id.is_none() {
+            missing_site += 1;
+        }
+        if m.time_control.is_none() {
+            missing_tc += 1;
+        }
+        if manifest.collection == Collection::EliteOnline {
+            *speeds
+                .entry(speed_class(m.time_control.as_deref()))
+                .or_insert(0) += 1;
+        } else if let Some(tc) = &m.time_control {
+            // Broadcast TimeControl strings have no consistent unit; report raw values only.
+            *raw_tc.entry(tc.clone()).or_insert(0) += 1;
+        }
+        *results
+            .entry(match m.result {
+                codb_core::GameResult::WhiteWins => "1-0",
+                codb_core::GameResult::BlackWins => "0-1",
+                codb_core::GameResult::Draw => "1/2-1/2",
+                _ => "unknown",
+            })
+            .or_insert(0) += 1;
+        if let (Some(w), Some(b)) = (m.white_elo, m.black_elo) {
+            let lo = w.min(b);
+            let bin = format!("{:04}-{:04}", lo / 100 * 100, lo / 100 * 100 + 99);
+            *min_rating_bins.entry(bin).or_insert(0) += 1;
+        }
+        let ply_bin = match game.moves.len() {
+            0..=19 => "000-019",
+            20..=39 => "020-039",
+            40..=79 => "040-079",
+            80..=159 => "080-159",
+            _ => "160+",
+        };
+        *plies_bins.entry(ply_bin.to_string()).or_insert(0) += 1;
+        players.insert(fnv(&m.white));
+        players.insert(fnv(&m.black));
+        if let Some(e) = &m.event {
+            events.insert(fnv(e));
+        }
+    }
+
+    let tc_top: BTreeMap<String, u64> = {
+        let mut v: Vec<_> = raw_tc.into_iter().collect();
+        v.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+        v.truncate(20);
+        v.into_iter().collect()
+    };
+    let report = serde_json::json!({
+        "collection": manifest.collection.to_string(),
+        "dataset_build_id": manifest.dataset_build_id,
+        "total_games": total,
+        "manifest_total_games": manifest.total_games,
+        "accounting": manifest.accounting,
+        "source_archives": manifest.source_archives,
+        "results": results,
+        "unknown_result_games": results.get("unknown").copied().unwrap_or(0),
+        "years": years,
+        "months": months,
+        "speed_classes": speeds,
+        "speed_class_note": "Only computed for elite-online (seconds-based Lichess TimeControl). For masters-otb the PGN TimeControl unit is not consistent across broadcasts, so only raw values are listed.",
+        "time_control_raw_top20": tc_top,
+        "min_player_rating_bins": min_rating_bins,
+        "plies_bins": plies_bins,
+        "distinct_players_hash_estimate": players.len(),
+        "distinct_events_hash_estimate": events.len(),
+        "missing_metadata": {
+            "date": missing_date,
+            "event": missing_event,
+            "site_or_source_id": missing_site,
+            "time_control": missing_tc,
+        },
+        "position_index": manifest.position_index,
+        "notes": "Distinct players/events are counted by exact normalized name hash; the same person may appear under several spellings. Ratings are FIDE Elo for masters-otb and Lichess Glicko-2 for elite-online and must never be pooled.",
+    });
+    let text = serde_json::to_string_pretty(&report)?;
+    match output {
+        Some(path) => std::fs::write(path, text)
+            .with_context(|| format!("Failed to write report {}", path.display()))?,
+        None => println!("{text}"),
+    }
+    Ok(())
+}
+
+/// In-process CPI lookup latency: positions sampled by replaying stored games (hits across
+/// the frequency range) plus deterministic perturbed keys (misses). Two passes over the same
+/// keys are reported separately: the first touches pages possibly not yet resident
+/// (`first_pass`), the second runs against a warm page cache (`warm_pass`).
+fn run_bench_lookup(dataset: &Path, games: usize, output: Option<&Path>) -> Result<()> {
+    let reader = DatasetReader::open(dataset)
+        .with_context(|| format!("Failed to open dataset at {}", dataset.display()))?;
+    let meta = reader
+        .manifest()
+        .position_index
+        .clone()
+        .context("dataset has no position index")?;
+    let depth = meta.indexed_depth_plies;
+    let idx = reader
+        .open_position_index()?
+        .context("dataset has no position index")?;
+
+    let mut hit_keys: Vec<PositionKey> = Vec::new();
+    for (n, game) in reader.iter_games()?.enumerate() {
+        if n >= games {
+            break;
+        }
+        let game = game?;
+        let ex = codb_index::position::extract_game_positions_detailed(&game, depth)
+            .map_err(|e| anyhow::anyhow!("position extraction failed: {e}"))?;
+        for (i, (key, _, _)) in ex.entries.iter().enumerate() {
+            if i % 3 == 0 {
+                hit_keys.push(*key);
+            }
+        }
+    }
+    anyhow::ensure!(!hit_keys.is_empty(), "no positions sampled");
+    let miss_keys: Vec<PositionKey> = hit_keys
+        .iter()
+        .step_by(7)
+        .map(|k| {
+            PositionKey::new(
+                k.primary() ^ 0x9e37_79b9_7f4a_7c15,
+                k.secondary().rotate_left(13),
+            )
+        })
+        .collect();
+
+    let measure = |keys: &[PositionKey], expect_hit: Option<bool>| -> Result<serde_json::Value> {
+        let mut lat: Vec<f64> = Vec::with_capacity(keys.len());
+        let mut hits = 0usize;
+        for k in keys {
+            let t = Instant::now();
+            let r = idx.query(*k)?;
+            lat.push(t.elapsed().as_secs_f64() * 1e6);
+            black_box(&r);
+            if r.is_some() {
+                hits += 1;
+            }
+        }
+        if let Some(h) = expect_hit {
+            anyhow::ensure!(
+                (hits == keys.len()) == h || !h,
+                "unexpected hit/miss ratio: {hits}/{}",
+                keys.len()
+            );
+        }
+        lat.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let pct = |p: f64| lat[((lat.len() - 1) as f64 * p).round() as usize];
+        Ok(serde_json::json!({
+            "count": keys.len(), "hits": hits,
+            "p50_us": pct(0.50), "p95_us": pct(0.95), "p99_us": pct(0.99), "max_us": lat[lat.len() - 1],
+        }))
+    };
+
+    let first_hit = measure(&hit_keys, Some(true))?;
+    let warm_hit = measure(&hit_keys, Some(true))?;
+    let warm_miss = measure(&miss_keys, None)?;
+    let report = serde_json::json!({
+        "collection": reader.collection().to_string(),
+        "dataset_build_id": reader.manifest().dataset_build_id,
+        "index_depth_plies": depth,
+        "unique_positions": meta.unique_positions,
+        "games_sampled": games.min(reader.total_games() as usize),
+        "hit_first_pass": first_hit,
+        "hit_warm_pass": warm_hit,
+        "miss_warm_pass": warm_miss,
+        "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+    });
+    let text = serde_json::to_string_pretty(&report)?;
+    match output {
+        Some(path) => std::fs::write(path, text)?,
+        None => println!("{text}"),
+    }
     Ok(())
 }
 
@@ -2854,6 +3301,7 @@ mod tests {
 
         // Run build
         run_build(BuildOptions {
+            report_json: None,
             manifest: None,
             input: vec![fixture_path.clone()],
             collection: CollectionArg::MastersOtb,
@@ -2863,6 +3311,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap();
 
@@ -2926,6 +3375,7 @@ mod tests {
 
         let out_valid = tmp.path().join("out_valid");
         run_build(BuildOptions {
+            report_json: None,
             manifest: Some(sources_valid),
             input: vec![],
             collection: CollectionArg::MastersOtb,
@@ -2935,6 +3385,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap();
 
@@ -2956,6 +3407,7 @@ mod tests {
 
         let out_mismatch = tmp.path().join("out_mismatch");
         let err_mismatch = run_build(BuildOptions {
+            report_json: None,
             manifest: Some(sources_mismatch),
             input: vec![],
             collection: CollectionArg::MastersOtb,
@@ -2965,6 +3417,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap_err();
         assert!(err_mismatch.to_string().contains("checksum mismatch"));
@@ -2980,6 +3433,7 @@ mod tests {
 
         let out_malformed = tmp.path().join("out_malformed");
         let err_malformed = run_build(BuildOptions {
+            report_json: None,
             manifest: Some(sources_malformed),
             input: vec![],
             collection: CollectionArg::MastersOtb,
@@ -2989,6 +3443,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap_err();
         assert!(err_malformed.to_string().contains("Malformed SHA-256"));
@@ -3006,6 +3461,7 @@ mod tests {
 
         let out_missing = tmp.path().join("out_missing");
         let err_missing = run_build(BuildOptions {
+            report_json: None,
             manifest: Some(sources_missing),
             input: vec![],
             collection: CollectionArg::MastersOtb,
@@ -3015,6 +3471,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap_err();
         assert!(err_missing.to_string().contains("does not exist"));
@@ -3042,6 +3499,7 @@ mod tests {
 
         let out_altered = tmp.path().join("out_altered");
         let err_altered = run_build(BuildOptions {
+            report_json: None,
             manifest: Some(sources_altered),
             input: vec![],
             collection: CollectionArg::MastersOtb,
@@ -3051,6 +3509,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap_err();
         assert!(err_altered.to_string().contains("checksum mismatch"));
@@ -3077,6 +3536,7 @@ mod tests {
 
         // Build dataset using direct input
         run_build(BuildOptions {
+            report_json: None,
             manifest: None,
             input: vec![fixture_path.clone()],
             collection: CollectionArg::MastersOtb,
@@ -3086,6 +3546,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap();
 
@@ -3141,6 +3602,7 @@ mod tests {
 
         // 1. Newly built dataset with physically verified local file
         run_build(BuildOptions {
+            report_json: None,
             manifest: None,
             input: vec![fixture_path.clone()],
             collection: CollectionArg::MastersOtb,
@@ -3150,6 +3612,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap();
 
@@ -3227,6 +3690,7 @@ mod tests {
 
         // 1. Build initial CGB3 dataset with 25 games
         run_build(BuildOptions {
+            report_json: None,
             manifest: None,
             input: vec![fixture_path.clone()],
             collection: CollectionArg::MastersOtb,
@@ -3236,6 +3700,7 @@ mod tests {
             max_games_per_shard: 8,
             zstd_level: 3,
             dedupe_mode: DedupeModeArg::Disk,
+            masters_event_audit: None,
         })
         .unwrap();
 

@@ -8,16 +8,18 @@ status: current
 
 ## 1. Benchmark Architecture & Taxonomy
 
-The benchmark ecosystem in `chess-openings-db` is partitioned into two clear domains:
+The benchmark ecosystem in `chess-openings-db` is partitioned into the following domains:
 
 ```
 benchmarks/
 ├── production_cpi/     # Authoritative active production CPI index baselines (ADR-0003)
+├── corpus/             # Current Masters/Elite release and Docker evidence
 └── results/            # Runtime benchmark outputs
     └── historical/     # Completed developmental stages & research baselines
 ```
 
 - **Production CPI Benchmarks (`benchmarks/production_cpi/`):** The normative performance baseline for the Compact Position Index (CPI v2) built via bounded-memory external sorting. Evaluated across 16 parameter combinations.
+- **Real Corpus Evidence (`benchmarks/corpus/`):** Machine-validated provenance, accounting, quality, build-performance, and HTTP-check records for the first real Masters OTB and Elite Online releases (section 2.3).
 - **Historical Benchmarks (`benchmarks/results/historical/`):** Archived empirical artifacts from prior developmental phases: Stage A (deterministic fixture), Stage B (single-month baselines), PR-01 progressive scaling ($N \in \{1000, 2500, 5000, 10000, 20000\}$), PR-02 ($100{,}000$ game scale exploration), and derived Heaps' Law projection parameters (`projections_heaps.json`).
 
 ---
@@ -39,6 +41,24 @@ Defined in [ADR-0003](adr/0003-production-cpi-index.md) and validated by [`scrip
    - $p_{95} \le 1.5\text{ ms}$
    - $p_{99} \le 2.0\text{ ms}$
 3. **Deterministic Output:** Byte-identical `.cpi` binary outputs regardless of memory limit or merge fan-in settings.
+
+---
+
+## 2.3 Real Corpus Release Baseline (PR-A)
+
+`benchmarks/corpus/` holds the committed, machine-validated evidence of the first real dual-collection build (see [CORPUS_BUILD.md §9](CORPUS_BUILD.md#9-measured-results-this-delivery) for the full tables):
+
+```
+benchmarks/corpus/
+├── http_check.json                 # `corpus.sh http-check`: checks, HTTP/CLI cases, latency, concurrency
+├── docker_real_check.json           # Compose integration against both real releases
+├── masters-otb/masters_event_qualification.json # Event evidence and OTB subset decision
+├── package_checksums.json           # Verified package SHA-256 and Path A bootstrap result
+├── masters-otb/{RELEASE.json, build_report.json, quality_report.json, metrics.json, index_report.json, DATASET_LICENSE.txt}
+└── elite-online/{...same files...}
+```
+
+`python3 scripts/validate_corpus_evidence.py` (part of `validate.sh`) checks exact accounting, rejection-reason totals, hashes, source checksums and licenses, build steps, and HTTP evidence. The current real releases contain 29,640 event-qualified Masters games (depth 40, 705,718 positions) and 429,150 Elite games (depth 30, 6,136,307 positions; seven archives from 2015-09 to 2017-03). The latest run passed 414/414 HTTP checks, 262 HTTP-vs-CLI position comparisons, and the real Compose smoke with 96/96 container-to-container requests. HTTP position-query p50 was 167.9 µs (Masters) / 190.6 µs (Elite); warm in-process CPI hit p50 was 4.95 / 5.60 µs; 4-client-process throughput reached 10,671 / 8,127 requests/s on a shared 4-core host (see [CORPUS_BUILD.md §9.3](CORPUS_BUILD.md#93-query-and-api-performance)). The container sampled peak was 159,224 KiB under its 512 MiB cap. These real-corpus results supersede fixture figures for serving; fixture-based `http_api_benchmark.json` remains the lightweight CI baseline.
 
 ---
 
@@ -100,7 +120,7 @@ Fitted via ordinary least squares (OLS) log-linear regression in [`scripts/fit_h
 
 ### 5.2 Option B Deployment Projections (15 Million Games)
 Slicing **Masters OTB (5M games) to Depth 40** and **Elite Online (10M games) to Depth 30**:
-- **Baseline Scenario:** **7.68 GB** total deployed footprint.
+- **Historical baseline:** **7.68 GB** was the original projection using earlier storage-density measurements. *(PR-A update: applying measured bytes per position and per game from the real 29,640-game Masters and 429,150-game Elite releases gives ≈ 7.76 GB deployed under the same model; predicted unique-position counts are within −1.6% (Masters) and −4.9% (Elite) of current measurements. See [CORPUS_BUILD.md §9.6](CORPUS_BUILD.md#96-storage-feasibility-against-the-earlier-projection). This remains an extrapolation.)*
 - **Optimistic Scenario:** **6.44 GB** total deployed footprint.
 - **Conservative Scenario:** **9.98 GB** total deployed footprint (leaves **20 MB / 0.2%** headroom within the 10 GB envelope).
 

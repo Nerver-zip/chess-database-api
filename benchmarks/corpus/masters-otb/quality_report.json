@@ -1,0 +1,157 @@
+{
+  "accounting": {
+    "accepted_unique": 29640,
+    "completion_status": "CompleteEof",
+    "confirmed_duplicates": 20,
+    "quarantined": 0,
+    "rejected_by_policy": 196097,
+    "rejected_illegal": 0,
+    "rejected_malformed": 0,
+    "rejected_variant": 1727,
+    "superseded_prior": 5,
+    "total_encountered": 227489
+  },
+  "collection": "masters-otb",
+  "dataset_build_id": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
+  "distinct_events_hash_estimate": 17954,
+  "distinct_players_hash_estimate": 6487,
+  "manifest_total_games": 29640,
+  "min_player_rating_bins": {
+    "2000-2099": 1549,
+    "2100-2199": 2637,
+    "2200-2299": 9248,
+    "2300-2399": 8045,
+    "2400-2499": 4646,
+    "2500-2599": 2074,
+    "2600-2699": 1034,
+    "2700-2799": 407
+  },
+  "missing_metadata": {
+    "date": 0,
+    "event": 0,
+    "site_or_source_id": 0,
+    "time_control": 11351
+  },
+  "months": {
+    "2026-01": 6,
+    "2026-03": 17,
+    "2026-04": 100,
+    "2026-05": 4058,
+    "2026-06": 5162,
+    "2026-07": 4561,
+    "2026-08": 7235,
+    "2026-09": 4174,
+    "2026-10": 4327
+  },
+  "notes": "Distinct players/events are counted by exact normalized name hash; the same person may appear under several spellings. Ratings are FIDE Elo for masters-otb and Lichess Glicko-2 for elite-online and must never be pooled.",
+  "plies_bins": {
+    "000-019": 443,
+    "020-039": 1253,
+    "040-079": 11268,
+    "080-159": 15401,
+    "160+": 1275
+  },
+  "position_index": {
+    "block_count": 11027,
+    "custom_fen_games": 0,
+    "excluded_unknown_result_games": 252,
+    "file_size_bytes": 15262380,
+    "filename": "positions.cpi",
+    "format_version": "CPI/v2",
+    "games_indexed": 29388,
+    "games_processed": 29640,
+    "indexed_depth_plies": 40,
+    "positions_per_block": 64,
+    "raw_observations_extracted": 1150711,
+    "repeated_positions_skipped": 1881,
+    "sha256": "9939a5912e869eb7ce76c76c9cd201446adbbe96cf91d37fed01b7a5062d9e07",
+    "unique_position_move_pairs": 744558,
+    "unique_positions": 705718,
+    "zstd_level": 3
+  },
+  "results": {
+    "0-1": 8285,
+    "1-0": 10614,
+    "1/2-1/2": 10489,
+    "unknown": 252
+  },
+  "source_archives": [
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_broadcast_2026-05.pgn.zst",
+      "license": "CC-BY-SA-4.0",
+      "sha256": "d212987f7972a70268809ff6c726acff8bf0987161aacd7647b160f8564f6a53",
+      "size_bytes": 22912287,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-05.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_broadcast_2026-06.pgn.zst",
+      "license": "CC-BY-SA-4.0",
+      "sha256": "65905d611c0d78d90ab57cd9edd3821f4119b46c22b5489fd7e265a74c6767b3",
+      "size_bytes": 22797518,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-06.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_broadcast_2026-07.pgn.zst",
+      "license": "CC-BY-SA-4.0",
+      "sha256": "714d0eb99f99fca8d791142038b6c59b5ca6a51b3339bd3891a92f4bdffcbf0c",
+      "size_bytes": 24535400,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-07.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_broadcast_2026-08.pgn.zst",
+      "license": "CC-BY-SA-4.0",
+      "sha256": "e227c35c3207ebade754849c1825982e2717ae82c013013d896778e27be77724",
+      "size_bytes": 31010232,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-08.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_broadcast_2026-09.pgn.zst",
+      "license": "CC-BY-SA-4.0",
+      "sha256": "27a39d035767a30901b89602f33f2a7b27d4ab5025842071165fa079f8fff1df",
+      "size_bytes": 18414369,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-09.pgn.zst"
+    },
+    {
+      "checksum_verified": true,
+      "filename": "lichess_db_broadcast_2026-10.pgn.zst",
+      "license": "CC-BY-SA-4.0",
+      "sha256": "d9c0c78c7ed8cd200723c9972b01a1cd35fd8568dd4b6324fbcc3ee7c07374c9",
+      "size_bytes": 22630351,
+      "url": "https://database.lichess.org/broadcast/lichess_db_broadcast_2026-10.pgn.zst"
+    }
+  ],
+  "speed_class_note": "Only computed for elite-online (seconds-based Lichess TimeControl). For masters-otb the PGN TimeControl unit is not consistent across broadcasts, so only raw values are listed.",
+  "speed_classes": {},
+  "time_control_raw_top20": {
+    "10+5": 916,
+    "100 minutes/40 moves + 40 minutes/rest with 30 seconds increment from move 1.": 165,
+    "15+10": 1216,
+    "15+5": 719,
+    "20 min. + 10 s./move": 112,
+    "25+10": 165,
+    "3+2": 3151,
+    "45+30": 340,
+    "5+2": 502,
+    "60+30": 207,
+    "90 + 30 per move": 141,
+    "90 min + 30 sec": 243,
+    "90 minutes with 30 second increment from move 1": 163,
+    "90' + 30": 117,
+    "90' + 30'' each move": 270,
+    "90+30": 5707,
+    "90min + 30s +30min move 40": 131,
+    "90min+30sec/move": 329,
+    "90min/40moves + 30min + 30sec/move": 713,
+    "G/90; SD/30; d30": 162
+  },
+  "total_games": 29640,
+  "unknown_result_games": 252,
+  "years": {
+    "2026": 29640
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "collection": "elite-online",
+  "dataset_build_id": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
+  "games_sampled": 5000,
+  "hit_first_pass": {
+    "count": 49686,
+    "hits": 49686,
+    "max_us": 77.56099999999999,
+    "p50_us": 5.6,
+    "p95_us": 11.423,
+    "p99_us": 19.856
+  },
+  "hit_warm_pass": {
+    "count": 49686,
+    "hits": 49686,
+    "max_us": 54.467,
+    "p50_us": 5.601,
+    "p95_us": 11.561,
+    "p99_us": 19.954
+  },
+  "index_depth_plies": 30,
+  "miss_warm_pass": {
+    "count": 7098,
+    "hits": 0,
+    "max_us": 30.824999999999996,
+    "p50_us": 4.608,
+    "p95_us": 5.428,
+    "p99_us": 17.558999999999997
+  },
+  "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+  "unique_positions": 6136307
+}
