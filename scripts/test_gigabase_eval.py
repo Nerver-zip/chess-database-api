@@ -72,6 +72,16 @@ class LocalGigabaseEvaluationTests(unittest.TestCase):
         self.assertEqual(loaded["archive_sha256_local"], digest(archive))
         self.assertEqual(resolved_pgn, pgn.resolve())
 
+        for field, value, expected in (
+            ("publisher_checksum", "b" * 64, "publisher checksum must remain absent"),
+            ("publisher_checksum_verified", True, "publisher checksum must remain absent"),
+            ("publisher_license_claim", "CC0 1.0", "publisher license claim differs"),
+        ):
+            with self.subTest(field=field):
+                registration_path.write_text(json.dumps({**registration, field: value}))
+                with self.assertRaisesRegex(evaluation.EvaluationError, expected):
+                    evaluation.load_registration(registration_path)
+
     def test_registration_rejects_changed_source_bytes(self):
         archive = self.source_dir / "local.7z"
         pgn = self.source_dir / "local.pgn"
@@ -95,6 +105,81 @@ class LocalGigabaseEvaluationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(evaluation.EvaluationError, "PGN member size differs"):
             evaluation.load_registration(registration_path)
+
+    def test_build_manifest_pins_local_hash_and_labels_publisher_license_claim(self):
+        registration = {
+            "member_sha256_local": "a" * 64,
+            "publisher_license_claim": "CC BY-NC 4.0",
+            "publisher_checksum": None,
+            "publisher_checksum_verified": False,
+            "release_eligible": False,
+        }
+        pgn = self.source_dir / "local.pgn"
+
+        manifest = evaluation._local_source_manifest(registration, pgn)
+
+        self.assertEqual(manifest["collection"], "masters-otb")
+        self.assertEqual(manifest["sources"], [{
+            "path": str(pgn),
+            "url": None,
+            "sha256": "a" * 64,
+            "license": "Publisher claim: CC BY-NC 4.0; upstream rights unresolved",
+        }])
+
+        for field, value in (
+            ("publisher_checksum", "b" * 64),
+            ("publisher_checksum_verified", True),
+            ("release_eligible", True),
+        ):
+            with self.subTest(field=field):
+                invalid_registration = {**registration, field: value}
+                with self.assertRaisesRegex(
+                    evaluation.EvaluationError,
+                    "local source manifest requires absent publisher checksum",
+                ):
+                    evaluation._local_source_manifest(invalid_registration, pgn)
+
+    def test_build_source_metadata_must_match_registered_local_bytes(self):
+        registration = {
+            "member_filename": "local.pgn",
+            "member_sha256_local": "a" * 64,
+            "member_size_bytes": 123,
+            "publisher_license_claim": "CC BY-NC 4.0",
+        }
+        source = {
+            "filename": "local.pgn",
+            "url": None,
+            "sha256": "a" * 64,
+            "size_bytes": 123,
+            "license": "Publisher claim: CC BY-NC 4.0; upstream rights unresolved",
+            "checksum_verified": True,
+        }
+
+        evaluation._validate_source_archive_metadata([source], registration, "test manifest")
+
+        for invalid_sources in ([], ["not an object"], [source, source]):
+            with self.subTest(invalid_sources=invalid_sources):
+                with self.assertRaises(evaluation.EvaluationError):
+                    evaluation._validate_source_archive_metadata(
+                        invalid_sources, registration, "test manifest"
+                    )
+
+        for field, changed in (
+            ("url", "https://example.invalid/source.pgn"),
+            ("sha256", "b" * 64),
+            ("size_bytes", 124),
+            ("license", "CC BY-NC 4.0"),
+            ("checksum_verified", False),
+        ):
+            invalid = {**source, field: changed}
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(
+                    evaluation.EvaluationError,
+                    "source archive metadata differs from the registered local source",
+                ):
+                    evaluation._validate_source_archive_metadata(
+                        [invalid], registration, "test manifest"
+                    )
 
     def test_write_targets_are_confined_to_ignored_evaluation_workspace(self):
         with self.assertRaisesRegex(evaluation.EvaluationError, "must stay under"):

@@ -113,6 +113,8 @@ The command requires one regular member with a plain basename, checks the declar
 
 The separate `scripts/local_gigabase_eval.py` workflow does not add Gigabase to `corpus/catalog.json` or to the approved releases. It verifies the archive and member against local evidence, rebuilds with the opt-in Gigabase policy, and creates a package that is explicitly marked local-evaluation-only. The archive and PGN are never included in that package. All write targets are confined to git-ignored `data/work/gigabase-eval/`; the standard `data/releases/masters-otb` and Elite roots are not changed.
 
+For the build, the workflow writes a one-source manifest in the ignored work root. It pins the extracted PGN to its registered local SHA-256, leaves the source URL null, and labels the license as `Publisher claim: CC BY-NC 4.0; upstream rights unresolved`. It invokes `codb build --manifest` and checks that both the build report and persistent dataset manifest contain exactly that registered filename, local hash, size, URL, and license label. In this local path, `checksum_verified: true` means CODB matched the build-time bytes to the locally pinned manifest hash; it is not publisher authentication. The registration still records no publisher checksum, unresolved upstream rights, and `release_eligible: false`. See [DATA_CONTRACTS.md](DATA_CONTRACTS.md) for the general checksum field contract.
+
 ```bash
 python3 scripts/local_gigabase_eval.py register \
   --archive data/sources/lumbra/OTB_DATABASE.7z \

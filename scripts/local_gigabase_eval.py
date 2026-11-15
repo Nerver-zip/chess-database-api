@@ -201,8 +201,13 @@ def load_registration(path: Path) -> tuple[dict[str, Any], Path]:
         raise EvaluationError(f"invalid source registration {path}: {error}") from error
     if registration.get("schema_version") != 1 or registration.get("release_eligible") is not False:
         raise EvaluationError("unsupported or release-eligible local source registration")
-    if registration.get("publisher_checksum") is not None:
-        raise EvaluationError("publisher checksum must remain null for this local source")
+    if (registration.get("publisher_checksum") is not None
+            or registration.get("publisher_checksum_verified") is not False):
+        raise EvaluationError(
+            "publisher checksum must remain absent and unverified for this local source"
+        )
+    if registration.get("publisher_license_claim") != PUBLISHER_LICENSE_CLAIM:
+        raise EvaluationError("publisher license claim differs from the reviewed source record")
     if registration.get("rights_clearance") != "unresolved_upstream_rights":
         raise EvaluationError("local source rights status is missing or unexpectedly changed")
     evidence_path = _regular_file(
@@ -321,6 +326,58 @@ def _registration_summary(registration: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _source_license_label(registration: dict[str, Any]) -> str:
+    return (
+        f"Publisher claim: {registration['publisher_license_claim']}; "
+        "upstream rights unresolved"
+    )
+
+
+def _local_source_manifest(registration: dict[str, Any], pgn: Path) -> dict[str, Any]:
+    """Pin the build to registered local bytes without claiming publisher authentication."""
+    if (registration.get("publisher_checksum") is not None
+            or registration.get("publisher_checksum_verified") is not False
+            or registration.get("release_eligible") is not False):
+        raise EvaluationError(
+            "local source manifest requires absent publisher checksum and release eligibility"
+        )
+    return {
+        "collection": COLLECTION,
+        "sources": [{
+            "path": str(pgn),
+            "url": None,
+            "sha256": registration["member_sha256_local"],
+            "license": _source_license_label(registration),
+        }],
+    }
+
+
+def _validate_source_archive_metadata(
+    source_archives: Any,
+    registration: dict[str, Any],
+    evidence_label: str,
+) -> None:
+    """Require build and dataset manifests to match the locally pinned input."""
+    if not isinstance(source_archives, list) or len(source_archives) != 1:
+        raise EvaluationError(f"{evidence_label} must contain exactly the registered PGN source")
+    source = source_archives[0]
+    if not isinstance(source, dict):
+        raise EvaluationError(f"{evidence_label} source archive metadata must be an object")
+    expected = {
+        "filename": registration["member_filename"],
+        "url": None,
+        "sha256": registration["member_sha256_local"],
+        "size_bytes": registration["member_size_bytes"],
+        "license": _source_license_label(registration),
+        # CODB verified the manifest-pinned local digest; this is not a publisher checksum.
+        "checksum_verified": True,
+    }
+    if any(source.get(key) != value for key, value in expected.items()):
+        raise EvaluationError(
+            f"{evidence_label} source archive metadata differs from the registered local source"
+        )
+
+
 def _release_artifacts(version_dir: Path) -> dict[str, dict[str, Any]]:
     release_json = version_dir / "RELEASE" / "RELEASE.json"
     artifacts: dict[str, dict[str, Any]] = {}
@@ -373,10 +430,12 @@ def build_evaluation(args: argparse.Namespace) -> dict[str, Any]:
     work_root.mkdir(parents=True, exist_ok=True)
 
     build_report_path = work_root / "build_report.json"
+    source_manifest_path = work_root / "sources.manifest.json"
     index_report_path = work_root / "index_report.json"
     quality_report_path = work_root / "quality_report.json"
+    _write_json_new(source_manifest_path, _local_source_manifest(registration, pgn))
     run_codb(codb, [
-        "build", "--input", str(pgn), "--collection", COLLECTION,
+        "build", "--manifest", str(source_manifest_path), "--collection", COLLECTION,
         "--gigabase-source-policy", str(POLICY_PATH), "--output", str(output_root),
         "--report-json", str(build_report_path),
     ])
@@ -393,6 +452,9 @@ def build_evaluation(args: argparse.Namespace) -> dict[str, Any]:
     build_report = json.loads(build_report_path.read_text(encoding="utf-8"))
     if not build_report.get("is_reconciled") or not build_report.get("retained_matches_accepted"):
         raise EvaluationError("ingestion accounting did not reconcile")
+    _validate_source_archive_metadata(
+        build_report.get("source_archives"), registration, "build report"
+    )
     accounting = build_report.get("accounting", {})
     if accounting.get("completion_status") != "CompleteEof":
         raise EvaluationError("the input did not reach clean EOF")
@@ -400,6 +462,9 @@ def build_evaluation(args: argparse.Namespace) -> dict[str, Any]:
     manifest = json.loads((snapshot / "manifest.json").read_text(encoding="utf-8"))
     if snapshot.name != manifest.get("dataset_build_id"):
         raise EvaluationError("snapshot directory does not match the dataset build ID")
+    _validate_source_archive_metadata(
+        manifest.get("source_archives"), registration, "dataset manifest"
+    )
 
     release_dir = snapshot / "RELEASE"
     release_dir.mkdir(exist_ok=False)

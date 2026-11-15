@@ -235,8 +235,8 @@
     "date": "2026-11-15",
     "gates_passed": 8,
     "result": "passed",
-    "verification_scope": "Full validation includes the independent PGN parser spot-check report and reproducibility linkage, bounded-memory source-to-canonical audit updates, anonymized examples with small-stratum suppression, exact attribution-sidecar reconciliation, and the six-case disk-backed deduplication golden integration test.",
-    "python_tests": 103,
+    "verification_scope": "Full validation includes the independent PGN parser spot-check report and reproducibility linkage, bounded-memory source-to-canonical audit updates, anonymized examples with small-stratum suppression, exact attribution-sidecar reconciliation, the six-case disk-backed deduplication golden integration test, and the provenance-corrected local manifest/build-report/dataset-manifest cross-checks and regression tests.",
+    "python_tests": 105,
     "python_tests_skipped": 2
   },
   "archive_recheck_report": "ARCHIVE_RECHECK.json",
@@ -384,5 +384,86 @@
       "The audit runner is local-only and is not included in the Draft PR.",
       "This evidence does not establish source rights, event-level OTB play, or official Elo provenance."
     ]
+  },
+  "provenance_corrected_rebuild": {
+    "build_id": "codb-masters-otb-1794734897423894473-41647-72708103e81b880b-cpi-d40",
+    "build_command": "python3 scripts/local_gigabase_eval.py build --registration data/work/gigabase-eval/source-registration-r5.json --work-root data/work/gigabase-eval/provenance-build-r1 --output-root data/work/gigabase-eval/candidate-provenance-r1 --depth-plies 40 --memory-limit-mib 128 --codb target/release/codb",
+    "build_report_dataset_build_id_before_index": "codb-masters-otb-1794734896240114382-41553-f1793f76f23baf2d",
+    "deep_verify_passed": true,
+    "build_report_and_dataset_manifest_source_metadata_match_registration": true,
+    "source_manifest": {
+      "generated_path": "data/work/gigabase-eval/provenance-build-r1/sources.manifest.json",
+      "sha256": "4c56144c8318abd4d8e73e64488c0e23d9b6d5558d39413d5cc8977190b2732f",
+      "source_count": 1,
+      "member_filename": "LumbrasGigabase_OTB_Complete.pgn",
+      "member_sha256_local": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
+      "member_size_bytes": 12300428287,
+      "url": null,
+      "license_label": "Publisher claim: CC BY-NC 4.0; upstream rights unresolved",
+      "publisher_checksum": null,
+      "publisher_checksum_verified": false,
+      "codb_checksum_verified_semantics": "Matched the build-time input to the locally pinned manifest SHA-256; not publisher authentication."
+    },
+    "accounting": {
+      "total_encountered": 13450696,
+      "accepted_unique": 156898,
+      "confirmed_duplicates": 2,
+      "superseded_prior": 0,
+      "rejected_by_policy": 13293782,
+      "rejected_variant": 0,
+      "rejected_illegal": 0,
+      "rejected_malformed": 0,
+      "quarantined": 14,
+      "completion_status": "CompleteEof",
+      "is_reconciled": true,
+      "retained_matches_accepted": true
+    },
+    "build_duration_seconds": 71.153088787,
+    "index": {
+      "depth_plies": 40,
+      "duration_ms": 9560,
+      "memory_limit_mib": 128,
+      "runs_generated": 2,
+      "merge_passes": 1,
+      "peak_temporary_bytes": 112686434,
+      "games_indexed": 156898,
+      "raw_observations_extracted": 6148632,
+      "unique_positions": 3406233,
+      "cpi_sha256": "fe221a2360785809505efa479aaafaefa1438bbe94b1a93c3842e233cf03996d"
+    },
+    "prior_candidate_build_id": "codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40",
+    "content_artifacts_identical_to_prior_candidate": true,
+    "content_artifacts": {
+      "shards/shard_0000.cgb3": {
+        "size_bytes": 27616251,
+        "sha256": "4d12fdb06c02471841223f8dbeb25d2bb396260bf5a092c67e600159c28209a2"
+      },
+      "games.idx": {
+        "size_bytes": 2510432,
+        "sha256": "e2000c8edf7821eb75f70074de64cc84e4c6648e8013ec992715025d72ce7be6"
+      },
+      "positions.cpi": {
+        "size_bytes": 72656173,
+        "sha256": "fe221a2360785809505efa479aaafaefa1438bbe94b1a93c3842e233cf03996d"
+      },
+      "source-attribution.jsonl": {
+        "size_bytes": 42508720,
+        "sha256": "61af71afba5cd51ab62ae0ecd00f67f37f0e8c592121f03a408ef86fd67ab28b"
+      }
+    },
+    "package": {
+      "path": "data/work/gigabase-eval/packages-provenance-r1/masters-otb-codb-masters-otb-1794734897423894473-41647-72708103e81b880b-cpi-d40-local-evaluation.tar",
+      "size_bytes": 145346560,
+      "sha256_local": "2902a8c9668457c58fb19bceefa081636ba1d4aab193dd645cb8592766db28f8",
+      "checksum_sidecar_verified": true,
+      "extracted_and_deep_verified": true,
+      "offline_query_passed": true,
+      "source_archive_and_pgn_included": false,
+      "bootstrap_tested": false,
+      "release_status": "local_evaluation_only",
+      "release_eligible": false,
+      "public_release_eligible": false
+    },
+    "rights_and_publisher_authentication_resolved": false
   }
 }
