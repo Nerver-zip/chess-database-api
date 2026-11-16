@@ -1,0 +1,46 @@
+{
+  "accounting": {
+    "accepted_unique": 3284429,
+    "completion_status": "CompleteEof",
+    "confirmed_duplicates": 4018,
+    "quarantined": 7842,
+    "rejected_by_policy": 10153901,
+    "rejected_illegal": 0,
+    "rejected_malformed": 0,
+    "rejected_variant": 0,
+    "superseded_prior": 506,
+    "total_encountered": 13450696
+  },
+  "build_duration_secs": 4652.051148639,
+  "collection": "masters-otb",
+  "dataset_build_id": "codb-masters-otb-1794774443218299726-5451-da5a0d652bb0b164",
+  "gigabase_source_policy": {
+    "policy_id": "gigabase-otb/2026-11-r3",
+    "sha256": "93b9d0c7fd8eb35bb3bf36425a5e7b02f95fa80910942bbda615a453bd2ef3a9"
+  },
+  "is_reconciled": true,
+  "policy_rejection_reasons": {
+    "below_rating_threshold": 8714070,
+    "conflicting_player_identity": 29451,
+    "contradictory_otb_evidence": 1329,
+    "invalid_player_identity": 702,
+    "invalid_rating": 5046,
+    "non_otb_play_mode": 1403303
+  },
+  "quarantine_reasons": {
+    "stable_game_id_collision": 7842
+  },
+  "retained_matches_accepted": true,
+  "source_archives": [
+    {
+      "checksum_verified": true,
+      "filename": "LumbrasGigabase_OTB_Complete.pgn",
+      "license": "Publisher claim: CC BY-NC 4.0; upstream rights unresolved",
+      "sha256": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
+      "size_bytes": 12300428287,
+      "url": null
+    }
+  ],
+  "total_games": 3284429,
+  "total_physical_bytes": 1592908732
+}

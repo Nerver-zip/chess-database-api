@@ -218,6 +218,258 @@ fn test_gigabase_policy_reconciles_source_identity_mode_and_history_rejections()
 }
 
 #[test]
+fn test_gigabase_r3_policy_rules_identity_dates_modes_and_attribution() {
+    #[allow(clippy::too_many_arguments)]
+    fn record(
+        event: &str,
+        white: &str,
+        black: &str,
+        white_elo: Option<&str>,
+        black_elo: Option<&str>,
+        white_title: Option<&str>,
+        black_title: Option<&str>,
+        identity_white: &str,
+        identity_black: &str,
+        source: &str,
+        mode: Option<&str>,
+        date: &str,
+    ) -> String {
+        let optional_tag = |name: &str, value: Option<&str>| {
+            value
+                .map(|value| format!("[{name} \"{value}\"]\n"))
+                .unwrap_or_default()
+        };
+        format!(
+            "[Event \"{event}\"]\n[Site \"London\"]\n[Date \"{date}\"]\n\
+             [White \"{white}\"]\n[Black \"{black}\"]\n\
+             {}{}{}{}[IdentityEvidenceWhite \"{identity_white}\"]\n\
+             [IdentityEvidenceBlack \"{identity_black}\"]\n[Source \"{source}\"]\n\
+             {}[Result \"1-0\"]\n\n1. e4 e5 2. Nf3 Nc6 1-0\n\n",
+            optional_tag("WhiteElo", white_elo),
+            optional_tag("BlackElo", black_elo),
+            optional_tag("WhiteTitle", white_title),
+            optional_tag("BlackTitle", black_title),
+            optional_tag("Mode", mode),
+        )
+    }
+
+    let conflicting_source = record(
+        "Conflicting Source",
+        "Player U",
+        "Player V",
+        Some("2300"),
+        Some("2300"),
+        None,
+        None,
+        "Confirmed",
+        "Confirmed",
+        "Britbase",
+        None,
+        "2024.01.01",
+    )
+    .replace(
+        "[Source \"Britbase\"]\n",
+        "[Source \"Britbase\"]\n[Source \"Legacy Software Dump\"]\n",
+    );
+    let pgn = [
+        record(
+            "Historical Open",
+            "Player A",
+            "Player B",
+            Some("2250"),
+            Some("2210"),
+            None,
+            None,
+            "NoMatch",
+            "Probable",
+            "Historical Archive",
+            None,
+            "1968.??.??",
+        ),
+        record(
+            "Rating Boundary",
+            "Player C",
+            "Player D",
+            Some("1800"),
+            Some("2500"),
+            None,
+            None,
+            "Ambiguous",
+            "NoMatch",
+            "Legacy Software Dump",
+            None,
+            "2024.01.01",
+        ),
+        record(
+            "GM Rated",
+            "Player E",
+            "Player F",
+            None,
+            Some("1900"),
+            Some("GM"),
+            None,
+            "NoMatch",
+            "Strong",
+            "Community Project",
+            None,
+            "2024.01.01",
+        ),
+        record(
+            "GM Match",
+            "Player G",
+            "Player H",
+            None,
+            None,
+            Some("GM"),
+            Some("GM"),
+            "Probable",
+            "Ambiguous",
+            "Independent Collection",
+            None,
+            "2024.??.??",
+        ),
+        record(
+            "Known OTB",
+            "Player I",
+            "Player J",
+            Some("2200"),
+            Some("2200"),
+            None,
+            None,
+            "Confirmed",
+            "Strong",
+            "Britbase",
+            Some("OTB"),
+            "?",
+        ),
+        record(
+            "Below Boundary",
+            "Player K",
+            "Player L",
+            Some("2400"),
+            Some("1799"),
+            Some("WGM"),
+            Some("IM"),
+            "Confirmed",
+            "Confirmed",
+            "Britbase",
+            None,
+            "2024.01.01",
+        ),
+        record(
+            "Correspondence",
+            "Player M",
+            "Player N",
+            Some("2300"),
+            Some("2300"),
+            None,
+            None,
+            "Confirmed",
+            "Confirmed",
+            "Britbase",
+            Some("Correspondence"),
+            "2024.01.01",
+        ),
+        record(
+            "Identity Conflict",
+            "Player O",
+            "Player P",
+            Some("2300"),
+            Some("2300"),
+            None,
+            None,
+            "Conflict",
+            "Confirmed",
+            "Britbase",
+            None,
+            "2024.01.01",
+        ),
+        record(
+            "Online Chess Event",
+            "Player Q",
+            "Player R",
+            Some("2300"),
+            Some("2300"),
+            None,
+            None,
+            "Confirmed",
+            "Confirmed",
+            "Britbase",
+            None,
+            "2024.01.01",
+        ),
+        record(
+            "Invalid Elo",
+            "Player S",
+            "Player T",
+            Some("9999"),
+            Some("1900"),
+            Some("GM"),
+            None,
+            "Confirmed",
+            "Confirmed",
+            "Britbase",
+            None,
+            "2024.01.01",
+        ),
+        conflicting_source,
+    ]
+    .join("");
+    let policy = GigabaseOtbPolicy::publisher_trust_r3();
+    let mut pipeline = CuratedPipeline::new(
+        Collection::MastersOtb,
+        Deduplicator::new(),
+        MemoryGameConsumer::new(),
+    )
+    .with_gigabase_source_qualification(policy);
+
+    pipeline.process_stream(Cursor::new(pgn)).unwrap();
+
+    assert_eq!(pipeline.stats.total_encountered, 11);
+    assert_eq!(pipeline.stats.accepted_unique, 5);
+    assert_eq!(pipeline.stats.rejected_by_policy, 6);
+    assert_eq!(
+        pipeline.policy_rejection_reasons["below_rating_threshold"],
+        1
+    );
+    assert_eq!(pipeline.policy_rejection_reasons["non_otb_play_mode"], 1);
+    assert_eq!(
+        pipeline.policy_rejection_reasons["conflicting_player_identity"],
+        1
+    );
+    assert_eq!(
+        pipeline.policy_rejection_reasons["contradictory_otb_evidence"],
+        1
+    );
+    assert_eq!(pipeline.policy_rejection_reasons["invalid_rating"], 1);
+    assert_eq!(
+        pipeline.policy_rejection_reasons["conflicting_source_metadata"],
+        1
+    );
+    assert!(pipeline.stats.is_reconciled());
+    assert!(pipeline
+        .stats
+        .verify_retained_count(pipeline.consumer.games.len()));
+    let gm_game = pipeline
+        .consumer
+        .games
+        .iter()
+        .find(|game| game.metadata.white == "Player E")
+        .unwrap();
+    let attribution = gm_game.metadata.source_attribution.as_ref().unwrap();
+    assert_eq!(attribution.white_title.as_deref(), Some("GM"));
+    assert_eq!(
+        attribution.white_identity_evidence.as_deref(),
+        Some("NoMatch")
+    );
+    assert!(pipeline
+        .consumer
+        .games
+        .iter()
+        .any(|game| game.metadata.date.as_deref() == Some("?")));
+}
+
+#[test]
 fn test_gigabase_rating_boundaries_and_explicit_otb_mode() {
     struct Case {
         name: &'static str,

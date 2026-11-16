@@ -188,6 +188,9 @@ class ResourceMeasurementTests(unittest.TestCase):
         self.assertEqual(result["returncode"], 0)
         self.assertGreater(result["peak_rss_bytes"], 0)
         self.assertLess(result["peak_rss_bytes"], 12 * 1024 * 1024)
+        self.assertGreater(result["peak_rss_anon_bytes"], 0)
+        self.assertGreater(result["rss_component_sample_count"], 0)
+        self.assertEqual(result["rss_component_sample_interval_seconds"], 0.005)
 
 
     @unittest.skipUnless(shutil.which("true"), "the true command is required")

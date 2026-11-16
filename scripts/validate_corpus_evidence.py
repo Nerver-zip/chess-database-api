@@ -280,6 +280,48 @@ def validate_docker(report: dict, releases: dict[str, dict]) -> None:
     )
 
 
+def validate_gigabase_policy_impact() -> None:
+    directory = ROOT / "benchmarks" / "gigabase"
+    inventory = load(directory / "INVENTORY.json")
+    impact = load(directory / "POLICY_IMPACT.json")
+    input_record = inventory.get("input", {})
+    parser = inventory.get("parser", {})
+    if (impact.get("schema_version") != 1
+            or impact.get("policy_id") != "gigabase-otb/2026-11-r3"
+            or impact.get("method") != "full_streaming_record_header_scan_using_the_production_r3_header_policy"):
+        fail("Gigabase policy-impact report has an unsupported schema or method")
+    if (impact.get("input_size_bytes") != input_record.get("size_bytes")
+            or impact.get("input_sha256") != input_record.get("sha256")
+            or impact.get("records_encountered") != parser.get("records_encountered")
+            or impact.get("structurally_parsed") != parser.get("records_structurally_parsed")
+            or impact.get("recoverable_syntax_errors")
+            != parser.get("records_with_recoverable_syntax_errors")):
+        fail("Gigabase policy-impact input or parser accounting differs from the inventory")
+    if (impact.get("header_candidate_accounting_reconciles") is not True
+            or impact.get("records_encountered") != impact.get("structurally_parsed")
+            or impact.get("recoverable_syntax_errors") != 0):
+        fail("Gigabase policy-impact source scan did not complete and reconcile")
+
+    all_strength = impact.get("valid_strength_rule_counts_non_overlapping", {})
+    current_strength = impact.get("r3_header_candidates_by_strength_rule", {})
+    source_counts = impact.get("r3_header_candidates_by_source_tag", {})
+    candidate_count = impact.get("r3_header_candidate_count")
+    if (not isinstance(candidate_count, int) or candidate_count <= 0
+            or sum(all_strength.values()) != impact.get("strength_eligible_header_records")
+            or sum(current_strength.values()) != candidate_count
+            or sum(source_counts.values()) != candidate_count
+            or candidate_count > impact.get("records_encountered", 0)):
+        fail("Gigabase r3 candidate and strength-rule counts do not reconcile")
+    if (impact.get("r3_candidates_admitted_by_both_source_and_identity", 0)
+            > min(impact.get("r3_candidates_admitted_by_removing_r2_source_allowlist", 0),
+                 impact.get("r3_candidates_admitted_by_relaxing_identity_confidence", 0))):
+        fail("Gigabase source and identity overlap count exceeds either component")
+    print(
+        f"  [PASS] Gigabase r3 full-source header analysis: {candidate_count} candidates; "
+        "source hash and record counts match the structural inventory"
+    )
+
+
 def main() -> int:
     catalog = load(CATALOG)
     releases = {
@@ -298,6 +340,7 @@ def main() -> int:
     validate_masters_audit(releases["masters-otb"],
                            load(EVIDENCE / "masters-otb" / "build_report.json"))
     validate_docker(load(EVIDENCE / "docker_real_check.json"), releases)
+    validate_gigabase_policy_impact()
 
     reproducibility = load(EVIDENCE / "reproducibility_check.json")
     for collection in COLLECTIONS:

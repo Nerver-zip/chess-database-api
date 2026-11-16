@@ -8,7 +8,7 @@ use std::time::Instant;
 use anyhow::{anyhow, Context, Result};
 use codb_core::{Collection, GameSourceAttribution, IngestionStats, ParsedGame};
 use codb_curate::dedupe::{DedupeError, Deduplicator, DuplicateVerdict};
-use codb_curate::policy::{GigabaseOtbPolicy, MastersOtbPolicy, PolicyVerdict};
+use codb_curate::policy::GigabaseOtbPolicy;
 use codb_ingest::{
     build_pgn_reader, is_recoverable_pgn_syntax_error, resync_after_syntax_error,
     ShakmatyGameVisitor,
@@ -24,7 +24,7 @@ const MIN_STRATUM_GAMES_FOR_EXAMPLE: u64 = 50;
 
 #[derive(Deserialize)]
 struct QualificationPolicy {
-    source_tag_allowlist: Vec<String>,
+    policy_id: String,
 }
 
 #[derive(Deserialize)]
@@ -64,9 +64,12 @@ struct SourceCanonicalReport {
     candidate_games: u64,
     source_records_encountered: u64,
     source_records_parsed_after_early_gates: u64,
-    source_records_passing_full_masters_policy: u64,
+    source_full_policy_rejections: u64,
+    source_records_passing_full_gigabase_policy: u64,
     source_records_passing_policy_without_candidate_id: u64,
     source_record_parse_rejections: u64,
+    source_record_accounting_reconciles: bool,
+    source_policy_accounting_reconciles: bool,
     recoverable_syntax_errors: u64,
     source_candidate_id_hits: u64,
     unique_candidate_games_matched: u64,
@@ -300,7 +303,9 @@ fn record_candidate_games(connection: &mut Connection, reader: &DatasetReader) -
          CREATE TABLE candidates (
              game_id BLOB PRIMARY KEY NOT NULL,
              source_attributions_json TEXT NOT NULL DEFAULT '[]',
-             matched_count INTEGER NOT NULL DEFAULT 0
+             matched_count INTEGER NOT NULL DEFAULT 0,
+             canonical_match_count INTEGER NOT NULL DEFAULT 0,
+             primary_match_count INTEGER NOT NULL DEFAULT 0
          ) WITHOUT ROWID;
          CREATE TABLE expected_attributions (
              game_id BLOB NOT NULL,
@@ -518,8 +523,10 @@ fn run() -> Result<()> {
     let policy: QualificationPolicy =
         serde_json::from_reader(File::open(&policy_path).context("opening qualification policy")?)
             .context("parsing qualification policy")?;
-    let gigabase_policy = GigabaseOtbPolicy::new(policy.source_tag_allowlist.into_iter().collect());
-    let masters_policy = MastersOtbPolicy::default();
+    if policy.policy_id != "gigabase-otb/2026-11-r3" {
+        return Err(anyhow!("expected Gigabase r3 qualification policy"));
+    }
+    let gigabase_policy = GigabaseOtbPolicy::publisher_trust_r3();
 
     let temp_dir = tempfile::tempdir().context("creating bounded-memory audit database")?;
     let mut connection = Connection::open(temp_dir.path().join("source-candidates.sqlite"))?;
@@ -548,11 +555,12 @@ fn run() -> Result<()> {
     let mut pgn_reader: Reader<File> = build_pgn_reader(source_file);
     let mut visitor = ShakmatyGameVisitor::new(Collection::MastersOtb, 1)
         .with_early_policy_filter(true)
-        .with_gigabase_policy(gigabase_policy);
+        .with_gigabase_policy(gigabase_policy.clone());
 
     let mut source_records_encountered = 0u64;
     let mut source_records_parsed_after_early_gates = 0u64;
-    let mut source_records_passing_full_masters_policy = 0u64;
+    let mut source_full_policy_rejections = 0u64;
+    let mut source_records_passing_full_gigabase_policy = 0u64;
     let mut source_record_parse_rejections = 0u64;
     let mut recoverable_syntax_errors = 0u64;
     let mut source_candidate_id_hits = 0u64;
@@ -578,6 +586,18 @@ fn run() -> Result<()> {
     let mut mark_match = connection.prepare_cached(
         "UPDATE candidates SET matched_count = matched_count + 1 WHERE game_id = ?1",
     )?;
+    let mut canonical_lookup = connection.prepare_cached(
+        "SELECT source_attributions_json, canonical_match_count, primary_match_count
+         FROM candidates WHERE game_id = ?1",
+    )?;
+    let mut mark_canonical_match = connection.prepare_cached(
+        "UPDATE candidates SET canonical_match_count = canonical_match_count + 1
+         WHERE game_id = ?1",
+    )?;
+    let mut mark_primary_match = connection.prepare_cached(
+        "UPDATE candidates SET primary_match_count = primary_match_count + 1
+         WHERE game_id = ?1",
+    )?;
 
     loop {
         match pgn_reader.read_game(&mut visitor) {
@@ -595,10 +615,11 @@ fn run() -> Result<()> {
                     }
                 };
 
-                if let PolicyVerdict::Rejected(_) = masters_policy.evaluate(&source_game) {
+                if gigabase_policy.evaluate_r3_game(&source_game).is_some() {
+                    source_full_policy_rejections += 1;
                     continue;
                 }
-                source_records_passing_full_masters_policy += 1;
+                source_records_passing_full_gigabase_policy += 1;
 
                 let dedupe_verdict = match deduplicator.evaluate(&source_game) {
                     Ok(verdict) => Some(verdict),
@@ -609,7 +630,19 @@ fn run() -> Result<()> {
                     Err(error) => return Err(error.into()),
                 };
                 let dedupe_outcome = dedupe_outcome(dedupe_verdict.as_ref());
-                if let Some(verdict) = dedupe_verdict {
+                let (canonical_target_id, is_primary_candidate) = match dedupe_verdict.as_ref() {
+                    Some(
+                        DuplicateVerdict::Unique | DuplicateVerdict::TranspositionDifferentGame,
+                    ) => (Some(source_game.metadata.id), true),
+                    Some(DuplicateVerdict::ConfirmedDuplicate { canonical_id, .. }) => {
+                        (Some(*canonical_id), false)
+                    }
+                    Some(DuplicateVerdict::SupersedesPrevious { .. }) => {
+                        (Some(source_game.metadata.id), true)
+                    }
+                    None => (None, false),
+                };
+                if let Some(verdict) = dedupe_verdict.as_ref() {
                     match verdict {
                         DuplicateVerdict::Unique => {
                             dedupe_replay.unique += 1;
@@ -629,111 +662,148 @@ fn run() -> Result<()> {
                         }
                         DuplicateVerdict::ConfirmedDuplicate { canonical_id, .. } => {
                             dedupe_replay.confirmed_duplicates += 1;
-                            add_expected_attribution(&connection, canonical_id, &source_game)?;
+                            add_expected_attribution(&connection, *canonical_id, &source_game)?;
                         }
                         DuplicateVerdict::SupersedesPrevious { old_id, .. } => {
                             dedupe_replay.superseded_prior += 1;
-                            supersede_expected_attributions(&connection, old_id, &source_game)?;
+                            supersede_expected_attributions(&connection, *old_id, &source_game)?;
                         }
                     }
                 }
 
-                let id = id_bytes(source_game.metadata.id);
-                let candidate: Option<(String, u64)> = candidate_lookup
-                    .query_row(params![id.as_slice()], |row| {
+                // Raw source-ID hits are retained as a separate diagnostic. Duplicate records
+                // must be compared through the canonical ID returned by the deduplicator below.
+                let source_id = id_bytes(source_game.metadata.id);
+                let raw_candidate: Option<(String, u64)> = candidate_lookup
+                    .query_row(params![source_id.as_slice()], |row| {
                         Ok((row.get(0)?, row.get::<_, u64>(1)?))
                     })
                     .optional()?;
-                let Some((attributions_json, previous_matches)) = candidate else {
+                if let Some((attributions_json, previous_source_id_hits)) = raw_candidate {
+                    dedupe_replay
+                        .candidate_id_hit_verdicts
+                        .record(dedupe_outcome);
+                    source_candidate_id_hits += 1;
+                    let raw_attributions: Vec<GameSourceAttribution> =
+                        serde_json::from_str(&attributions_json)
+                            .context("parsing candidate source-attribution entry")?;
+                    let raw_attribution_matches = source_game
+                        .metadata
+                        .source_attribution
+                        .as_ref()
+                        .is_some_and(|source| raw_attributions.contains(source));
+                    mark_match.execute(params![source_id.as_slice()])?;
+                    if previous_source_id_hits > 0 {
+                        dedupe_replay.repeated_id_verdicts.record(dedupe_outcome);
+                        repeated_source_records_for_matched_ids += 1;
+                        if raw_attribution_matches {
+                            repeated_id_source_records_attributed_to_canonical += 1;
+                        } else {
+                            repeated_id_source_records_without_canonical_attribution += 1;
+                        }
+                    }
+                } else {
                     dedupe_replay
                         .without_candidate_id_verdicts
                         .record(dedupe_outcome);
+                }
+
+                let Some(canonical_target_id) = canonical_target_id else {
                     continue;
                 };
-                dedupe_replay
-                    .candidate_id_hit_verdicts
-                    .record(dedupe_outcome);
-                source_candidate_id_hits += 1;
-                let source_attributions: Vec<GameSourceAttribution> =
-                    serde_json::from_str(&attributions_json)
-                        .context("parsing candidate source-attribution entry")?;
-                let canonical_game = reader.get_game(source_game.metadata.id)?;
-
+                let canonical_target = id_bytes(canonical_target_id);
+                let candidate: Option<(String, u64, u64)> = canonical_lookup
+                    .query_row(params![canonical_target.as_slice()], |row| {
+                        Ok((row.get(0)?, row.get::<_, u64>(1)?, row.get::<_, u64>(2)?))
+                    })
+                    .optional()?;
+                let Some((attributions_json, previous_canonical_matches, previous_primary_matches)) =
+                    candidate
+                else {
+                    continue;
+                };
+                let canonical_game = reader.get_game(canonical_target_id)?;
                 let metadata_matches =
                     persisted_metadata_fields_match(&source_game, &canonical_game);
                 let moves_match = source_game.moves == canonical_game.moves;
                 let starting_position_matches = source_game.fen_start == canonical_game.fen_start;
+                let source_attributions: Vec<GameSourceAttribution> =
+                    serde_json::from_str(&attributions_json)
+                        .context("parsing canonical source-attribution entry")?;
                 let source_attribution_matches = source_game
                     .metadata
                     .source_attribution
                     .as_ref()
                     .is_some_and(|source| source_attributions.contains(source));
-                let final_position_matches =
-                    replay_final_position(&source_game)? == replay_final_position(&canonical_game)?;
-
-                if previous_matches == 0 {
-                    persisted_metadata_mismatches += u64::from(!metadata_matches);
-                } else {
-                    duplicate_metadata_variant_records += u64::from(!metadata_matches);
-                }
-                if previous_matches == 0 {
-                    primary_source_attribution_mismatches += u64::from(!source_attribution_matches);
-                }
-                move_sequence_mismatches += u64::from(!moves_match);
-                starting_position_mismatches += u64::from(!starting_position_matches);
-                final_position_mismatches += u64::from(!final_position_matches);
-                if previous_matches == 0 {
-                    exact_candidate_records += u64::from(
-                        metadata_matches
-                            && source_attribution_matches
-                            && moves_match
-                            && starting_position_matches
-                            && final_position_matches,
-                    );
-                }
-
-                mark_match.execute(params![id.as_slice()])?;
-                if previous_matches == 0 {
+                mark_canonical_match.execute(params![canonical_target.as_slice()])?;
+                if previous_canonical_matches == 0 {
                     unique_candidate_games_matched += 1;
-                    if let Some(attribution) = source_game.metadata.source_attribution.as_ref() {
-                        let summary = example_summary(
-                            metadata_matches,
-                            source_attribution_matches,
-                            moves_match,
-                            starting_position_matches,
-                            final_position_matches,
+                }
+
+                if is_primary_candidate {
+                    let final_position_matches = replay_final_position(&source_game)?
+                        == replay_final_position(&canonical_game)?;
+                    if previous_primary_matches == 0 {
+                        persisted_metadata_mismatches += u64::from(!metadata_matches);
+                        primary_source_attribution_mismatches +=
+                            u64::from(!source_attribution_matches);
+                        move_sequence_mismatches += u64::from(!moves_match);
+                        starting_position_mismatches += u64::from(!starting_position_matches);
+                        final_position_mismatches += u64::from(!final_position_matches);
+                        exact_candidate_records += u64::from(
+                            metadata_matches
+                                && source_attribution_matches
+                                && moves_match
+                                && starting_position_matches
+                                && final_position_matches,
                         );
-                        for (dimension, stratum) in strata(&source_game, attribution) {
-                            let key = (dimension, stratum);
-                            match examples.get_mut(&key) {
-                                Some(choice) => {
-                                    choice.count += 1;
-                                    if source_game.metadata.id < choice.selected_id {
-                                        choice.selected_id = source_game.metadata.id;
-                                        choice.example = summary.clone();
+                    } else {
+                        duplicate_metadata_variant_records += u64::from(!metadata_matches);
+                    }
+                    mark_primary_match.execute(params![canonical_target.as_slice()])?;
+                    if previous_primary_matches == 0 {
+                        if let Some(attribution) = source_game.metadata.source_attribution.as_ref()
+                        {
+                            let summary = example_summary(
+                                metadata_matches,
+                                source_attribution_matches,
+                                moves_match,
+                                starting_position_matches,
+                                final_position_matches,
+                            );
+                            for (dimension, stratum) in strata(&source_game, attribution) {
+                                let key = (dimension, stratum);
+                                match examples.get_mut(&key) {
+                                    Some(choice) => {
+                                        choice.count += 1;
+                                        if source_game.metadata.id < choice.selected_id {
+                                            choice.selected_id = source_game.metadata.id;
+                                            choice.example = summary.clone();
+                                        }
                                     }
-                                }
-                                None => {
-                                    examples.insert(
-                                        key,
-                                        ExampleChoice {
-                                            selected_id: source_game.metadata.id,
-                                            count: 1,
-                                            example: summary.clone(),
-                                        },
-                                    );
+                                    None => {
+                                        examples.insert(
+                                            key,
+                                            ExampleChoice {
+                                                selected_id: source_game.metadata.id,
+                                                count: 1,
+                                                example: summary.clone(),
+                                            },
+                                        );
+                                    }
                                 }
                             }
                         }
                     }
+                } else if !matches!(
+                    dedupe_verdict,
+                    Some(DuplicateVerdict::ConfirmedDuplicate { .. })
+                ) {
+                    return Err(anyhow!(
+                        "non-primary source row has an invalid dedupe disposition"
+                    ));
                 } else {
-                    dedupe_replay.repeated_id_verdicts.record(dedupe_outcome);
-                    repeated_source_records_for_matched_ids += 1;
-                    if source_attribution_matches {
-                        repeated_id_source_records_attributed_to_canonical += 1;
-                    } else {
-                        repeated_id_source_records_without_canonical_attribution += 1;
-                    }
+                    duplicate_metadata_variant_records += u64::from(!metadata_matches);
                 }
             }
             Ok(None) => break,
@@ -749,11 +819,20 @@ fn run() -> Result<()> {
     }
     drop(mark_match);
     drop(candidate_lookup);
+    drop(mark_canonical_match);
+    drop(mark_primary_match);
+    drop(canonical_lookup);
     connection.execute_batch("COMMIT")?;
     let source_scan_duration_ms = scan_started.elapsed().as_millis();
+    let source_record_accounting_reconciles = source_records_encountered
+        == source_record_parse_rejections
+            + source_records_parsed_after_early_gates
+            + recoverable_syntax_errors;
+    let source_policy_accounting_reconciles = source_records_parsed_after_early_gates
+        == source_full_policy_rejections + source_records_passing_full_gigabase_policy;
 
     let candidate_games_without_source_match: u64 = connection.query_row(
-        "SELECT COUNT(*) FROM candidates WHERE matched_count = 0",
+        "SELECT COUNT(*) FROM candidates WHERE canonical_match_count = 0",
         [],
         |row| row.get(0),
     )?;
@@ -763,9 +842,9 @@ fn run() -> Result<()> {
         |row| row.get(0),
     )?;
     let source_records_passing_policy_without_candidate_id =
-        source_records_passing_full_masters_policy.saturating_sub(source_candidate_id_hits);
+        source_records_passing_full_gigabase_policy.saturating_sub(source_candidate_id_hits);
     let build_ingestion_accounting = reader.manifest().accounting.clone();
-    let candidate_selection_accounting_reconciles = source_records_passing_full_masters_policy
+    let candidate_selection_accounting_reconciles = source_records_passing_full_gigabase_policy
         == build_ingestion_accounting.accepted_unique
             + build_ingestion_accounting.confirmed_duplicates
             + build_ingestion_accounting.superseded_prior
@@ -812,8 +891,8 @@ fn run() -> Result<()> {
         && dedupe_replay.source_hit_verdicts_reconcile;
 
     let report = SourceCanonicalReport {
-        schema_version: 1,
-        method: "Stream the supplied source PGN with the repository's Shakmaty visitor and exact source-tag allowlist; replay qualifying records through the repository's disk-backed deduplicator; compare its expected attribution set with the complete candidate sidecar; and join source records to candidate CGB3 games to compare persisted metadata, compact moves, starting FEN, and final legal board. The report suppresses small strata and omits record identifiers and non-stratum metadata from examples.".to_owned(),
+        schema_version: 2,
+        method: "Stream the supplied source PGN with the repository's Shakmaty visitor and Gigabase r3 publisher-trust header and game checks; replay qualifying records through the repository's disk-backed deduplicator; compare its expected attribution set with the complete candidate sidecar; and join canonical source rows to candidate CGB3 games using the deduplicator-selected canonical ID. Raw source-ID hits are reported separately. The report suppresses small strata and omits record identifiers and non-stratum metadata from examples.".to_owned(),
         dataset_build_id: reader.manifest().dataset_build_id.clone(),
         build_ingestion_accounting,
         source_pgn_filename: source_pgn
@@ -823,13 +902,16 @@ fn run() -> Result<()> {
             .to_owned(),
         source_pgn_size_bytes: source_size_bytes,
         source_pgn_sha256_local,
-        gigabase_policy_id: "gigabase-otb/2026-11-r2".to_owned(),
+        gigabase_policy_id: "gigabase-otb/2026-11-r3".to_owned(),
         candidate_games,
         source_records_encountered,
         source_records_parsed_after_early_gates,
-        source_records_passing_full_masters_policy,
+        source_full_policy_rejections,
+        source_records_passing_full_gigabase_policy,
         source_records_passing_policy_without_candidate_id,
         source_record_parse_rejections,
+        source_record_accounting_reconciles,
+        source_policy_accounting_reconciles,
         recoverable_syntax_errors,
         source_candidate_id_hits,
         unique_candidate_games_matched,
@@ -890,6 +972,8 @@ fn run() -> Result<()> {
         || starting_position_mismatches != 0
         || final_position_mismatches != 0
         || exact_candidate_records != unique_candidate_games_matched
+        || !source_record_accounting_reconciles
+        || !source_policy_accounting_reconciles
         || !candidate_selection_accounting_reconciles
         || !dedupe_replay_checks_pass
     {

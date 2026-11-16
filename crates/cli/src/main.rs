@@ -102,6 +102,10 @@ enum Commands {
         /// Directory for temporary disk-backed aggregation
         #[arg(long, default_value = "data/work")]
         scratch_dir: PathBuf,
+
+        /// Optional standalone policy-impact JSON extracted from the same full-source scan
+        #[arg(long)]
+        policy_impact_output: Option<PathBuf>,
     },
 
     /// Build a persistent curated dataset with bounded memory, sharded CGB3 storage, and global game lookup
@@ -153,6 +157,10 @@ enum Commands {
         /// Gigabase source qualification JSON (separate from the Lichess event audit)
         #[arg(long, requires = "collection")]
         gigabase_source_policy: Option<PathBuf>,
+
+        /// Disk-backed scratch directory for deduplication and attribution databases
+        #[arg(long)]
+        scratch_dir: Option<PathBuf>,
     },
 
     /// Compute a machine-readable dataset quality report (distributions and coverage)
@@ -729,11 +737,13 @@ fn main() -> Result<()> {
             report_json,
             masters_event_audit,
             gigabase_source_policy,
+            scratch_dir,
         } => {
             run_build(BuildOptions {
                 report_json,
                 masters_event_audit,
                 gigabase_source_policy,
+                scratch_dir,
                 manifest,
                 input,
                 collection,
@@ -830,6 +840,7 @@ fn main() -> Result<()> {
             input,
             output,
             scratch_dir,
+            policy_impact_output,
         } => {
             anyhow::ensure!(
                 input.as_os_str() != "-",
@@ -855,6 +866,12 @@ fn main() -> Result<()> {
                 })?;
             } else {
                 println!("{}", String::from_utf8(output_bytes)?);
+            }
+            if let Some(path) = policy_impact_output {
+                let impact_bytes = serde_json::to_vec_pretty(&report.gigabase_policy_impact)?;
+                std::fs::write(&path, impact_bytes).with_context(|| {
+                    format!("Failed to write policy-impact report {}", path.display())
+                })?;
             }
         }
 
@@ -1048,9 +1065,19 @@ struct SourceAttributionStore {
 }
 
 impl SourceAttributionStore {
-    fn new() -> Result<Self> {
-        let scratch_file =
-            NamedTempFile::new().context("creating source-attribution scratch file")?;
+    fn new(scratch_dir: &Path) -> Result<Self> {
+        std::fs::create_dir_all(scratch_dir).with_context(|| {
+            format!(
+                "creating source-attribution scratch directory {}",
+                scratch_dir.display()
+            )
+        })?;
+        let scratch_file = NamedTempFile::new_in(scratch_dir).with_context(|| {
+            format!(
+                "creating source-attribution scratch file in {}",
+                scratch_dir.display()
+            )
+        })?;
         let conn = Connection::open(scratch_file.path())
             .context("opening source-attribution scratch database")?;
         conn.execute_batch(
@@ -1306,6 +1333,7 @@ struct BuildOptions {
     report_json: Option<PathBuf>,
     masters_event_audit: Option<PathBuf>,
     gigabase_source_policy: Option<PathBuf>,
+    scratch_dir: Option<PathBuf>,
     manifest: Option<PathBuf>,
     input: Vec<PathBuf>,
     collection: CollectionArg,
@@ -1334,21 +1362,31 @@ struct MastersEventPolicyInput {
 struct GigabaseSourcePolicyInput {
     schema_version: u32,
     policy_id: String,
-    source_tag_allowlist: Vec<String>,
-    identity_values_required_for_both_players: Vec<String>,
+    source_policy: String,
+    identity_policy: String,
     missing_mode_basis: String,
     explicit_mode_policy: String,
-    pre_1970_policy: String,
     date_policy: String,
     rating_semantics: String,
+    rating_plausibility: GigabaseRatingPlausibilityInput,
     rating_thresholds: GigabaseRatingThresholdsInput,
+    gm_title_labels: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct GigabaseRatingPlausibilityInput {
+    minimum: u16,
+    maximum: u16,
 }
 
 #[derive(Deserialize)]
 struct GigabaseRatingThresholdsInput {
     both_at_least: u16,
-    one_at_least: u16,
-    other_at_least: u16,
+    original_one_at_least: u16,
+    original_other_at_least: u16,
+    relaxed_one_at_least: u16,
+    relaxed_other_at_least: u16,
+    gm_opponent_at_least: u16,
 }
 
 #[derive(Debug)]
@@ -1357,20 +1395,6 @@ struct LoadedGigabasePolicy {
     policy_id: String,
     sha256: String,
 }
-
-const APPROVED_GIGABASE_SOURCE_TAGS: [&str; 11] = [
-    "AnaSchaigorodsky",
-    "Britbase",
-    "CanadianChessFederation",
-    "ChessScotland",
-    "DanBase",
-    "Federscacchi",
-    "GreekBase",
-    "LichessBroadcastAPI",
-    "NiederrheinischerSchachverband",
-    "NiedersächsischerSchachverband",
-    "SchachverbandRuhrgebiet",
-];
 
 fn load_gigabase_source_policy(path: &Path) -> Result<LoadedGigabasePolicy> {
     let metadata = std::fs::symlink_metadata(path)
@@ -1393,64 +1417,51 @@ fn load_gigabase_source_policy(path: &Path) -> Result<LoadedGigabasePolicy> {
         "Gigabase policy_id is required"
     );
     anyhow::ensure!(
-        input
-            .source_tag_allowlist
-            .iter()
-            .all(|tag| !tag.trim().is_empty())
-            && input
-                .source_tag_allowlist
-                .iter()
-                .all(|tag| tag.trim() == tag),
-        "Gigabase source allowlist contains an empty or untrimmed value"
-    );
-    let allowed_source_tags: std::collections::HashSet<String> =
-        input.source_tag_allowlist.iter().cloned().collect();
-    anyhow::ensure!(
-        allowed_source_tags.len() == input.source_tag_allowlist.len(),
-        "Gigabase source allowlist contains duplicate tags"
-    );
-    let approved_source_tags: std::collections::HashSet<String> = APPROVED_GIGABASE_SOURCE_TAGS
-        .iter()
-        .map(|tag| (*tag).to_owned())
-        .collect();
-    anyhow::ensure!(
-        allowed_source_tags == approved_source_tags,
-        "Gigabase source allowlist differs from the source categories reviewed for this release"
+        input.source_policy == "accept_any_nonempty_publisher_source_tag",
+        "Gigabase policy must trust supplied source categories while preserving their values"
     );
     anyhow::ensure!(
-        input.identity_values_required_for_both_players == ["Confirmed", "Strong"],
-        "Gigabase policy must require both player identities to be Confirmed or Strong"
+        input.identity_policy == "usable_names_and_reject_explicit_conflicts",
+        "Gigabase policy must use player-name consistency instead of a universal identity-confidence gate"
     );
     anyhow::ensure!(
         input.missing_mode_basis == "publisher_otb_complete_assertion",
         "Gigabase policy must record its missing-Mode publisher assertion"
     );
     anyhow::ensure!(
-        input.explicit_mode_policy == "reject_unless_explicit_otb",
-        "Gigabase policy must reject explicit modes unless they say OTB"
+        input.explicit_mode_policy == "reject_explicit_non_otb_and_contradictory_evidence",
+        "Gigabase policy must reject explicit incompatible modes and concrete metadata contradictions"
     );
     anyhow::ensure!(
-        input.pre_1970_policy == "reject_unverified_historical_elo",
-        "Gigabase policy must reject pre-1970 records pending historical Elo validation"
+        input.date_policy == "accept_valid_partial_dates; preserve_unknown_components; no_pre_1970_cutoff",
+        "Gigabase policy must accept consistent partial dates and historical games without inventing dates"
     );
     anyhow::ensure!(
-        input.date_policy == "require_complete_valid_date_and_reject_pre_1970",
-        "Gigabase policy must require complete valid dates and reject pre-1970 records pending historical Elo validation"
-    );
-    anyhow::ensure!(
-        input.rating_semantics == "publisher_supplied_elo_unverified_as_official_fide",
+        input.rating_semantics
+            == "publisher_supplied_elo_not_independently_verified_as_official_fide",
         "Gigabase policy must keep publisher-supplied Elo distinct from verified official FIDE ratings"
     );
     anyhow::ensure!(
+        input.rating_plausibility.minimum == 100 && input.rating_plausibility.maximum == 3500,
+        "Gigabase policy must reject supplied Elo outside the reviewed plausible range"
+    );
+    anyhow::ensure!(
         input.rating_thresholds.both_at_least == 2200
-            && input.rating_thresholds.one_at_least == 2400
-            && input.rating_thresholds.other_at_least == 2000,
-        "Gigabase policy must preserve the existing Masters numeric rating thresholds"
+            && input.rating_thresholds.original_one_at_least == 2400
+            && input.rating_thresholds.original_other_at_least == 2000
+            && input.rating_thresholds.relaxed_one_at_least == 2400
+            && input.rating_thresholds.relaxed_other_at_least == 1800
+            && input.rating_thresholds.gm_opponent_at_least == 1800,
+        "Gigabase policy thresholds differ from the approved Masters eligibility rules"
+    );
+    anyhow::ensure!(
+        input.gm_title_labels == ["GM"],
+        "only exact GM titles are recognized"
     );
     let sha256 = compute_file_sha256(path)
         .with_context(|| format!("hashing Gigabase source policy {}", path.display()))?;
     Ok(LoadedGigabasePolicy {
-        policy: GigabaseOtbPolicy::new(allowed_source_tags),
+        policy: GigabaseOtbPolicy::publisher_trust_r3(),
         policy_id: input.policy_id,
         sha256,
     })
@@ -1473,6 +1484,22 @@ fn run_build(opts: BuildOptions) -> Result<()> {
     } else {
         None
     };
+    if gigabase_qualification.is_some() {
+        anyhow::ensure!(
+            opts.scratch_dir.is_some(),
+            "--gigabase-source-policy requires --scratch-dir so disk-backed SQLite files do not use system temporary storage"
+        );
+    }
+    if let Some(scratch_dir) = &opts.scratch_dir {
+        std::fs::create_dir_all(scratch_dir).with_context(|| {
+            format!("creating build scratch directory {}", scratch_dir.display())
+        })?;
+        anyhow::ensure!(
+            scratch_dir.is_dir(),
+            "build scratch path is not a directory: {}",
+            scratch_dir.display()
+        );
+    }
     let event_qualification = if let Some(path) = opts.masters_event_audit.as_ref() {
         anyhow::ensure!(
             col == Collection::MastersOtb,
@@ -1638,7 +1665,7 @@ fn run_build(opts: BuildOptions) -> Result<()> {
     let event_qualification_enabled = event_qualification.is_some();
     let gigabase_policy_note = gigabase_qualification.as_ref().map(|loaded| {
         format!(
-            "Gigabase policy {} sha256={}: allowlisted Source tags; both identities Strong/Confirmed; publisher-supplied Elo uses the existing numeric thresholds but is not independently certified as official FIDE; missing Mode relies on the publisher's OTB Complete assertion, explicit non-OTB modes and pre-1970 games are rejected; missing, partial, and invalid dates are rejected; standard chess, minimum four plies, explicit online and aborted/rules-infraction markers rejected",
+            "Gigabase policy {} sha256={}: trust the publisher's OTB Complete assertion and preserve every nonempty Source tag; retain usable player names and identity labels while rejecting explicit identity conflicts; accept exact publisher-supplied GM titles with no claim of historical title dates; apply 2200/2200, 2400/1800, GM/1800, or GM/GM strength rules using plausible publisher Elo; reject concrete correspondence, online-play, engine-only, or contradictory event/site evidence; accept valid partial dates and preserve unknown components; standard chess, minimum four plies, and aborted/rules-infraction checks still apply; publisher-claimed CC BY-NC 4.0 and upstream rights remain unresolved",
             loaded.policy_id, loaded.sha256
         )
     });
@@ -1646,7 +1673,11 @@ fn run_build(opts: BuildOptions) -> Result<()> {
         Collection::MastersOtb => CurationPolicyMetadata {
             min_rating_both: 2200,
             min_rating_one: 2400,
-            min_rating_other: 2000,
+            min_rating_other: if gigabase_qualification.is_some() {
+                1800
+            } else {
+                2000
+            },
             min_plies: 4,
             extra_criteria: if let Some(policy_note) = gigabase_policy_note {
                 policy_note
@@ -1677,21 +1708,33 @@ fn run_build(opts: BuildOptions) -> Result<()> {
     let mut dataset_writer = DatasetWriter::new(opts.output.clone(), writer_config)
         .context("Failed to initialize dataset writer in staging directory")?;
 
+    let mut dedupe_scratch_file = None;
     let deduplicator = match opts.dedupe_mode {
         DedupeModeArg::Memory => Deduplicator::new(),
         DedupeModeArg::Disk => {
-            let temp_dedupe = tempfile::Builder::new()
-                .prefix("codb_dedupe_")
-                .suffix(".db")
-                .tempfile()?;
-            Deduplicator::new_disk(temp_dedupe.path())
-                .context("Failed to initialize disk-backed temporary deduplicator")?
+            let temp_dedupe = if let Some(scratch_dir) = &opts.scratch_dir {
+                tempfile::Builder::new()
+                    .prefix("codb_dedupe_")
+                    .suffix(".db")
+                    .tempfile_in(scratch_dir)?
+            } else {
+                tempfile::Builder::new()
+                    .prefix("codb_dedupe_")
+                    .suffix(".db")
+                    .tempfile()?
+            };
+            let deduplicator = Deduplicator::new_disk(temp_dedupe.path())
+                .context("Failed to initialize disk-backed temporary deduplicator")?;
+            dedupe_scratch_file = Some(temp_dedupe);
+            deduplicator
         }
     };
 
     let start = Instant::now();
     let attribution_store = if gigabase_qualification.is_some() {
-        Some(SourceAttributionStore::new()?)
+        Some(SourceAttributionStore::new(
+            opts.scratch_dir.as_deref().expect("validated above"),
+        )?)
     } else {
         None
     };
@@ -1732,6 +1775,7 @@ fn run_build(opts: BuildOptions) -> Result<()> {
         .finish_source_attribution(&attribution_output_dir, stats.accepted_unique)
         .map_err(anyhow::Error::msg)?;
     drop(pipeline);
+    drop(dedupe_scratch_file);
     println!("\nFinalizing persistent dataset...");
     let manifest = dataset_writer
         .finalize_with_source_attribution(stats.clone(), source_metas, source_attribution)
@@ -3798,6 +3842,7 @@ mod tests {
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
             gigabase_source_policy: None,
+            scratch_dir: None,
         })
         .unwrap();
 
@@ -3833,7 +3878,7 @@ mod tests {
     }
 
     #[test]
-    fn test_gigabase_policy_configuration_cannot_expand_reviewed_source_set() {
+    fn test_gigabase_policy_configuration_requires_publisher_trust_r3_rules() {
         let workspace_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap()
@@ -3841,15 +3886,13 @@ mod tests {
             .unwrap();
         let policy_path = workspace_dir.join("corpus/gigabase_source_qualification.json");
         let loaded = load_gigabase_source_policy(&policy_path).unwrap();
-        assert_eq!(loaded.policy_id, "gigabase-otb/2026-11-r2");
+        assert_eq!(loaded.policy_id, "gigabase-otb/2026-11-r3");
         assert_eq!(loaded.sha256.len(), 64);
 
         let mut policy: serde_json::Value =
             serde_json::from_slice(&std::fs::read(&policy_path).unwrap()).unwrap();
-        policy["source_tag_allowlist"]
-            .as_array_mut()
-            .unwrap()
-            .push(serde_json::Value::String("Legacy Software Dump".into()));
+        policy["identity_policy"] =
+            serde_json::Value::String("require_both_players_strong_or_confirmed".into());
         let tmp = tempfile::tempdir().unwrap();
         let altered_policy_path = tmp.path().join("expanded_policy.json");
         std::fs::write(
@@ -3859,9 +3902,7 @@ mod tests {
         .unwrap();
 
         let error = load_gigabase_source_policy(&altered_policy_path).unwrap_err();
-        assert!(error
-            .to_string()
-            .contains("differs from the source categories reviewed"));
+        assert!(error.to_string().contains("player-name consistency"));
     }
 
     #[test]
@@ -3953,6 +3994,7 @@ mod tests {
             report_json: Some(report_path.clone()),
             masters_event_audit: None,
             gigabase_source_policy: Some(policy_path),
+            scratch_dir: Some(tmp.path().join("scratch")),
             manifest: None,
             input: vec![pgn_path],
             collection: CollectionArg::MastersOtb,
@@ -3968,22 +4010,17 @@ mod tests {
         let report: serde_json::Value =
             serde_json::from_slice(&std::fs::read(report_path).unwrap()).unwrap();
         assert_eq!(report["accounting"]["total_encountered"], 6);
-        assert_eq!(report["accounting"]["accepted_unique"], 2);
-        assert_eq!(report["accounting"]["rejected_by_policy"], 3);
+        assert_eq!(report["accounting"]["accepted_unique"], 4);
+        assert_eq!(report["accounting"]["rejected_by_policy"], 1);
         assert_eq!(report["accounting"]["quarantined"], 1);
-        assert_eq!(report["policy_rejection_reasons"]["unqualified_source"], 1);
         assert_eq!(report["policy_rejection_reasons"]["non_otb_play_mode"], 1);
-        assert_eq!(
-            report["policy_rejection_reasons"]["unverified_game_date"],
-            1
-        );
         assert_eq!(report["quarantine_reasons"]["stable_game_id_collision"], 1);
 
         let reader = DatasetReader::open(&output_dir).unwrap();
-        assert_eq!(reader.total_games(), 2);
+        assert_eq!(reader.total_games(), 4);
         let attribution = reader.manifest().source_attribution.as_ref().unwrap();
         assert_eq!(attribution.filename, "source-attribution.jsonl");
-        assert_eq!(attribution.entry_count, 2);
+        assert_eq!(attribution.entry_count, 4);
         let attribution_sha256 = attribution.sha256.clone();
         drop(reader);
 
@@ -3991,7 +4028,7 @@ mod tests {
         let attribution_line =
             std::fs::read_to_string(snapshot.join("source-attribution.jsonl")).unwrap();
         assert!(attribution_line.contains("Britbase"));
-        assert!(!attribution_line.contains("Legacy Software Dump"));
+        assert!(attribution_line.contains("Legacy Software Dump"));
 
         run_build_index(BuildIndexOptions {
             dataset: &output_dir,
@@ -4005,7 +4042,7 @@ mod tests {
         })
         .unwrap();
         let indexed_reader = DatasetReader::open(&output_dir).unwrap();
-        assert_eq!(indexed_reader.manifest().total_games, 2);
+        assert_eq!(indexed_reader.manifest().total_games, 4);
         assert_eq!(
             indexed_reader
                 .manifest()
@@ -4060,6 +4097,7 @@ mod tests {
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
             gigabase_source_policy: None,
+            scratch_dir: None,
         })
         .unwrap();
 
@@ -4093,6 +4131,7 @@ mod tests {
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
             gigabase_source_policy: None,
+            scratch_dir: None,
         })
         .unwrap_err();
         assert!(err_mismatch.to_string().contains("checksum mismatch"));
@@ -4120,6 +4159,7 @@ mod tests {
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
             gigabase_source_policy: None,
+            scratch_dir: None,
         })
         .unwrap_err();
         assert!(err_malformed.to_string().contains("Malformed SHA-256"));
@@ -4149,6 +4189,7 @@ mod tests {
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
             gigabase_source_policy: None,
+            scratch_dir: None,
         })
         .unwrap_err();
         assert!(err_missing.to_string().contains("does not exist"));
@@ -4188,6 +4229,7 @@ mod tests {
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
             gigabase_source_policy: None,
+            scratch_dir: None,
         })
         .unwrap_err();
         assert!(err_altered.to_string().contains("checksum mismatch"));
@@ -4226,6 +4268,7 @@ mod tests {
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
             gigabase_source_policy: None,
+            scratch_dir: None,
         })
         .unwrap();
 
@@ -4293,6 +4336,7 @@ mod tests {
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
             gigabase_source_policy: None,
+            scratch_dir: None,
         })
         .unwrap();
 
@@ -4382,6 +4426,7 @@ mod tests {
             dedupe_mode: DedupeModeArg::Disk,
             masters_event_audit: None,
             gigabase_source_policy: None,
+            scratch_dir: None,
         })
         .unwrap();
 

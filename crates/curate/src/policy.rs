@@ -46,6 +46,28 @@ pub enum PolicyRejectionReason {
     UnverifiedGigabaseHistoricalRating(u16),
     /// Gigabase-specific: the date is absent, partial, or not a valid calendar date.
     UnverifiedGigabaseDate,
+    /// Gigabase r3: the supplied rating text is malformed or outside the accepted plausibility range.
+    InvalidGigabaseRating {
+        player: &'static str,
+    },
+    /// Gigabase r3: no approved strength rule is met.
+    BelowGigabaseStrength,
+    /// Gigabase r3: player name is empty, a placeholder, or otherwise unusable.
+    InvalidGigabasePlayerIdentity {
+        player: &'static str,
+    },
+    /// Gigabase r3: the publisher explicitly marked a player identity as conflicting.
+    ConflictingGigabasePlayerIdentity {
+        player: &'static str,
+    },
+    /// Gigabase r3: event or site metadata explicitly contradicts the OTB archive assertion.
+    ContradictoryGigabaseProvenance {
+        field: &'static str,
+    },
+    /// Gigabase r3: a supplied date has inconsistent known components.
+    InvalidGigabaseDate,
+    /// Gigabase r3: duplicate PGN headers contained conflicting metadata values.
+    ConflictingGigabaseHeader(String),
 }
 
 impl PolicyRejectionReason {
@@ -86,6 +108,19 @@ impl PolicyRejectionReason {
                 "unverified_historical_rating"
             }
             PolicyRejectionReason::UnverifiedGigabaseDate => "unverified_game_date",
+            PolicyRejectionReason::InvalidGigabaseRating { .. } => "invalid_rating",
+            PolicyRejectionReason::BelowGigabaseStrength => "below_rating_threshold",
+            PolicyRejectionReason::InvalidGigabasePlayerIdentity { .. } => {
+                "invalid_player_identity"
+            }
+            PolicyRejectionReason::ConflictingGigabasePlayerIdentity { .. } => {
+                "conflicting_player_identity"
+            }
+            PolicyRejectionReason::ContradictoryGigabaseProvenance { .. } => {
+                "contradictory_otb_evidence"
+            }
+            PolicyRejectionReason::InvalidGigabaseDate => "invalid_game_date",
+            PolicyRejectionReason::ConflictingGigabaseHeader(_) => "conflicting_source_metadata",
         }
     }
 }
@@ -99,6 +134,13 @@ pub fn early_filter_category(reason: &str) -> &'static str {
         "gigabase:non_otb_play_mode" => "non_otb_play_mode",
         "gigabase:unverified_historical_rating" => "unverified_historical_rating",
         "gigabase:unverified_game_date" => "unverified_game_date",
+        "gigabase:invalid_rating" => "invalid_rating",
+        "gigabase:below_rating_threshold" => "below_rating_threshold",
+        "gigabase:invalid_player_identity" => "invalid_player_identity",
+        "gigabase:conflicting_player_identity" => "conflicting_player_identity",
+        "gigabase:contradictory_otb_evidence" => "contradictory_otb_evidence",
+        "gigabase:invalid_game_date" => "invalid_game_date",
+        "gigabase:conflicting_source_metadata" => "conflicting_source_metadata",
         "Bullet" | "Bullet TC" => "bullet_or_ultrabullet",
         "Below rating threshold" => "below_rating_threshold",
         r if r.starts_with("Missing rating") => "missing_rating",
@@ -120,6 +162,8 @@ mod gigabase_policy_tests {
             white_identity_evidence: Some(white.into()),
             black_identity_evidence: Some(black.into()),
             mode: mode.map(str::to_owned),
+            white_title: None,
+            black_title: None,
         }
     }
 
@@ -206,6 +250,147 @@ mod gigabase_policy_tests {
             )
             .is_ok());
     }
+
+    fn r3_headers() -> GigabaseHeaderMetadata<'static> {
+        GigabaseHeaderMetadata {
+            source_tag: Some("Historical Archive"),
+            white_name: Some("Smith, John"),
+            black_name: Some("Jones, Alex"),
+            white_elo: Some("2250"),
+            black_elo: Some("2210"),
+            white_title: None,
+            black_title: None,
+            white_identity_evidence: Some("NoMatch"),
+            black_identity_evidence: Some("Probable"),
+            white_fide_id: None,
+            black_fide_id: None,
+            mode: None,
+            date: Some("1969.??.??"),
+            event: Some("Open Championship"),
+            site: Some("London"),
+            conflicting_metadata_fields: &[],
+        }
+    }
+
+    #[test]
+    fn r3_accepts_unlisted_source_no_match_identity_missing_mode_and_historical_partial_date() {
+        let headers = r3_headers();
+        let policy = GigabaseOtbPolicy::publisher_trust_r3();
+        assert_eq!(
+            policy.evaluate_r3_headers(&headers).unwrap(),
+            GigabaseStrengthRule::Original2200Or2400_2000
+        );
+        assert_eq!(
+            parse_gigabase_date(headers.date),
+            Some(GigabaseDateInfo {
+                year: Some(1969),
+                precision: GigabaseDatePrecision::Partial,
+            })
+        );
+    }
+
+    #[test]
+    fn r3_applies_incremental_symmetric_rating_and_gm_rules() {
+        let policy = GigabaseOtbPolicy::publisher_trust_r3();
+        let mut headers = r3_headers();
+        headers.white_elo = Some("2500");
+        headers.black_elo = Some("1850");
+        assert_eq!(
+            policy.evaluate_r3_headers(&headers).unwrap(),
+            GigabaseStrengthRule::Added2400Vs1800
+        );
+        headers.white_elo = Some("1850");
+        headers.black_elo = Some("2500");
+        assert_eq!(
+            policy.evaluate_r3_headers(&headers).unwrap(),
+            GigabaseStrengthRule::Added2400Vs1800
+        );
+        headers.white_elo = Some("2400");
+        headers.black_elo = Some("1799");
+        assert_eq!(
+            policy.evaluate_r3_headers(&headers),
+            Err(PolicyRejectionReason::BelowGigabaseStrength)
+        );
+
+        headers.white_elo = None;
+        headers.black_elo = Some("1900");
+        headers.white_title = Some("GM");
+        assert_eq!(
+            policy.evaluate_r3_headers(&headers).unwrap(),
+            GigabaseStrengthRule::AddedGmVsRatedOpponent
+        );
+        headers.white_title = Some("WGM");
+        assert_eq!(
+            policy.evaluate_r3_headers(&headers),
+            Err(PolicyRejectionReason::BelowGigabaseStrength)
+        );
+        headers.white_title = Some("GM");
+        headers.black_elo = None;
+        headers.black_title = Some("GM");
+        assert_eq!(
+            policy.evaluate_r3_headers(&headers).unwrap(),
+            GigabaseStrengthRule::AddedGmVsGm
+        );
+    }
+
+    #[test]
+    fn r3_rejects_bad_identity_and_malformed_or_implausible_ratings() {
+        let policy = GigabaseOtbPolicy::publisher_trust_r3();
+        let mut headers = r3_headers();
+        headers.white_identity_evidence = Some("Conflict");
+        assert_eq!(
+            policy.evaluate_r3_headers(&headers),
+            Err(PolicyRejectionReason::ConflictingGigabasePlayerIdentity { player: "White" })
+        );
+        headers.white_identity_evidence = Some("NoMatch");
+        headers.white_name = Some("?");
+        assert_eq!(
+            policy.evaluate_r3_headers(&headers),
+            Err(PolicyRejectionReason::InvalidGigabasePlayerIdentity { player: "White" })
+        );
+        headers.white_name = Some("Smith, John");
+        headers.white_elo = Some("0");
+        assert_eq!(
+            classify_gigabase_strength(&headers),
+            Err(PolicyRejectionReason::InvalidGigabaseRating { player: "White" })
+        );
+        headers.white_elo = Some("not-a-rating");
+        assert_eq!(
+            classify_gigabase_strength(&headers),
+            Err(PolicyRejectionReason::InvalidGigabaseRating { player: "White" })
+        );
+    }
+
+    #[test]
+    fn r3_rejects_explicit_non_otb_and_inconsistent_dates_but_ignores_broadcast_hosting() {
+        let policy = GigabaseOtbPolicy::publisher_trust_r3();
+        let mut headers = r3_headers();
+        headers.mode = Some("Correspondence");
+        assert!(matches!(
+            policy.evaluate_r3_headers(&headers),
+            Err(PolicyRejectionReason::NonOtbGigabaseMode(_))
+        ));
+        headers.mode = None;
+        headers.event = Some("Online Chess Championship");
+        assert_eq!(
+            policy.evaluate_r3_headers(&headers),
+            Err(PolicyRejectionReason::ContradictoryGigabaseProvenance { field: "Event" })
+        );
+        headers.event = Some("Championship Broadcast");
+        headers.site = Some("https://lichess.org/broadcast/event/round/game");
+        assert!(policy.evaluate_r3_headers(&headers).is_ok());
+        headers.site = Some("https://lichess.org/game/abcdefgh");
+        assert_eq!(
+            policy.evaluate_r3_headers(&headers),
+            Err(PolicyRejectionReason::ContradictoryGigabaseProvenance { field: "Site" })
+        );
+        headers.site = Some("London");
+        headers.date = Some("2021.02.29");
+        assert_eq!(
+            policy.evaluate_r3_headers(&headers),
+            Err(PolicyRejectionReason::InvalidGigabaseDate)
+        );
+    }
 }
 
 impl std::fmt::Display for PolicyRejectionReason {
@@ -268,25 +453,173 @@ impl std::fmt::Display for PolicyRejectionReason {
             PolicyRejectionReason::UnverifiedGigabaseDate => {
                 write!(f, "Gigabase game date is absent, partial, or invalid")
             }
+            PolicyRejectionReason::InvalidGigabaseRating { player } => {
+                write!(f, "Gigabase {player} Elo is malformed or implausible")
+            }
+            PolicyRejectionReason::BelowGigabaseStrength => {
+                write!(
+                    f,
+                    "Gigabase game does not meet an approved Masters strength rule"
+                )
+            }
+            PolicyRejectionReason::InvalidGigabasePlayerIdentity { player } => {
+                write!(f, "Gigabase {player} player name is empty or a placeholder")
+            }
+            PolicyRejectionReason::ConflictingGigabasePlayerIdentity { player } => {
+                write!(
+                    f,
+                    "Gigabase {player} identity evidence is explicitly conflicting"
+                )
+            }
+            PolicyRejectionReason::ContradictoryGigabaseProvenance { field } => {
+                write!(f, "Gigabase {field} metadata contradicts OTB play")
+            }
+            PolicyRejectionReason::InvalidGigabaseDate => {
+                write!(f, "Gigabase date has inconsistent known components")
+            }
+            PolicyRejectionReason::ConflictingGigabaseHeader(field) => {
+                write!(f, "Gigabase PGN contains conflicting {field} header values")
+            }
         }
     }
 }
 
-/// Additional source gates for a Lumbra's Gigabase OTB build.
-///
-/// This policy is opt-in and does not change the existing Lichess Masters policy. Missing
-/// `Mode` relies on the publisher's OTB-Complete archive assertion; any present mode must
-/// explicitly identify over-the-board play. Dates must be complete valid calendar dates.
+/// Optional source gates for reproducing Gigabase r2 or applying the publisher-trust r3 policy.
 #[derive(Debug, Clone)]
 pub struct GigabaseOtbPolicy {
-    allowed_source_tags: HashSet<String>,
+    version: GigabasePolicyVersion,
 }
 
+#[derive(Debug, Clone)]
+enum GigabasePolicyVersion {
+    R2 {
+        allowed_source_tags: HashSet<String>,
+    },
+    R3PublisherTrust,
+}
+
+/// Header fields shared by the production r3 policy and its full-source impact analysis.
+#[derive(Debug, Clone, Copy)]
+pub struct GigabaseHeaderMetadata<'a> {
+    pub source_tag: Option<&'a str>,
+    pub white_name: Option<&'a str>,
+    pub black_name: Option<&'a str>,
+    pub white_elo: Option<&'a str>,
+    pub black_elo: Option<&'a str>,
+    pub white_title: Option<&'a str>,
+    pub black_title: Option<&'a str>,
+    pub white_identity_evidence: Option<&'a str>,
+    pub black_identity_evidence: Option<&'a str>,
+    pub white_fide_id: Option<&'a str>,
+    pub black_fide_id: Option<&'a str>,
+    pub mode: Option<&'a str>,
+    pub date: Option<&'a str>,
+    pub event: Option<&'a str>,
+    pub site: Option<&'a str>,
+    pub conflicting_metadata_fields: &'a [String],
+}
+
+/// Strength rule assigned in a deterministic, non-overlapping order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GigabaseStrengthRule {
+    Original2200Or2400_2000,
+    Added2400Vs1800,
+    AddedGmVsRatedOpponent,
+    AddedGmVsGm,
+}
+
+impl GigabaseStrengthRule {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Original2200Or2400_2000 => "original_2200_2200_or_2400_2000",
+            Self::Added2400Vs1800 => "added_2400_vs_1800",
+            Self::AddedGmVsRatedOpponent => "added_gm_vs_rated_opponent",
+            Self::AddedGmVsGm => "added_gm_vs_gm",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GigabaseDatePrecision {
+    Unknown,
+    Partial,
+    Complete,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GigabaseDateInfo {
+    pub year: Option<u16>,
+    pub precision: GigabaseDatePrecision,
+}
+
+pub const APPROVED_GIGABASE_SOURCE_TAGS: [&str; 11] = [
+    "AnaSchaigorodsky",
+    "Britbase",
+    "CanadianChessFederation",
+    "ChessScotland",
+    "DanBase",
+    "Federscacchi",
+    "GreekBase",
+    "LichessBroadcastAPI",
+    "NiederrheinischerSchachverband",
+    "NiedersächsischerSchachverband",
+    "SchachverbandRuhrgebiet",
+];
+
 impl GigabaseOtbPolicy {
+    /// Constructs the historical r2 allowlist policy for reproducing committed evidence.
     pub fn new(allowed_source_tags: HashSet<String>) -> Self {
         Self {
-            allowed_source_tags,
+            version: GigabasePolicyVersion::R2 {
+                allowed_source_tags,
+            },
         }
+    }
+
+    /// Constructs the current r3 policy, which trusts the archive-level OTB assertion unless
+    /// record metadata contains a concrete contradiction.
+    pub fn publisher_trust_r3() -> Self {
+        Self {
+            version: GigabasePolicyVersion::R3PublisherTrust,
+        }
+    }
+
+    pub fn is_r3(&self) -> bool {
+        matches!(self.version, GigabasePolicyVersion::R3PublisherTrust)
+    }
+
+    /// Applies the complete r3 header policy. Missing and partial dates remain unknown data;
+    /// valid partial dates are accepted without filling in their unknown components.
+    pub fn evaluate_r3_headers(
+        &self,
+        headers: &GigabaseHeaderMetadata<'_>,
+    ) -> Result<GigabaseStrengthRule, PolicyRejectionReason> {
+        if !self.is_r3() {
+            return Err(PolicyRejectionReason::BelowGigabaseStrength);
+        }
+        if let Some(reason) = r3_header_rejections(headers).into_iter().next() {
+            return Err(reason);
+        }
+        classify_gigabase_strength(headers)
+    }
+
+    /// Applies the retained minimum-length and starting-position checks after header
+    /// qualification, without reapplying the old numeric-only strength policy.
+    pub fn evaluate_r3_game(&self, game: &ParsedGame) -> Option<PolicyRejectionReason> {
+        if let Some(fen) = &game.fen_start {
+            if !is_standard_start_fen(fen) {
+                return Some(PolicyRejectionReason::NonStandardStartingPosition(
+                    fen.clone(),
+                ));
+            }
+        }
+        if game.moves.len() < 4 {
+            return Some(PolicyRejectionReason::TooFewPlies {
+                plies: game.moves.len(),
+                minimum: 4,
+            });
+        }
+        None
     }
 
     pub fn evaluate_source_metadata(
@@ -294,8 +627,14 @@ impl GigabaseOtbPolicy {
         source: Option<&GameSourceAttribution>,
         date: Option<&str>,
     ) -> Result<(), PolicyRejectionReason> {
+        let allowed_source_tags = match &self.version {
+            GigabasePolicyVersion::R2 {
+                allowed_source_tags,
+            } => allowed_source_tags,
+            GigabasePolicyVersion::R3PublisherTrust => return Ok(()),
+        };
         let source_tag = source.and_then(|metadata| metadata.source_tag.as_deref());
-        if source_tag.is_none_or(|tag| !self.allowed_source_tags.contains(tag)) {
+        if source_tag.is_none_or(|tag| !allowed_source_tags.contains(tag)) {
             return Err(PolicyRejectionReason::UnqualifiedGigabaseSource(
                 source_tag.map(str::to_owned),
             ));
@@ -332,6 +671,286 @@ impl GigabaseOtbPolicy {
 
         Ok(())
     }
+}
+
+/// Returns every independent header-level r3 rejection reason for audit and policy-impact reports.
+pub fn r3_header_rejections(headers: &GigabaseHeaderMetadata<'_>) -> Vec<PolicyRejectionReason> {
+    let mut reasons = Vec::new();
+    let source = headers
+        .source_tag
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if source.is_none_or(is_placeholder_gigabase_value) {
+        reasons.push(PolicyRejectionReason::UnqualifiedGigabaseSource(
+            source.map(str::to_owned),
+        ));
+    }
+    reasons.extend(
+        headers
+            .conflicting_metadata_fields
+            .iter()
+            .cloned()
+            .map(PolicyRejectionReason::ConflictingGigabaseHeader),
+    );
+
+    let white = usable_gigabase_name(headers.white_name);
+    if white.is_none() {
+        reasons.push(PolicyRejectionReason::InvalidGigabasePlayerIdentity { player: "White" });
+    }
+    let black = usable_gigabase_name(headers.black_name);
+    if black.is_none() {
+        reasons.push(PolicyRejectionReason::InvalidGigabasePlayerIdentity { player: "Black" });
+    }
+
+    if is_identity_conflict(headers.white_identity_evidence) {
+        reasons.push(PolicyRejectionReason::ConflictingGigabasePlayerIdentity { player: "White" });
+    }
+    if is_identity_conflict(headers.black_identity_evidence) {
+        reasons.push(PolicyRejectionReason::ConflictingGigabasePlayerIdentity { player: "Black" });
+    }
+
+    if let (Some(white), Some(black)) = (white, black) {
+        let white_fide_id = usable_identifier(headers.white_fide_id);
+        let black_fide_id = usable_identifier(headers.black_fide_id);
+        if normalize_identity_name(white) == normalize_identity_name(black)
+            && (white_fide_id.is_none()
+                || black_fide_id.is_none()
+                || white_fide_id == black_fide_id)
+        {
+            reasons.push(PolicyRejectionReason::InvalidGigabasePlayerIdentity { player: "Both" });
+        }
+    }
+
+    if parse_gigabase_date(headers.date).is_none() {
+        reasons.push(PolicyRejectionReason::InvalidGigabaseDate);
+    }
+    if let Some(mode) = headers
+        .mode
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && *value != "?")
+    {
+        if !is_explicit_otb_mode(mode) {
+            reasons.push(PolicyRejectionReason::NonOtbGigabaseMode(mode.to_owned()));
+        }
+    }
+    if let Some(field) = contradictory_otb_metadata(headers.event, headers.site) {
+        reasons.push(PolicyRejectionReason::ContradictoryGigabaseProvenance { field });
+    }
+    if let Err(reason) = classify_gigabase_strength(headers) {
+        reasons.push(reason);
+    }
+    reasons
+}
+
+/// Classifies an r3 strength rule using publisher-supplied Elo and exact `GM` title labels.
+/// A malformed or implausible supplied rating is an error even when a title rule could otherwise
+/// qualify the game.
+pub fn classify_gigabase_strength(
+    headers: &GigabaseHeaderMetadata<'_>,
+) -> Result<GigabaseStrengthRule, PolicyRejectionReason> {
+    let white = parse_gigabase_rating(headers.white_elo)
+        .map_err(|_| PolicyRejectionReason::InvalidGigabaseRating { player: "White" })?;
+    let black = parse_gigabase_rating(headers.black_elo)
+        .map_err(|_| PolicyRejectionReason::InvalidGigabaseRating { player: "Black" })?;
+    let white_gm = is_gm_title(headers.white_title);
+    let black_gm = is_gm_title(headers.black_title);
+
+    if white.zip(black).is_some_and(|(w, b)| {
+        (w >= 2200 && b >= 2200) || (w >= 2400 && b >= 2000) || (b >= 2400 && w >= 2000)
+    }) {
+        return Ok(GigabaseStrengthRule::Original2200Or2400_2000);
+    }
+    if white
+        .zip(black)
+        .is_some_and(|(w, b)| (w >= 2400 && b >= 1800) || (b >= 2400 && w >= 1800))
+    {
+        return Ok(GigabaseStrengthRule::Added2400Vs1800);
+    }
+    if (white_gm && black.is_some_and(|rating| rating >= 1800))
+        || (black_gm && white.is_some_and(|rating| rating >= 1800))
+    {
+        return Ok(GigabaseStrengthRule::AddedGmVsRatedOpponent);
+    }
+    if white_gm && black_gm {
+        return Ok(GigabaseStrengthRule::AddedGmVsGm);
+    }
+    Err(PolicyRejectionReason::BelowGigabaseStrength)
+}
+
+fn parse_gigabase_rating(raw: Option<&str>) -> Result<Option<u16>, ()> {
+    let Some(value) = raw.map(str::trim).filter(|value| {
+        !value.is_empty()
+            && !matches!(
+                value.to_ascii_lowercase().as_str(),
+                "?" | "-" | "n/a" | "na" | "none"
+            )
+    }) else {
+        return Ok(None);
+    };
+    let rating = value.parse::<u16>().map_err(|_| ())?;
+    (100..=3500)
+        .contains(&rating)
+        .then_some(Some(rating))
+        .ok_or(())
+}
+
+fn is_gm_title(title: Option<&str>) -> bool {
+    title.is_some_and(|value| value.trim().eq_ignore_ascii_case("GM"))
+}
+
+fn is_identity_conflict(evidence: Option<&str>) -> bool {
+    evidence.is_some_and(|value| value.trim().eq_ignore_ascii_case("Conflict"))
+}
+
+fn usable_gigabase_name(name: Option<&str>) -> Option<&str> {
+    let name = name?.trim();
+    if name.is_empty() || is_placeholder_gigabase_value(name) {
+        return None;
+    }
+    name.chars().any(char::is_alphanumeric).then_some(name)
+}
+
+fn is_placeholder_gigabase_value(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "?" | "-" | "." | "unknown" | "unnamed" | "anonymous" | "n/a" | "na" | "none" | "null"
+    )
+}
+
+fn usable_identifier(value: Option<&str>) -> Option<String> {
+    let value = value?.trim();
+    (!value.is_empty() && !is_placeholder_gigabase_value(value)).then(|| value.to_ascii_lowercase())
+}
+
+fn normalize_identity_name(name: &str) -> String {
+    name.chars()
+        .filter(|character| character.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+/// Parses complete and partial PGN dates without manufacturing unknown components.
+pub fn parse_gigabase_date(value: Option<&str>) -> Option<GigabaseDateInfo> {
+    let Some(value) = value
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && *value != "?")
+    else {
+        return Some(GigabaseDateInfo {
+            year: None,
+            precision: GigabaseDatePrecision::Unknown,
+        });
+    };
+    let bytes = value.as_bytes();
+    if bytes.len() != 10 || !matches!(bytes[4], b'.' | b'-') || bytes[7] != bytes[4] {
+        return None;
+    }
+    let parts = [value.get(0..4)?, value.get(5..7)?, value.get(8..10)?];
+    let mut known = [None; 3];
+    for (index, part) in parts.iter().enumerate() {
+        if *part == "??" || (index == 0 && *part == "????") {
+            continue;
+        }
+        if !part.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        known[index] = Some(part.parse::<u16>().ok()?);
+    }
+    if parts[0] != "????" && known[0].is_none() {
+        return None;
+    }
+    let year = known[0];
+    if year.is_some_and(|year| !(1000..=2999).contains(&year)) {
+        return None;
+    }
+    let month = known[1].map(u8::try_from).transpose().ok()?;
+    if month.is_some_and(|month| !(1..=12).contains(&month)) {
+        return None;
+    }
+    let day = known[2].map(u8::try_from).transpose().ok()?;
+    if let Some(day) = day {
+        if !(1..=31).contains(&day) {
+            return None;
+        }
+        if let Some(month) = month {
+            let days_in_month = match month {
+                2 if year.is_none_or(is_leap_year) => 29,
+                2 => 28,
+                4 | 6 | 9 | 11 => 30,
+                _ => 31,
+            };
+            if day > days_in_month {
+                return None;
+            }
+        }
+    }
+    let precision = if year.is_some() && month.is_some() && day.is_some() {
+        GigabaseDatePrecision::Complete
+    } else if year.is_none() && month.is_none() && day.is_none() {
+        GigabaseDatePrecision::Unknown
+    } else {
+        GigabaseDatePrecision::Partial
+    };
+    Some(GigabaseDateInfo { year, precision })
+}
+
+fn is_leap_year(year: u16) -> bool {
+    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
+}
+
+fn contradictory_otb_metadata(event: Option<&str>, site: Option<&str>) -> Option<&'static str> {
+    for (field, value) in [("Event", event), ("Site", site)] {
+        let Some(value) = value
+            .map(str::trim)
+            .filter(|value| !value.is_empty() && *value != "?")
+        else {
+            continue;
+        };
+        let lower = value.to_ascii_lowercase();
+        let words = lower
+            .split(|character: char| !character.is_ascii_alphanumeric())
+            .filter(|word| !word.is_empty())
+            .collect::<Vec<_>>();
+        if words
+            .iter()
+            .any(|word| matches!(*word, "correspondence" | "postal" | "online"))
+            || words.windows(2).any(|pair| pair == ["internet", "chess"])
+            || words.windows(2).any(|pair| pair == ["email", "chess"])
+            || words.windows(2).any(|pair| pair == ["computer", "chess"])
+            || words.windows(2).any(|pair| pair == ["engine", "only"])
+            || words
+                .windows(3)
+                .any(|pair| pair == ["engine", "vs", "engine"])
+            || words
+                .windows(2)
+                .any(|pair| pair == ["engine", "tournament"])
+        {
+            return Some(field);
+        }
+        if field == "Site" && is_known_online_game_url(value) {
+            return Some(field);
+        }
+    }
+    None
+}
+
+fn is_known_online_game_url(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    if let Some((_, path)) = lower.split_once("lichess.org/") {
+        let path = path.split(['?', '#']).next().unwrap_or_default();
+        if path.starts_with("broadcast/") {
+            return false;
+        }
+        let first = path.split('/').next().unwrap_or_default();
+        if first == "game" || first == "analysis" {
+            return true;
+        }
+        if first.len() == 8 && first.bytes().all(|byte| byte.is_ascii_alphanumeric()) {
+            return true;
+        }
+    }
+    lower.contains("chess.com/live/game/")
+        || lower.contains("chess.com/game/live/")
+        || lower.contains("play.chess.com/")
 }
 
 fn parse_complete_pgn_date(value: &str) -> Option<(u16, u8, u8)> {

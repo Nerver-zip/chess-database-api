@@ -388,9 +388,15 @@ def main() -> int:
     container = f"{project}-codb-1"
     client = f"{project}-client"
     if args.fixtures:
-        (REPO / "data").mkdir(exist_ok=True)
-    temp = tempfile.TemporaryDirectory(prefix=f"codb-smoke-{nonce}-",
-                                       dir=REPO / "data" if args.fixtures else None)
+        temp_parent = REPO / "data"
+    else:
+        # Real snapshots can be several gigabytes, so keep copied invalid-dataset
+        # fixtures on the workspace data volume instead of a small system /tmp.
+        temp_parent = REPO / "data" / "work" / "docker-smoke"
+    temp_parent.mkdir(parents=True, exist_ok=True)
+    temp = tempfile.TemporaryDirectory(
+        prefix=f"codb-smoke-{nonce}-", dir=temp_parent
+    )
     temp_root = Path(temp.name)
     if args.fixtures:
         temp_root.mkdir(parents=True, exist_ok=True)

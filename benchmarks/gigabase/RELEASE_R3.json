@@ -1,0 +1,181 @@
+{
+  "accepted_games": 3284429,
+  "accounting": {
+    "accepted_unique": 3284429,
+    "completion_status": "CompleteEof",
+    "confirmed_duplicates": 4018,
+    "quarantined": 7842,
+    "rejected_by_policy": 10153901,
+    "rejected_illegal": 0,
+    "rejected_malformed": 0,
+    "rejected_variant": 0,
+    "superseded_prior": 506,
+    "total_encountered": 13450696
+  },
+  "archive_integrity_evidence": {
+    "full_decompression_check": "passed",
+    "packed_stream_crc_metadata_available": false,
+    "publisher_checksum": null,
+    "verification_tool_version": null
+  },
+  "artifact_bytes": 2700805817,
+  "artifacts": {
+    "RELEASE/DATASET_LICENSE.txt": {
+      "sha256": "cb156e70939f62445d9c6b40db03580a11dcf1fab2f325b3b294fe23a07a81fa",
+      "size_bytes": 1558
+    },
+    "RELEASE/build_report.json": {
+      "sha256": "6a36cc2fc1658c0812b3f47325f83bb462ed76a989908382e66f36bf6d5e2992",
+      "size_bytes": 1443
+    },
+    "RELEASE/gigabase_source_qualification.json": {
+      "sha256": "93b9d0c7fd8eb35bb3bf36425a5e7b02f95fa80910942bbda615a453bd2ef3a9",
+      "size_bytes": 2680
+    },
+    "RELEASE/index_report.json": {
+      "sha256": "6736dddcaee6fb542317f4b605a796a8980312892e1c12b17c9b5e72a986253f",
+      "size_bytes": 620
+    },
+    "RELEASE/local_source_registration.json": {
+      "sha256": "885dc88319d268d862ebe06eb92f56659029238d5fcc5be3e4ef32e5fe3a6801",
+      "size_bytes": 1309
+    },
+    "RELEASE/quality_report.json": {
+      "sha256": "b70288aa8bf79387606c3ee1cf4d1dba3a6c46322c8cbda6b79fce576fda317a",
+      "size_bytes": 31124
+    },
+    "RELEASE/resource_metrics.json": {
+      "sha256": "908e103353d84b5cf50da1280edd1a55343d6e4027b24d3edcaf2d53196aa698",
+      "size_bytes": 2421
+    },
+    "games.idx": {
+      "sha256": "297ecf32313e3d239d154a085d22ea5cec63fede54660a5912c22b6aab1d185c",
+      "size_bytes": 52550928
+    },
+    "manifest.json": {
+      "sha256": "448809fc8650837bc5fa6e6a65d77641f18fbeb81702cc00b1a0bdc65147bd39",
+      "size_bytes": 4754
+    },
+    "positions.cpi": {
+      "sha256": "284898e18f4a4aba0b56d383e8b1a163790a85e1081749f0ff9204fdab5a971c",
+      "size_bytes": 1107897085
+    },
+    "shards/shard_0000.cgb3": {
+      "sha256": "2523525f459b77ba9fcbcbedeb5cb396fbf84d4f9bfde0d38d14838a96d5bc47",
+      "size_bytes": 88149136
+    },
+    "shards/shard_0001.cgb3": {
+      "sha256": "2b67de818cfc186a3c7d607da0b280f03bf47991e36a2877a37485d56cf01375",
+      "size_bytes": 86908531
+    },
+    "shards/shard_0002.cgb3": {
+      "sha256": "57b932b708408ee6a74e466faa3bd48d61f28240d60c300bb5a2e59148d0dedd",
+      "size_bytes": 84953435
+    },
+    "shards/shard_0003.cgb3": {
+      "sha256": "e2c0ae3719db5a7845196fd3b3fe45721993b3301f08b683ef518891cdf9d2a4",
+      "size_bytes": 81871872
+    },
+    "shards/shard_0004.cgb3": {
+      "sha256": "b1000e174ecb65b018041d950cbae4692ab5328781dcd69ebd6e2603e8eaa8a2",
+      "size_bytes": 78693348
+    },
+    "shards/shard_0005.cgb3": {
+      "sha256": "e20be5dd42e6e0d11c67592c53c2f9b1a4a2e7f378d084a1f85de8e450bd008f",
+      "size_bytes": 76100646
+    },
+    "shards/shard_0006.cgb3": {
+      "sha256": "3792844c757b9816f95b65d454205c05e22784de95ff0ab1334861f5cd6b9b01",
+      "size_bytes": 41925257
+    },
+    "source-attribution.jsonl": {
+      "sha256": "7d11330a704746306d53afcb39bcc74ccf95c7a11cf55346374dd05188b45cbc",
+      "size_bytes": 1001755579
+    }
+  },
+  "built_at": "2026-11-15T20:37:57Z",
+  "collection": "masters-otb",
+  "dataset_version": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+  "evaluation_schema_version": 1,
+  "format_versions": {
+    "position_index": "CPI/v2",
+    "shard": "CGB3/v1"
+  },
+  "index": {
+    "cpi_file_size_bytes": 1107897085,
+    "cpi_sha256": "284898e18f4a4aba0b56d383e8b1a163790a85e1081749f0ff9204fdab5a971c",
+    "depth_plies": 40,
+    "unique_position_move_pairs": 55864091,
+    "unique_positions": 51909604
+  },
+  "license": {
+    "local_archive_sha256": "4e4209ccc1870e7fede557aae09b4dd40b721d4697db9b4c272ff0e4fbbdb500",
+    "local_member_sha256": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
+    "notice_file": "RELEASE/DATASET_LICENSE.txt",
+    "publisher_checksum": null,
+    "publisher_claim": "CC BY-NC 4.0",
+    "source_level_rights": "unresolved"
+  },
+  "public_release_eligible": false,
+  "qualification": {
+    "independent_event_audit_games": 0,
+    "mode_provenance_counts": {
+      "missing_mode": 3284429
+    },
+    "otb_provenance_tier": "publisher_asserted_otb",
+    "policy_file": "RELEASE/gigabase_source_qualification.json",
+    "policy_id": "gigabase-otb/2026-11-r3",
+    "policy_sha256": "93b9d0c7fd8eb35bb3bf36425a5e7b02f95fa80910942bbda615a453bd2ef3a9",
+    "rights_clearance": "unresolved_upstream_rights",
+    "source_tag_counts": {
+      "AnaSchaigorodsky": 140276,
+      "Britbase": 45979,
+      "CanadianChessFederation": 130,
+      "ChessScotland": 2605,
+      "Community Project": 22071,
+      "DanBase": 39854,
+      "Federscacchi": 55510,
+      "GreekBase": 44495,
+      "Historical Archive": 555337,
+      "Independent Collection": 467795,
+      "LEDB": 14,
+      "Legacy Software Dump": 1736531,
+      "LichessBroadcastAPI": 172950,
+      "NiederrheinischerSchachverband": 1,
+      "Niedersa\u0308chsischerSchachverband": 24,
+      "SchachverbandRuhrgebiet": 128,
+      "VargaCsabaZoltan": 2926
+    }
+  },
+  "release_eligible": false,
+  "release_schema_version": 1,
+  "release_status": "local_evaluation_only",
+  "software_license": "MIT OR Apache-2.0 (software only)",
+  "source": {
+    "archive_filename": "OTB_DATABASE.7z",
+    "archive_sha256_local": "4e4209ccc1870e7fede557aae09b4dd40b721d4697db9b4c272ff0e4fbbdb500",
+    "archive_size_bytes": 2570013439,
+    "full_decompression_check": "passed",
+    "local_extraction_tool": null,
+    "local_source_evidence_sha256": "6333fd276ec212220aaab2faa9f017afb54664a4dd86b850b251e7fde3d6dfc1",
+    "member_filename": "LumbrasGigabase_OTB_Complete.pgn",
+    "member_sha256_local": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
+    "member_size_bytes": 12300428287,
+    "packed_stream_crc_metadata_available": false,
+    "policy_id": "gigabase-otb/2026-11-r3",
+    "policy_sha256": "93b9d0c7fd8eb35bb3bf36425a5e7b02f95fa80910942bbda615a453bd2ef3a9",
+    "product": "OTB Complete",
+    "publisher": "Lumbra's Gigabase",
+    "publisher_checksum": null,
+    "publisher_checksum_verified": false,
+    "publisher_download_url": "https://lumbrasgigabase.com/en/download-area-en/",
+    "publisher_license_claim": "CC BY-NC 4.0",
+    "publisher_sources_url": "https://lumbrasgigabase.com/en/sources/",
+    "publisher_terms_url": "https://lumbrasgigabase.com/en/commercial-licenses-en/",
+    "publisher_version": "2026-11-11",
+    "release_eligible": false,
+    "rights_clearance": "unresolved_upstream_rights",
+    "schema_version": 1,
+    "source_kind": "local_evaluation_only"
+  }
+}

@@ -7,7 +7,7 @@ use std::time::Instant;
 use anyhow::{anyhow, Context, Result};
 use codb_core::{Collection, GameMetadata, GameSourceAttribution, ParsedGame};
 use codb_curate::dedupe::{normalize_metadata, DedupeError, Deduplicator, DuplicateVerdict};
-use codb_curate::policy::{GigabaseOtbPolicy, MastersOtbPolicy, PolicyVerdict};
+use codb_curate::policy::GigabaseOtbPolicy;
 use codb_ingest::{
     build_pgn_reader, is_recoverable_pgn_syntax_error, resync_after_syntax_error,
     ShakmatyGameVisitor,
@@ -21,7 +21,7 @@ use shakmaty::{CastlingMode, Chess, Position};
 
 #[derive(Deserialize)]
 struct QualificationPolicy {
-    source_tag_allowlist: Vec<String>,
+    policy_id: String,
 }
 
 #[derive(Deserialize)]
@@ -69,7 +69,7 @@ struct SourceDedupeReport {
     recoverable_syntax_errors: u64,
     source_records_parsed_after_early_gates: u64,
     source_full_policy_rejections: u64,
-    source_records_passing_full_masters_policy: u64,
+    source_records_passing_full_gigabase_policy: u64,
     source_record_accounting_reconciles: bool,
     dedupe_outcomes: OutcomeCounts,
     dedupe_outcomes_reconcile: bool,
@@ -83,6 +83,11 @@ struct SourceDedupeReport {
     source_moves_prefix_of_canonical_records: u64,
     canonical_moves_prefix_of_source_records: u64,
     confirmed_duplicates_with_source_prefix: u64,
+    source_prefix_records_with_starting_position_match: u64,
+    source_prefix_records_with_same_final_position: u64,
+    source_prefix_records_with_different_final_position: u64,
+    source_prefix_records_not_confirmed_duplicates: u64,
+    source_prefix_records_validated_as_truncation: u64,
     source_prefix_case_validated_as_truncation: bool,
     prefix_classification_reconciles: bool,
     source_attribution_missing_from_candidate_sidecar: u64,
@@ -302,8 +307,10 @@ fn run() -> Result<()> {
     let policy: QualificationPolicy =
         serde_json::from_reader(File::open(policy_path).context("opening policy file")?)
             .context("parsing policy file")?;
-    let gigabase_policy = GigabaseOtbPolicy::new(policy.source_tag_allowlist.into_iter().collect());
-    let masters_policy = MastersOtbPolicy::default();
+    if policy.policy_id != "gigabase-otb/2026-11-r3" {
+        return Err(anyhow!("expected Gigabase r3 qualification policy"));
+    }
+    let gigabase_policy = GigabaseOtbPolicy::publisher_trust_r3();
 
     let temp = tempfile::tempdir().context("creating temporary dedupe audit storage")?;
     let connection = Connection::open(temp.path().join("candidate-attribution.sqlite"))?;
@@ -317,11 +324,11 @@ fn run() -> Result<()> {
     let mut pgn_reader: Reader<File> = build_pgn_reader(source_file);
     let mut visitor = ShakmatyGameVisitor::new(Collection::MastersOtb, 1)
         .with_early_policy_filter(true)
-        .with_gigabase_policy(gigabase_policy);
+        .with_gigabase_policy(gigabase_policy.clone());
     let mut source_records_encountered = 0u64;
     let mut source_records_parsed_after_early_gates = 0u64;
     let mut source_full_policy_rejections = 0u64;
-    let mut source_records_passing_full_masters_policy = 0u64;
+    let mut source_records_passing_full_gigabase_policy = 0u64;
     let mut recoverable_syntax_errors = 0u64;
     let mut consecutive_syntax_errors = 0usize;
     let mut outcomes = OutcomeCounts::default();
@@ -336,7 +343,11 @@ fn run() -> Result<()> {
     let mut source_moves_prefix_of_canonical_records = 0u64;
     let mut canonical_moves_prefix_of_source_records = 0u64;
     let mut confirmed_duplicates_with_source_prefix = 0u64;
-    let mut source_prefix_case_validated_as_truncation = true;
+    let mut source_prefix_records_with_starting_position_match = 0u64;
+    let mut source_prefix_records_with_same_final_position = 0u64;
+    let mut source_prefix_records_with_different_final_position = 0u64;
+    let mut source_prefix_records_not_confirmed_duplicates = 0u64;
+    let mut source_prefix_records_validated_as_truncation = 0u64;
     let mut source_attribution_missing_from_candidate_sidecar = 0u64;
     let mut stable_id_collision_metadata_drift_records = 0u64;
     let mut confirmed_duplicate_metadata_drift_records = 0u64;
@@ -356,11 +367,11 @@ fn run() -> Result<()> {
                         continue;
                     }
                 };
-                if let PolicyVerdict::Rejected(_) = masters_policy.evaluate(&source_game) {
+                if gigabase_policy.evaluate_r3_game(&source_game).is_some() {
                     source_full_policy_rejections += 1;
                     continue;
                 }
-                source_records_passing_full_masters_policy += 1;
+                source_records_passing_full_gigabase_policy += 1;
                 let verdict = deduplicator.evaluate(&source_game);
                 if let Err(error) = &verdict {
                     if !matches!(error, DedupeError::IdCollision { .. }) {
@@ -417,13 +428,25 @@ fn run() -> Result<()> {
                     source_moves_prefix_of_canonical_records += 1;
                     if example.dedupe_disposition == "confirmed_duplicate" {
                         confirmed_duplicates_with_source_prefix += 1;
+                    } else {
+                        source_prefix_records_not_confirmed_duplicates += 1;
                     }
-                    source_prefix_case_validated_as_truncation &= example.dedupe_disposition
-                        == "confirmed_duplicate"
+                    if example.starting_position_matches {
+                        source_prefix_records_with_starting_position_match += 1;
+                    }
+                    if example.final_position_matches {
+                        source_prefix_records_with_same_final_position += 1;
+                    } else {
+                        source_prefix_records_with_different_final_position += 1;
+                    }
+                    if example.dedupe_disposition == "confirmed_duplicate"
                         && !example.moves_match
                         && !example.canonical_moves_are_strict_prefix_of_source
                         && example.starting_position_matches
-                        && !example.final_position_matches;
+                        && !example.final_position_matches
+                    {
+                        source_prefix_records_validated_as_truncation += 1;
+                    }
                 }
                 if example.canonical_moves_are_strict_prefix_of_source {
                     canonical_moves_prefix_of_source_records += 1;
@@ -445,7 +468,7 @@ fn run() -> Result<()> {
     }
 
     let duration_ms = started.elapsed().as_millis();
-    let dedupe_outcomes_reconcile = source_records_passing_full_masters_policy
+    let dedupe_outcomes_reconcile = source_records_passing_full_gigabase_policy
         == outcomes.unique
             + outcomes.transposition_different_game
             + outcomes.confirmed_duplicate
@@ -456,15 +479,23 @@ fn run() -> Result<()> {
             + source_records_parsed_after_early_gates
             + recoverable_syntax_errors;
     let source_policy_accounting_reconciles = source_records_parsed_after_early_gates
-        == source_full_policy_rejections + source_records_passing_full_masters_policy;
-    let prefix_classification_reconciles = source_moves_prefix_of_canonical_records == 1
-        && canonical_moves_prefix_of_source_records == 0
-        && confirmed_duplicates_with_source_prefix == 1
-        && source_prefix_case_validated_as_truncation;
+        == source_full_policy_rejections + source_records_passing_full_gigabase_policy;
+    let source_prefix_case_validated_as_truncation = source_moves_prefix_of_canonical_records > 0
+        && source_prefix_records_validated_as_truncation
+            == source_moves_prefix_of_canonical_records;
+    let prefix_classification_reconciles = source_moves_prefix_of_canonical_records
+        == confirmed_duplicates_with_source_prefix
+        && source_prefix_records_not_confirmed_duplicates == 0
+        && source_prefix_records_with_starting_position_match
+            == source_moves_prefix_of_canonical_records
+        && source_prefix_records_validated_as_truncation
+            + source_prefix_records_with_same_final_position
+            == source_moves_prefix_of_canonical_records
+        && canonical_moves_prefix_of_source_records == 0;
     let report = SourceDedupeReport {
-        schema_version: 2,
+        schema_version: 3,
         audit_kind: "source_derived_dedupe_comparisons".to_owned(),
-        method: "Stream the complete supplied source PGN through the existing Shakmaty visitor and current Gigabase/Masters gates, replay every policy-passing record through the production disk-backed Deduplicator, and compare duplicate/supersession/quarantine records with their canonical CGB3 record. Comparison output contains only disposition labels, field names, strict move-prefix direction flags, and other boolean checks; it includes no move sequences or metadata values.".to_owned(),
+        method: "Stream the complete supplied source PGN through the existing Shakmaty visitor and Gigabase r3 publisher-trust header and game checks, replay every policy-passing record through the production disk-backed Deduplicator, and compare duplicate/supersession/quarantine records with their canonical CGB3 record. Comparison output contains only disposition labels, field names, strict move-prefix and board-position counts, and boolean checks; it includes no move sequences or metadata values.".to_owned(),
         dataset_build_id: reader.manifest().dataset_build_id.clone(),
         source_pgn_filename: source_pgn
             .file_name()
@@ -472,13 +503,13 @@ fn run() -> Result<()> {
             .unwrap_or("source.pgn")
             .to_owned(),
         source_pgn_size_bytes: source_size_bytes,
-        gigabase_policy_id: "gigabase-otb/2026-11-r2".to_owned(),
+        gigabase_policy_id: "gigabase-otb/2026-11-r3".to_owned(),
         source_records_encountered,
         source_visitor_rejections,
         recoverable_syntax_errors,
         source_records_parsed_after_early_gates,
         source_full_policy_rejections,
-        source_records_passing_full_masters_policy,
+        source_records_passing_full_gigabase_policy,
         source_record_accounting_reconciles: source_record_accounting_reconciles
             && source_policy_accounting_reconciles,
         dedupe_outcomes: outcomes,
@@ -493,6 +524,11 @@ fn run() -> Result<()> {
         source_moves_prefix_of_canonical_records,
         canonical_moves_prefix_of_source_records,
         confirmed_duplicates_with_source_prefix,
+        source_prefix_records_with_starting_position_match,
+        source_prefix_records_with_same_final_position,
+        source_prefix_records_with_different_final_position,
+        source_prefix_records_not_confirmed_duplicates,
+        source_prefix_records_validated_as_truncation,
         source_prefix_case_validated_as_truncation,
         prefix_classification_reconciles,
         source_attribution_missing_from_candidate_sidecar,
@@ -506,6 +542,7 @@ fn run() -> Result<()> {
         limitations: vec![
             "The source record parser, stable IDs, qualification policy, and deduplication outcomes use repository production implementations; this is traceability evidence, not an independent parser or deduplication algorithm.".to_owned(),
             "Metadata comparison names fields that differ but emits no player, event, site, source ID, game ID, or raw PGN values.".to_owned(),
+            "A strict source move-prefix relationship is not treated as proof of truncation; starting and final positions are compared separately.".to_owned(),
             "Source-asserted OTB mode, publisher-supplied Elo provenance, publisher checksum, and upstream rights remain unresolved.".to_owned(),
         ],
     };
@@ -521,7 +558,7 @@ fn run() -> Result<()> {
     println!(
         "scanned {} records; {} passed policy; dedupe comparisons {}; metadata drift {}; candidate misses {}; report {}",
         source_records_encountered,
-        source_records_passing_full_masters_policy,
+        source_records_passing_full_gigabase_policy,
         report.comparison_records,
         report.metadata_drift_records,
         candidate_lookup_failures,

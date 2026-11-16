@@ -251,6 +251,25 @@ def run_codb(codb: Path, arguments: list[str]) -> subprocess.CompletedProcess[st
     return result
 
 
+def run_measured_codb(
+    codb: Path,
+    arguments: list[str],
+    *,
+    log_path: Path,
+    environment: dict[str, str],
+    sample_paths: list[Path],
+) -> tuple[subprocess.CompletedProcess[str], dict[str, Any]]:
+    """Run one production codb stage and retain process and workspace measurements."""
+    command = [str(codb), *arguments]
+    metrics = corpus.run_measured(command, log_path, environment, sample_paths)
+    output = log_path.read_text(encoding="utf-8", errors="replace")
+    result = subprocess.CompletedProcess(command, metrics["returncode"], output, "")
+    if result.returncode != 0:
+        detail = output.strip()[-4000:] or "no command output"
+        raise EvaluationError(f"codb {' '.join(arguments)} failed: {detail}")
+    return result, metrics
+
+
 def read_json_output(result: subprocess.CompletedProcess[str], label: str) -> dict[str, Any]:
     try:
         parsed = json.loads(result.stdout)
@@ -433,19 +452,42 @@ def build_evaluation(args: argparse.Namespace) -> dict[str, Any]:
     source_manifest_path = work_root / "sources.manifest.json"
     index_report_path = work_root / "index_report.json"
     quality_report_path = work_root / "quality_report.json"
+    resource_metrics_path = work_root / "resource_metrics.json"
+    scratch_dir = work_root / "scratch"
+    scratch_dir.mkdir(exist_ok=False)
+    resource_metrics: dict[str, Any] = {
+        "schema_version": 1,
+        "measurement_method": (
+            "Linux process VmHWM sampled from /proc, with wait4 peak-RSS fallback; current "
+            "anonymous, file-backed, and shared RSS components sampled every 5 ms; allocated "
+            "bytes sampled every 250 ms across the explicit scratch directory and candidate "
+            "dataset root. Component samples may understate their true peaks."
+        ),
+        "scratch_directory": str(scratch_dir),
+        "candidate_root": str(output_root),
+        "steps": {},
+    }
+    command_environment = os.environ.copy()
+    command_environment["TMPDIR"] = str(scratch_dir)
     _write_json_new(source_manifest_path, _local_source_manifest(registration, pgn))
-    run_codb(codb, [
+    _, build_metrics = run_measured_codb(codb, [
         "build", "--manifest", str(source_manifest_path), "--collection", COLLECTION,
         "--gigabase-source-policy", str(POLICY_PATH), "--output", str(output_root),
-        "--report-json", str(build_report_path),
-    ])
-    index_result = run_codb(codb, [
+        "--scratch-dir", str(scratch_dir), "--report-json", str(build_report_path),
+    ], log_path=work_root / "build.log", environment=command_environment,
+       sample_paths=[scratch_dir, output_root])
+    resource_metrics["steps"]["build"] = build_metrics
+    index_result, index_metrics = run_measured_codb(codb, [
         "build-index", "--dataset", str(output_root), "--collection", COLLECTION,
         "--depth-plies", str(args.depth_plies), "--memory-limit-mib", str(args.memory_limit_mib),
         "--json",
-    ])
+    ], log_path=work_root / "build-index.log", environment=command_environment,
+       sample_paths=[scratch_dir, output_root])
+    resource_metrics["steps"]["build_index"] = index_metrics
     index_report = read_json_output(index_result, "codb build-index")
     index_report_path.write_text(json.dumps(index_report, indent=2, sort_keys=True) + "\n")
+    resource_metrics["index_memory_limit_mib"] = args.memory_limit_mib
+    _write_json_new(resource_metrics_path, resource_metrics)
     run_codb(codb, ["verify", "--dataset", str(output_root), "--deep"])
     run_codb(codb, ["report", "--dataset", str(output_root), "--output", str(quality_report_path)])
 
@@ -472,6 +514,7 @@ def build_evaluation(args: argparse.Namespace) -> dict[str, Any]:
         (build_report_path, release_dir / "build_report.json"),
         (index_report_path, release_dir / "index_report.json"),
         (quality_report_path, release_dir / "quality_report.json"),
+        (resource_metrics_path, release_dir / "resource_metrics.json"),
         (POLICY_PATH, release_dir / "gigabase_source_qualification.json"),
     ):
         shutil.copyfile(source, destination)

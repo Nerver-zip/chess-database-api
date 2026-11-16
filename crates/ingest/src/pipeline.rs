@@ -166,12 +166,19 @@ impl<C: GameConsumer> CuratedPipeline<C> {
                     match result {
                         Ok(game) => {
                             let verdict = if let Some(policy) = &self.gigabase_policy {
-                                match policy.evaluate_source_metadata(
-                                    game.metadata.source_attribution.as_ref(),
-                                    game.metadata.date.as_deref(),
-                                ) {
-                                    Ok(()) => self.masters_policy.evaluate(&game),
-                                    Err(reason) => PolicyVerdict::Rejected(reason),
+                                if policy.is_r3() {
+                                    match policy.evaluate_r3_game(&game) {
+                                        Some(reason) => PolicyVerdict::Rejected(reason),
+                                        None => PolicyVerdict::Accepted,
+                                    }
+                                } else {
+                                    match policy.evaluate_source_metadata(
+                                        game.metadata.source_attribution.as_ref(),
+                                        game.metadata.date.as_deref(),
+                                    ) {
+                                        Ok(()) => self.masters_policy.evaluate(&game),
+                                        Err(reason) => PolicyVerdict::Rejected(reason),
+                                    }
                                 }
                             } else {
                                 match self.collection {

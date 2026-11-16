@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "policy_id": "gigabase-otb/2026-11-r3",
+  "method": "full_streaming_record_header_scan_using_the_production_r3_header_policy",
+  "input_path": "data/sources/lumbra/LumbrasGigabase_OTB_Complete.pgn",
+  "input_size_bytes": 12300428287,
+  "input_sha256": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
+  "records_encountered": 13450696,
+  "structurally_parsed": 13450696,
+  "recoverable_syntax_errors": 0,
+  "original_numeric_threshold_candidates": 3542307,
+  "valid_strength_rule_counts_non_overlapping": {
+    "added_2400_vs_1800": 82269,
+    "added_gm_vs_gm": 1388,
+    "added_gm_vs_rated_opponent": 24452,
+    "original_2200_2200_or_2400_2000": 3542307
+  },
+  "strength_eligible_header_records": 3650416,
+  "strength_eligible_historical_records": 10241,
+  "explicit_non_otb_mode_records": 1405063,
+  "contradictory_event_or_site_records": 3330,
+  "records_with_conflicting_header_values": 0,
+  "conflicting_header_fields_by_tag": {},
+  "explicit_non_otb_or_contradictory_records": 1406406,
+  "primary_header_rejection_counts": {
+    "below_rating_threshold": 8714070,
+    "conflicting_player_identity": 29451,
+    "contradictory_otb_evidence": 1329,
+    "invalid_player_identity": 702,
+    "invalid_rating": 5046,
+    "non_otb_play_mode": 1403303
+  },
+  "overlapping_header_rejection_counts": {
+    "below_rating_threshold": 9795171,
+    "conflicting_player_identity": 29653,
+    "contradictory_otb_evidence": 3330,
+    "invalid_player_identity": 702,
+    "invalid_rating": 5109,
+    "non_otb_play_mode": 1405063
+  },
+  "r3_header_candidate_count": 3296795,
+  "r3_header_candidates_by_strength_rule": {
+    "added_2400_vs_1800": 65629,
+    "added_gm_vs_gm": 1388,
+    "added_gm_vs_rated_opponent": 23725,
+    "original_2200_2200_or_2400_2000": 3206053
+  },
+  "r3_header_candidates_by_date_precision": {
+    "complete": 2630197,
+    "partial": 663864,
+    "unknown": 2734
+  },
+  "r3_header_candidates_before_1970": 10081,
+  "r3_candidates_admitted_by_removing_r2_source_allowlist": 2794433,
+  "r3_candidates_admitted_by_relaxing_identity_confidence": 2304004,
+  "r3_candidates_admitted_by_both_source_and_identity_changes": 1996772,
+  "source_records_by_major_category": {
+    "Academic Dataset": 675531,
+    "Community Project": 69080,
+    "Historical Archive": 2585591,
+    "Independent Collection": 3882200,
+    "Legacy Software Dump": 4922559,
+    "Official Federation": 644468,
+    "Open Platform Data": 667960,
+    "Player Provided Dataset": 3307
+  },
+  "r3_header_candidates_by_source_tag": {
+    "AnaSchaigorodsky": 140411,
+    "Britbase": 45993,
+    "CanadianChessFederation": 130,
+    "ChessScotland": 2609,
+    "Community Project": 22176,
+    "DanBase": 39865,
+    "Federscacchi": 55523,
+    "GreekBase": 44676,
+    "Historical Archive": 557649,
+    "Independent Collection": 470998,
+    "LEDB": 14,
+    "Legacy Software Dump": 1740661,
+    "LichessBroadcastAPI": 173002,
+    "NiederrheinischerSchachverband": 1,
+    "NiedersächsischerSchachverband": 24,
+    "SchachverbandRuhrgebiet": 128,
+    "VargaCsabaZoltan": 2935
+  },
+  "r3_header_candidates_by_major_category": {
+    "Academic Dataset": 140411,
+    "Community Project": 22176,
+    "Historical Archive": 557649,
+    "Independent Collection": 470998,
+    "Legacy Software Dump": 1740661,
+    "Official Federation": 188949,
+    "Open Platform Data": 173016,
+    "Player Provided Dataset": 2935
+  },
+  "header_candidate_accounting_reconciles": true,
+  "limitations": [
+    "Counts are full-source header-level candidates; moves, legality, deduplication, and retention are measured only by the production build.",
+    "Strength-rule categories are mutually exclusive in priority order, while rejection reason counts overlap when multiple issues occur in one record.",
+    "GM title labels and Elo values are publisher-supplied and are not independently validated as official or contemporaneous records.",
+    "Unknown dates remain unknown; no dates, ratings, identities, or historical title dates are inferred."
+  ]
+}

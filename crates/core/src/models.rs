@@ -228,6 +228,10 @@ pub struct GameSourceAttribution {
     pub white_identity_evidence: Option<String>,
     pub black_identity_evidence: Option<String>,
     pub mode: Option<String>,
+    #[serde(default)]
+    pub white_title: Option<String>,
+    #[serde(default)]
+    pub black_title: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

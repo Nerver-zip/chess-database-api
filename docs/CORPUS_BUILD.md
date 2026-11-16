@@ -115,15 +115,26 @@ The separate `scripts/local_gigabase_eval.py` workflow does not add Gigabase to 
 
 For the build, the workflow writes a one-source manifest in the ignored work root. It pins the extracted PGN to its registered local SHA-256, leaves the source URL null, and labels the license as `Publisher claim: CC BY-NC 4.0; upstream rights unresolved`. It invokes `codb build --manifest` and checks that both the build report and persistent dataset manifest contain exactly that registered filename, local hash, size, URL, and license label. In this local path, `checksum_verified: true` means CODB matched the build-time bytes to the locally pinned manifest hash; it is not publisher authentication. The registration still records no publisher checksum, unresolved upstream rights, and `release_eligible: false`. See [DATA_CONTRACTS.md](DATA_CONTRACTS.md) for the general checksum field contract.
 
+Before a production-scale qualification build, run the full-stream `codb inventory` scan with `--policy-impact-output`. It records header-level r3 eligibility using the same production header-policy functions and reconciles the report to the scanned source. Those counts are candidates only: they do not establish legal moves, final eligibility after termination checks, or accepted unique games. The production build must then replay and account for the complete PGN. For r3, pass an explicit `--scratch-dir`; the local runner sets `TMPDIR` to that ignored directory and stores per-process peak RSS, wall time, and sampled allocated bytes for ingestion and CPI indexing in `RELEASE/resource_metrics.json`.
+
 ```bash
+target/release/codb inventory \
+  --input data/sources/lumbra/extracted/LumbrasGigabase_OTB_Complete.pgn \
+  --output benchmarks/gigabase/INVENTORY.json \
+  --policy-impact-output benchmarks/gigabase/POLICY_IMPACT.json \
+  --scratch-dir data/work/gigabase-r3-impact
+
 python3 scripts/local_gigabase_eval.py register \
   --archive data/sources/lumbra/OTB_DATABASE.7z \
   --pgn data/sources/lumbra/extracted/LumbrasGigabase_OTB_Complete.pgn \
-  --local-record benchmarks/gigabase/archive_inventory.json
+  --local-record benchmarks/gigabase/archive_inventory.json \
+  --output data/work/gigabase-eval/source-registration-r3.json
 
 python3 scripts/local_gigabase_eval.py build \
-  --registration data/work/gigabase-eval/source-registration.json \
-  --output-root data/work/gigabase-eval/candidate \
+  --registration data/work/gigabase-eval/source-registration-r3.json \
+  --work-root data/work/gigabase-eval/policy-impact-r3 \
+  --output-root data/work/gigabase-eval/candidate-r3 \
+  --depth-plies 40 --memory-limit-mib 128 \
   --codb target/release/codb
 
 python3 scripts/local_gigabase_eval.py package \

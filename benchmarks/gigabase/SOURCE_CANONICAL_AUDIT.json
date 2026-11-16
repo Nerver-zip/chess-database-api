@@ -1,90 +1,93 @@
 {
-  "schema_version": 1,
-  "method": "Stream the supplied source PGN with the repository's Shakmaty visitor and exact source-tag allowlist; replay qualifying records through the repository's disk-backed deduplicator; compare its expected attribution set with the complete candidate sidecar; and join source records to candidate CGB3 games to compare persisted metadata, compact moves, starting FEN, and final legal board. The report suppresses small strata and omits record identifiers and non-stratum metadata from examples.",
-  "dataset_build_id": "codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40",
+  "schema_version": 2,
+  "method": "Stream the supplied source PGN with the repository's Shakmaty visitor and Gigabase r3 publisher-trust header and game checks; replay qualifying records through the repository's disk-backed deduplicator; compare its expected attribution set with the complete candidate sidecar; and join canonical source rows to candidate CGB3 games using the deduplicator-selected canonical ID. Raw source-ID hits are reported separately. The report suppresses small strata and omits record identifiers and non-stratum metadata from examples.",
+  "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
   "build_ingestion_accounting": {
     "total_encountered": 13450696,
-    "accepted_unique": 156898,
-    "confirmed_duplicates": 2,
-    "superseded_prior": 0,
-    "rejected_by_policy": 13293782,
+    "accepted_unique": 3284429,
+    "confirmed_duplicates": 4018,
+    "superseded_prior": 506,
+    "rejected_by_policy": 10153901,
     "rejected_variant": 0,
     "rejected_illegal": 0,
     "rejected_malformed": 0,
-    "quarantined": 14,
+    "quarantined": 7842,
     "completion_status": "CompleteEof"
   },
   "source_pgn_filename": "LumbrasGigabase_OTB_Complete.pgn",
   "source_pgn_size_bytes": 12300428287,
   "source_pgn_sha256_local": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
-  "gigabase_policy_id": "gigabase-otb/2026-11-r2",
-  "candidate_games": 156898,
+  "gigabase_policy_id": "gigabase-otb/2026-11-r3",
+  "candidate_games": 3284429,
   "source_records_encountered": 13450696,
-  "source_records_parsed_after_early_gates": 158275,
-  "source_records_passing_full_masters_policy": 156914,
-  "source_records_passing_policy_without_candidate_id": 1,
-  "source_record_parse_rejections": 13292421,
+  "source_records_parsed_after_early_gates": 3296795,
+  "source_full_policy_rejections": 0,
+  "source_records_passing_full_gigabase_policy": 3296795,
+  "source_records_passing_policy_without_candidate_id": 1158,
+  "source_record_parse_rejections": 10153901,
+  "source_record_accounting_reconciles": true,
+  "source_policy_accounting_reconciles": true,
   "recoverable_syntax_errors": 0,
-  "source_candidate_id_hits": 156913,
-  "unique_candidate_games_matched": 156898,
-  "repeated_source_records_for_matched_ids": 15,
-  "candidate_ids_with_repeated_source_records": 15,
-  "repeated_id_source_records_attributed_to_canonical": 2,
-  "repeated_id_source_records_without_canonical_attribution": 13,
+  "source_candidate_id_hits": 3295637,
+  "unique_candidate_games_matched": 3284429,
+  "repeated_source_records_for_matched_ids": 11208,
+  "candidate_ids_with_repeated_source_records": 9599,
+  "repeated_id_source_records_attributed_to_canonical": 3530,
+  "repeated_id_source_records_without_canonical_attribution": 7678,
   "candidate_games_without_source_match": 0,
   "persisted_metadata_mismatches": 0,
-  "duplicate_metadata_variant_records": 15,
+  "duplicate_metadata_variant_records": 2322,
   "primary_source_attribution_mismatches": 0,
   "move_sequence_mismatches": 0,
   "starting_position_mismatches": 0,
   "final_position_mismatches": 0,
-  "exact_candidate_records": 156898,
+  "exact_candidate_records": 3284429,
   "candidate_selection_accounting_reconciles": true,
   "dedupe_replay": {
-    "unique": 156665,
-    "transposition_different_game": 233,
-    "confirmed_duplicates": 2,
-    "superseded_prior": 0,
-    "quarantined_stable_id_collision": 14,
-    "expected_attribution_records": 156900,
-    "observed_attribution_records": 156900,
+    "unique": 3127272,
+    "transposition_different_game": 157157,
+    "confirmed_duplicates": 4018,
+    "superseded_prior": 506,
+    "quarantined_stable_id_collision": 7842,
+    "expected_attribution_records": 3287619,
+    "observed_attribution_records": 3287619,
     "missing_attribution_records": 0,
     "unexpected_attribution_records": 0,
-    "expected_attributed_games": 156898,
-    "observed_attributed_games": 156898,
+    "expected_attributed_games": 3284429,
+    "observed_attributed_games": 3284429,
     "attribution_sidecar_matches": true,
     "verdict_counts_match_build_accounting": true,
     "candidate_id_hit_verdicts": {
-      "unique": 156665,
-      "transposition_different_game": 233,
-      "confirmed_duplicates": 1,
-      "superseded_prior": 0,
-      "quarantined_stable_id_collision": 14
+      "unique": 3126776,
+      "transposition_different_game": 157147,
+      "confirmed_duplicates": 3366,
+      "superseded_prior": 506,
+      "quarantined_stable_id_collision": 7842
     },
     "repeated_id_verdicts": {
       "unique": 0,
-      "transposition_different_game": 0,
-      "confirmed_duplicates": 1,
+      "transposition_different_game": 1,
+      "confirmed_duplicates": 3365,
       "superseded_prior": 0,
-      "quarantined_stable_id_collision": 14
+      "quarantined_stable_id_collision": 7842
     },
     "without_candidate_id_verdicts": {
-      "unique": 0,
-      "transposition_different_game": 0,
-      "confirmed_duplicates": 1,
+      "unique": 496,
+      "transposition_different_game": 10,
+      "confirmed_duplicates": 652,
       "superseded_prior": 0,
       "quarantined_stable_id_collision": 0
     },
     "source_hit_verdicts_reconcile": true
   },
   "stratified_examples_minimum_stratum_size": 50,
-  "stratified_examples_suppressed_strata": 4,
-  "source_scan_duration_ms": 133828,
+  "stratified_examples_suppressed_strata": 9,
+  "source_scan_duration_ms": 21322405,
   "stratified_examples": [
     {
       "dimension": "game_length_band",
       "stratum": "20-39_plies",
-      "unique_candidate_games_in_stratum": 10414,
+      "unique_candidate_games_in_stratum": 316489,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -97,7 +100,7 @@
     {
       "dimension": "game_length_band",
       "stratum": "40-79_plies",
-      "unique_candidate_games_in_stratum": 62872,
+      "unique_candidate_games_in_stratum": 1394463,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -110,7 +113,85 @@
     {
       "dimension": "game_length_band",
       "stratum": "80+_plies",
-      "unique_candidate_games_in_stratum": 83612,
+      "unique_candidate_games_in_stratum": 1573477,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "Ambiguous+Ambiguous",
+      "unique_candidate_games_in_stratum": 2711,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "Ambiguous+Confirmed",
+      "unique_candidate_games_in_stratum": 12737,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "Ambiguous+NoMatch",
+      "unique_candidate_games_in_stratum": 39342,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "Ambiguous+Probable",
+      "unique_candidate_games_in_stratum": 1330,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "Ambiguous+Strong",
+      "unique_candidate_games_in_stratum": 5208,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "Confirmed+Ambiguous",
+      "unique_candidate_games_in_stratum": 12509,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -123,7 +204,33 @@
     {
       "dimension": "identity_tier",
       "stratum": "Confirmed+Confirmed",
-      "unique_candidate_games_in_stratum": 148525,
+      "unique_candidate_games_in_stratum": 911384,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "Confirmed+NoMatch",
+      "unique_candidate_games_in_stratum": 433681,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "Confirmed+Probable",
+      "unique_candidate_games_in_stratum": 3683,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -136,7 +243,124 @@
     {
       "dimension": "identity_tier",
       "stratum": "Confirmed+Strong",
-      "unique_candidate_games_in_stratum": 3792,
+      "unique_candidate_games_in_stratum": 31809,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "NoMatch+Ambiguous",
+      "unique_candidate_games_in_stratum": 40034,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "NoMatch+Confirmed",
+      "unique_candidate_games_in_stratum": 437316,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "NoMatch+NoMatch",
+      "unique_candidate_games_in_stratum": 1156895,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "NoMatch+Strong",
+      "unique_candidate_games_in_stratum": 67590,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "Probable+Ambiguous",
+      "unique_candidate_games_in_stratum": 1393,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "Probable+Confirmed",
+      "unique_candidate_games_in_stratum": 3650,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "Probable+Probable",
+      "unique_candidate_games_in_stratum": 834,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "Probable+Strong",
+      "unique_candidate_games_in_stratum": 2704,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "Strong+Ambiguous",
+      "unique_candidate_games_in_stratum": 5120,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -149,7 +373,33 @@
     {
       "dimension": "identity_tier",
       "stratum": "Strong+Confirmed",
-      "unique_candidate_games_in_stratum": 3880,
+      "unique_candidate_games_in_stratum": 32101,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "Strong+NoMatch",
+      "unique_candidate_games_in_stratum": 67067,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "identity_tier",
+      "stratum": "Strong+Probable",
+      "unique_candidate_games_in_stratum": 2560,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -162,7 +412,7 @@
     {
       "dimension": "identity_tier",
       "stratum": "Strong+Strong",
-      "unique_candidate_games_in_stratum": 701,
+      "unique_candidate_games_in_stratum": 12771,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -175,7 +425,7 @@
     {
       "dimension": "minimum_rating_band",
       "stratum": "2000-2199",
-      "unique_candidate_games_in_stratum": 18666,
+      "unique_candidate_games_in_stratum": 378160,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -188,7 +438,7 @@
     {
       "dimension": "minimum_rating_band",
       "stratum": "2200-2399",
-      "unique_candidate_games_in_stratum": 90385,
+      "unique_candidate_games_in_stratum": 1892710,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -201,7 +451,20 @@
     {
       "dimension": "minimum_rating_band",
       "stratum": "2400+",
-      "unique_candidate_games_in_stratum": 47847,
+      "unique_candidate_games_in_stratum": 1010889,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "minimum_rating_band",
+      "stratum": "unknown",
+      "unique_candidate_games_in_stratum": 2670,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -214,7 +477,7 @@
     {
       "dimension": "play_mode_evidence",
       "stratum": "publisher_archive_assertion",
-      "unique_candidate_games_in_stratum": 156898,
+      "unique_candidate_games_in_stratum": 3284429,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -227,7 +490,7 @@
     {
       "dimension": "result",
       "stratum": "0-1",
-      "unique_candidate_games_in_stratum": 43235,
+      "unique_candidate_games_in_stratum": 894067,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -240,7 +503,7 @@
     {
       "dimension": "result",
       "stratum": "1-0",
-      "unique_candidate_games_in_stratum": 56600,
+      "unique_candidate_games_in_stratum": 1181603,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -253,7 +516,7 @@
     {
       "dimension": "result",
       "stratum": "1/2-1/2",
-      "unique_candidate_games_in_stratum": 57063,
+      "unique_candidate_games_in_stratum": 1208759,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -266,7 +529,7 @@
     {
       "dimension": "source_tag",
       "stratum": "AnaSchaigorodsky",
-      "unique_candidate_games_in_stratum": 16932,
+      "unique_candidate_games_in_stratum": 140244,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -279,7 +542,20 @@
     {
       "dimension": "source_tag",
       "stratum": "Britbase",
-      "unique_candidate_games_in_stratum": 10127,
+      "unique_candidate_games_in_stratum": 45978,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "source_tag",
+      "stratum": "CanadianChessFederation",
+      "unique_candidate_games_in_stratum": 130,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -292,7 +568,20 @@
     {
       "dimension": "source_tag",
       "stratum": "ChessScotland",
-      "unique_candidate_games_in_stratum": 380,
+      "unique_candidate_games_in_stratum": 2593,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "source_tag",
+      "stratum": "Community Project",
+      "unique_candidate_games_in_stratum": 22031,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -305,7 +594,7 @@
     {
       "dimension": "source_tag",
       "stratum": "DanBase",
-      "unique_candidate_games_in_stratum": 3431,
+      "unique_candidate_games_in_stratum": 39852,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -318,7 +607,7 @@
     {
       "dimension": "source_tag",
       "stratum": "Federscacchi",
-      "unique_candidate_games_in_stratum": 3643,
+      "unique_candidate_games_in_stratum": 55509,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -331,7 +620,46 @@
     {
       "dimension": "source_tag",
       "stratum": "GreekBase",
-      "unique_candidate_games_in_stratum": 16646,
+      "unique_candidate_games_in_stratum": 44471,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "source_tag",
+      "stratum": "Historical Archive",
+      "unique_candidate_games_in_stratum": 554745,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "source_tag",
+      "stratum": "Independent Collection",
+      "unique_candidate_games_in_stratum": 467097,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "source_tag",
+      "stratum": "Legacy Software Dump",
+      "unique_candidate_games_in_stratum": 1735754,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -344,7 +672,150 @@
     {
       "dimension": "source_tag",
       "stratum": "LichessBroadcastAPI",
-      "unique_candidate_games_in_stratum": 105652,
+      "unique_candidate_games_in_stratum": 172932,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "source_tag",
+      "stratum": "SchachverbandRuhrgebiet",
+      "unique_candidate_games_in_stratum": 128,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "source_tag",
+      "stratum": "VargaCsabaZoltan",
+      "unique_candidate_games_in_stratum": 2926,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "year_band",
+      "stratum": "1880s",
+      "unique_candidate_games_in_stratum": 67,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "year_band",
+      "stratum": "1890s",
+      "unique_candidate_games_in_stratum": 102,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "year_band",
+      "stratum": "1900s",
+      "unique_candidate_games_in_stratum": 263,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "year_band",
+      "stratum": "1910s",
+      "unique_candidate_games_in_stratum": 205,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "year_band",
+      "stratum": "1920s",
+      "unique_candidate_games_in_stratum": 788,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "year_band",
+      "stratum": "1930s",
+      "unique_candidate_games_in_stratum": 932,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "year_band",
+      "stratum": "1940s",
+      "unique_candidate_games_in_stratum": 1247,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "year_band",
+      "stratum": "1950s",
+      "unique_candidate_games_in_stratum": 2112,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "year_band",
+      "stratum": "1960s",
+      "unique_candidate_games_in_stratum": 4283,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -357,7 +828,7 @@
     {
       "dimension": "year_band",
       "stratum": "1970s",
-      "unique_candidate_games_in_stratum": 751,
+      "unique_candidate_games_in_stratum": 81831,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -370,7 +841,7 @@
     {
       "dimension": "year_band",
       "stratum": "1980s",
-      "unique_candidate_games_in_stratum": 2472,
+      "unique_candidate_games_in_stratum": 193486,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -383,7 +854,7 @@
     {
       "dimension": "year_band",
       "stratum": "1990s",
-      "unique_candidate_games_in_stratum": 4461,
+      "unique_candidate_games_in_stratum": 579304,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -396,7 +867,7 @@
     {
       "dimension": "year_band",
       "stratum": "2000s",
-      "unique_candidate_games_in_stratum": 29664,
+      "unique_candidate_games_in_stratum": 837717,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -409,7 +880,7 @@
     {
       "dimension": "year_band",
       "stratum": "2010s",
-      "unique_candidate_games_in_stratum": 8753,
+      "unique_candidate_games_in_stratum": 972903,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,
@@ -422,7 +893,20 @@
     {
       "dimension": "year_band",
       "stratum": "2020s",
-      "unique_candidate_games_in_stratum": 110797,
+      "unique_candidate_games_in_stratum": 606401,
+      "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
+      "example": {
+        "persisted_metadata_fields_match": true,
+        "source_attribution_matches": true,
+        "move_sequence_matches": true,
+        "starting_position_matches": true,
+        "final_position_matches": true
+      }
+    },
+    {
+      "dimension": "year_band",
+      "stratum": "unknown",
+      "unique_candidate_games_in_stratum": 2707,
       "selection": "Deterministic representative; record identifiers and all non-stratum metadata are omitted.",
       "example": {
         "persisted_metadata_fields_match": true,

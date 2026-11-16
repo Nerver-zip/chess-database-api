@@ -2,10 +2,13 @@ use codb_core::{
     compute_stable_game_id, Collection, CompactMove, GameMetadata, GameResult,
     GameSourceAttribution, IngestionCompletionStatus, IngestionStats, ParsedGame,
 };
-use codb_curate::policy::{is_aborted_or_infraction_termination, GigabaseOtbPolicy};
+use codb_curate::policy::{
+    is_aborted_or_infraction_termination, GigabaseHeaderMetadata, GigabaseOtbPolicy,
+};
 use pgn_reader::{RawTag, Reader, SanPlus, Visitor};
 use shakmaty::fen::Fen;
 use shakmaty::{CastlingMode, Chess, Move, Position, Role, Square};
+use std::collections::HashMap;
 use std::io::Read;
 use std::ops::ControlFlow;
 use thiserror::Error;
@@ -32,10 +35,14 @@ pub enum IngestError {
 pub struct GameTags {
     pub tag_count: usize,
     pub malformed_tag: Option<String>,
+    pub header_values: HashMap<String, String>,
+    pub conflicting_header_fields: Vec<String>,
     pub white: String,
     pub black: String,
     pub white_elo: Option<u16>,
     pub black_elo: Option<u16>,
+    pub white_elo_raw: Option<String>,
+    pub black_elo_raw: Option<String>,
     pub date: Option<String>,
     pub utc_date: Option<String>,
     pub event: Option<String>,
@@ -57,6 +64,8 @@ pub struct GameTags {
     pub white_identity_evidence: Option<String>,
     pub black_identity_evidence: Option<String>,
     pub mode: Option<String>,
+    pub white_title: Option<String>,
+    pub black_title: Option<String>,
 }
 
 impl GameTags {
@@ -69,6 +78,8 @@ impl GameTags {
             white_identity_evidence: self.white_identity_evidence.clone(),
             black_identity_evidence: self.black_identity_evidence.clone(),
             mode: self.mode.clone(),
+            white_title: self.white_title.clone(),
+            black_title: self.black_title.clone(),
         };
         (attribution.source_tag.is_some()
             || attribution.source_quality.is_some()
@@ -76,8 +87,36 @@ impl GameTags {
             || attribution.black_fide_id.is_some()
             || attribution.white_identity_evidence.is_some()
             || attribution.black_identity_evidence.is_some()
-            || attribution.mode.is_some())
+            || attribution.mode.is_some()
+            || attribution.white_title.is_some()
+            || attribution.black_title.is_some())
         .then_some(attribution)
+    }
+
+    fn gigabase_header_metadata<'a>(
+        &'a self,
+        resolved_date: Option<&'a str>,
+    ) -> GigabaseHeaderMetadata<'a> {
+        GigabaseHeaderMetadata {
+            source_tag: self.source_tag.as_deref(),
+            white_name: Some(&self.white),
+            black_name: Some(&self.black),
+            white_elo: self.white_elo_raw.as_deref(),
+            black_elo: self.black_elo_raw.as_deref(),
+            white_title: self.white_title.as_deref(),
+            black_title: self.black_title.as_deref(),
+            white_identity_evidence: self.white_identity_evidence.as_deref(),
+            black_identity_evidence: self.black_identity_evidence.as_deref(),
+            white_fide_id: self.white_fide_id.as_deref(),
+            black_fide_id: self.black_fide_id.as_deref(),
+            mode: self.mode.as_deref(),
+            date: resolved_date
+                .or(self.date.as_deref())
+                .or(self.utc_date.as_deref()),
+            event: self.event.as_deref(),
+            site: self.site.as_deref(),
+            conflicting_metadata_fields: &self.conflicting_header_fields,
+        }
     }
 }
 
@@ -273,19 +312,37 @@ impl Visitor for ShakmatyGameVisitor {
         let val_cow = value.decode();
         let val_str = String::from_utf8_lossy(&val_cow);
         let trimmed = val_str.trim();
+        let tag_name = String::from_utf8_lossy(name).into_owned();
+        match tags.header_values.get(&tag_name) {
+            Some(previous) if previous != trimmed => {
+                if !tags.conflicting_header_fields.contains(&tag_name) {
+                    tags.conflicting_header_fields.push(tag_name);
+                }
+            }
+            Some(_) => {}
+            None => {
+                tags.header_values.insert(tag_name, trimmed.to_owned());
+            }
+        }
 
         match name {
             b"White" => tags.white = trimmed.to_string(),
             b"Black" => tags.black = trimmed.to_string(),
-            b"WhiteElo" => tags.white_elo = trimmed.parse::<u16>().ok(),
-            b"BlackElo" => tags.black_elo = trimmed.parse::<u16>().ok(),
+            b"WhiteElo" => {
+                tags.white_elo_raw = Some(trimmed.to_owned());
+                tags.white_elo = trimmed.parse::<u16>().ok();
+            }
+            b"BlackElo" => {
+                tags.black_elo_raw = Some(trimmed.to_owned());
+                tags.black_elo = trimmed.parse::<u16>().ok();
+            }
             b"Date" => {
-                if !trimmed.is_empty() && trimmed != "?" {
+                if !trimmed.is_empty() {
                     tags.date = Some(trimmed.to_string());
                 }
             }
             b"UTCDate" => {
-                if !trimmed.is_empty() && trimmed != "?" {
+                if !trimmed.is_empty() {
                     tags.utc_date = Some(trimmed.to_string());
                 }
             }
@@ -321,6 +378,8 @@ impl Visitor for ShakmatyGameVisitor {
             b"IdentityEvidenceWhite" => tags.white_identity_evidence = Some(trimmed.to_string()),
             b"IdentityEvidenceBlack" => tags.black_identity_evidence = Some(trimmed.to_string()),
             b"Mode" => tags.mode = Some(trimmed.to_string()),
+            b"WhiteTitle" => tags.white_title = Some(trimmed.to_string()),
+            b"BlackTitle" => tags.black_title = Some(trimmed.to_string()),
             b"Round" => {
                 if !trimmed.is_empty() && trimmed != "?" {
                     tags.round = Some(trimmed.to_string());
@@ -358,9 +417,19 @@ impl Visitor for ShakmatyGameVisitor {
         }
 
         if let Some(policy) = &self.gigabase_policy {
-            if let Err(reason) = policy
-                .evaluate_source_metadata(tags.source_attribution().as_ref(), tags.date.as_deref())
-            {
+            let qualification = if policy.is_r3() {
+                let resolved_date =
+                    resolve_canonical_date(tags.date.as_deref(), tags.utc_date.as_deref());
+                policy
+                    .evaluate_r3_headers(&tags.gigabase_header_metadata(resolved_date.as_deref()))
+                    .map(|_| ())
+            } else {
+                policy.evaluate_source_metadata(
+                    tags.source_attribution().as_ref(),
+                    tags.date.as_deref(),
+                )
+            };
+            if let Err(reason) = qualification {
                 return ControlFlow::Break(Err(IngestError::RejectedByPolicy(format!(
                     "gigabase:{}",
                     reason.category()
@@ -447,7 +516,9 @@ impl Visitor for ShakmatyGameVisitor {
                         }
                     }
                 }
-                Collection::MastersOtb => {
+                Collection::MastersOtb
+                    if !self.gigabase_policy.as_ref().is_some_and(|p| p.is_r3()) =>
+                {
                     let has_historical = tags
                         .date
                         .as_deref()
@@ -478,6 +549,7 @@ impl Visitor for ShakmatyGameVisitor {
                         }
                     }
                 }
+                Collection::MastersOtb => {}
             }
         }
 
@@ -580,7 +652,20 @@ impl Visitor for ShakmatyGameVisitor {
         let resolved_date = resolve_canonical_date(
             movetext.tags.date.as_deref(),
             movetext.tags.utc_date.as_deref(),
-        );
+        )
+        .or_else(|| {
+            self.gigabase_policy
+                .as_ref()
+                .is_some_and(GigabaseOtbPolicy::is_r3)
+                .then(|| {
+                    movetext
+                        .tags
+                        .date
+                        .clone()
+                        .or_else(|| movetext.tags.utc_date.clone())
+                })
+                .flatten()
+        });
         let (source_id, broadcast_url) = resolve_provenance(
             movetext.tags.site.as_deref(),
             movetext.tags.game_url.as_deref(),

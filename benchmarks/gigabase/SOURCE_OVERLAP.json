@@ -6,90 +6,90 @@
     "total_games": 29640
   },
   "gigabase_evaluation": {
-    "dataset_build_id": "codb-masters-otb-1794734897423894473-41647-72708103e81b880b-cpi-d40",
-    "total_games": 156898
+    "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+    "total_games": 3284429
   },
   "candidate_source": "LichessBroadcastAPI",
   "exact_stable_game_id_overlap": 0,
-  "lichess_api_games_with_identical_full_move_sequence": 16173,
-  "lichess_api_games_with_same_players_and_moves": 16068,
-  "lichess_api_games_with_same_players_date_and_moves": 5716,
-  "lichess_api_games_with_same_players_year_and_moves": 16065,
-  "lichess_api_games_with_same_players_date_event_round_and_moves": 242,
+  "lichess_api_games_with_identical_full_move_sequence": 16488,
+  "lichess_api_games_with_same_players_and_moves": 16288,
+  "lichess_api_games_with_same_players_date_and_moves": 5829,
+  "lichess_api_games_with_same_players_year_and_moves": 16284,
+  "lichess_api_games_with_same_players_date_event_round_and_moves": 259,
   "same_signature_candidate_evidence": {
-    "candidate_games": 242,
-    "distinct_signature_keys": 242,
-    "candidate_games_with_one_previous_match": 242,
+    "candidate_games": 259,
+    "distinct_signature_keys": 259,
+    "candidate_games_with_one_previous_match": 259,
     "candidate_games_with_multiple_previous_matches": 0,
-    "previous_record_pairs_compared": 242,
-    "distinct_previous_records_matched": 242,
+    "previous_record_pairs_compared": 259,
+    "distinct_previous_records_matched": 259,
     "previous_records_matched_by_multiple_candidate_games": 0,
     "field_agreements": {
       "white_name": {
-        "equal": 237,
+        "equal": 254,
         "different": 5,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
         "missing_in_both": 0
       },
       "black_name": {
-        "equal": 231,
+        "equal": 248,
         "different": 11,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
         "missing_in_both": 0
       },
       "date": {
-        "equal": 242,
+        "equal": 259,
         "different": 0,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
         "missing_in_both": 0
       },
       "event": {
-        "equal": 159,
-        "different": 83,
+        "equal": 175,
+        "different": 84,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
         "missing_in_both": 0
       },
       "site": {
-        "equal": 199,
+        "equal": 216,
         "different": 43,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
         "missing_in_both": 0
       },
       "round": {
-        "equal": 242,
+        "equal": 259,
         "different": 0,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
         "missing_in_both": 0
       },
       "result": {
-        "equal": 242,
+        "equal": 259,
         "different": 0,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
         "missing_in_both": 0
       },
       "white_elo": {
-        "equal": 164,
-        "different": 78,
+        "equal": 179,
+        "different": 80,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
         "missing_in_both": 0
       },
       "black_elo": {
-        "equal": 165,
-        "different": 77,
+        "equal": 180,
+        "different": 79,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
         "missing_in_both": 0
       },
       "eco": {
-        "equal": 242,
+        "equal": 259,
         "different": 0,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
@@ -99,21 +99,21 @@
         "equal": 0,
         "different": 0,
         "missing_in_previous": 0,
-        "missing_in_candidate": 222,
-        "missing_in_both": 20
+        "missing_in_candidate": 238,
+        "missing_in_both": 21
       },
       "source_id": {
         "equal": 0,
         "different": 0,
         "missing_in_previous": 0,
-        "missing_in_candidate": 242,
+        "missing_in_candidate": 259,
         "missing_in_both": 0
       },
       "broadcast_url": {
         "equal": 0,
         "different": 0,
         "missing_in_previous": 0,
-        "missing_in_candidate": 242,
+        "missing_in_candidate": 259,
         "missing_in_both": 0
       },
       "starting_fen": {
@@ -121,31 +121,31 @@
         "different": 0,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
-        "missing_in_both": 242
+        "missing_in_both": 259
       },
       "stable_white_name": {
-        "equal": 237,
+        "equal": 254,
         "different": 5,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
         "missing_in_both": 0
       },
       "stable_black_name": {
-        "equal": 231,
+        "equal": 248,
         "different": 11,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
         "missing_in_both": 0
       },
       "stable_date": {
-        "equal": 242,
+        "equal": 259,
         "different": 0,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
         "missing_in_both": 0
       },
       "stable_round": {
-        "equal": 242,
+        "equal": 259,
         "different": 0,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
@@ -155,19 +155,19 @@
         "equal": 0,
         "different": 0,
         "missing_in_previous": 0,
-        "missing_in_candidate": 242,
+        "missing_in_candidate": 259,
         "missing_in_both": 0
       },
       "stable_id_preimage": {
         "equal": 0,
-        "different": 242,
+        "different": 259,
         "missing_in_previous": 0,
         "missing_in_candidate": 0,
         "missing_in_both": 0
       }
     }
   },
-  "same_players_date_moves_with_event_or_round_drift": 5474,
+  "same_players_date_moves_with_event_or_round_drift": 5570,
   "deduplication_decision": "No cross-release deletion or merge was performed. Exact stable-ID overlap is a direct signal; a normalized player/date/event/round/move signature is a strong manual-review candidate, not proof of game identity. Additional field-agreement counts provide context but do not replace source-level adjudication.",
   "limitations": [
     "The source tag is publisher-supplied provenance; the audit does not independently authenticate Lichess origin.",

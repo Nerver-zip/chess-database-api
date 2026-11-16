@@ -4,6 +4,10 @@ use std::ops::ControlFlow;
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use codb_curate::policy::{
+    classify_gigabase_strength, parse_gigabase_date, r3_header_rejections, GigabaseDatePrecision,
+    GigabaseHeaderMetadata, PolicyRejectionReason, APPROVED_GIGABASE_SOURCE_TAGS,
+};
 use codb_ingest::reader::{
     build_pgn_reader, is_recoverable_pgn_syntax_error, resync_after_syntax_error,
 };
@@ -30,21 +34,26 @@ const LOW_CARDINALITY_TAGS: &[&str] = &[
 const TEXT_QUALITY_TAGS: &[&str] = &["White", "Black", "Event", "Site"];
 const TRUSTED_IDENTITY_VALUES: &[&str] = &["Strong", "Confirmed"];
 
-type TagMap = BTreeMap<String, String>;
 type AggregateCounts = BTreeMap<String, u64>;
 type AggregateTags = BTreeMap<String, AggregateCounts>;
 type AggregateGroups = BTreeMap<String, AggregateTags>;
 
 #[derive(Default)]
+struct HeaderTags {
+    values: BTreeMap<String, String>,
+    conflicting_fields: Vec<String>,
+}
+
+#[derive(Default)]
 struct HeaderInventoryVisitor;
 
 impl Visitor for HeaderInventoryVisitor {
-    type Tags = TagMap;
-    type Movetext = TagMap;
-    type Output = TagMap;
+    type Tags = HeaderTags;
+    type Movetext = HeaderTags;
+    type Output = HeaderTags;
 
     fn begin_tags(&mut self) -> ControlFlow<Self::Output, Self::Tags> {
-        ControlFlow::Continue(BTreeMap::new())
+        ControlFlow::Continue(HeaderTags::default())
     }
 
     fn tag(
@@ -56,7 +65,17 @@ impl Visitor for HeaderInventoryVisitor {
         let name = String::from_utf8_lossy(name).into_owned();
         let decoded = value.decode();
         let value = String::from_utf8_lossy(&decoded).trim().to_owned();
-        tags.insert(name, value);
+        match tags.values.get(&name) {
+            Some(previous) if previous != &value => {
+                if !tags.conflicting_fields.contains(&name) {
+                    tags.conflicting_fields.push(name);
+                }
+            }
+            Some(_) => {}
+            None => {
+                tags.values.insert(name, value);
+            }
+        }
         ControlFlow::Continue(())
     }
 
@@ -91,12 +110,49 @@ pub struct PgnInventoryReport {
     pub trusted_identity_both_count: u64,
     pub rating_threshold_and_trusted_identity_both_count: u64,
     pub rating_threshold_and_trusted_identity_by_source: BTreeMap<String, u64>,
+    pub gigabase_policy_impact: GigabasePolicyImpact,
     pub text_quality_by_record: BTreeMap<String, BTreeMap<String, u64>>,
     pub records_missing_source_tag: u64,
     pub records_with_fen_tag: u64,
     pub records_with_variant_tag: u64,
     pub examples: Vec<RecordExample>,
     pub malformed_examples: Vec<MalformedExample>,
+    pub limitations: Vec<&'static str>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct GigabasePolicyImpact {
+    pub schema_version: u32,
+    pub policy_id: &'static str,
+    pub method: &'static str,
+    pub input_path: String,
+    pub input_size_bytes: u64,
+    pub input_sha256: String,
+    pub records_encountered: u64,
+    pub structurally_parsed: u64,
+    pub recoverable_syntax_errors: u64,
+    pub original_numeric_threshold_candidates: u64,
+    pub valid_strength_rule_counts_non_overlapping: BTreeMap<String, u64>,
+    pub strength_eligible_header_records: u64,
+    pub strength_eligible_historical_records: u64,
+    pub explicit_non_otb_mode_records: u64,
+    pub contradictory_event_or_site_records: u64,
+    pub records_with_conflicting_header_values: u64,
+    pub conflicting_header_fields_by_tag: BTreeMap<String, u64>,
+    pub explicit_non_otb_or_contradictory_records: u64,
+    pub primary_header_rejection_counts: BTreeMap<String, u64>,
+    pub overlapping_header_rejection_counts: BTreeMap<String, u64>,
+    pub r3_header_candidate_count: u64,
+    pub r3_header_candidates_by_strength_rule: BTreeMap<String, u64>,
+    pub r3_header_candidates_by_date_precision: BTreeMap<String, u64>,
+    pub r3_header_candidates_before_1970: u64,
+    pub r3_candidates_admitted_by_removing_r2_source_allowlist: u64,
+    pub r3_candidates_admitted_by_relaxing_identity_confidence: u64,
+    pub r3_candidates_admitted_by_both_source_and_identity_changes: u64,
+    pub source_records_by_major_category: BTreeMap<String, u64>,
+    pub r3_header_candidates_by_source_tag: BTreeMap<String, u64>,
+    pub r3_header_candidates_by_major_category: BTreeMap<String, u64>,
+    pub header_candidate_accounting_reconciles: bool,
     pub limitations: Vec<&'static str>,
 }
 
@@ -161,6 +217,31 @@ struct Counters {
     missing_rating_pair: u64,
     trusted_identity_both: u64,
     rating_and_trusted_identity_both: u64,
+    policy_impact: PolicyImpactCounters,
+}
+
+#[derive(Default)]
+struct PolicyImpactCounters {
+    strength_rules: BTreeMap<String, u64>,
+    strength_eligible: u64,
+    strength_historical: u64,
+    explicit_non_otb_mode_records: u64,
+    contradictory_records: u64,
+    conflicting_header_records: u64,
+    conflicting_header_fields: BTreeMap<String, u64>,
+    explicit_non_otb_or_contradictory_records: u64,
+    primary_rejections: BTreeMap<String, u64>,
+    overlapping_rejections: BTreeMap<String, u64>,
+    candidates: u64,
+    candidate_rules: BTreeMap<String, u64>,
+    candidate_date_precision: BTreeMap<String, u64>,
+    historical_candidates: u64,
+    source_allowlist_removals: u64,
+    identity_relaxations: u64,
+    source_identity_overlap: u64,
+    source_records_by_major_category: BTreeMap<String, u64>,
+    candidates_by_source: BTreeMap<String, u64>,
+    candidates_by_major_category: BTreeMap<String, u64>,
 }
 
 #[derive(Hash, Eq, PartialEq)]
@@ -304,15 +385,112 @@ pub fn inventory_pgn<R: Read>(
                 counters.structurally_parsed += 1;
                 let ordinal = counters.encountered;
                 anyhow::ensure!(
-                    tags.len() <= MAX_TAGS_PER_RECORD,
+                    tags.values.len() <= MAX_TAGS_PER_RECORD,
                     "record {ordinal} has more than {MAX_TAGS_PER_RECORD} distinct header tags"
                 );
                 let values: HashMap<&str, &str> = tags
+                    .values
                     .iter()
                     .map(|(name, value)| (name.as_str(), value.as_str()))
                     .collect();
 
-                for (name, value) in &tags {
+                let policy_headers = inventory_gigabase_headers(&values, &tags.conflicting_fields);
+                counters.policy_impact.conflicting_header_records +=
+                    u64::from(!tags.conflicting_fields.is_empty());
+                for field in &tags.conflicting_fields {
+                    increment(
+                        &mut counters.policy_impact.conflicting_header_fields,
+                        field.clone(),
+                    );
+                }
+                let source = policy_headers.source_tag.unwrap_or("<missing>");
+                let major_category = major_source_category(source);
+                increment(
+                    &mut counters.policy_impact.source_records_by_major_category,
+                    major_category.to_owned(),
+                );
+
+                let strength_rule = classify_gigabase_strength(&policy_headers);
+                if let Ok(rule) = &strength_rule {
+                    increment(
+                        &mut counters.policy_impact.strength_rules,
+                        rule.as_str().to_owned(),
+                    );
+                    counters.policy_impact.strength_eligible += 1;
+                    if parse_gigabase_date(policy_headers.date)
+                        .and_then(|date| date.year)
+                        .is_some_and(|year| year < 1970)
+                    {
+                        counters.policy_impact.strength_historical += 1;
+                    }
+                }
+
+                let rejections = r3_header_rejections(&policy_headers);
+                let mut has_non_otb_mode = false;
+                let mut has_contradictory_evidence = false;
+                for reason in &rejections {
+                    let category = reason.category().to_owned();
+                    increment(&mut counters.policy_impact.overlapping_rejections, category);
+                    has_non_otb_mode |=
+                        matches!(reason, PolicyRejectionReason::NonOtbGigabaseMode(_));
+                    has_contradictory_evidence |= matches!(
+                        reason,
+                        PolicyRejectionReason::ContradictoryGigabaseProvenance { .. }
+                    );
+                }
+                counters.policy_impact.explicit_non_otb_mode_records += u64::from(has_non_otb_mode);
+                counters.policy_impact.contradictory_records +=
+                    u64::from(has_contradictory_evidence);
+                counters
+                    .policy_impact
+                    .explicit_non_otb_or_contradictory_records +=
+                    u64::from(has_non_otb_mode || has_contradictory_evidence);
+
+                if let Some(reason) = rejections.first() {
+                    increment(
+                        &mut counters.policy_impact.primary_rejections,
+                        reason.category().to_owned(),
+                    );
+                } else {
+                    let rule = strength_rule
+                        .expect("a passing record has a strength rule")
+                        .as_str();
+                    counters.policy_impact.candidates += 1;
+                    increment(&mut counters.policy_impact.candidate_rules, rule.to_owned());
+                    let date = parse_gigabase_date(policy_headers.date)
+                        .expect("a passing record has a valid or unknown date");
+                    let precision = match date.precision {
+                        GigabaseDatePrecision::Unknown => "unknown",
+                        GigabaseDatePrecision::Partial => "partial",
+                        GigabaseDatePrecision::Complete => "complete",
+                    };
+                    increment(
+                        &mut counters.policy_impact.candidate_date_precision,
+                        precision.to_owned(),
+                    );
+                    if date.year.is_some_and(|year| year < 1970) {
+                        counters.policy_impact.historical_candidates += 1;
+                    }
+                    let source_is_r2_allowed = APPROVED_GIGABASE_SOURCE_TAGS.contains(&source);
+                    let identity_strong_both =
+                        is_trusted_identity(policy_headers.white_identity_evidence)
+                            && is_trusted_identity(policy_headers.black_identity_evidence);
+                    counters.policy_impact.source_allowlist_removals +=
+                        u64::from(!source_is_r2_allowed);
+                    counters.policy_impact.identity_relaxations += u64::from(!identity_strong_both);
+                    counters.policy_impact.source_identity_overlap +=
+                        u64::from(!source_is_r2_allowed && !identity_strong_both);
+                    increment(
+                        &mut counters.policy_impact.candidates_by_source,
+                        source.to_owned(),
+                    );
+                    increment(
+                        &mut counters.policy_impact.candidates_by_major_category,
+                        major_category.to_owned(),
+                    );
+                }
+
+                for (name, value) in &tags.values {
                     aggregate.add("tag_presence", name, "")?;
                     if LOW_CARDINALITY_TAGS.contains(&name.as_str()) {
                         aggregate.add("categorical_tag_values", name, value)?;
@@ -475,10 +653,71 @@ pub fn inventory_pgn<R: Read>(
         .cloned()
         .unwrap_or_default();
 
+    let accounted_headers = counters.policy_impact.candidates
+        + counters
+            .policy_impact
+            .primary_rejections
+            .values()
+            .sum::<u64>();
+    let gigabase_policy_impact = GigabasePolicyImpact {
+        schema_version: 1,
+        policy_id: "gigabase-otb/2026-11-r3",
+        method: "full_streaming_record_header_scan_using_the_production_r3_header_policy",
+        input_path: input_path.display().to_string(),
+        input_size_bytes,
+        input_sha256: input_sha256.clone(),
+        records_encountered: counters.encountered,
+        structurally_parsed: counters.structurally_parsed,
+        recoverable_syntax_errors: counters.recoverable_syntax_errors,
+        original_numeric_threshold_candidates: counters.either_threshold,
+        valid_strength_rule_counts_non_overlapping: counters.policy_impact.strength_rules,
+        strength_eligible_header_records: counters.policy_impact.strength_eligible,
+        strength_eligible_historical_records: counters.policy_impact.strength_historical,
+        explicit_non_otb_mode_records: counters.policy_impact.explicit_non_otb_mode_records,
+        contradictory_event_or_site_records: counters.policy_impact.contradictory_records,
+        records_with_conflicting_header_values: counters
+            .policy_impact
+            .conflicting_header_records,
+        conflicting_header_fields_by_tag: counters.policy_impact.conflicting_header_fields,
+        explicit_non_otb_or_contradictory_records: counters
+            .policy_impact
+            .explicit_non_otb_or_contradictory_records,
+        primary_header_rejection_counts: counters.policy_impact.primary_rejections,
+        overlapping_header_rejection_counts: counters.policy_impact.overlapping_rejections,
+        r3_header_candidate_count: counters.policy_impact.candidates,
+        r3_header_candidates_by_strength_rule: counters.policy_impact.candidate_rules,
+        r3_header_candidates_by_date_precision: counters.policy_impact.candidate_date_precision,
+        r3_header_candidates_before_1970: counters.policy_impact.historical_candidates,
+        r3_candidates_admitted_by_removing_r2_source_allowlist: counters
+            .policy_impact
+            .source_allowlist_removals,
+        r3_candidates_admitted_by_relaxing_identity_confidence: counters
+            .policy_impact
+            .identity_relaxations,
+        r3_candidates_admitted_by_both_source_and_identity_changes: counters
+            .policy_impact
+            .source_identity_overlap,
+        source_records_by_major_category: counters
+            .policy_impact
+            .source_records_by_major_category,
+        r3_header_candidates_by_source_tag: counters.policy_impact.candidates_by_source,
+        r3_header_candidates_by_major_category: counters
+            .policy_impact
+            .candidates_by_major_category,
+        header_candidate_accounting_reconciles: accounted_headers
+            == counters.structurally_parsed,
+        limitations: vec![
+            "Counts are full-source header-level candidates; moves, legality, deduplication, and retention are measured only by the production build.",
+            "Strength-rule categories are mutually exclusive in priority order, while rejection reason counts overlap when multiple issues occur in one record.",
+            "GM title labels and Elo values are publisher-supplied and are not independently validated as official or contemporaneous records.",
+            "Unknown dates remain unknown; no dates, ratings, identities, or historical title dates are inferred.",
+        ],
+    };
+
     drop(aggregate);
 
     Ok(PgnInventoryReport {
-        schema_version: 1,
+        schema_version: 2,
         inventory_kind: "pgn_structural_and_header_inventory",
         input: InputEvidence {
             path: input_path.display().to_string(),
@@ -506,6 +745,7 @@ pub fn inventory_pgn<R: Read>(
         rating_threshold_and_trusted_identity_both_count: counters
             .rating_and_trusted_identity_both,
         rating_threshold_and_trusted_identity_by_source,
+        gigabase_policy_impact,
         text_quality_by_record,
         records_missing_source_tag: counters.records_missing_source,
         records_with_fen_tag: counters.records_with_fen,
@@ -533,6 +773,64 @@ fn rating_bucket(rating: u16) -> String {
         2400..=2599 => "2400-2599".into(),
         2600..=2799 => "2600-2799".into(),
         _ => "2800+".into(),
+    }
+}
+
+fn inventory_gigabase_headers<'a>(
+    values: &HashMap<&'a str, &'a str>,
+    conflicting_fields: &'a [String],
+) -> GigabaseHeaderMetadata<'a> {
+    GigabaseHeaderMetadata {
+        source_tag: values.get("Source").copied(),
+        white_name: values.get("White").copied(),
+        black_name: values.get("Black").copied(),
+        white_elo: values.get("WhiteElo").copied(),
+        black_elo: values.get("BlackElo").copied(),
+        white_title: values.get("WhiteTitle").copied(),
+        black_title: values.get("BlackTitle").copied(),
+        white_identity_evidence: values.get("IdentityEvidenceWhite").copied(),
+        black_identity_evidence: values.get("IdentityEvidenceBlack").copied(),
+        white_fide_id: values.get("WhiteFideId").copied(),
+        black_fide_id: values.get("BlackFideId").copied(),
+        mode: values.get("Mode").copied(),
+        date: values.get("Date").copied(),
+        event: values.get("Event").copied(),
+        site: values.get("Site").copied(),
+        conflicting_metadata_fields: conflicting_fields,
+    }
+}
+
+fn increment(counts: &mut BTreeMap<String, u64>, key: String) {
+    *counts.entry(key).or_default() += 1;
+}
+
+fn is_trusted_identity(value: Option<&str>) -> bool {
+    value.is_some_and(|value| {
+        value.eq_ignore_ascii_case("Strong") || value.eq_ignore_ascii_case("Confirmed")
+    })
+}
+
+fn major_source_category(source: &str) -> &'static str {
+    match source {
+        "Legacy Software Dump" => "Legacy Software Dump",
+        "Independent Collection" => "Independent Collection",
+        "Historical Archive" => "Historical Archive",
+        "AnaSchaigorodsky" => "Academic Dataset",
+        "LichessBroadcastAPI" => "Open Platform Data",
+        "LEDB" => "Open Platform Data",
+        "Community Project" => "Community Project",
+        "VargaCsabaZoltan" => "Player Provided Dataset",
+        "Britbase"
+        | "CanadianChessFederation"
+        | "ChessScotland"
+        | "DanBase"
+        | "Federscacchi"
+        | "GreekBase"
+        | "NiederrheinischerSchachverband"
+        | "NiedersächsischerSchachverband"
+        | "SchachverbandRuhrgebiet" => "Official Federation",
+        "<missing>" => "Missing Source",
+        _ => "Other Source",
     }
 }
 
@@ -569,6 +867,7 @@ mod tests {
             "[WhiteElo \"?\"]\n",
             "[BlackElo \"1800\"]\n",
             "[Source \"Historical Archive\"]\n",
+            "[Source \"Legacy Software Dump\"]\n",
             "[Result \"*\"]\n\n",
             "1. d4 d5 *\n\n",
         );
@@ -612,6 +911,36 @@ mod tests {
         assert_eq!(report.year_distribution["missing"], 1);
         assert_eq!(report.text_quality_by_record["Site"]["populated"], 1);
         assert_eq!(report.text_quality_by_record["Site"]["missing"], 1);
+        assert_eq!(report.gigabase_policy_impact.r3_header_candidate_count, 1);
+        assert_eq!(
+            report
+                .gigabase_policy_impact
+                .r3_candidates_admitted_by_removing_r2_source_allowlist,
+            1
+        );
+        assert_eq!(
+            report
+                .gigabase_policy_impact
+                .r3_header_candidates_by_date_precision["complete"],
+            1
+        );
+        assert!(
+            report
+                .gigabase_policy_impact
+                .header_candidate_accounting_reconciles
+        );
+        assert_eq!(
+            report
+                .gigabase_policy_impact
+                .records_with_conflicting_header_values,
+            1
+        );
+        assert_eq!(
+            report
+                .gigabase_policy_impact
+                .conflicting_header_fields_by_tag["Source"],
+            1
+        );
     }
 
     #[test]

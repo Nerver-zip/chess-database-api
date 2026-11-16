@@ -1,0 +1,396 @@
+{
+  "build": {
+    "accounting": {
+      "accepted_unique": 3284429,
+      "completion_status": "CompleteEof",
+      "confirmed_duplicates": 4018,
+      "quarantined": 7842,
+      "rejected_by_policy": 10153901,
+      "rejected_illegal": 0,
+      "rejected_malformed": 0,
+      "rejected_variant": 0,
+      "superseded_prior": 506,
+      "total_encountered": 13450696
+    },
+    "ingestion_build_id": "codb-masters-otb-1794774443218299726-5451-da5a0d652bb0b164",
+    "is_reconciled": true,
+    "measured_wall_seconds": 4723.004,
+    "peak_workspace_disk_bytes": 3905630208,
+    "policy_rejection_reasons": {
+      "below_rating_threshold": 8714070,
+      "conflicting_player_identity": 29451,
+      "contradictory_otb_evidence": 1329,
+      "invalid_player_identity": 702,
+      "invalid_rating": 5046,
+      "non_otb_play_mode": 1403303
+    },
+    "process_peak_rss_bytes": 67895296,
+    "quarantine_reasons": {
+      "stable_game_id_collision": 7842
+    },
+    "report": {
+      "path": "BUILD_REPORT_R3.json",
+      "sha256": "6a36cc2fc1658c0812b3f47325f83bb462ed76a989908382e66f36bf6d5e2992"
+    },
+    "retained_matches_accepted": true,
+    "wall_seconds_reported": 4652.051148639
+  },
+  "cpi_oracle": {
+    "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+    "games_replayed": 3284429,
+    "indexed_depth_plies": 40,
+    "mismatches": 0,
+    "report": {
+      "path": "CPI_ORACLE_R3.json",
+      "sha256": "182c1a19914ee9dea7dbbcd67f0c2d5279c847a32eef28a91aa3cd60e8b6d431"
+    },
+    "runner": "../../crates/cli/examples/audit_cpi_oracle.rs",
+    "shares_position_key_function_with_cpi": true,
+    "source_to_canonical_mapping_checked_separately": true,
+    "target_lines_checked": 18,
+    "unique_target_positions": 17
+  },
+  "dataset": {
+    "build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+    "collection": "masters-otb",
+    "deep_verify_passed": true,
+    "format_version": "CGB3/v1",
+    "games": 3284429,
+    "manifest_file_sha256": "448809fc8650837bc5fa6e6a65d77641f18fbeb81702cc00b1a0bdc65147bd39",
+    "position_index_version": "CPI/v2",
+    "quality_report": {
+      "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+      "distributions_unchanged_from_prior_r3_report": true,
+      "matches_dataset_build_id": true,
+      "path": "QUALITY_REPORT_R3.json",
+      "sha256": "b70288aa8bf79387606c3ee1cf4d1dba3a6c46322c8cbda6b79fce576fda317a"
+    }
+  },
+  "docker_api": {
+    "collections": {
+      "elite-online": {
+        "dataset_build_id": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
+        "e4_e5_nf3_games": 30390,
+        "games": 429150,
+        "position_query_matches_cli": true,
+        "stored_pgn_matches_cli": true
+      },
+      "masters-otb": {
+        "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+        "e4_e5_nf3_games": 294853,
+        "games": 3284429,
+        "position_query_matches_cli": true,
+        "stored_pgn_matches_cli": true
+      }
+    },
+    "concurrent_requests": {
+      "concurrent_workers": 12,
+      "count": 96,
+      "expected_not_found": 0,
+      "successful": 96
+    },
+    "configured_user": "10001:10001",
+    "dataset_mount_mode": "read_only_named_volume_copy",
+    "datasets_read_only": true,
+    "graceful_sigterm_shutdown": true,
+    "host_bind_mount_behavior_verified": false,
+    "host_ports_published": false,
+    "invalid_dataset_starts_rejected": [
+      "missing collection mount",
+      "wrong collection path",
+      "incomplete dataset",
+      "corrupted CPI"
+    ],
+    "mode": "real",
+    "read_only_root_filesystem": true,
+    "report": {
+      "path": "DOCKER_API_R3.json",
+      "sha256": "92f5294a40f0e5b537f1410daae0fbbfffe47b9f67ccb5e555b8042fccdafb94"
+    },
+    "restart_deep_verify_passed": true,
+    "restart_seconds": 45.655,
+    "sampled_peak_rss_bytes": 208265216,
+    "startup_seconds": 46.162
+  },
+  "evaluation_status": "complete_local_evaluation_not_release_eligible",
+  "inventory": {
+    "candidate_accounting_reconciles": true,
+    "clean_eof": true,
+    "header_candidates": 3296795,
+    "policy_impact_report": {
+      "path": "POLICY_IMPACT.json",
+      "sha256": "fb414b6bf70f4dea957be9947f2bd4f895523348d51c94e6cf0ca6c1ba1886a7"
+    },
+    "records_encountered": 13450696,
+    "recoverable_syntax_errors": 0,
+    "report": {
+      "path": "INVENTORY.json",
+      "sha256": "c7de31c77c0f69cdbb20072b5ae51eb6c41cb5f68dcba1c55a77d05bdc2602b8"
+    },
+    "structurally_parsed": 13450696
+  },
+  "local_bootstrap_and_rollback": {
+    "bootstrap_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+    "bootstrap_games": 3284429,
+    "bootstrap_query_e4_games": 1469608,
+    "isolated_target": "data/work/gigabase-eval/deploy/masters-otb-r3-qualityfix",
+    "previous_versions": [
+      "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
+      "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40"
+    ],
+    "production_release_roots_modified": false,
+    "rollback_active_version": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
+    "rollback_games": 29640,
+    "rollback_succeeded": true
+  },
+  "local_package": {
+    "checksum_sidecar_verified": true,
+    "earlier_stale_quality_report_build_id": "codb-masters-otb-1794774468644668098-6594-f553b07b9d3822ee-cpi-d40",
+    "offline_query_passed": true,
+    "package_extracted_and_deep_verified": true,
+    "path": "data/work/gigabase-eval/packages-r3-qualityfix/masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-local-evaluation.tar",
+    "public_release_eligible": false,
+    "quality_report_build_id_matches_dataset": true,
+    "release_eligible": false,
+    "release_status": "local_evaluation_only",
+    "sha256_local": "297b7d2ab67951fd9655c35f6993da4d0fb5dd55ee763b62f9249c1804019247",
+    "size_bytes": 2700902400,
+    "source_archive_and_pgn_included": false
+  },
+  "policy": {
+    "path": "corpus/gigabase_source_qualification.json",
+    "policy_id": "gigabase-otb/2026-11-r3",
+    "publisher_terms_review": {
+      "path": "PUBLISHER_TERMS_REVIEW.json",
+      "sha256": "516bec5812664ba8c3901922c61b6e0f2ef3ed304084151db7de584c259afa4f"
+    },
+    "sha256": "93b9d0c7fd8eb35bb3bf36425a5e7b02f95fa80910942bbda615a453bd2ef3a9",
+    "source_summary": "Accepts non-placeholder Source tags and preserves source and publisher identity labels; admits complete, valid partial, and unknown dates; applies symmetric numeric Elo and exact GM-title rules; trusts the archive-level OTB assertion absent concrete contradictory mode/event evidence."
+  },
+  "position_index": {
+    "cpi_file_size_bytes": 1107897085,
+    "cpi_sha256": "284898e18f4a4aba0b56d383e8b1a163790a85e1081749f0ff9204fdab5a971c",
+    "depth_plies": 40,
+    "memory_limit_mib": 128,
+    "merge_passes": 1,
+    "peak_anonymous_rss_bytes_sampled": 122548224,
+    "peak_file_backed_rss_bytes_sampled": 1021509632,
+    "peak_spill_bytes": 2132859200,
+    "peak_total_process_rss_bytes": 1027588096,
+    "raw_observations_extracted": 127444117,
+    "report": {
+      "path": "INDEX_REPORT_R3.json",
+      "sha256": "6736dddcaee6fb542317f4b605a796a8980312892e1c12b17c9b5e72a986253f"
+    },
+    "resource_metrics_report": {
+      "path": "RESOURCE_METRICS_R3.json",
+      "sha256": "908e103353d84b5cf50da1280edd1a55343d6e4027b24d3edcaf2d53196aa698"
+    },
+    "runs_generated": 35,
+    "unique_position_move_pairs": 55864091,
+    "unique_positions": 51909604,
+    "wall_seconds": 204.8
+  },
+  "production_published": false,
+  "release_eligible": false,
+  "release_manifest_report": {
+    "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+    "path": "RELEASE_R3.json",
+    "quality_report_build_id_matches": true,
+    "sha256": "214188764d219ff60428f7a1190345b5e22bb615e903f713690d054a137a8734"
+  },
+  "rights_and_use_limits": {
+    "accepted_missing_mode_games": 3284429,
+    "event_level_otb_audit_games": 0,
+    "policy_rejected_records_all_replayed_for_legality": false,
+    "project_specific_written_terms_recorded": false,
+    "public_distribution_or_service_authorized": false,
+    "publisher_checksum_available": false,
+    "publisher_elo_independently_verified": false,
+    "publisher_license_claim": "CC BY-NC 4.0",
+    "upstream_rights_clearance": "unresolved"
+  },
+  "schema_version": 1,
+  "source": {
+    "archive_filename": "OTB_DATABASE.7z",
+    "archive_recheck_report": {
+      "path": "ARCHIVE_RECHECK.json",
+      "sha256": "8f13605c8a881a798baabab5965981fdd02fcee92c716a44d9bc7d801ca6722b"
+    },
+    "archive_sha256_local": "4e4209ccc1870e7fede557aae09b4dd40b721d4697db9b4c272ff0e4fbbdb500",
+    "archive_size_bytes": 2570013439,
+    "full_decompression_check": "passed",
+    "local_registration_path": "data/work/gigabase-eval/source-registration-r3-final.json",
+    "local_registration_sha256": "fe2d3dcc0193697cb6c8557bc163062850472d63df651cd9fff9c85a8430ec1e",
+    "member_filename": "LumbrasGigabase_OTB_Complete.pgn",
+    "member_sha256_local": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
+    "member_size_bytes": 12300428287,
+    "product": "OTB Complete",
+    "publisher": "Lumbra's Gigabase",
+    "publisher_checksum_available": false,
+    "publisher_checksum_verified": false,
+    "publisher_version": "2026-11-11",
+    "source_evidence_sha256": "6333fd276ec212220aaab2faa9f017afb54664a4dd86b850b251e7fde3d6dfc1"
+  },
+  "source_dedupe_audit": {
+    "anonymized_examples_emitted": 50,
+    "canonical_comparison_records": 12366,
+    "canonical_lookup_failures": 0,
+    "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+    "dedupe_outcomes": {
+      "confirmed_duplicate": 4018,
+      "quarantined_stable_id_collision": 7842,
+      "superseded_prior": 506,
+      "transposition_different_game": 157157,
+      "unique": 3127272
+    },
+    "dedupe_outcomes_reconcile": true,
+    "limitations": [
+      "Uses the repository parser, stable-ID calculation, qualification policy, and production deduplicator; it is traceability evidence rather than independent algorithm validation.",
+      "A strict move-prefix relationship is compared with starting and final positions separately and is not treated alone as proof of truncation."
+    ],
+    "metadata_drift_records": 9256,
+    "move_prefix_classification": {
+      "all_are_confirmed_duplicates": true,
+      "all_share_starting_position": true,
+      "classification_reconciles": true,
+      "different_final_position": 161,
+      "reverse_prefixes": 0,
+      "same_final_position": 1,
+      "source_prefixes": 162,
+      "validated_strict_truncations": 161
+    },
+    "policy_pass_records": 3296795,
+    "report": {
+      "path": "SOURCE_DEDUPE_AUDIT.json",
+      "sha256": "e87afddc90be2f3f48e0f667c69e6ea27e9e87ee1dc9c4fe903be0426eb21a63"
+    },
+    "report_contains_game_ids": false,
+    "report_contains_player_or_event_values": false,
+    "report_contains_raw_pgn": false,
+    "runner": "../../crates/cli/examples/audit_dedupe_source.rs",
+    "runner_sha256": "cc015bfc56fc6b96ac856b3eacabc11e0db1dc14568daf6bdab7a28fa44cb12d",
+    "source_records_encountered": 13450696
+  },
+  "source_overlap_audit": {
+    "adjudication": "Manual-review candidates only; no cross-release deletion or merge was performed.",
+    "candidate_games_with_multiple_previous_matches": 0,
+    "cross_release_records_removed_or_merged": 0,
+    "exact_stable_id_overlap": 0,
+    "field_difference_counts": {
+      "black_elo": 79,
+      "black_name": 11,
+      "event": 84,
+      "site": 43,
+      "stable_black_name": 11,
+      "stable_id_preimage": 259,
+      "stable_white_name": 5,
+      "white_elo": 80,
+      "white_name": 5
+    },
+    "identical_full_move_sequences": 16488,
+    "one_to_one_distinct_previous_matches": 259,
+    "previous_masters_games": 29640,
+    "previous_records_reused": 0,
+    "report": {
+      "path": "SOURCE_OVERLAP.json",
+      "sha256": "7bef1d57989e30e24e9957dfe6d81a65874d4925c96db497dd59594da4803dba"
+    },
+    "runner": "../../crates/cli/examples/audit_gigabase_overlap.rs",
+    "runner_sha256": "be11e934457cd895388f0c13fca2f396451401f24aeba9560f78c8cee066d3df",
+    "same_players_date_moves": 5829,
+    "strong_signature_candidates": 259
+  },
+  "source_to_canonical_audit": {
+    "candidate_games": 3284429,
+    "candidate_games_without_source_match": 0,
+    "content_mismatches": {
+      "final_position": 0,
+      "moves": 0,
+      "persisted_metadata": 0,
+      "primary_source_attribution": 0,
+      "starting_position": 0
+    },
+    "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+    "dedupe_replay": {
+      "attribution_sidecar_matches": true,
+      "candidate_id_hit_verdicts": {
+        "confirmed_duplicates": 3366,
+        "quarantined_stable_id_collision": 7842,
+        "superseded_prior": 506,
+        "transposition_different_game": 157147,
+        "unique": 3126776
+      },
+      "confirmed_duplicates": 4018,
+      "expected_attributed_games": 3284429,
+      "expected_attribution_records": 3287619,
+      "missing_attribution_records": 0,
+      "observed_attributed_games": 3284429,
+      "observed_attribution_records": 3287619,
+      "quarantined_stable_id_collision": 7842,
+      "repeated_id_verdicts": {
+        "confirmed_duplicates": 3365,
+        "quarantined_stable_id_collision": 7842,
+        "superseded_prior": 0,
+        "transposition_different_game": 1,
+        "unique": 0
+      },
+      "source_hit_verdicts_reconcile": true,
+      "superseded_prior": 506,
+      "transposition_different_game": 157157,
+      "unexpected_attribution_records": 0,
+      "unique": 3127272,
+      "verdict_counts_match_build_accounting": true,
+      "without_candidate_id_verdicts": {
+        "confirmed_duplicates": 652,
+        "quarantined_stable_id_collision": 0,
+        "superseded_prior": 0,
+        "transposition_different_game": 10,
+        "unique": 496
+      }
+    },
+    "limitations": [
+      "Uses the repository parser, stable-ID calculation, policy, and disk-backed deduplicator; it is not independent parser or deduplication validation.",
+      "The source hash is supplied from a separate local hash check rather than recomputed during this scan.",
+      "Publisher-asserted OTB mode, publisher Elo provenance, upstream rights, and publisher checksum remain unresolved."
+    ],
+    "policy_pass_records": 3296795,
+    "report": {
+      "path": "SOURCE_CANONICAL_AUDIT.json",
+      "sha256": "11d234d841485954021777208ba0f56066ba6934c4952f9822703cb2639edc1f"
+    },
+    "runner": "../../crates/cli/examples/audit_source_canonical.rs",
+    "runner_sha256": "d2f7b62c1b948c0233391acbe7fb29350796b294d0d4e6c0ee32b87f1d190270",
+    "source_attribution_sidecar_matches": true,
+    "source_records_encountered": 13450696,
+    "stratified_examples": 64,
+    "suppressed_strata": 9,
+    "unique_candidate_games_matched": 3284429
+  },
+  "toolchain": {
+    "cargo": "1.100.0",
+    "rust_validation_container_id": "b56995429fced3af05f0ba9d8c367967802e27538733228ca6701f06bc11e63b",
+    "rustc": "1.100.0"
+  },
+  "unchanged_local_baselines": {
+    "elite_online": {
+      "dataset_build_id": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
+      "games": 429150
+    },
+    "masters_otb": {
+      "dataset_build_id": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
+      "games": 29640
+    },
+    "production_release_roots_modified": false
+  },
+  "validation": {
+    "command": "./scripts/validate.sh",
+    "completed_at_utc": "2026-11-16T05:54:21Z",
+    "gates_passed": 8,
+    "gates_total": 8,
+    "python_unittest_passed": 110,
+    "python_unittest_skipped": 2,
+    "status": "passed",
+    "toolchain": "Rust 1.100.0"
+  }
+}

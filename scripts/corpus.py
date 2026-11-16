@@ -985,19 +985,51 @@ def process_peak_rss_bytes(pid: int, executable: Path) -> int:
     return 0
 
 
+def process_rss_components_bytes(pid: int, executable: Path) -> tuple[int, int, int]:
+    """Sample current anonymous, file-backed, and shared RSS for the executed process."""
+    proc_dir = Path("/proc") / str(pid)
+    try:
+        if (proc_dir / "exe").resolve() != executable.resolve():
+            return (0, 0, 0)
+        fields = {}
+        for line in (proc_dir / "status").read_text().splitlines():
+            name, sep, value = line.partition(":")
+            if sep and name in {"RssAnon", "RssFile", "RssShmem"}:
+                fields[name] = int(value.split()[0]) * 1024  # Linux reports KiB.
+        return (
+            fields.get("RssAnon", 0),
+            fields.get("RssFile", 0),
+            fields.get("RssShmem", 0),
+        )
+    except (OSError, ValueError, IndexError):
+        return (0, 0, 0)
+
+
 def run_measured(
     cmd: list[str], log_path: Path, env: dict[str, str], sample_paths: list[Path]
 ) -> dict[str, Any]:
-    """Run a command, capturing wall time, executed-process VmHWM and peak disk use."""
+    """Run a command, capturing wall time, process VmHWM, RSS components, and peak disk use."""
     sampler = DiskSampler(sample_paths)
     executable = Path(cmd[0]).resolve()
     t0 = time.monotonic()
     peak_rss_bytes = 0
+    peak_rss_anon_bytes = 0
+    peak_rss_file_bytes = 0
+    peak_rss_shmem_bytes = 0
+    component_samples = 0
     with open(log_path, "wb") as out:
         sampler.start()
         proc = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, env=env)
         while True:
             peak_rss_bytes = max(peak_rss_bytes, process_peak_rss_bytes(proc.pid, executable))
+            anon_bytes, file_bytes, shmem_bytes = process_rss_components_bytes(
+                proc.pid, executable
+            )
+            if anon_bytes or file_bytes or shmem_bytes:
+                component_samples += 1
+            peak_rss_anon_bytes = max(peak_rss_anon_bytes, anon_bytes)
+            peak_rss_file_bytes = max(peak_rss_file_bytes, file_bytes)
+            peak_rss_shmem_bytes = max(peak_rss_shmem_bytes, shmem_bytes)
             finished_pid, status, ru = os.wait4(proc.pid, os.WNOHANG)
             if finished_pid:
                 proc.returncode = os.waitstatus_to_exitcode(status)
@@ -1016,6 +1048,15 @@ def run_measured(
         "returncode": proc.returncode,
         "wall_seconds": round(wall, 3),
         "peak_rss_bytes": peak_rss_bytes,
+        "peak_rss_anon_bytes": peak_rss_anon_bytes,
+        "peak_rss_file_bytes": peak_rss_file_bytes,
+        "peak_rss_shmem_bytes": peak_rss_shmem_bytes,
+        "rss_component_sample_count": component_samples,
+        "rss_component_sample_interval_seconds": 0.005,
+        "rss_sampling_note": (
+            "VmHWM is the kernel high-water mark of total process RSS. Anonymous, file-backed, "
+            "and shared values are 5 ms procfs samples and may understate their true peaks."
+        ),
         "peak_workspace_disk_bytes": peak_disk,
         "log": str(log_path),
     }

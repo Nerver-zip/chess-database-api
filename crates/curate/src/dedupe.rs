@@ -573,8 +573,19 @@ pub fn normalize_player_name(name: &str) -> String {
 }
 
 pub fn normalize_metadata(game: &ParsedGame) -> NormalizedMetadataKey {
-    let white_norm = normalize_player_name(&game.metadata.white);
-    let black_norm = normalize_player_name(&game.metadata.black);
+    let (white_identity, black_identity) = game
+        .metadata
+        .source_attribution
+        .as_ref()
+        .map(|source| {
+            (
+                source.white_identity_evidence.as_deref(),
+                source.black_identity_evidence.as_deref(),
+            )
+        })
+        .unwrap_or((None, None));
+    let white_norm = normalize_dedupe_player_name(&game.metadata.white, white_identity);
+    let black_norm = normalize_dedupe_player_name(&game.metadata.black, black_identity);
 
     let year = game.metadata.date.as_ref().and_then(|d| {
         let parts: Vec<&str> = d.split('.').collect();
@@ -599,10 +610,23 @@ pub fn normalize_metadata(game: &ParsedGame) -> NormalizedMetadataKey {
     }
 }
 
+fn normalize_dedupe_player_name(name: &str, identity_evidence: Option<&str>) -> String {
+    if identity_evidence.is_none_or(|value| {
+        value.eq_ignore_ascii_case("Strong") || value.eq_ignore_ascii_case("Confirmed")
+    }) {
+        return normalize_player_name(name);
+    }
+
+    name.chars()
+        .filter(|character| character.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use codb_core::{Collection, GameMetadata, GameResult};
+    use codb_core::{Collection, GameMetadata, GameResult, GameSourceAttribution};
 
     fn make_test_game(
         id: u64,
@@ -668,6 +692,51 @@ mod tests {
                 canonical_id: 1,
                 reason: "Exact metadata and verified move sequence match".into()
             }
+        );
+    }
+
+    #[test]
+    fn weak_identity_names_keep_full_names_in_dedupe_key() {
+        let moves = vec![
+            CompactMove::new(12, 28, None),
+            CompactMove::new(52, 36, None),
+        ];
+        let mut first = make_test_game(
+            91,
+            "Smith, John",
+            "Opponent, Alex",
+            "2024.01.01",
+            "Same Event",
+            moves.clone(),
+        );
+        let mut second = make_test_game(
+            92,
+            "Smith, James",
+            "Opponent, Alex",
+            "2024.01.01",
+            "Same Event",
+            moves,
+        );
+        let weak_source = || GameSourceAttribution {
+            source_tag: Some("Historical Archive".into()),
+            source_quality: None,
+            white_fide_id: None,
+            black_fide_id: None,
+            white_identity_evidence: Some("NoMatch".into()),
+            black_identity_evidence: Some("NoMatch".into()),
+            mode: None,
+            white_title: None,
+            black_title: None,
+        };
+        first.metadata.source_attribution = Some(weak_source());
+        second.metadata.source_attribution = Some(weak_source());
+
+        assert_ne!(normalize_metadata(&first), normalize_metadata(&second));
+        let mut dedupe = Deduplicator::new();
+        assert_eq!(dedupe.evaluate(&first).unwrap(), DuplicateVerdict::Unique);
+        assert_eq!(
+            dedupe.evaluate(&second).unwrap(),
+            DuplicateVerdict::TranspositionDifferentGame
         );
     }
 
