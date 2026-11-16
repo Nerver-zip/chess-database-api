@@ -5,9 +5,9 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
-use codb_core::{GameResult, ParsedGame};
-use codb_curate::dedupe::normalize_player_name;
-use codb_storage::DatasetReader;
+use opening_explorer_core::{GameResult, ParsedGame};
+use opening_explorer_curate::dedupe::normalize_player_name;
+use opening_explorer_storage::DatasetReader;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -529,7 +529,7 @@ fn run() -> Result<()> {
     let event_or_round_drift = players_date_moves.saturating_sub(full_metadata_moves);
     let report = OverlapReport {
         schema_version: 2,
-        method: "Stream all canonical games through DatasetReader; compare the previous Masters snapshot with new games whose sidecar includes Source=LichessBroadcastAPI. Game sequences use exact CompactMove vectors. Player names use codb-curate's existing normalization. Date comparison normalizes separators; year comparison is a broad candidate signal. Event and round remove non-alphanumeric ASCII characters and lowercase. For exact normalized player/date/event/round/move candidates, report match multiplicity and compare other persisted fields pairwise, distinguishing missing fields by side. Stable-ID preimage components use the same trim and ASCII lowercase rules as compute_stable_game_id; moves and collection already match by construction. Publish agreement counts only. No candidate is automatically deduplicated from this audit.".into(),
+        method: "Stream all canonical games through DatasetReader; compare the previous Masters snapshot with new games whose sidecar includes Source=LichessBroadcastAPI. Game sequences use exact CompactMove vectors. Player names use opening-explorer-curate's existing normalization. Date comparison normalizes separators; year comparison is a broad candidate signal. Event and round remove non-alphanumeric ASCII characters and lowercase. For exact normalized player/date/event/round/move candidates, report match multiplicity and compare other persisted fields pairwise, distinguishing missing fields by side. Stable-ID preimage components use the same trim and ASCII lowercase rules as compute_stable_game_id; moves and collection already match by construction. Publish agreement counts only. No candidate is automatically deduplicated from this audit.".into(),
         previous_release: summary(&old_reader),
         gigabase_evaluation: summary(&new_reader),
         candidate_source: "LichessBroadcastAPI".into(),

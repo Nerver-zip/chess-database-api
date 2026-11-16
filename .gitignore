@@ -3,8 +3,8 @@
 # Local environment files
 .env
 .env.*
-!.env.codb.example
-!.env.codb.gigabase.example
+!.env.example
+!.env.gigabase.example
 
 # Data directories and archives
 data/

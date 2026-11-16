@@ -1,5 +1,7 @@
-use codb_core::{Collection, CompactMove, GameMetadata, GameResult, IngestionStats, ParsedGame};
-use codb_storage::{
+use opening_explorer_core::{
+    Collection, CompactMove, GameMetadata, GameResult, IngestionStats, ParsedGame,
+};
+use opening_explorer_storage::{
     build_dataset_position_index, recover_dataset, verify_dataset, DatasetIndexConfig, DatasetLock,
     DatasetReader, DatasetWriter, DatasetWriterConfig, SourceArchiveMetadata, StagingLock,
     StorageError,
@@ -205,7 +207,7 @@ fn test_dataset_version_collision_fails_closed_without_overwriting() {
     build_test_dataset(&ds_dir, 10);
 
     // Run a first real index build that publishes an immutable version with a known ID.
-    let colliding_id = "codb-collision-regression-version".to_string();
+    let colliding_id = "opening-explorer-collision-regression-version".to_string();
     let first = build_dataset_position_index(
         &ds_dir,
         DatasetIndexConfig {

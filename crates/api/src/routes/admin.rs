@@ -10,8 +10,11 @@ use std::sync::Arc;
 
 /// Handler for `POST /v1/admin/reload`.
 ///
-/// Requires an administrative bearer token configured via `--admin-token` or `CODB_ADMIN_TOKEN`.
+/// Requires an administrative bearer token configured via `--admin-token` or `OPENING_EXPLORER_ADMIN_TOKEN`.
 /// If no token is configured, the endpoint fails closed with HTTP 403 Forbidden.
+///
+/// The route is outside the read-endpoint request timeout. The reload runs in a spawned task,
+/// so a long verification finishes and swaps atomically even if the caller stops waiting.
 pub async fn reload_snapshots(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -55,8 +58,11 @@ pub async fn reload_snapshots(
         return Err(ApiError::Unauthorized);
     }
 
-    // 3. Execute reload with full candidate snapshot integrity verification
-    let reloaded = state.reload().await?;
+    // 4. Execute reload with full candidate snapshot integrity verification, in its own task
+    let worker = Arc::clone(&state);
+    let reloaded = tokio::spawn(async move { worker.reload().await })
+        .await
+        .map_err(|e| ApiError::Internal(format!("Reload task failed: {}", e)))??;
 
     Ok(Json(AdminReloadResponse {
         status: "ok".to_string(),

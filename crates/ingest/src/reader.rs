@@ -1,8 +1,8 @@
-use codb_core::{
+use opening_explorer_core::{
     compute_stable_game_id, Collection, CompactMove, GameMetadata, GameResult,
     GameSourceAttribution, IngestionCompletionStatus, IngestionStats, ParsedGame,
 };
-use codb_curate::policy::{
+use opening_explorer_curate::policy::{
     is_aborted_or_infraction_termination, GigabaseHeaderMetadata, GigabaseOtbPolicy,
 };
 use pgn_reader::{RawTag, Reader, SanPlus, Visitor};
@@ -492,7 +492,7 @@ impl Visitor for ShakmatyGameVisitor {
                         }
                     }
                     if let Some(tc) = &tags.time_control {
-                        if codb_curate::policy::is_bullet_time_control(tc) {
+                        if opening_explorer_curate::policy::is_bullet_time_control(tc) {
                             return ControlFlow::Break(Err(IngestError::RejectedByPolicy(
                                 "Bullet TC".into(),
                             )));

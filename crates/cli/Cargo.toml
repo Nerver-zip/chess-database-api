@@ -1,21 +1,21 @@
 [package]
-name = "codb-cli"
+name = "opening-explorer-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "codb"
+name = "opening-explorer"
 path = "src/main.rs"
 
 [dependencies]
-codb-core.workspace = true
-codb-ingest.workspace = true
-codb-curate.workspace = true
-codb-storage.workspace = true
-codb-index.workspace = true
-codb-api.workspace = true
+opening-explorer-core.workspace = true
+opening-explorer-ingest.workspace = true
+opening-explorer-curate.workspace = true
+opening-explorer-storage.workspace = true
+opening-explorer-index.workspace = true
+opening-explorer-api.workspace = true
 
 pgn-reader.workspace = true
 zstd.workspace = true

@@ -1,8 +1,8 @@
-use codb_core::{
+use opening_explorer_core::{
     compute_stable_game_id, Collection, CompactMove, GameLocation, GameMetadata, GameResult,
     IngestionCompletionStatus, IngestionStats, ParsedGame,
 };
-use codb_storage::{
+use opening_explorer_storage::{
     compute_file_sha256, verify_dataset, DatasetWriter, DatasetWriterConfig, GameLookupEntry,
     GameLookupReader, GameLookupWriter, SourceArchiveMetadata, StagingCatalog, StorageError,
 };
@@ -116,7 +116,7 @@ fn test_deep_verification_detects_swapped_game_ids_with_valid_checksum() {
 
     // Read lookup entries
     let lookup_path = target.join("games.idx");
-    let reader = codb_storage::GameLookupReader::open(&lookup_path).unwrap();
+    let reader = opening_explorer_storage::GameLookupReader::open(&lookup_path).unwrap();
     let e0 = reader.get_entry(0).unwrap();
     let e1 = reader.get_entry(1).unwrap();
     let e2 = reader.get_entry(2).unwrap();
@@ -156,7 +156,8 @@ fn test_deep_verification_detects_swapped_game_ids_with_valid_checksum() {
     // Also update manifest.json with the new lookup checksum so quick verification passes
     let manifest_path = target.join("manifest.json");
     let manifest_str = fs::read_to_string(&manifest_path).unwrap();
-    let mut manifest: codb_storage::DatasetManifest = serde_json::from_str(&manifest_str).unwrap();
+    let mut manifest: opening_explorer_storage::DatasetManifest =
+        serde_json::from_str(&manifest_str).unwrap();
     manifest.lookup_table.sha256 = compute_file_sha256(&lookup_path).unwrap();
     fs::write(
         &manifest_path,
@@ -192,7 +193,7 @@ fn test_deep_verification_detects_corrupted_lookup_pointing_to_nonexistent_block
     build_test_dataset(&target, 4).unwrap();
 
     let lookup_path = target.join("games.idx");
-    let reader = codb_storage::GameLookupReader::open(&lookup_path).unwrap();
+    let reader = opening_explorer_storage::GameLookupReader::open(&lookup_path).unwrap();
     let e0 = reader.get_entry(0).unwrap();
     let e1 = reader.get_entry(1).unwrap();
     let e2 = reader.get_entry(2).unwrap();
@@ -219,7 +220,8 @@ fn test_deep_verification_detects_corrupted_lookup_pointing_to_nonexistent_block
     // Update manifest with new lookup checksum
     let manifest_path = target.join("manifest.json");
     let manifest_str = fs::read_to_string(&manifest_path).unwrap();
-    let mut manifest: codb_storage::DatasetManifest = serde_json::from_str(&manifest_str).unwrap();
+    let mut manifest: opening_explorer_storage::DatasetManifest =
+        serde_json::from_str(&manifest_str).unwrap();
     manifest.lookup_table.sha256 = compute_file_sha256(&lookup_path).unwrap();
     fs::write(
         &manifest_path,
@@ -246,7 +248,8 @@ fn test_deep_verification_detects_count_mismatch_between_manifest_and_lookup() {
     // Tamper with manifest total_games
     let manifest_path = target.join("manifest.json");
     let manifest_str = fs::read_to_string(&manifest_path).unwrap();
-    let mut manifest: codb_storage::DatasetManifest = serde_json::from_str(&manifest_str).unwrap();
+    let mut manifest: opening_explorer_storage::DatasetManifest =
+        serde_json::from_str(&manifest_str).unwrap();
     manifest.total_games = 5;
     manifest.accounting.total_encountered = 5;
     manifest.accounting.accepted_unique = 5;

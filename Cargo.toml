@@ -15,16 +15,16 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Nerver <https://github.com/Nerver-zip>"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/Nerver-zip/chess-openings-db"
+repository = "https://github.com/Nerver-zip/opening-explorer-api"
 rust-version = "1.80"
 
 [workspace.dependencies]
-codb-core = { path = "crates/core" }
-codb-ingest = { path = "crates/ingest" }
-codb-curate = { path = "crates/curate" }
-codb-storage = { path = "crates/storage" }
-codb-index = { path = "crates/index" }
-codb-api = { path = "crates/api" }
+opening-explorer-core = { path = "crates/core" }
+opening-explorer-ingest = { path = "crates/ingest" }
+opening-explorer-curate = { path = "crates/curate" }
+opening-explorer-storage = { path = "crates/storage" }
+opening-explorer-index = { path = "crates/index" }
+opening-explorer-api = { path = "crates/api" }
 
 shakmaty = "0.30.2"
 pgn-reader = "0.29.1"

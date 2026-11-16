@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-/// Complete configuration for the `codb` HTTP server.
+/// Complete configuration for the `opening-explorer` HTTP server.
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
     /// Filesystem path to the Masters OTB dataset root directory (containing `current` or version snapshot).
@@ -78,7 +78,7 @@ impl ServerConfig {
         if let Some(token) = &self.admin_token {
             if token.trim().is_empty() {
                 return Err(
-                    "Administrative token (--admin-token / CODB_ADMIN_TOKEN) cannot be empty or whitespace-only"
+                    "Administrative token (--admin-token / OPENING_EXPLORER_ADMIN_TOKEN) cannot be empty or whitespace-only"
                         .to_string(),
                 );
             }

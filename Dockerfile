@@ -7,17 +7,17 @@ RUN apt-get update \
 WORKDIR /workspace
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
-RUN cargo build --locked --release --package codb-cli
+RUN cargo build --locked --release --package opening-explorer-cli
 
 FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc AS runtime
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl libgcc-s1 libstdc++6 libzstd1 \
-    && groupadd --system --gid 10001 codb \
-    && useradd --system --uid 10001 --gid codb --home-dir /nonexistent --shell /usr/sbin/nologin codb \
+    && groupadd --system --gid 10001 opening-explorer \
+    && useradd --system --uid 10001 --gid opening-explorer --home-dir /nonexistent --shell /usr/sbin/nologin opening-explorer \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder --chown=10001:10001 /workspace/target/release/codb /usr/local/bin/codb
+COPY --from=builder --chown=10001:10001 /workspace/target/release/opening-explorer /usr/local/bin/opening-explorer
 
 ENV RUST_LOG=info
 USER 10001:10001
@@ -25,4 +25,4 @@ EXPOSE 8080
 STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=10s --timeout=3s --start-period=90s --retries=5 \
     CMD ["/usr/bin/curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8080/ready"]
-ENTRYPOINT ["/usr/local/bin/codb"]
+ENTRYPOINT ["/usr/local/bin/opening-explorer"]

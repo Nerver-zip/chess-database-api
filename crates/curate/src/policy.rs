@@ -1,4 +1,4 @@
-use codb_core::{GameSourceAttribution, ParsedGame};
+use opening_explorer_core::{GameSourceAttribution, ParsedGame};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1354,7 +1354,7 @@ fn extract_year(game: &ParsedGame) -> Option<u16> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use codb_core::{Collection, CompactMove, GameMetadata, GameResult};
+    use opening_explorer_core::{Collection, CompactMove, GameMetadata, GameResult};
 
     fn make_game(
         collection: Collection,

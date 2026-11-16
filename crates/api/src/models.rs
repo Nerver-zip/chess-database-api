@@ -26,6 +26,10 @@ pub struct PositionResponse {
     pub dataset_version: String,
     /// ISO 8601 build timestamp of the dataset snapshot.
     pub dataset_freshness: String,
+    /// Plies per game covered by the position index of this snapshot. Positions are
+    /// indexed only for moves inside this window (see `docs/API_REFERENCE.md`).
+    #[serde(default)]
+    pub cpi_depth_plies: u32,
     /// Canonical 128-bit position key formatted as 32 lowercase hex characters.
     pub position_key: String,
     /// Normalized FEN representation of the board.

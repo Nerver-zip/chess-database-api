@@ -1,13 +1,13 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use codb_core::{Collection, ParsedGame};
+use opening_explorer_core::{Collection, ParsedGame};
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Cursor, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 use crate::format::{GameBlock, StorageError};
 
-pub const SHARD_MAGIC_HEADER: &[u8; 4] = b"CGCS"; // CODB Game Container Shard
-pub const SHARD_MAGIC_FOOTER: &[u8; 4] = b"CGCE"; // CODB Game Container End
+pub const SHARD_MAGIC_HEADER: &[u8; 4] = b"CGCS"; // Game container shard header (named CODB in earlier releases)
+pub const SHARD_MAGIC_FOOTER: &[u8; 4] = b"CGCE"; // Game container shard footer (named CODB in earlier releases)
 pub const SHARD_FORMAT_VERSION: u32 = 1;
 pub const SHARD_HEADER_SIZE: usize = 32;
 pub const SHARD_FOOTER_SIZE: usize = 20;

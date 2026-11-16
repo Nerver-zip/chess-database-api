@@ -1,6 +1,8 @@
-use codb_core::{Collection, IngestionCompletionStatus, IngestionStats, ParsedGame};
-use codb_curate::dedupe::{DedupeError, Deduplicator, DuplicateVerdict};
-use codb_curate::policy::{EliteOnlinePolicy, GigabaseOtbPolicy, MastersOtbPolicy, PolicyVerdict};
+use opening_explorer_core::{Collection, IngestionCompletionStatus, IngestionStats, ParsedGame};
+use opening_explorer_curate::dedupe::{DedupeError, Deduplicator, DuplicateVerdict};
+use opening_explorer_curate::policy::{
+    EliteOnlinePolicy, GigabaseOtbPolicy, MastersOtbPolicy, PolicyVerdict,
+};
 use std::collections::HashSet;
 use std::io::Read;
 use thiserror::Error;
@@ -17,7 +19,7 @@ pub enum PipelineError {
     #[error("Fatal IO error: {0}")]
     Io(#[from] std::io::Error),
     #[error("Deduplication error: {0}")]
-    Dedupe(#[from] codb_curate::dedupe::DedupeError),
+    Dedupe(#[from] opening_explorer_curate::dedupe::DedupeError),
     #[error("Consumer error: {0}")]
     Consumer(String),
 }
@@ -247,7 +249,8 @@ impl<C: GameConsumer> CuratedPipeline<C> {
                             *self
                                 .policy_rejection_reasons
                                 .entry(
-                                    codb_curate::policy::early_filter_category(&reason).to_string(),
+                                    opening_explorer_curate::policy::early_filter_category(&reason)
+                                        .to_string(),
                                 )
                                 .or_insert(0) += 1;
                         }

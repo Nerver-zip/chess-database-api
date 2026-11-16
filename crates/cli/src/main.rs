@@ -4,27 +4,30 @@ use std::io::{BufReader, BufWriter, Cursor, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+mod export_pgn;
 mod inventory;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
-use codb_core::{
+use opening_explorer_core::{
     Collection, GameSourceAttribution, IngestionCompletionStatus, IngestionStats, ParsedGame,
     PositionKey,
 };
-use codb_curate::dedupe::{Deduplicator, DuplicateVerdict};
-use codb_curate::policy::{EliteOnlinePolicy, GigabaseOtbPolicy, MastersOtbPolicy, PolicyVerdict};
-use codb_index::position::{
+use opening_explorer_curate::dedupe::{Deduplicator, DuplicateVerdict};
+use opening_explorer_curate::policy::{
+    EliteOnlinePolicy, GigabaseOtbPolicy, MastersOtbPolicy, PolicyVerdict,
+};
+use opening_explorer_index::position::{
     compute_position_key, extract_game_positions, DiskPositionIndex, ImmutablePositionIndex,
     SqlitePositionIndex,
 };
-use codb_ingest::pipeline::{CuratedPipeline, GameConsumer};
-use codb_ingest::reader::{
+use opening_explorer_ingest::pipeline::{CuratedPipeline, GameConsumer};
+use opening_explorer_ingest::reader::{
     build_pgn_reader, is_recoverable_pgn_syntax_error, resync_after_syntax_error, IngestError,
     ShakmatyGameVisitor,
 };
-use codb_storage::format::{export_to_pgn, GameBlock};
-use codb_storage::{
+use opening_explorer_storage::format::{export_to_pgn, GameBlock};
+use opening_explorer_storage::{
     compute_file_sha256, publish_prebuilt_dataset, verify_dataset, CurationPolicyMetadata,
     DatasetReader, DatasetWriter, DatasetWriterConfig, FileChecksumMetadata, ShardReader,
     SourceArchiveMetadata, StorageError,
@@ -37,9 +40,9 @@ use tempfile::NamedTempFile;
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "codb",
+    name = "opening-explorer",
     version = "0.1.0",
-    about = "Chess Openings DB research, curation & benchmarking toolkit"
+    about = "Build, verify, query and serve chess opening statistics datasets"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -352,34 +355,58 @@ enum Commands {
         max_games: Option<usize>,
     },
 
+    /// Export every canonical game of a persistent dataset as deterministic, complete PGN
+    /// (stdout or file; a `.zst` output path is Zstandard-compressed)
+    ExportPgn {
+        /// Dataset root or snapshot directory containing manifest.json
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// Output path; omit to write to stdout. Refuses to overwrite an existing file.
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Zstandard level used for `.zst` output
+        #[arg(long, default_value_t = export_pgn::DEFAULT_ZSTD_LEVEL)]
+        zstd_level: i32,
+
+        /// Optional JSON report with exact counts and per-tag omissions
+        #[arg(long)]
+        report: Option<PathBuf>,
+    },
+
     /// Start the read-only Opening Explorer HTTP API service
     Serve {
         /// Filesystem path to the Masters OTB dataset directory
-        #[arg(long, env = "CODB_MASTERS_DATASET")]
+        #[arg(long, env = "OPENING_EXPLORER_MASTERS_DATASET")]
         masters_dataset: Option<PathBuf>,
 
         /// Filesystem path to the Elite Online dataset directory
-        #[arg(long, env = "CODB_ELITE_DATASET")]
+        #[arg(long, env = "OPENING_EXPLORER_ELITE_DATASET")]
         elite_dataset: Option<PathBuf>,
 
         /// Host interface to bind HTTP listener
-        #[arg(long, default_value = "127.0.0.1", env = "CODB_HOST")]
+        #[arg(long, default_value = "127.0.0.1", env = "OPENING_EXPLORER_HOST")]
         host: String,
 
         /// Port to listen on
-        #[arg(short, long, default_value = "8080", env = "CODB_PORT")]
+        #[arg(short, long, default_value = "8080", env = "OPENING_EXPLORER_PORT")]
         port: u16,
 
         /// Allowed CORS origins, comma-separated (e.g. "http://localhost:3000,http://localhost:5173" or "*"). Default is empty (restrictive, same-origin only).
-        #[arg(long, default_value = "", env = "CODB_ALLOWED_ORIGINS")]
+        #[arg(long, default_value = "", env = "OPENING_EXPLORER_ALLOWED_ORIGINS")]
         allowed_origins: String,
 
         /// Global request timeout in seconds
-        #[arg(long, default_value = "15", env = "CODB_REQUEST_TIMEOUT_SECS")]
+        #[arg(
+            long,
+            default_value = "15",
+            env = "OPENING_EXPLORER_REQUEST_TIMEOUT_SECS"
+        )]
         request_timeout_secs: u64,
 
         /// Maximum plies allowed in a move sequence query (1-512)
-        #[arg(long, default_value = "200", env = "CODB_MAX_MOVE_PLIES")]
+        #[arg(long, default_value = "200", env = "OPENING_EXPLORER_MAX_MOVE_PLIES")]
         max_move_plies: usize,
 
         /// Deeply validate every dataset block before the service becomes ready
@@ -387,24 +414,28 @@ enum Commands {
         deep_validate_on_startup: bool,
 
         /// Capacity of reader pool per dataset snapshot (1-64)
-        #[arg(long, default_value = "16", env = "CODB_READER_POOL_SIZE")]
+        #[arg(long, default_value = "16", env = "OPENING_EXPLORER_READER_POOL_SIZE")]
         reader_pool_size: usize,
 
         /// Maximum seconds to wait for an available reader from the pool before returning 503
-        #[arg(long, default_value = "5", env = "CODB_READER_POOL_TIMEOUT_SECS")]
+        #[arg(
+            long,
+            default_value = "5",
+            env = "OPENING_EXPLORER_READER_POOL_TIMEOUT_SECS"
+        )]
         reader_pool_timeout_secs: u64,
 
         /// Whether clients may retrieve stored PGN by stable game ID
         #[arg(
             long,
             default_value_t = true,
-            env = "CODB_ENABLE_GAME_RETRIEVAL",
+            env = "OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL",
             action = clap::ArgAction::Set
         )]
         enable_game_retrieval: bool,
 
         /// Optional secret token required for administrative operations (POST /v1/admin/reload)
-        #[arg(long, env = "CODB_ADMIN_TOKEN")]
+        #[arg(long, env = "OPENING_EXPLORER_ADMIN_TOKEN")]
         admin_token: Option<String>,
     },
 }
@@ -713,6 +744,53 @@ fn open_pgn_reader(path: &Path) -> Result<Box<dyn Read + Send>> {
     }
 }
 
+/// Deprecated `CODB_*` environment names and their `OPENING_EXPLORER_*` replacements.
+///
+/// A current variable always wins. A legacy variable is promoted only when its
+/// replacement is unset, and a deprecation warning is printed to stderr.
+const LEGACY_ENV_ALIASES: &[(&str, &str)] = &[
+    ("OPENING_EXPLORER_MASTERS_DATASET", "CODB_MASTERS_DATASET"),
+    ("OPENING_EXPLORER_ELITE_DATASET", "CODB_ELITE_DATASET"),
+    ("OPENING_EXPLORER_HOST", "CODB_HOST"),
+    ("OPENING_EXPLORER_PORT", "CODB_PORT"),
+    ("OPENING_EXPLORER_ALLOWED_ORIGINS", "CODB_ALLOWED_ORIGINS"),
+    (
+        "OPENING_EXPLORER_REQUEST_TIMEOUT_SECS",
+        "CODB_REQUEST_TIMEOUT_SECS",
+    ),
+    ("OPENING_EXPLORER_MAX_MOVE_PLIES", "CODB_MAX_MOVE_PLIES"),
+    ("OPENING_EXPLORER_READER_POOL_SIZE", "CODB_READER_POOL_SIZE"),
+    (
+        "OPENING_EXPLORER_READER_POOL_TIMEOUT_SECS",
+        "CODB_READER_POOL_TIMEOUT_SECS",
+    ),
+    (
+        "OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL",
+        "CODB_ENABLE_GAME_RETRIEVAL",
+    ),
+    ("OPENING_EXPLORER_ADMIN_TOKEN", "CODB_ADMIN_TOKEN"),
+];
+
+/// Returns `(current, legacy, value)` for every legacy variable that must be promoted.
+fn legacy_env_promotions(
+    lookup: impl Fn(&str) -> Option<std::ffi::OsString>,
+) -> Vec<(&'static str, &'static str, std::ffi::OsString)> {
+    LEGACY_ENV_ALIASES
+        .iter()
+        .filter(|&&(current, _)| lookup(current).is_none())
+        .filter_map(|&(current, legacy)| lookup(legacy).map(|value| (current, legacy, value)))
+        .collect()
+}
+
+/// Promotes deprecated `CODB_*` values into their replacement names before clap parses them.
+/// Must run before any worker threads start.
+fn apply_legacy_env_aliases() {
+    for (current, legacy, value) in legacy_env_promotions(|name| std::env::var_os(name)) {
+        eprintln!("warning: {legacy} is deprecated; set {current} instead");
+        std::env::set_var(current, value);
+    }
+}
+
 fn main() -> Result<()> {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
@@ -721,6 +799,7 @@ fn main() -> Result<()> {
         .with_ansi(false)
         .try_init();
 
+    apply_legacy_env_aliases();
     let cli = Cli::parse();
 
     match cli.command {
@@ -948,6 +1027,28 @@ fn main() -> Result<()> {
             run_export(&dataset, output.as_deref(), max_games)?;
         }
 
+        Commands::ExportPgn {
+            dataset,
+            output,
+            zstd_level,
+            report,
+        } => {
+            let stats = export_pgn::run_export_pgn(&export_pgn::ExportOptions {
+                dataset,
+                output: output.clone(),
+                zstd_level,
+                report,
+            })?;
+            eprintln!(
+                "Exported {} games ({} plain PGN bytes) to {}",
+                stats.games_written,
+                stats.plain_bytes,
+                output
+                    .as_deref()
+                    .map_or("stdout".to_string(), |p| p.display().to_string())
+            );
+        }
+
         Commands::Serve {
             masters_dataset,
             elite_dataset,
@@ -968,7 +1069,7 @@ fn main() -> Result<()> {
                 .filter(|s| !s.is_empty())
                 .collect();
 
-            let config = codb_api::ServerConfig {
+            let config = opening_explorer_api::ServerConfig {
                 masters_dataset,
                 elite_dataset,
                 host,
@@ -988,7 +1089,7 @@ fn main() -> Result<()> {
                 .build()
                 .context("Failed to build Tokio runtime")?;
 
-            rt.block_on(codb_api::run_server(config))?;
+            rt.block_on(opening_explorer_api::run_server(config))?;
         }
     }
 
@@ -1714,12 +1815,12 @@ fn run_build(opts: BuildOptions) -> Result<()> {
         DedupeModeArg::Disk => {
             let temp_dedupe = if let Some(scratch_dir) = &opts.scratch_dir {
                 tempfile::Builder::new()
-                    .prefix("codb_dedupe_")
+                    .prefix("opening_explorer_dedupe_")
                     .suffix(".db")
                     .tempfile_in(scratch_dir)?
             } else {
                 tempfile::Builder::new()
-                    .prefix("codb_dedupe_")
+                    .prefix("opening_explorer_dedupe_")
                     .suffix(".db")
                     .tempfile()?
             };
@@ -1925,9 +2026,9 @@ fn run_report(dataset: &Path, output: Option<&Path>) -> Result<()> {
         }
         *results
             .entry(match m.result {
-                codb_core::GameResult::WhiteWins => "1-0",
-                codb_core::GameResult::BlackWins => "0-1",
-                codb_core::GameResult::Draw => "1/2-1/2",
+                opening_explorer_core::GameResult::WhiteWins => "1-0",
+                opening_explorer_core::GameResult::BlackWins => "0-1",
+                opening_explorer_core::GameResult::Draw => "1/2-1/2",
                 _ => "unknown",
             })
             .or_insert(0) += 1;
@@ -2016,7 +2117,7 @@ fn run_bench_lookup(dataset: &Path, games: usize, output: Option<&Path>) -> Resu
             break;
         }
         let game = game?;
-        let ex = codb_index::position::extract_game_positions_detailed(&game, depth)
+        let ex = opening_explorer_index::position::extract_game_positions_detailed(&game, depth)
             .map_err(|e| anyhow::anyhow!("position extraction failed: {e}"))?;
         for (i, (key, _, _)) in ex.entries.iter().enumerate() {
             if i % 3 == 0 {
@@ -2168,7 +2269,9 @@ fn run_inspect(dataset: &Path, json: bool) -> Result<()> {
     }
 
     println!("========================================================================");
-    println!("                      CODB Dataset Inspection                           ");
+    println!(
+        "                      Opening Explorer Dataset Inspection                           "
+    );
     println!("========================================================================");
     println!("Build ID:            {}", manifest.dataset_build_id);
     println!("Collection:          {}", manifest.collection);
@@ -2291,7 +2394,7 @@ fn run_benchmarks(
     output_dir: &Path,
     run_name: &str,
 ) -> Result<()> {
-    println!("=== Running CODB Benchmark Suite ===");
+    println!("=== Running Opening Explorer Benchmark Suite ===");
     println!("Input:       {}", input_path.display());
     println!("Collection:  {}", collection);
 
@@ -2375,7 +2478,7 @@ fn run_benchmarks(
         raw_per_game
     );
     println!(
-        "CODB Block-Zstd size:  {:.2} MB ({:.1} bytes/game, +{} B block directory)",
+        "CGB3 Block-Zstd size:  {:.2} MB ({:.1} bytes/game, +{} B block directory)",
         codb_compressed_bytes as f64 / 1_000_000.0,
         codb_per_game,
         codb_block_directory_bytes
@@ -2769,7 +2872,7 @@ fn measure_index_depth(games: &[ParsedGame], depth_plies: usize) -> Result<Index
     let mut immutable = ImmutablePositionIndex::new();
 
     let temp_sqlite = tempfile::Builder::new()
-        .prefix("codb_bench_")
+        .prefix("opening_explorer_bench_")
         .suffix(".sqlite")
         .tempfile()?;
     let mut sqlite = SqlitePositionIndex::open(temp_sqlite.path())?;
@@ -2804,7 +2907,7 @@ fn measure_index_depth(games: &[ParsedGame], depth_plies: usize) -> Result<Index
 
     // Persist CPI index to disk to measure actual on-disk size
     let temp_cpi = tempfile::Builder::new()
-        .prefix("codb_bench_")
+        .prefix("opening_explorer_bench_")
         .suffix(".cpi")
         .tempfile()?;
     let meta = immutable.write_to_file(temp_cpi.path(), 256, 3)?;
@@ -2910,7 +3013,7 @@ impl SplitMix64 {
 fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
     let mut immutable = ImmutablePositionIndex::new();
     let temp_sqlite = tempfile::Builder::new()
-        .prefix("codb_lat_")
+        .prefix("opening_explorer_lat_")
         .suffix(".sqlite")
         .tempfile()?;
     let mut sqlite = SqlitePositionIndex::open(temp_sqlite.path())?;
@@ -2965,7 +3068,7 @@ fn measure_query_latencies(games: &[ParsedGame]) -> Result<LatencyMetrics> {
     drop(transposition_set);
 
     let temp_cpi = tempfile::Builder::new()
-        .prefix("codb_lat_")
+        .prefix("opening_explorer_lat_")
         .suffix(".cpi")
         .tempfile()?;
     immutable.write_to_file(temp_cpi.path(), 256, 3)?;
@@ -3202,7 +3305,7 @@ fn run_build_index(opts: BuildIndexOptions<'_>) -> Result<()> {
     let start = Instant::now();
     let memory_limit_bytes = opts.memory_limit_mib.saturating_mul(1024 * 1024);
 
-    let config = codb_storage::DatasetIndexConfig {
+    let config = opening_explorer_storage::DatasetIndexConfig {
         depth_plies: opts.depth_plies,
         expected_collection: opts.expected_collection,
         memory_limit_bytes,
@@ -3212,8 +3315,8 @@ fn run_build_index(opts: BuildIndexOptions<'_>) -> Result<()> {
         build_id_override: None,
     };
 
-    let report =
-        codb_storage::build_dataset_position_index(opts.dataset, config).with_context(|| {
+    let report = opening_explorer_storage::build_dataset_position_index(opts.dataset, config)
+        .with_context(|| {
             format!(
                 "Failed to build position index for dataset at {}",
                 opts.dataset.display()
@@ -3243,7 +3346,9 @@ fn run_build_index(opts: BuildIndexOptions<'_>) -> Result<()> {
         println!("{}", serde_json::to_string_pretty(&out)?);
     } else {
         println!("========================================================================");
-        println!("                   CODB Position Index Construction                     ");
+        println!(
+            "                   Opening Explorer Position Index Construction                     "
+        );
         println!("========================================================================");
         println!("Dataset Directory:    {}", report.dataset_dir);
         println!("Published Build ID:   {}", report.published_build_id);
@@ -3862,12 +3967,14 @@ mod tests {
 
         // Retrieve first game from games.idx
         let lookup_path = dataset_dir.join("games.idx");
-        let lookup_reader = codb_storage::GameLookupReader::open(&lookup_path).unwrap();
+        let lookup_reader = opening_explorer_storage::GameLookupReader::open(&lookup_path).unwrap();
         assert_eq!(lookup_reader.entry_count(), 20);
 
         // Test get_game with valid ID
-        let mut shard =
-            codb_storage::ShardReader::open(&dataset_dir.join("shards/shard_0000.cgb3")).unwrap();
+        let mut shard = opening_explorer_storage::ShardReader::open(
+            &dataset_dir.join("shards/shard_0000.cgb3"),
+        )
+        .unwrap();
         let b0 = shard.decompress_block(0).unwrap();
         let any_game_id = b0[0].metadata.id;
 
@@ -4024,7 +4131,7 @@ mod tests {
         let attribution_sha256 = attribution.sha256.clone();
         drop(reader);
 
-        let snapshot = codb_storage::resolve_dataset_snapshot(&output_dir).unwrap();
+        let snapshot = opening_explorer_storage::resolve_dataset_snapshot(&output_dir).unwrap();
         let attribution_line =
             std::fs::read_to_string(snapshot.join("source-attribution.jsonl")).unwrap();
         assert!(attribution_line.contains("Britbase"));
@@ -4273,9 +4380,9 @@ mod tests {
         .unwrap();
 
         // Mutate dataset manifest so source size is 0 (simulating unknown original source size)
-        let resolved = codb_storage::resolve_dataset_snapshot(&dataset_dir).unwrap();
+        let resolved = opening_explorer_storage::resolve_dataset_snapshot(&dataset_dir).unwrap();
         let manifest_file = resolved.join("manifest.json");
-        let mut manifest: codb_storage::DatasetManifest =
+        let mut manifest: opening_explorer_storage::DatasetManifest =
             serde_json::from_slice(&std::fs::read(&manifest_file).unwrap()).unwrap();
         for s in &mut manifest.source_archives {
             s.size_bytes = 0;
@@ -4356,9 +4463,9 @@ mod tests {
         assert_eq!(report_val["provenance_status"].as_str(), Some("verified"));
 
         // 2. Historical dataset where checksum_verified is None (uncertainty preserved)
-        let resolved = codb_storage::resolve_dataset_snapshot(&dataset_dir).unwrap();
+        let resolved = opening_explorer_storage::resolve_dataset_snapshot(&dataset_dir).unwrap();
         let manifest_file = resolved.join("manifest.json");
-        let mut manifest: codb_storage::DatasetManifest =
+        let mut manifest: opening_explorer_storage::DatasetManifest =
             serde_json::from_slice(&std::fs::read(&manifest_file).unwrap()).unwrap();
         manifest.source_archives[0].checksum_verified = None;
         std::fs::write(
@@ -4526,13 +4633,45 @@ mod tests {
     }
 
     #[test]
+    fn legacy_env_names_are_promoted_only_when_current_is_unset() {
+        use std::collections::HashMap;
+        use std::ffi::OsString;
+
+        let env = |pairs: &[(&str, &str)]| {
+            let map: HashMap<String, OsString> = pairs
+                .iter()
+                .map(|(k, v)| (k.to_string(), OsString::from(v)))
+                .collect();
+            move |name: &str| map.get(name).cloned()
+        };
+
+        let promoted = legacy_env_promotions(env(&[("CODB_PORT", "9000")]));
+        assert_eq!(
+            promoted,
+            vec![("OPENING_EXPLORER_PORT", "CODB_PORT", OsString::from("9000"))]
+        );
+
+        let current_wins = legacy_env_promotions(env(&[
+            ("CODB_PORT", "9000"),
+            ("OPENING_EXPLORER_PORT", "8081"),
+        ]));
+        assert!(current_wins.is_empty(), "current name must take precedence");
+
+        assert!(legacy_env_promotions(env(&[])).is_empty());
+    }
+
+    #[test]
     fn test_serve_cli_options_parsing() {
         use clap::Parser;
 
         // Default reader_pool_timeout_secs is 5
-        let cli_default =
-            Cli::try_parse_from(["codb", "serve", "--masters-dataset", "data/builds/masters"])
-                .unwrap();
+        let cli_default = Cli::try_parse_from([
+            "opening-explorer",
+            "serve",
+            "--masters-dataset",
+            "data/builds/masters",
+        ])
+        .unwrap();
         match cli_default.command {
             Commands::Serve {
                 reader_pool_timeout_secs,
@@ -4547,7 +4686,7 @@ mod tests {
 
         // Custom reader_pool_timeout_secs
         let cli_custom = Cli::try_parse_from([
-            "codb",
+            "opening-explorer",
             "serve",
             "--masters-dataset",
             "data/builds/masters",

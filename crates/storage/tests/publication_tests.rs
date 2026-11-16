@@ -1,9 +1,9 @@
-use codb_core::{
+use opening_explorer_core::{
     compute_stable_game_id, Collection, CompactMove, GameMetadata, GameResult,
     IngestionCompletionStatus, IngestionStats, ParsedGame,
 };
-use codb_storage::fault::{self, FaultPoint};
-use codb_storage::{
+use opening_explorer_storage::fault::{self, FaultPoint};
+use opening_explorer_storage::{
     cleanup_old_versions, publish_prebuilt_dataset, recover_dataset, resolve_dataset_snapshot,
     verify_dataset, DatasetReader, DatasetWriter, DatasetWriterConfig, SourceArchiveMetadata,
     StorageError,
@@ -512,7 +512,9 @@ fn test_recovery_falls_back_to_old_version_if_newest_is_corrupt() {
 
     // Create a newer corrupt version directory in versions/
     std::thread::sleep(std::time::Duration::from_millis(50));
-    let corrupt_version = target.join("versions").join("codb-corrupt-newer");
+    let corrupt_version = target
+        .join("versions")
+        .join("opening-explorer-corrupt-newer");
     fs::create_dir_all(&corrupt_version).unwrap();
     fs::write(corrupt_version.join("manifest.json"), "{ invalid json }").unwrap();
 
@@ -613,9 +615,9 @@ fn test_cleanup_old_versions_never_removes_active_version() {
 #[test]
 fn test_crash_simulation_subprocess_termination() {
     // If running as the child process:
-    if std::env::var("CODB_TEST_SUBPROCESS_CRASH").as_deref() == Ok("1") {
+    if std::env::var("OPENING_EXPLORER_TEST_SUBPROCESS_CRASH").as_deref() == Ok("1") {
         let child_target =
-            std::path::PathBuf::from(std::env::var("CODB_TEST_CHILD_TARGET").unwrap());
+            std::path::PathBuf::from(std::env::var("OPENING_EXPLORER_TEST_CHILD_TARGET").unwrap());
         create_dataset(&child_target, 8, 500).unwrap();
         return;
     }
@@ -633,9 +635,9 @@ fn test_crash_simulation_subprocess_termination() {
     let status = std::process::Command::new(current_exe)
         .arg("test_crash_simulation_subprocess_termination")
         .arg("--exact")
-        .env("CODB_TEST_SUBPROCESS_CRASH", "1")
-        .env("CODB_TEST_CHILD_TARGET", &target)
-        .env("CODB_CRASH_AT", "BeforeCurrentSymlinkSwitch")
+        .env("OPENING_EXPLORER_TEST_SUBPROCESS_CRASH", "1")
+        .env("OPENING_EXPLORER_TEST_CHILD_TARGET", &target)
+        .env("OPENING_EXPLORER_CRASH_AT", "BeforeCurrentSymlinkSwitch")
         .status()
         .expect("Failed to spawn child crash test");
 

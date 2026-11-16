@@ -1,7 +1,7 @@
-use codb_core::{Collection, IngestionCompletionStatus};
-use codb_curate::dedupe::Deduplicator;
-use codb_curate::policy::GigabaseOtbPolicy;
-use codb_ingest::pipeline::{CuratedPipeline, MemoryGameConsumer};
+use opening_explorer_core::{Collection, IngestionCompletionStatus};
+use opening_explorer_curate::dedupe::Deduplicator;
+use opening_explorer_curate::policy::GigabaseOtbPolicy;
+use opening_explorer_ingest::pipeline::{CuratedPipeline, MemoryGameConsumer};
 use std::collections::HashSet;
 use std::io::Cursor;
 

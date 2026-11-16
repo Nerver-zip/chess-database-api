@@ -3,7 +3,7 @@ use crate::position::{
     DEFAULT_POSITIONS_PER_BLOCK,
 };
 use byteorder::{BigEndian, ReadBytesExt};
-use codb_core::{CompactMove, GameResult, ParsedGame, PositionKey};
+use opening_explorer_core::{CompactMove, GameResult, ParsedGame, PositionKey};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::cmp::Reverse;
@@ -732,7 +732,7 @@ mod tests {
     use crate::position::{
         compute_position_key, DiskPositionIndex, ImmutablePositionIndex, SqlitePositionIndex,
     };
-    use codb_core::{Collection, GameMetadata};
+    use opening_explorer_core::{Collection, GameMetadata};
     use sha2::Digest;
     use shakmaty::{Chess, Move, Position, Role, Square};
 

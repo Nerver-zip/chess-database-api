@@ -6,14 +6,14 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
-use codb_core::{Collection, GameSourceAttribution, IngestionStats, ParsedGame};
-use codb_curate::dedupe::{DedupeError, Deduplicator, DuplicateVerdict};
-use codb_curate::policy::GigabaseOtbPolicy;
-use codb_ingest::{
+use opening_explorer_core::{Collection, GameSourceAttribution, IngestionStats, ParsedGame};
+use opening_explorer_curate::dedupe::{DedupeError, Deduplicator, DuplicateVerdict};
+use opening_explorer_curate::policy::GigabaseOtbPolicy;
+use opening_explorer_ingest::{
     build_pgn_reader, is_recoverable_pgn_syntax_error, resync_after_syntax_error,
     ShakmatyGameVisitor,
 };
-use codb_storage::DatasetReader;
+use opening_explorer_storage::DatasetReader;
 use pgn_reader::Reader;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};

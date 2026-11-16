@@ -1,4 +1,4 @@
-//! Core types and abstractions for chess-openings-db.
+//! Core types and abstractions for the Opening Explorer API.
 
 pub mod models;
 

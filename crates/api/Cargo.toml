@@ -1,5 +1,5 @@
 [package]
-name = "codb-api"
+name = "opening-explorer-api"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -8,9 +8,9 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-codb-core = { workspace = true }
-codb-storage = { workspace = true }
-codb-index = { workspace = true }
+opening-explorer-core = { workspace = true }
+opening-explorer-storage = { workspace = true }
+opening-explorer-index = { workspace = true }
 
 shakmaty = { workspace = true }
 serde = { workspace = true }

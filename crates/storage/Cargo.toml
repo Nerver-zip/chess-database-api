@@ -1,13 +1,13 @@
 [package]
-name = "codb-storage"
+name = "opening-explorer-storage"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
-codb-core.workspace = true
-codb-index.workspace = true
+opening-explorer-core.workspace = true
+opening-explorer-index.workspace = true
 shakmaty.workspace = true
 zstd.workspace = true
 serde.workspace = true
