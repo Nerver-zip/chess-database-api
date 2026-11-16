@@ -267,9 +267,19 @@ class ManifestValidationTests(unittest.TestCase):
 
 
 class DistributionGateTests(unittest.TestCase):
-    def test_committed_clearance_blocks_publication(self) -> None:
+    def test_committed_clearance_matches_its_status(self) -> None:
+        """The committed record may be cleared or not; the gate must agree with it."""
         clearance = ra.load_clearance()
         blockers = ra.clearance_blockers(clearance, RELEASE_ID)
+        if clearance["status"] == "cleared":
+            self.assertEqual(blockers, [])
+        else:
+            self.assertTrue(blockers)
+            self.assertTrue(any("not cleared" in item for item in blockers))
+
+    def test_uncleared_record_blocks_publication(self) -> None:
+        uncleared = {"status": "not_cleared", "release_id": RELEASE_ID, "clearance_reference": None}
+        blockers = ra.clearance_blockers(uncleared, RELEASE_ID)
         self.assertTrue(blockers)
         self.assertTrue(any("not cleared" in item for item in blockers))
 
@@ -534,10 +544,18 @@ class CommittedRecordTests(unittest.TestCase):
         self.assertIn("CC0 1.0", text)
         self.assertIn("not endorsed by the publisher", text.lower())
 
-    def test_clearance_record_is_committed_and_closed(self) -> None:
+    def test_clearance_record_is_committed_and_consistent(self) -> None:
         clearance = json.loads((ra.RELEASES_DIR / "distribution_clearance.json").read_text())
-        self.assertEqual(clearance["status"], "not_cleared")
-        self.assertIsNone(clearance["clearance_reference"])
+        self.assertEqual(clearance["release_id"], RELEASE_ID)
+        self.assertIn(clearance["status"], ("cleared", "not_cleared"))
+        if clearance["status"] == "cleared":
+            # A cleared record must name its written basis and who recorded it, and when.
+            for field in ("clearance_reference", "cleared_by", "cleared_on"):
+                self.assertTrue(clearance[field], field)
+            # Conflicts stay disclosed after clearance.
+            self.assertTrue(clearance["recorded_conflicts"])
+        else:
+            self.assertIsNone(clearance["clearance_reference"])
 
 
 if __name__ == "__main__":

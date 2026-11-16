@@ -4,7 +4,7 @@ A self-hosted, read-only HTTP API for chess opening statistics. Give it a positi
 
 Opening Explorer API curates and deduplicates large game collections, stores them compactly, indexes every position, and serves the statistics from a small Rust service. It is written independently and shares no code with the AGPL-licensed Lichess opening explorer.
 
-> **Availability.** There is no hosted public instance. You run the service yourself. The Masters OTB dataset assets are prepared but **not yet published**: public release is gated on a documented licensing review ([Dataset releases](docs/DATASET_RELEASES.md#6-distribution-gate)).
+> **Availability.** There is no hosted public instance. You run the service yourself. The Masters OTB dataset assets are prepared but **not yet published**. Publication goes through a gated, manually triggered workflow ([Dataset releases](docs/DATASET_RELEASES.md#6-licensing-and-the-distribution-gate)).
 
 ## Who it is for
 
