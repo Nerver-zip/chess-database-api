@@ -385,12 +385,127 @@
   },
   "validation": {
     "command": "./scripts/validate.sh",
-    "completed_at_utc": "2026-11-16T05:54:21Z",
+    "completed_at_utc": "2026-11-16T08:18:28Z",
     "gates_passed": 8,
     "gates_total": 8,
-    "python_unittest_passed": 110,
+    "python_unittest_passed": 112,
     "python_unittest_skipped": 2,
     "status": "passed",
     "toolchain": "Rust 1.100.0"
+  },
+  "independent_full_rebuild": {
+    "report": {
+      "path": "INDEPENDENT_REBUILD_R3.json",
+      "sha256": "09c308ee2b05dcfc9f2112d7850b60f97642d3edd12d11a27d17fa727b607f24"
+    },
+    "baseline_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+    "repeat_build_id": "codb-masters-otb-1794814152483964731-25052-5a11e7b2bf231253-cpi-d40",
+    "separate_output_root_and_scratch": true,
+    "content_artifacts_checked": 10,
+    "all_content_artifacts_match": true,
+    "same_accounting_as_baseline": true,
+    "same_source_as_baseline": true,
+    "same_policy_as_baseline": true,
+    "same_quality_distributions_as_baseline": true,
+    "accounting_reconciles": true,
+    "deep_verify_passed": true,
+    "position_index": {
+      "depth_plies": 40,
+      "unique_positions": 51909604,
+      "unique_position_move_pairs": 55864091,
+      "raw_observations_extracted": 127444117,
+      "memory_limit_mib": 128,
+      "runs_generated": 35,
+      "merge_passes": 1,
+      "peak_spill_bytes": 2132859200
+    },
+    "measurements": {
+      "build_duration_seconds": 5123.936267791,
+      "build_peak_rss_bytes": 67690496,
+      "build_peak_workspace_disk_bytes": 3905630208,
+      "index_duration_ms": 190897,
+      "index_peak_process_rss_bytes": 1199132672,
+      "index_peak_anonymous_rss_bytes": 123920384,
+      "index_peak_file_backed_rss_bytes": 1185218560,
+      "index_peak_workspace_disk_bytes": 4804407296
+    },
+    "deterministic_content_match": true,
+    "release_eligible": false,
+    "independence_scope": "A second full source-to-index build ran from the pinned local PGN through CODB in a new dataset root and scratch directory. It is an independent execution, not an independently implemented parser, policy, or deduplicator."
+  },
+  "independent_pgn_parser_sample": {
+    "report": {
+      "path": "INDEPENDENT_PGN_AUDIT_R3.json",
+      "sha256": "54bb834425857b0356db9b5eb77b0e72398f38104012243a1466d54c00287545"
+    },
+    "audit_kind": "independent_pgn_parser_targeted_r3_byte_sample",
+    "candidate_dataset_build_id": "codb-masters-otb-1794814152483964731-25052-5a11e7b2bf231253-cpi-d40",
+    "parser": {
+      "package": "chess",
+      "version": "1.11.2",
+      "distribution_version": "1.999",
+      "license": "GPL-3.0-or-later",
+      "runner_in_git_or_pr": false,
+      "wheel_in_git_or_pr": false,
+      "wheel_sha256_local": "541cf40233bc7a76081a916abd013298dcf1c90e64a7450f8494c4d89ee5f238",
+      "runner_sha256_local": "25e7b92fe6c41449897c8918113df8020f13a8c77d75dcf7f29506b357dce43c",
+      "helper_sha256_local": "e40405292fb07e2fb493db38b56cb27a6beba95636fd3de45b03f151b35d210b"
+    },
+    "scan": {
+      "windows_requested": 180000,
+      "windows_attempted": 180000,
+      "source_bytes_read": 260188463,
+      "source_records_examined": 180000,
+      "r3_header_prefilter_passes": 49946,
+      "python_chess_records_parsed": 49946,
+      "independent_parser_errors": 0,
+      "illegal_mainline_records": 0,
+      "candidate_id_hits": 45321,
+      "unique_candidate_ids_sampled": 45321,
+      "policy_pass_records_without_candidate_id": 4625,
+      "sampled_header_parse_failures": 0
+    },
+    "sampling": {
+      "quota_per_stratum": 8,
+      "supported_strata_count": 60,
+      "all_quotas_met": false,
+      "selected_unique_candidate_games": 426,
+      "sample_row_ids_names_event_site_moves_and_fen_in_report": false
+    },
+    "comparisons": {
+      "selected_games_retrieved": 426,
+      "comparison_classes": {
+        "all_persisted_fields_match": 423,
+        "metadata_differs_moves_and_boards_match": 2,
+        "metadata_exact_attribution_differs": 1
+      },
+      "all_persisted_fields_match": 423,
+      "metadata_exact_attribution_differences": 1,
+      "metadata_differences_with_exact_moves": 2,
+      "metadata_exact_matches": 424,
+      "move_sequence_matches": 426,
+      "starting_position_matches": 426,
+      "final_position_matches": 426,
+      "sidecar_attribution_matches": 423,
+      "attribution_difference_field_counts": {
+        "black_fide_id": 1,
+        "black_identity_evidence": 3,
+        "source_quality": 3,
+        "source_tag": 3,
+        "white_identity_evidence": 3
+      },
+      "canonical_legal_games": 426,
+      "candidate_retrieval_failures": 0
+    },
+    "duration_seconds": 365.178,
+    "process_peak_rss_kib": 370136,
+    "limitations": [
+      "This is a targeted byte-window sample, not a full-source Python parse; stratum quota misses are reported as such.",
+      "Stable-ID calculation and canonical decoding are not independent implementations; source rows are joined by the documented ID and retrieved through the production CLI.",
+      "This sample does not assign row-level deduplication dispositions to observed metadata or attribution differences; full-source traceability uses the production deduplicator.",
+      "The GPL-3.0-or-later runner and wheel are local-only and absent from CODB and PR #7; this report does not provide an in-repository executable reproduction.",
+      "Stable IDs are used only to join independently parsed source records to the canonical set; the parser, move legality checks, and board replay use python-chess 1.11.2.",
+      "Publisher rights, event-level OTB play, and official FIDE Elo provenance remain unresolved."
+    ]
   }
 }

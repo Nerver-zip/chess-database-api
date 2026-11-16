@@ -25,7 +25,66 @@ The policy-impact scan found 3,650,416 records meeting an r3 strength rule befor
 | Quarantined stable-ID collisions | 7,842 |
 | **Reconciled total** | **13,450,696** |
 
-Retained games equal accepted unique games. The 10,153,901 records rejected by header or policy gates were not all replayed for legality. Candidate build ID: `codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40`. The build passed deep verification. No independent full rebuild of r3 has been completed.
+Retained games equal accepted unique games. The 10,153,901 records rejected by header or policy gates were not all replayed for legality. Candidate build ID: `codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40`. The build passed deep verification.
+
+### Independent full rebuild
+
+A second complete build used the same locally pinned PGN and r3 policy, with a separate output root and scratch directory. It accounted for all 13,450,696 encountered records with the same dispositions, retained 3,284,429 games, passed deep verification, and matched all **10 of 10** content artifacts byte-for-byte: seven CGB3 shards, `games.idx`, `positions.cpi`, and `source-attribution.jsonl`. The repeated CPI SHA-256 and index counts match the first build. Per-run manifests and release reports differ because they record distinct build IDs and timings.
+
+The repeat build took 5,123.936 seconds and sampled 67,690,496 bytes peak RSS. Indexing took 190.897 seconds with the configured 128 MiB budget, generated 35 runs, used one merge pass, and peaked at 2,132,859,200 bytes of spill. Sampled anonymous RSS was 123,920,384 bytes; total process RSS was 1,199,132,672 bytes, largely file-backed. The repeat build uses the same CODB parser, policy, and deduplicator, so this establishes reproducibility across separate executions rather than independent implementation validation. See [INDEPENDENT_REBUILD_R3.json](INDEPENDENT_REBUILD_R3.json).
+
+### R2-to-r3 policy and release comparison
+
+| Measure | Conservative r2 | Publisher-trust r3 |
+| --- | ---: | ---: |
+| Source records encountered | 13,450,696 | 13,450,696 |
+| Accepted unique games | 156,898 | 3,284,429 |
+| Unique indexed positions | 3,406,233 | 51,909,604 |
+| Rejected by source allowlist | 11,462,752 | 0; all non-empty publisher `Source` tags are eligible |
+| Rejected solely for weak identity evidence | 1,280,905 | 0; explicit conflicts and unusable names still reject |
+| Strength and identity header candidates before remaining gates | 943,493 under numeric r2 rules plus Strong/Confirmed identities | 3,650,416 meet an r3 strength rule before other header gates |
+| Accepted games dated before 1970 | 0 | 10,080 |
+| Explicit online/correspondence exclusions | 50 explicit-mode and 1,361 online-event primary reasons | 1,405,063 correspondence headers observed; 1,403,303 primary mode rejects and 1,329 primary contradictory-evidence rejects |
+| CPI depth | 40 plies | 40 plies |
+| Dataset physical artifact bytes | 145,291,576 | 2,700,805,817 |
+| Verified local package bytes | 145,346,560 | 2,700,902,400 |
+| Measured build wall time | 74.874 seconds | 4,723.004 seconds |
+| CPI build time | 9.623 seconds | 204.793 seconds |
+| Docker API correctness | Position and stored-PGN checks passed; 96 mixed requests passed across enabled/disabled route checks | Position and PGN matched CLI; 96/96 requests passed with retrieval enabled |
+
+The r2 rejected-record counts are primary policy rejection reasons, so records filtered by an earlier gate are not counted again under source, identity, or mode. The full r3 inventory records all 1,405,063 explicit `Mode=Correspondence` headers; the build's 1,403,303 primary mode reasons are lower because some records have another earlier or higher-priority rejection. Contradictory event/site counts also overlap. R3 does not reject `NoMatch`, `Probable`, or `Ambiguous` identity labels by themselves, but it rejects 29,451 explicit identity conflicts and 702 unusable player names.
+
+### Full-source policy-impact analysis
+
+| R3 header-level effect | Source records |
+| --- | ---: |
+| Original numeric 2200/2200 or 2400/2000 strength rule | 3,542,307 |
+| Added 2400/1800 rule | 82,269 |
+| Added exact-GM versus rated-opponent rule | 24,452 |
+| Added exact-GM versus exact-GM rule | 1,388 |
+| Combined strength-eligible before other header gates | 3,650,416 |
+| Combined r3 header candidates after source, identity, date, mode, and other header gates | 3,296,795 |
+| Candidates newly admitted by removing the r2 source allowlist | 2,794,433 |
+| Candidates newly admitted by relaxing identity confidence | 2,304,004 |
+| Candidates admitted by both source and identity changes | 1,996,772 |
+| Strength-eligible records dated before 1970 / r3 header candidates before 1970 | 10,241 / 10,081 |
+| Full-source explicit `Mode=Correspondence` records | 1,405,063 |
+
+The source and identity deltas overlap and are measured at header-screen stage; they must not be added to one another or treated as retained unique games. Source-tag counts by publisher category and tag are in [INVENTORY.md](INVENTORY.md) and [POLICY_IMPACT.json](POLICY_IMPACT.json). The final build retained 3,284,429 unique legal games after move replay, policy handling, and deduplication. Its final pre-1970 accepted count is 10,080, one below the header candidate count because of deduplication.
+
+| Publisher source category | Full-source records | R3 header candidates |
+| --- | ---: | ---: |
+| Academic Dataset | 675,531 | 140,411 |
+| Community Project | 69,080 | 22,176 |
+| Historical Archive | 2,585,591 | 557,649 |
+| Independent Collection | 3,882,200 | 470,998 |
+| Legacy Software Dump | 4,922,559 | 1,740,661 |
+| Official federation tags | 644,468 | 188,949 |
+| Open Platform Data | 667,960 | 173,016 |
+| Player Provided Dataset | 3,307 | 2,935 |
+| **Total** | **13,450,696** | **3,296,795** |
+
+The source categories follow the publisher's documented taxonomy. `LichessBroadcastAPI` and the small `LEDB` tag group under Open Platform Data; all source tags remain available in the attribution sidecar. Candidate counts are before move replay and deduplication.
 
 ### CPI and resource measurements
 
@@ -45,6 +104,14 @@ A separate source-derived audit compared all **12,366** confirmed-duplicate, sup
 
 Both audits reuse the repository's Shakmaty visitor, stable-ID calculation, qualification policy, and production deduplicator. They verify source-to-storage traceability and sidecar accounting, not an independent parser or deduplication implementation. The separate selected-position CPI oracle checks the canonical index and shares the production position-key function.
 
+### Independent parser sample of r3 additions
+
+A local-only `python-chess` 1.11.2 audit sampled 180,000 deterministic uniform byte windows from the PGN, read 260,188,463 source bytes, and independently parsed 49,946 broad r3 header-prefilter candidates. It observed zero parser errors, illegal mainlines, and sampled-header parse failures. The targeted strata covered newly admitted source tags, identity-evidence pairs, strength rules, rating bands, historical and partial dates, GM-title cases, broadcast markers, and game lengths. The audit selected 426 unique stable-ID hits from 60 supported strata and retrieved every selected candidate through `codb get-game`; all 426 canonical move sequences were legal and exactly matched their independently parsed moves, start positions, and final boards. No retrieval failed.
+
+The row-level comparison found three source-attribution differences against the sidecar: one sample had otherwise exact persisted metadata, and two had metadata differences while moves and boards still matched. Across all 426 rows, persisted metadata matched 424, sidecar attribution matched 423, and 423 matched all compared metadata, attribution, moves, and boards. The source-to-canonical and deduplication replays separately reconcile the full sidecar and classify 7,842 stable-ID collision quarantines, but this independent sample does not assign a per-row dedupe disposition to its three differences. These are reported as sample differences, not silently classified as exact matches.
+
+Quota was eight games per supported stratum. Misses were CanadianChessFederation 5/8, LEDB 0/8, NiedersächsischerSchachverband 0/8, SchachverbandRuhrgebiet 1/8, unknown-date 0/8, and broadcast-hosting 0/8. LEDB also missed the newly admitted source-tag quota at 0/8. The run took 365.178 seconds and sampled 370,136 KiB peak RSS. The audit is a targeted sample, not a full independent PGN parse; its stable-ID join and canonical retrieval use the production ID and CLI. The GPL-3.0-or-later runner and wheel remain local-only and are not repository dependencies. See [INDEPENDENT_PGN_AUDIT_R3.json](INDEPENDENT_PGN_AUDIT_R3.json) and the [local runbook](INDEPENDENT_PGN_AUDIT_RUNBOOK.md).
+
 ### Prior Masters overlap
 
 The r3 evaluation has zero exact stable-ID overlap with the active 29,640-game Masters snapshot. It contains 16,488 LichessBroadcastAPI-attributed games with identical full move sequences, 5,829 same-player/date/move records, and 259 same-player/date/event/round/move candidates. Each of the 259 signatures maps one-to-one to a distinct prior game, with no ambiguity or prior-record reuse. All agree on date, round, result, and ECO; player names differ in 5 White and 11 Black fields, event strings in 84, sites in 43, White Elo in 80, and Black Elo in 79. All new rows lack a source ID present in the corresponding prior rows, and all 259 stable-ID preimages differ. These remain manual-review candidates rather than confirmed duplicates; no cross-release deletion or merge occurred. See [SOURCE_OVERLAP.json](SOURCE_OVERLAP.json).
@@ -57,7 +124,7 @@ The internal real-data Docker API smoke passed with both Masters and Elite mount
 
 The candidate remains a local evaluation and is not approved for public or production use. The publisher supplied no archive checksum, the archive states CC BY-NC 4.0, heterogeneous upstream rights remain unresolved, and no project-specific written terms or upstream-rights clearance are recorded.
 
-Machine evidence: [r3 reproducibility record](R3_REPRODUCIBILITY.json), [release manifest](RELEASE_R3.json), [build report](BUILD_REPORT_R3.json), [index report](INDEX_REPORT_R3.json), [quality report](QUALITY_REPORT_R3.json), [resource metrics](RESOURCE_METRICS_R3.json), [Docker API report](DOCKER_API_R3.json), [policy impact](POLICY_IMPACT.json), [selected-position CPI oracle](CPI_ORACLE_R3.json), [source-to-canonical audit](SOURCE_CANONICAL_AUDIT.json), [source dedupe audit](SOURCE_DEDUPE_AUDIT.json), [cross-release overlap](SOURCE_OVERLAP.json), and [archive inventory](archive_inventory.json). The historical r2 evaluation and its package/API evidence are preserved in the following sections and are not current r3 measurements.
+Machine evidence: [r3 reproducibility record](R3_REPRODUCIBILITY.json), [independent full rebuild](INDEPENDENT_REBUILD_R3.json), [independent parser sample](INDEPENDENT_PGN_AUDIT_R3.json), [release manifest](RELEASE_R3.json), [build report](BUILD_REPORT_R3.json), [index report](INDEX_REPORT_R3.json), [quality report](QUALITY_REPORT_R3.json), [resource metrics](RESOURCE_METRICS_R3.json), [Docker API report](DOCKER_API_R3.json), [policy impact](POLICY_IMPACT.json), [selected-position CPI oracle](CPI_ORACLE_R3.json), [source-to-canonical audit](SOURCE_CANONICAL_AUDIT.json), [source dedupe audit](SOURCE_DEDUPE_AUDIT.json), [cross-release overlap](SOURCE_OVERLAP.json), and [archive inventory](archive_inventory.json). The historical r2 evaluation and its package/API evidence are preserved in the following sections and are not current r3 measurements.
 
 ## Outcome (historical r2)
 

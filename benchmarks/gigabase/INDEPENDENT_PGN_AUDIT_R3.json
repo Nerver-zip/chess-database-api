@@ -1,0 +1,992 @@
+{
+  "schema_version": 1,
+  "audit_kind": "independent_pgn_parser_targeted_r3_byte_sample",
+  "scope": "Anonymized local technical evidence targeting the r3 newly admitted population; no rights, release, or event-level OTB claim.",
+  "candidate_dataset_build_id": "codb-masters-otb-1794814152483964731-25052-5a11e7b2bf231253-cpi-d40",
+  "policy": {
+    "policy_id": "gigabase-otb/2026-11-r3",
+    "policy_sha256_local": "93b9d0c7fd8eb35bb3bf36425a5e7b02f95fa80910942bbda615a453bd2ef3a9"
+  },
+  "source": {
+    "size_bytes": 12300428287,
+    "sha256_from_local_inventory": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
+    "sha256_recomputed_by_targeted_audit": false,
+    "inventory_record_count": 13450696
+  },
+  "external_parser": {
+    "parser_package": "chess",
+    "parser_package_version": "1.11.2",
+    "distribution": "python-chess",
+    "distribution_version": "1.999",
+    "source": "PyPI wheel chess-1.11.2-py3-none-any.whl in local pip cache",
+    "license": "GPL-3.0-or-later",
+    "wheel_filename": "chess-1.11.2-py3-none-any.whl",
+    "wheel_sha256_local": "541cf40233bc7a76081a916abd013298dcf1c90e64a7450f8494c4d89ee5f238",
+    "installed_metadata_sha256_local": "b43ff2d5c9d07672abf6661bee1e6f9ae6b6e3f4ff0b99b3bd3a87c617f43f96",
+    "installed_license_sha256_local": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+    "runner_path_local": "data/work/gigabase-eval/independent_pgn_r3_audit.py",
+    "runner_sha256_local": "25e7b92fe6c41449897c8918113df8020f13a8c77d75dcf7f29506b357dce43c",
+    "helper_path_local": "data/work/gigabase-eval/independent_pgn_sample_audit.py",
+    "helper_sha256_local": "e40405292fb07e2fb493db38b56cb27a6beba95636fd3de45b03f151b35d210b",
+    "runner_in_git_or_pr": false,
+    "wheel_in_git_or_pr": false,
+    "repository_dependency": false
+  },
+  "method": {
+    "sampling": "Deterministic 180000-window uniform byte grid; seek/read each window to the next record boundary; apply a broad r3 eligibility prefilter; retain the lowest SHA-256 ranks per supported source, identity, rating, date, and game-length stratum.",
+    "canonical_retrieval": "Fetch only selected stable IDs with the production codb get-game CLI; compare persisted metadata, compact moves, start/final board, and sidecar attribution.",
+    "memory_controls": {
+      "mmap_used": false,
+      "maximum_line_bytes": 4194304,
+      "maximum_record_bytes": 67108864,
+      "candidate_id_membership": "disk-backed SQLite database under the ignored audit work directory with a 128 MiB SQLite page cache",
+      "sample_retention_limit": "at most quota per category plus a bounded union across categories",
+      "parser_objects_released_per_window": true
+    }
+  },
+  "scan": {
+    "windows_requested": 180000,
+    "windows_attempted": 180000,
+    "source_bytes_read": 260188463,
+    "source_records_examined": 180000,
+    "windows_without_boundary": 0,
+    "r3_header_prefilter_passes": 49946,
+    "python_chess_records_parsed": 49946,
+    "independent_parser_errors": 0,
+    "illegal_mainline_records": 0,
+    "candidate_sidecar_games": 3284429,
+    "candidate_id_hits": 45321,
+    "unique_candidate_ids_sampled": 45321,
+    "repeated_candidate_id_hits": 0,
+    "policy_pass_records_without_candidate_id": 4625,
+    "sampled_header_parse_failures": 0,
+    "candidate_source_attribution_rows_by_source_tag": {
+      "AnaSchaigorodsky": 140276,
+      "Britbase": 45979,
+      "CanadianChessFederation": 130,
+      "ChessScotland": 2605,
+      "Community Project": 22071,
+      "DanBase": 39854,
+      "Federscacchi": 55510,
+      "GreekBase": 44495,
+      "Historical Archive": 555687,
+      "Independent Collection": 468436,
+      "LEDB": 14,
+      "Legacy Software Dump": 1736533,
+      "LichessBroadcastAPI": 172950,
+      "NiederrheinischerSchachverband": 1,
+      "NiedersächsischerSchachverband": 24,
+      "SchachverbandRuhrgebiet": 128,
+      "VargaCsabaZoltan": 2926
+    }
+  },
+  "sampling": {
+    "quota_per_stratum": 8,
+    "deterministic_min_hash": true,
+    "supported_strata_count": 60,
+    "all_quotas_met": false,
+    "strata": {
+      "strength_rule": {
+        "added_2400_vs_1800": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 887,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "added_gm_vs_gm": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 28,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "added_gm_vs_rated_opponent": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 350,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "original_numeric_rule": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 44056,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        }
+      },
+      "minimum_rating_band": {
+        "1800-1999": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 973,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "2000-2199": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 4267,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "2200-2399": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 26015,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "2400+": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 14007,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        }
+      },
+      "game_length_band": {
+        "0-19_plies": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 700,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "20-39_plies": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 3485,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "40-79_plies": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 19197,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 7,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 7,
+            "canonical_legal_games": 8
+          }
+        },
+        "80+_plies": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 21939,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        }
+      },
+      "source_tag": {
+        "AnaSchaigorodsky": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 1828,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Britbase": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 587,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "CanadianChessFederation": {
+          "quota": 8,
+          "selected_games": 5,
+          "sampled_candidate_rows_observed_in_category": 5,
+          "quota_met": false,
+          "comparison": {
+            "metadata_exact_matches": 5,
+            "move_sequence_matches": 5,
+            "starting_position_matches": 5,
+            "final_position_matches": 5,
+            "sidecar_attribution_matches": 5,
+            "canonical_legal_games": 5
+          }
+        },
+        "ChessScotland": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 38,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Community Project": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 298,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "DanBase": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 524,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Federscacchi": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 746,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "GreekBase": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 621,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Historical Archive": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 7290,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Independent Collection": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 6283,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "LEDB": {
+          "quota": 8,
+          "selected_games": 0,
+          "sampled_candidate_rows_observed_in_category": 0,
+          "quota_met": false,
+          "comparison": {
+            "metadata_exact_matches": 0,
+            "move_sequence_matches": 0,
+            "starting_position_matches": 0,
+            "final_position_matches": 0,
+            "sidecar_attribution_matches": 0,
+            "canonical_legal_games": 0
+          }
+        },
+        "Legacy Software Dump": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 24207,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "LichessBroadcastAPI": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 2850,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "NiedersächsischerSchachverband": {
+          "quota": 8,
+          "selected_games": 0,
+          "sampled_candidate_rows_observed_in_category": 0,
+          "quota_met": false,
+          "comparison": {
+            "metadata_exact_matches": 0,
+            "move_sequence_matches": 0,
+            "starting_position_matches": 0,
+            "final_position_matches": 0,
+            "sidecar_attribution_matches": 0,
+            "canonical_legal_games": 0
+          }
+        },
+        "SchachverbandRuhrgebiet": {
+          "quota": 8,
+          "selected_games": 1,
+          "sampled_candidate_rows_observed_in_category": 1,
+          "quota_met": false,
+          "comparison": {
+            "metadata_exact_matches": 1,
+            "move_sequence_matches": 1,
+            "starting_position_matches": 1,
+            "final_position_matches": 1,
+            "sidecar_attribution_matches": 1,
+            "canonical_legal_games": 1
+          }
+        },
+        "VargaCsabaZoltan": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 43,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        }
+      },
+      "new_source_policy_tag": {
+        "Community Project": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 298,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Historical Archive": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 7290,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Independent Collection": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 6283,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "LEDB": {
+          "quota": 8,
+          "selected_games": 0,
+          "sampled_candidate_rows_observed_in_category": 0,
+          "quota_met": false,
+          "comparison": {
+            "metadata_exact_matches": 0,
+            "move_sequence_matches": 0,
+            "starting_position_matches": 0,
+            "final_position_matches": 0,
+            "sidecar_attribution_matches": 0,
+            "canonical_legal_games": 0
+          }
+        },
+        "Legacy Software Dump": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 24207,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "VargaCsabaZoltan": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 43,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        }
+      },
+      "identity_pair": {
+        "Ambiguous+Ambiguous": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 38,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Ambiguous+Confirmed": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 172,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Ambiguous+NoMatch": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 507,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Ambiguous+Probable": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 12,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Ambiguous+Strong": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 89,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Confirmed+Ambiguous": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 199,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Confirmed+NoMatch": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 5762,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Confirmed+Probable": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 44,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "NoMatch+Ambiguous": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 548,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "NoMatch+Confirmed": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 5860,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "NoMatch+NoMatch": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 15471,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "NoMatch+Strong": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 920,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Probable+Ambiguous": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 16,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Probable+Confirmed": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 50,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Probable+Probable": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 15,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Probable+Strong": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 44,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 7,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 7,
+            "canonical_legal_games": 8
+          }
+        },
+        "Strong+Ambiguous": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 67,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Strong+NoMatch": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 910,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "Strong+Probable": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 52,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 7,
+            "canonical_legal_games": 8
+          }
+        }
+      },
+      "historical_period": {
+        "pre_1970": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 121,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        }
+      },
+      "historical_date_precision": {
+        "pre_1970_partial": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 29,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        }
+      },
+      "date_precision": {
+        "partial": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 8611,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        },
+        "unknown": {
+          "quota": 8,
+          "selected_games": 0,
+          "sampled_candidate_rows_observed_in_category": 0,
+          "quota_met": false,
+          "comparison": {
+            "metadata_exact_matches": 0,
+            "move_sequence_matches": 0,
+            "starting_position_matches": 0,
+            "final_position_matches": 0,
+            "sidecar_attribution_matches": 0,
+            "canonical_legal_games": 0
+          }
+        }
+      },
+      "gm_with_missing_elo": {
+        "exact_GM_label": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 54,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        }
+      },
+      "gm_vs_gm": {
+        "both_exact_GM_labels": {
+          "quota": 8,
+          "selected_games": 8,
+          "sampled_candidate_rows_observed_in_category": 3296,
+          "quota_met": true,
+          "comparison": {
+            "metadata_exact_matches": 8,
+            "move_sequence_matches": 8,
+            "starting_position_matches": 8,
+            "final_position_matches": 8,
+            "sidecar_attribution_matches": 8,
+            "canonical_legal_games": 8
+          }
+        }
+      },
+      "broadcast_hosting": {
+        "broadcast_url_present": {
+          "quota": 8,
+          "selected_games": 0,
+          "sampled_candidate_rows_observed_in_category": 0,
+          "quota_met": false,
+          "comparison": {
+            "metadata_exact_matches": 0,
+            "move_sequence_matches": 0,
+            "starting_position_matches": 0,
+            "final_position_matches": 0,
+            "sidecar_attribution_matches": 0,
+            "canonical_legal_games": 0
+          }
+        }
+      }
+    },
+    "selected_unique_candidate_games": 426,
+    "sample_row_ids_names_event_site_moves_and_fen_in_report": false
+  },
+  "comparisons": {
+    "selected_games_retrieved": 426,
+    "comparison_classes": {
+      "all_persisted_fields_match": 423,
+      "metadata_differs_moves_and_boards_match": 2,
+      "metadata_exact_attribution_differs": 1
+    },
+    "all_persisted_fields_match": 423,
+    "metadata_exact_attribution_differences": 1,
+    "metadata_differences_with_exact_moves": 2,
+    "metadata_exact_matches": 424,
+    "move_sequence_matches": 426,
+    "starting_position_matches": 426,
+    "final_position_matches": 426,
+    "sidecar_attribution_matches": 423,
+    "attribution_difference_field_counts": {
+      "black_fide_id": 1,
+      "black_identity_evidence": 3,
+      "source_quality": 3,
+      "source_tag": 3,
+      "white_identity_evidence": 3
+    },
+    "canonical_legal_games": 426,
+    "candidate_retrieval_failures": 0
+  },
+  "limitations": [
+    "This is a targeted byte-window sample, not a full-source Python parse; stratum quota misses are reported as such.",
+    "Stable-ID calculation and canonical decoding are not independent implementations; source rows are joined by the documented ID and retrieved through the production CLI.",
+    "This sample does not assign row-level deduplication dispositions to observed metadata or attribution differences; full-source traceability uses the production deduplicator.",
+    "The GPL-3.0-or-later runner and wheel are local-only and absent from CODB and PR #7; this report does not provide an in-repository executable reproduction.",
+    "Stable IDs are used only to join independently parsed source records to the canonical set; the parser, move legality checks, and board replay use python-chess 1.11.2.",
+    "Publisher rights, event-level OTB play, and official FIDE Elo provenance remain unresolved."
+  ],
+  "duration_seconds": 365.178,
+  "process_peak_rss_kib": 370136
+}

@@ -1,4 +1,6 @@
-# PR #7 Engineering Plan and Execution Record
+# PR #7 Initial Engineering Plan and Execution Record (Historical R2)
+
+> This plan records the conservative r2 qualification phase and its early execution status. It is historical, and its allowlist, identity-confidence, complete-date, and pre-1970 restrictions were superseded by the user-approved publisher-trust r3 policy. The current objective, implementation, policy impact, full-source build, audits, package, Docker evidence, and release limits are in [FINAL_REPORT.md](FINAL_REPORT.md) and [R3_REPRODUCIBILITY.json](R3_REPRODUCIBILITY.json).
 
 ## Objective
 

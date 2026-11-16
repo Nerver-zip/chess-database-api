@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "audit_kind": "independent_full_scale_r3_rebuild",
+  "baseline_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+  "repeat_build_id": "codb-masters-otb-1794814152483964731-25052-5a11e7b2bf231253-cpi-d40",
+  "separate_output_root_and_scratch": true,
+  "source": {
+    "records_encountered": 13450696,
+    "archive_size_bytes": 2570013439,
+    "archive_sha256_local": "4e4209ccc1870e7fede557aae09b4dd40b721d4697db9b4c272ff0e4fbbdb500",
+    "member_size_bytes": 12300428287,
+    "member_sha256_local": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
+    "publisher_checksum_available": false
+  },
+  "policy": {
+    "policy_id": "gigabase-otb/2026-11-r3",
+    "policy_sha256": "93b9d0c7fd8eb35bb3bf36425a5e7b02f95fa80910942bbda615a453bd2ef3a9",
+    "same_as_baseline": true
+  },
+  "accounting": {
+    "accepted_unique": 3284429,
+    "completion_status": "CompleteEof",
+    "confirmed_duplicates": 4018,
+    "quarantined": 7842,
+    "rejected_by_policy": 10153901,
+    "rejected_illegal": 0,
+    "rejected_malformed": 0,
+    "rejected_variant": 0,
+    "superseded_prior": 506,
+    "total_encountered": 13450696,
+    "reconciled": true,
+    "retained_matches_accepted": true,
+    "same_as_baseline": true
+  },
+  "position_index": {
+    "depth_plies": 40,
+    "unique_positions": 51909604,
+    "unique_position_move_pairs": 55864091,
+    "raw_observations_extracted": 127444117,
+    "cpi_file_size_bytes": 1107897085,
+    "cpi_sha256": "284898e18f4a4aba0b56d383e8b1a163790a85e1081749f0ff9204fdab5a971c",
+    "baseline_cpi_sha256": "284898e18f4a4aba0b56d383e8b1a163790a85e1081749f0ff9204fdab5a971c",
+    "cpi_matches": true,
+    "memory_limit_mib": 128,
+    "runs_generated": 35,
+    "merge_passes": 1,
+    "peak_spill_bytes": 2132859200
+  },
+  "measurements": {
+    "build_duration_seconds": 5123.936267791,
+    "build_peak_rss_bytes": 67690496,
+    "build_peak_workspace_disk_bytes": 3905630208,
+    "index_duration_ms": 190897,
+    "index_peak_process_rss_bytes": 1199132672,
+    "index_peak_anonymous_rss_bytes": 123920384,
+    "index_peak_file_backed_rss_bytes": 1185218560,
+    "index_peak_workspace_disk_bytes": 4804407296
+  },
+  "content_artifacts": {
+    "games.idx": {
+      "baseline_sha256": "297ecf32313e3d239d154a085d22ea5cec63fede54660a5912c22b6aab1d185c",
+      "repeat_sha256": "297ecf32313e3d239d154a085d22ea5cec63fede54660a5912c22b6aab1d185c",
+      "baseline_size_bytes": 52550928,
+      "repeat_size_bytes": 52550928,
+      "matches": true
+    },
+    "positions.cpi": {
+      "baseline_sha256": "284898e18f4a4aba0b56d383e8b1a163790a85e1081749f0ff9204fdab5a971c",
+      "repeat_sha256": "284898e18f4a4aba0b56d383e8b1a163790a85e1081749f0ff9204fdab5a971c",
+      "baseline_size_bytes": 1107897085,
+      "repeat_size_bytes": 1107897085,
+      "matches": true
+    },
+    "source-attribution.jsonl": {
+      "baseline_sha256": "7d11330a704746306d53afcb39bcc74ccf95c7a11cf55346374dd05188b45cbc",
+      "repeat_sha256": "7d11330a704746306d53afcb39bcc74ccf95c7a11cf55346374dd05188b45cbc",
+      "baseline_size_bytes": 1001755579,
+      "repeat_size_bytes": 1001755579,
+      "matches": true
+    },
+    "shards/shard_0000.cgb3": {
+      "baseline_sha256": "2523525f459b77ba9fcbcbedeb5cb396fbf84d4f9bfde0d38d14838a96d5bc47",
+      "repeat_sha256": "2523525f459b77ba9fcbcbedeb5cb396fbf84d4f9bfde0d38d14838a96d5bc47",
+      "baseline_size_bytes": 88149136,
+      "repeat_size_bytes": 88149136,
+      "matches": true
+    },
+    "shards/shard_0001.cgb3": {
+      "baseline_sha256": "2b67de818cfc186a3c7d607da0b280f03bf47991e36a2877a37485d56cf01375",
+      "repeat_sha256": "2b67de818cfc186a3c7d607da0b280f03bf47991e36a2877a37485d56cf01375",
+      "baseline_size_bytes": 86908531,
+      "repeat_size_bytes": 86908531,
+      "matches": true
+    },
+    "shards/shard_0002.cgb3": {
+      "baseline_sha256": "57b932b708408ee6a74e466faa3bd48d61f28240d60c300bb5a2e59148d0dedd",
+      "repeat_sha256": "57b932b708408ee6a74e466faa3bd48d61f28240d60c300bb5a2e59148d0dedd",
+      "baseline_size_bytes": 84953435,
+      "repeat_size_bytes": 84953435,
+      "matches": true
+    },
+    "shards/shard_0003.cgb3": {
+      "baseline_sha256": "e2c0ae3719db5a7845196fd3b3fe45721993b3301f08b683ef518891cdf9d2a4",
+      "repeat_sha256": "e2c0ae3719db5a7845196fd3b3fe45721993b3301f08b683ef518891cdf9d2a4",
+      "baseline_size_bytes": 81871872,
+      "repeat_size_bytes": 81871872,
+      "matches": true
+    },
+    "shards/shard_0004.cgb3": {
+      "baseline_sha256": "b1000e174ecb65b018041d950cbae4692ab5328781dcd69ebd6e2603e8eaa8a2",
+      "repeat_sha256": "b1000e174ecb65b018041d950cbae4692ab5328781dcd69ebd6e2603e8eaa8a2",
+      "baseline_size_bytes": 78693348,
+      "repeat_size_bytes": 78693348,
+      "matches": true
+    },
+    "shards/shard_0005.cgb3": {
+      "baseline_sha256": "e20be5dd42e6e0d11c67592c53c2f9b1a4a2e7f378d084a1f85de8e450bd008f",
+      "repeat_sha256": "e20be5dd42e6e0d11c67592c53c2f9b1a4a2e7f378d084a1f85de8e450bd008f",
+      "baseline_size_bytes": 76100646,
+      "repeat_size_bytes": 76100646,
+      "matches": true
+    },
+    "shards/shard_0006.cgb3": {
+      "baseline_sha256": "3792844c757b9816f95b65d454205c05e22784de95ff0ab1334861f5cd6b9b01",
+      "repeat_sha256": "3792844c757b9816f95b65d454205c05e22784de95ff0ab1334861f5cd6b9b01",
+      "baseline_size_bytes": 41925257,
+      "repeat_size_bytes": 41925257,
+      "matches": true
+    }
+  },
+  "same_accounting_as_baseline": true,
+  "same_locally_pinned_source": true,
+  "same_policy_as_baseline": true,
+  "same_quality_distributions_as_baseline": true,
+  "same_content_artifacts_as_baseline": true,
+  "deep_verify_passed": true,
+  "release_status": "local_evaluation_only",
+  "release_eligible": false,
+  "public_release_eligible": false,
+  "independence_scope": "A second full source-to-index build ran from the pinned local PGN through CODB in a new dataset root and scratch directory. It is an independent execution, not an independently implemented parser, policy, or deduplicator.",
+  "limitations": [
+    "The publisher supplied no source archive checksum; recorded source hashes are local hashes.",
+    "The same CODB implementation and qualification policy were used for both builds.",
+    "Rights and event-level OTB provenance remain unresolved as recorded in the primary R3 report."
+  ],
+  "deterministic_content_match": true
+}

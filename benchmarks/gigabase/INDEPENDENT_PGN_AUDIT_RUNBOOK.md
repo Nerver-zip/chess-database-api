@@ -42,6 +42,23 @@ python3 data/work/gigabase-eval/independent_pgn_targeted_audit.py
 
 This local runner uses the corrected candidate at `data/work/gigabase-eval/candidate-provenance-r1/` and writes the committed aggregate report. It does not modify the dataset or either production release pointer. The report includes no row IDs, names, event/site values, moves, or FENs.
 
+## R3 targeted sample
+
+[`INDEPENDENT_PGN_AUDIT_R3.json`](INDEPENDENT_PGN_AUDIT_R3.json) records an independent-parser sample targeting the r3 additions, including newly admitted source tags and identity/strength groups. The local-only runner reads 180,000 deterministic uniform byte windows, applies a broad r3 header prefilter, and retains up to eight minimum-hash samples per supported source, identity, strength, rating, date, and game-length stratum. It examined 180,000 records, read 260,188,463 source bytes, and independently parsed 49,946 candidates with zero parser errors, illegal mainlines, or sampled-header parse failures. It selected 426 unique candidate IDs across 60 supported strata and retrieved all selected games through the repeat-build `codb get-game` CLI.
+
+All 426 retrieved canonical games were legal and matched the independent parser's compact moves, starting positions, and final boards; there were no retrieval failures. Persisted metadata matched in 424 rows, and sidecar attribution matched in 423. Three rows had sidecar attribution differences: one retained exact metadata, while two also differed in metadata. Their moves and boards matched. The sample reports these differences without assigning a per-row dedupe disposition; the separate full-source replay uses CODB's parser and deduplicator and is not independent evidence for that row-level classification.
+
+The quota was eight games per supported stratum. Misses were CanadianChessFederation (5/8), LEDB (0/8), NiedersächsischerSchachverband (0/8), SchachverbandRuhrgebiet (1/8), unknown date (0/8), and broadcast-hosting (0/8); LEDB also missed the newly admitted source-tag quota (0/8). The run took 365.178 seconds and measured 370,136 KiB peak RSS. This is a targeted sample, not a full-source parse or a fixed memory bound. The stable-ID join and canonical retrieval use CODB's production ID and CLI.
+
+The parser runner and wheel are local-only. The runner imports the existing helper at `data/work/gigabase-eval/independent_pgn_sample_audit.py`, uses `python-chess` 1.11.2 from the local pip cache, reads the ignored source extraction and repeated candidate, and writes its result under ignored `data/work/`. The report records the runner, helper, wheel, installed metadata, and license hashes. It contains aggregate counts only; it omits row IDs, player/event/site values, moves, FENs, and raw PGN.
+
+```bash
+PYTHONPATH=data/work/gigabase-eval/audit-python-deps:data/work/gigabase-eval \
+python3 data/work/gigabase-eval/independent_pgn_r3_audit.py
+```
+
+The runner requires the ignored 12.3 GB source extraction, the repeat candidate dataset in Docker container `codb-pr7-rust-work`, Docker access to that container, Python 3.13.5, and the locally cached `chess==1.11.2` wheel. The runner and GPL-3.0-or-later wheel are not in the repository or PR and are not CODB dependencies. The report and this runbook preserve local provenance and limitations, but do not make the checker executable from a PR checkout alone.
+
 ## Evidence interpretation
 
 - The 144 selected rows had no parser errors, illegal moves, retrieval failures, move mismatches, start-position mismatches, or final-board mismatches. Metadata differences in the sample reconciled to duplicate or stable-ID collision dispositions.
