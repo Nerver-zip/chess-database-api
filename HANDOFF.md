@@ -20,7 +20,7 @@ Deliver the consolidation PR stacked on PR #7 (`feat/gigabase-masters`): `openin
 | `masters-otb-r3-indexed.tar` (reconstructed) | `89ccb7931357cf21795e9eaa8dc82b0632ce40cb0ae9834927cbc5b637f0e706` |
 | `masters-otb-r3-filtered.pgn.zst` (502 MB) | `4134599e1d6da75dbe00ce162e6c1cb90a0092e047bdfdfe5fa4662c36b306ff` |
 
-Independent verification (`benchmarks/gigabase/PGN_EXPORT_VERIFICATION_R3.json`): 3,284,429 games; headers and sidecar tags checked on every game; every 16th game (205,277) fully replayed with python-chess; zero failures. Install and rollback evidence: `benchmarks/gigabase/INSTALL_VERIFICATION_R3.json` (an earlier racy rollback-install step is superseded by a clean sequential rerun, PASS). The full 3.28 M games were not all legality-replayed by the independent parser; the rest relies on the canonical store's own legal-move validation.
+Independent verification (`benchmarks/gigabase/PGN_EXPORT_VERIFICATION_R3.json`): 3,284,429 games; headers and sidecar tags checked on every game; every 16th game (205,277) fully replayed with python-chess; zero failures. Install and rollback evidence: `benchmarks/gigabase/INSTALL_VERIFICATION_R3.json` (an earlier racy rollback-install step is superseded by a clean sequential rerun, PASS). A whole-corpus reimport of the exported PGN through the project's ingest (`benchmarks/gigabase/PGN_REIMPORT_LEGALITY_R3.json`) encountered all 3,284,429 games with 0 illegal, 0 malformed and 0 variant rejections. That reimport uses shakmaty, not an independent parser; python-chess fully replayed the 205,277-game sample.
 
 ## Licensing gate (read before publishing)
 

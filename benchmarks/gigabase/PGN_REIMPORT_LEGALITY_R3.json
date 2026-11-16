@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "release_id": "masters-otb-r3",
+  "scope": "Whole-corpus reimport of the exported filtered PGN through the project's own streaming ingest (full legal-move validation via shakmaty). Complements the sampled python-chess replay in PGN_EXPORT_VERIFICATION_R3.json.",
+  "input": {
+    "file": "masters-otb-r3-filtered.pgn.zst",
+    "sha256": "4134599e1d6da75dbe00ce162e6c1cb90a0092e047bdfdfe5fa4662c36b306ff"
+  },
+  "command": "opening-explorer build --input masters-otb-r3-filtered.pgn.zst --collection masters-otb --output <scratch> --scratch-dir <scratch> --report-json <report>",
+  "result": "PASS",
+  "legality": {
+    "total_encountered": 3284429,
+    "rejected_illegal": 0,
+    "rejected_malformed": 0,
+    "rejected_variant": 0,
+    "completion_status": "CompleteEof"
+  },
+  "accounting": {
+    "accepted_unique": 3124807,
+    "completion_status": "CompleteEof",
+    "confirmed_duplicates": 3475,
+    "quarantined": 0,
+    "rejected_by_policy": 155950,
+    "rejected_illegal": 0,
+    "rejected_malformed": 0,
+    "rejected_variant": 0,
+    "superseded_prior": 197,
+    "total_encountered": 3284429
+  },
+  "accounting_reconciles": true,
+  "notes": [
+    "total_encountered equals the manifest game count (3,284,429): the export has exactly one PGN game per canonical game.",
+    "rejected_by_policy (155,950) and the duplicate/superseded counts arise because this check used the default Masters policy and default deduplication keys, not the Gigabase R3 source policy used for the original build. They are not legality findings and do not describe the export.",
+    "This reimport does not compare metadata or positions to canonical records; that comparison is in PGN_EXPORT_VERIFICATION_R3.json."
+  ]
+}
