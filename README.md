@@ -1,6 +1,6 @@
 # Chess Openings DB (`codb`)
 
-> **Status: Draft PR #7 — local Gigabase qualification evaluation; not approved for release or production use**
+> **Status: Draft PR #7 — Gigabase R3 is active in the authorized private Masters deployment; public redistribution and public service remain unauthorized.**
 > This repository contains the scalable persistent game storage pipeline, bounded-memory CPI v2 indexer, atomic dataset publication engine, verified real corpus releases, and a Dockerized read-only Opening Explorer API.
 
 A high-performance, compact, and reproducible chess game database and position-centric indexing engine written in Rust. The system curates, deduplicates, compresses, and indexes high-quality chess games to power a position-based Opening Explorer through a lightweight, reusable API.
@@ -11,7 +11,7 @@ A high-performance, compact, and reproducible chess game database and position-c
 
 The real-corpus pipeline delivers two isolated release collections and a read-only HTTP Opening Explorer. Release sizes, current game and index counts, licensing, provenance audit results, and test evidence are recorded in [docs/CORPUS_BUILD.md](docs/CORPUS_BUILD.md).
 
-Current verified releases contain 29,640 event-qualified Masters OTB games (705,718 positions at depth 40) and 429,150 Elite Online games (6,136,307 positions at depth 30). The real Docker integration served both collections simultaneously; `e4,e5,Nf3` returned 3,902 Masters games and 30,390 Elite games.
+The active private Masters OTB release contains 3,284,429 Gigabase R3 games indexed to 40 plies (51,909,604 positions). Elite Online remains at 429,150 games (6,136,307 positions at depth 30). The prior 29,640-game Masters release remains retained for rollback. Raw-PGN API retrieval is disabled for the restricted Masters deployment; no public service or dataset redistribution is authorized.
 
 The historical 15-million-game storage feasibility work remains in [docs/research/feasibility-report.md](docs/research/feasibility-report.md). Expanding to that future corpus is not required to run or validate the Docker service.
 
@@ -23,7 +23,7 @@ For historical capacity context, the prior 15-million-game estimate projected **
 
 The database maintains two strictly isolated collections with distinct rating semantics and provenance:
 
-1. **Masters OTB:** A conservative subset of high-rated Lichess broadcast games. Corpus releases accept only exact event identifiers classified as verified OTB by the event-level metadata and linked-source audit; unresolved and verified online events are excluded. The source data is CC BY-SA 4.0.
+1. **Masters OTB:** The active private release is the publisher-asserted OTB Gigabase R3 snapshot. It retains 3,284,429 games; the full policy, source, checksum, and unresolved upstream-rights qualifications are recorded in its release metadata and [corpus report](docs/CORPUS_BUILD.md). The earlier 29,640-game event-audited Lichess release is retained as a rollback snapshot and historical baseline.
 2. **Elite Online:** High-rated online games filtering for verified high rating tiers (2200+, 2400+, 2500+), clean time controls (classical/rapid/blitz; bullet strictly excluded), and non-aborted games (sourced from Lichess Rated Archives under CC0 1.0).
 
 > [!IMPORTANT]
@@ -33,7 +33,7 @@ The database maintains two strictly isolated collections with distinct rating se
 
 ## Service Boundary
 
-The CODB service owns corpus ingestion, curation, legal validation, compact storage, position indexing, and read-only HTTP queries. Docker Compose runs the API independently from the corpus releases, which are mounted as read-only host volumes. Other containers can reach it on a shared Docker network at http://codb:8080; no host port is published by default.
+The CODB service owns corpus ingestion, curation, legal validation, compact storage, position indexing, and read-only HTTP queries. Docker Compose runs the API independently from corpus releases, mounted read-only from the host or a Docker-managed volume. The restricted Gigabase deployment uses a named volume, disables raw-PGN retrieval, and publishes no host port. Other containers can reach the API on its authorized Docker network at http://codb:8080.
 
 ---
 
@@ -87,13 +87,13 @@ Build the host CLI used to provision and verify releases. The explicit rebuild c
 ```bash
 cargo build --locked --release --package codb-cli
 ./scripts/corpus.sh plan --collection all
-./scripts/corpus.sh --data-dir ./data bootstrap --rebuild
+./scripts/corpus.sh --data-dir ./data bootstrap --rebuild  # fresh catalog setup; refuses to replace active Gigabase R3 by default
 ./scripts/corpus.sh --data-dir ./data verify
 docker compose -f compose.codb.yaml up -d --build
 docker compose -f compose.codb.yaml ps
 ```
 
-Compose never downloads or rebuilds datasets. The API listens as service codb on port 8080 inside its Docker network and publishes no host port by default. See [docs/DOCKER_DEPLOYMENT.md](docs/DOCKER_DEPLOYMENT.md) for package bootstrap, debug queries, cross-project networking, safe updates, resource bounds, and troubleshooting. The complete corpus procedure and release evidence are in [docs/CORPUS_BUILD.md](docs/CORPUS_BUILD.md).
+Compose never downloads or rebuilds datasets. The restricted deployment uses [`.env.codb.gigabase.example`](.env.codb.gigabase.example) and the named-volume override; raw-PGN retrieval stays disabled. See [docs/DOCKER_DEPLOYMENT.md](docs/DOCKER_DEPLOYMENT.md) for package bootstrap, the private R3 deployment, rollback, debug queries, resource bounds, and troubleshooting. The release workflow and evidence are in [docs/CORPUS_BUILD.md](docs/CORPUS_BUILD.md).
 
 ---
 
@@ -220,9 +220,9 @@ For complete step-by-step reproduction instructions, dataset checksums, and comb
 
 Machine-readable JSON reports are written to `benchmarks/results/` (with completed milestones archived in [`benchmarks/results/historical/`](benchmarks/results/historical/)).
 
-### Local Gigabase evaluation
+### Gigabase R3 private release
 
-The opt-in `--gigabase-source-policy` path and `corpus.sh extract-local-7z` support local evaluation of a user-supplied Lumbra's Gigabase archive. The current r3 evaluation retained 3,284,429 unique games from 13,450,696 encountered records; its full-source analysis and reproducibility evidence are in [`benchmarks/gigabase/FINAL_REPORT.md`](benchmarks/gigabase/FINAL_REPORT.md). Local SHA-256 values are not publisher checksums, the source carries publisher-stated CC BY-NC 4.0 terms with unresolved upstream rights, and this path does not create an approved or publicly distributable corpus release. See [Corpus Build](docs/CORPUS_BUILD.md), [source qualification policy](docs/CORPUS_AND_DEDUPLICATION.md), and [licensing limits](docs/LICENSING.md).
+The opt-in `--gigabase-source-policy` path and `corpus.sh extract-local-7z` produced the R3 snapshot now active in the authorized private Masters deployment. Its 3,284,429 accepted games from 13,450,696 encountered records, build evidence, and the three closed parser-sample differences are documented in [`benchmarks/gigabase/FINAL_REPORT.md`](benchmarks/gigabase/FINAL_REPORT.md). Local SHA-256 values are not publisher checksums. The publisher claims CC BY-NC 4.0, upstream rights remain unresolved, and public redistribution is not authorized. See [promotion and rollback](docs/CORPUS_BUILD.md), [deployment](docs/DOCKER_DEPLOYMENT.md), [source qualification policy](docs/CORPUS_AND_DEDUPLICATION.md), and [licensing limits](docs/LICENSING.md).
 
 ---
 
@@ -269,5 +269,5 @@ Initial exploratory research deliverables preserved for historical reference and
 
 - **Software:** Independently authored and dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE).
 - **Elite Online Data:** Creative Commons CC0 1.0 Universal.
-- **Masters OTB Data:** Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0).
+- **Historical Lichess Masters Data:** Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0). Active Gigabase R3 is restricted to the authorized private deployment; its publisher claims CC BY-NC 4.0 and upstream rights remain unresolved.
 - **Zero AGPL Code Reuse:** Designed and implemented independently from first principles.

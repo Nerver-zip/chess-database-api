@@ -1098,6 +1098,40 @@ def current_version_dir(root: Path) -> Path:
     return (root / os.readlink(cur)).resolve() if not os.path.isabs(os.readlink(cur)) else Path(os.readlink(cur))
 
 
+def active_gigabase_version(root: Path) -> str | None:
+    """Return the active Gigabase local-evaluation ID, if this root points to one."""
+    current = root / "current"
+    if not current.is_symlink():
+        return None
+    version_dir = current_version_dir(root)
+    release_path = version_dir / "RELEASE" / "RELEASE.json"
+    if not release_path.is_file():
+        return None
+    try:
+        release = json.loads(release_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise CorpusError(f"could not inspect active release metadata {release_path}: {error}") from error
+    source = release.get("source", {})
+    if (release.get("source_kind") == "local_evaluation_only"
+            or source.get("source_kind") == "local_evaluation_only"):
+        if source.get("publisher") == "Lumbra's Gigabase":
+            return str(release.get("dataset_version") or version_dir.name)
+    return None
+
+
+def guard_active_gigabase_replacement(
+    root: Path, candidate_version: str | None, *, explicitly_allowed: bool = False
+) -> None:
+    """Prevent routine bootstrap from silently replacing the active local Gigabase release."""
+    active_version = active_gigabase_version(root)
+    if (active_version and active_version != candidate_version and not explicitly_allowed):
+        raise CorpusError(
+            f"refusing to replace active local Gigabase evaluation release {active_version}; "
+            "use the verified publish workflow or pass "
+            "--allow-replacing-local-evaluation-release"
+        )
+
+
 # --------------------------------------------------------------------------- #
 # Build
 # --------------------------------------------------------------------------- #
@@ -1108,6 +1142,10 @@ def cmd_build(args: argparse.Namespace) -> int:
     cat = load_catalog(Path(args.catalog))
     data_dir = data_dir_from(args)
     assert_untracked_location(data_dir)
+    guard_active_gigabase_replacement(
+        release_root(data_dir, collection), None,
+        explicitly_allowed=getattr(args, "allow_replacing_local_evaluation_release", False),
+    )
     codb = find_codb(args.codb)
     profile = args.profile or "baseline"
     ccfg = cat["collections"][collection]
@@ -1923,6 +1961,12 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
     codb = find_codb(args.codb)
     catalog = load_catalog(Path(args.catalog))
     if args.rebuild:
+        for collection in COLLECTIONS:
+            guard_active_gigabase_replacement(
+                release_root(data_dir, collection), None,
+                explicitly_allowed=args.allow_replacing_local_evaluation_release,
+            )
+    if args.rebuild:
         log("[bootstrap] fetching the pinned baseline sources; this downloads approximately 8.66 GB")
         fetch_args = argparse.Namespace(
             catalog=args.catalog, data_dir=str(data_dir), codb=args.codb, collection="all",
@@ -1937,6 +1981,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
                 collection=collection, profile=args.profile, depth_plies=None,
                 memory_limit_mib=args.memory_limit_mib,
                 masters_event_audit=DEFAULT_MASTERS_EVENT_AUDIT,
+                allow_replacing_local_evaluation_release=args.allow_replacing_local_evaluation_release,
             )
             cmd_build(build_args)
         verify_args = argparse.Namespace(
@@ -1974,6 +2019,11 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
 
         for collection, root in extracted.items():
             target = release_root(data_dir, collection)
+            candidate_manifest = json.loads((root / "manifest.json").read_text())
+            guard_active_gigabase_replacement(
+                target, candidate_manifest.get("dataset_build_id"),
+                explicitly_allowed=args.allow_replacing_local_evaluation_release,
+            )
             target.parent.mkdir(parents=True, exist_ok=True)
             result = subprocess.run(
                 [str(codb), "publish", "--candidate", str(root), "--target", str(target),
@@ -2505,6 +2555,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--memory-limit-mib", type=int, default=128)
     sp.add_argument("--masters-event-audit", type=Path,
                     help="event-level Masters policy JSON (required by the current production policy)")
+    sp.add_argument(
+        "--allow-replacing-local-evaluation-release", action="store_true",
+        help="explicitly allow this build to replace an active local Gigabase evaluation release",
+    )
     sp.set_defaults(fn=cmd_build)
 
     sp = with_col(sub.add_parser("verify", help="deep-verify published releases"))
@@ -2532,6 +2586,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--max-download-bytes", type=int,
                     help="optional cap for the explicit --rebuild source download")
     sp.add_argument("--profile", default="baseline")
+    sp.add_argument(
+        "--allow-replacing-local-evaluation-release", action="store_true",
+        help="explicitly allow bootstrap to replace an active local Gigabase evaluation release",
+    )
     sp.set_defaults(fn=cmd_bootstrap)
 
     sp = sub.add_parser("serve", help="serve both collections via codb serve")

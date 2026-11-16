@@ -436,7 +436,7 @@
   "independent_pgn_parser_sample": {
     "report": {
       "path": "INDEPENDENT_PGN_AUDIT_R3.json",
-      "sha256": "54bb834425857b0356db9b5eb77b0e72398f38104012243a1466d54c00287545"
+      "sha256": "98414751a2e07ae8fd5ad7dd1951f213235b1b5a95475bf056c962455f8e20d1"
     },
     "audit_kind": "independent_pgn_parser_targeted_r3_byte_sample",
     "candidate_dataset_build_id": "codb-masters-otb-1794814152483964731-25052-5a11e7b2bf231253-cpi-d40",
@@ -502,10 +502,41 @@
     "limitations": [
       "This is a targeted byte-window sample, not a full-source Python parse; stratum quota misses are reported as such.",
       "Stable-ID calculation and canonical decoding are not independent implementations; source rows are joined by the documented ID and retrieved through the production CLI.",
-      "This sample does not assign row-level deduplication dispositions to observed metadata or attribution differences; full-source traceability uses the production deduplicator.",
+      "The independent sample itself does not assign row-level deduplication dispositions. The direct mismatch follow-up is recorded separately; anonymized full-source evidence does not link these sample rows to individual dispositions.",
       "The GPL-3.0-or-later runner and wheel are local-only and absent from CODB and PR #7; this report does not provide an in-repository executable reproduction.",
       "Stable IDs are used only to join independently parsed source records to the canonical set; the parser, move legality checks, and board replay use python-chess 1.11.2.",
       "Publisher rights, event-level OTB play, and official FIDE Elo provenance remain unresolved."
-    ]
+    ],
+    "mismatch_follow_up": {
+      "method": "Direct comparison of the three saved source PGN fragments against their already retrieved candidate games and source-attribution sidecar entries. Source rows were parsed with python-chess 1.11.2. No source-order dedupe replay, ingestion, or dataset rebuild was completed for this follow-up.",
+      "records_reviewed": 3,
+      "source_games_legal": 3,
+      "canonical_games_retrieved": 3,
+      "move_sequence_matches": 3,
+      "starting_position_matches": 3,
+      "final_position_matches": 3,
+      "persisted_metadata_difference_rows": 2,
+      "sidecar_attribution_difference_rows": 3,
+      "persisted_metadata_difference_field_counts": {
+        "event_text": 2,
+        "site_text": 1,
+        "time_control": 1,
+        "eco": 1
+      },
+      "position_statistics_affected": false,
+      "retrieved_canonical_pgn_metadata_may_differ": true,
+      "candidate_games_were_canonical_when_retrieved": true,
+      "source_row_dedupe_disposition": "not_individually_linked_in_existing_anonymized_audits",
+      "per_record_source_and_codb_field_values": "unavailable_in_anonymized_artifacts",
+      "finding_status": "closed_for_opening_explorer_game_and_position_correctness"
+    }
+  },
+  "operational_deployment": {
+    "path": "OPERATIONAL_DEPLOYMENT_R3.json",
+    "sha256": "51f6f3a880bfb4447a64f974a5b2256f5863b7db81b0f2d0ccd7fffaf7a17b2d",
+    "private_service_verified": true,
+    "raw_pgn_retrieval_disabled": true,
+    "previous_masters_snapshot_rollback_verified": true,
+    "elite_unchanged": true
   }
 }

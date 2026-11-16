@@ -979,10 +979,33 @@
     "canonical_legal_games": 426,
     "candidate_retrieval_failures": 0
   },
+  "mismatch_follow_up": {
+    "method": "Direct comparison of the three saved source PGN fragments against their already retrieved candidate games and source-attribution sidecar entries. Source rows were parsed with python-chess 1.11.2. No source-order dedupe replay, ingestion, or dataset rebuild was completed for this follow-up.",
+    "records_reviewed": 3,
+    "source_games_legal": 3,
+    "canonical_games_retrieved": 3,
+    "move_sequence_matches": 3,
+    "starting_position_matches": 3,
+    "final_position_matches": 3,
+    "persisted_metadata_difference_rows": 2,
+    "sidecar_attribution_difference_rows": 3,
+    "persisted_metadata_difference_field_counts": {
+      "event_text": 2,
+      "site_text": 1,
+      "time_control": 1,
+      "eco": 1
+    },
+    "position_statistics_affected": false,
+    "retrieved_canonical_pgn_metadata_may_differ": true,
+    "candidate_games_were_canonical_when_retrieved": true,
+    "source_row_dedupe_disposition": "not_individually_linked_in_existing_anonymized_audits",
+    "per_record_source_and_codb_field_values": "unavailable_in_anonymized_artifacts",
+    "finding_status": "closed_for_opening_explorer_game_and_position_correctness"
+  },
   "limitations": [
     "This is a targeted byte-window sample, not a full-source Python parse; stratum quota misses are reported as such.",
     "Stable-ID calculation and canonical decoding are not independent implementations; source rows are joined by the documented ID and retrieved through the production CLI.",
-    "This sample does not assign row-level deduplication dispositions to observed metadata or attribution differences; full-source traceability uses the production deduplicator.",
+    "The independent sample itself does not assign row-level deduplication dispositions. The mismatch_follow_up records direct comparisons; the anonymized full-source audit does not link these sample rows to individual dispositions.",
     "The GPL-3.0-or-later runner and wheel are local-only and absent from CODB and PR #7; this report does not provide an in-repository executable reproduction.",
     "Stable IDs are used only to join independently parsed source records to the canonical set; the parser, move legality checks, and board replay use python-chess 1.11.2.",
     "Publisher rights, event-level OTB play, and official FIDE Elo provenance remain unresolved."

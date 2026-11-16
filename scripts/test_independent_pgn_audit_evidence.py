@@ -236,6 +236,23 @@ class IndependentPgnAuditEvidenceTests(unittest.TestCase):
             "source_tag": 3,
             "white_identity_evidence": 3,
         })
+        follow_up = report["mismatch_follow_up"]
+        self.assertEqual(follow_up["records_reviewed"], 3)
+        self.assertEqual(follow_up["source_games_legal"], 3)
+        self.assertEqual(follow_up["canonical_games_retrieved"], 3)
+        self.assertEqual(follow_up["move_sequence_matches"], 3)
+        self.assertEqual(follow_up["starting_position_matches"], 3)
+        self.assertEqual(follow_up["final_position_matches"], 3)
+        self.assertEqual(follow_up["persisted_metadata_difference_rows"], 2)
+        self.assertEqual(follow_up["sidecar_attribution_difference_rows"], 3)
+        self.assertFalse(follow_up["position_statistics_affected"])
+        self.assertTrue(follow_up["candidate_games_were_canonical_when_retrieved"])
+        self.assertEqual(follow_up["source_row_dedupe_disposition"],
+                         "not_individually_linked_in_existing_anonymized_audits")
+        self.assertEqual(follow_up["per_record_source_and_codb_field_values"],
+                         "unavailable_in_anonymized_artifacts")
+        self.assertEqual(follow_up["finding_status"],
+                         "closed_for_opening_explorer_game_and_position_correctness")
         for categories in sampling["strata"].values():
             for evidence in categories.values():
                 self.assertEqual(evidence["quota_met"], evidence["selected_games"] == evidence["quota"])
@@ -280,6 +297,7 @@ class IndependentPgnAuditEvidenceTests(unittest.TestCase):
         self.assertEqual(recorded["report"]["path"], R3_REPORT_PATH.name)
         self.assertEqual(recorded["report"]["sha256"], hashlib.sha256(R3_REPORT_PATH.read_bytes()).hexdigest())
         self.assertEqual(recorded["comparisons"], comparisons)
+        self.assertEqual(recorded["mismatch_follow_up"], follow_up)
 
     def test_r3_full_independent_rebuild_matches_release_content(self):
         report = json.loads(R3_REBUILD_PATH.read_text(encoding="utf-8"))
@@ -308,6 +326,24 @@ class IndependentPgnAuditEvidenceTests(unittest.TestCase):
         self.assertEqual(recorded["content_artifacts_checked"], 10)
         self.assertTrue(recorded["all_content_artifacts_match"])
         self.assertTrue(recorded["deep_verify_passed"])
+
+    def test_r3_operational_deployment_is_hashed_and_reconciled(self):
+        deployment_path = ROOT / "benchmarks/gigabase/OPERATIONAL_DEPLOYMENT_R3.json"
+        deployment = json.loads(deployment_path.read_text(encoding="utf-8"))
+        reproducibility = json.loads((ROOT / "benchmarks/gigabase/R3_REPRODUCIBILITY.json").read_text(encoding="utf-8"))
+        recorded = reproducibility["operational_deployment"]
+        self.assertEqual(recorded["path"], deployment_path.name)
+        self.assertEqual(recorded["sha256"], hashlib.sha256(deployment_path.read_bytes()).hexdigest())
+        self.assertTrue(recorded["private_service_verified"])
+        self.assertTrue(recorded["raw_pgn_retrieval_disabled"])
+        self.assertTrue(recorded["previous_masters_snapshot_rollback_verified"])
+        self.assertTrue(recorded["elite_unchanged"])
+        self.assertEqual(deployment["active_collections"]["masters-otb"]["total_games"], 3_284_429)
+        self.assertEqual(deployment["active_collections"]["masters-otb"]["cpi_unique_positions"], 51_909_604)
+        self.assertEqual(deployment["deployment"]["concurrent_position_requests"],
+                         {"total": 96, "successful": 96})
+        self.assertFalse(deployment["rights"]["public_redistribution_authorized"])
+        self.assertFalse(deployment["deployment"]["raw_pgn_retrieval_enabled"])
 
 
 if __name__ == "__main__":

@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "verified_on": "2026-11-16",
+  "status": "private_authorized_deployment_verified",
+  "promotion": {
+    "method": "scripts/promote_gigabase_r3.py invoking codb publish",
+    "source_snapshot_preserved": true,
+    "source_corpus_rebuilt": false,
+    "host_active_root": "data/releases/masters-otb",
+    "host_active_version": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+    "release_manifest_sha256": "5b5208e2575cdb1e885fef7326fd38429f74736a158033d349ff9ef4eb9fd58b",
+    "previous_version_retained": "codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40",
+    "atomic_publication": true,
+    "release_artifacts_verified": 18,
+    "package_sha256_local": "297b7d2ab67951fd9655c35f6993da4d0fb5dd55ee763b62f9249c1804019247"
+  },
+  "deployment": {
+    "compose_project": "codb-gigabase-r3",
+    "compose_files": ["compose.codb.yaml", "compose.codb.named-volume.yaml"],
+    "compose_version": "2.26.1",
+    "runtime_volume": "codb-gigabase-r3-runtime",
+    "host_bind_mounts_available_to_daemon": false,
+    "dataset_mount_read_only": true,
+    "published_host_ports": [],
+    "raw_pgn_retrieval_enabled": false,
+    "api_image_built_from_current_repository": true,
+    "initial_startup_ready": true,
+    "restart_ready": true,
+    "concurrent_position_requests": {"total": 96, "successful": 96},
+    "restricted_game_route": {"game_id": "4239177970205", "http_status": 404}
+  },
+  "active_collections": {
+    "masters-otb": {
+      "dataset_version": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+      "total_games": 3284429,
+      "cpi_depth_plies": 40,
+      "cpi_unique_positions": 51909604,
+      "cpi_unique_position_move_pairs": 55864091,
+      "cpi_sha256": "284898e18f4a4aba0b56d383e8b1a163790a85e1081749f0ff9204fdab5a971c",
+      "runtime_volume_artifact_hashes_checked": 18
+    },
+    "elite-online": {
+      "dataset_version": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
+      "total_games": 429150,
+      "cpi_depth_plies": 30,
+      "cpi_unique_positions": 6136307,
+      "unchanged": true
+    }
+  },
+  "api_cli_and_wdl_checks": {
+    "comparison": "API and codb query returned identical root W/D/L and per-move counts.",
+    "all_positions_reconciled": true,
+    "positions": [
+      {"collection": "masters-otb", "moves": [], "total_games": 3284429, "white_wins": 1181603, "draws": 1208759, "black_wins": 894067, "candidate_moves": 20},
+      {"collection": "masters-otb", "moves": ["e4", "e5", "Nf3"], "total_games": 294853, "white_wins": 101525, "draws": 121829, "black_wins": 71499, "candidate_moves": 14},
+      {"collection": "masters-otb", "moves": ["d4", "Nf6", "c4", "e6"], "total_games": 262144, "white_wins": 87085, "draws": 106889, "black_wins": 68170, "candidate_moves": 16},
+      {"collection": "elite-online", "moves": [], "total_games": 429150, "white_wins": 206318, "draws": 32976, "black_wins": 189856, "candidate_moves": 20},
+      {"collection": "elite-online", "moves": ["e4", "e5", "Nf3"], "total_games": 30390, "white_wins": 14325, "draws": 2404, "black_wins": 13661, "candidate_moves": 17},
+      {"collection": "elite-online", "moves": ["d4", "Nf6", "c4", "e6"], "total_games": 15845, "white_wins": 7463, "draws": 1303, "black_wins": 7079, "candidate_moves": 17}
+    ]
+  },
+  "rollback": {
+    "previous_version_published_with_codb": true,
+    "previous_version_deep_verification_passed": true,
+    "api_restarted_on_previous_version": true,
+    "r3_republished_with_codb": true,
+    "r3_deep_verification_passed": true,
+    "api_restarted_on_r3": true,
+    "final_active_version": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40"
+  },
+  "rights": {
+    "publisher_claim": "CC BY-NC 4.0",
+    "publisher_checksum": null,
+    "upstream_rights": "unresolved",
+    "public_redistribution_authorized": false,
+    "raw_pgn_retrieval_enabled": false
+  }
+}

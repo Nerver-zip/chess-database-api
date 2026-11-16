@@ -309,6 +309,30 @@ class CatalogTests(unittest.TestCase):
             corpus.select_sources(make_catalog([self.entry()]), "elite-online", "nope")
 
 
+class ActiveGigabaseBootstrapGuardTests(unittest.TestCase):
+    def test_bootstrap_guard_preserves_active_local_gigabase_until_explicit_override(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "masters-otb"
+            version = "codb-masters-otb-r3"
+            snapshot = root / "versions" / version
+            metadata = snapshot / "RELEASE" / "RELEASE.json"
+            metadata.parent.mkdir(parents=True)
+            metadata.write_text(json.dumps({
+                "dataset_version": version,
+                "source": {"publisher": "Lumbra's Gigabase", "source_kind": "local_evaluation_only"},
+            }))
+            (root / "versions").mkdir(exist_ok=True)
+            (root / "current").symlink_to(Path("versions") / version)
+
+            self.assertEqual(corpus.active_gigabase_version(root), version)
+            with self.assertRaisesRegex(corpus.CorpusError, "refusing to replace active"):
+                corpus.guard_active_gigabase_replacement(root, "older-catalog-build")
+            corpus.guard_active_gigabase_replacement(root, version)
+            corpus.guard_active_gigabase_replacement(
+                root, "older-catalog-build", explicitly_allowed=True
+            )
+
+
 class LocalArchiveExtractionTests(unittest.TestCase):
     def install_fake_py7zr(self, member_records, payload: bytes):
         class FakeArchive:
