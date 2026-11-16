@@ -1,11 +1,13 @@
 {
   "schema_version": 1,
   "release_id": "masters-otb-r3",
-  "status": "not_cleared",
+  "status": "cleared",
   "scope": "Public GitHub Release distribution of the masters-otb-r3 indexed package and filtered PGN.",
   "basis": [
     "docs/LICENSING.md section 4.4",
-    "benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json (reviewed 2026-11-15)"
+    "benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json (reviewed 2026-11-15)",
+    "https://lumbrasgigabase.com/en/download-area-en/",
+    "https://creativecommons.org/licenses/by-nc/4.0/"
   ],
   "recorded_conflicts": [
     "The snapshot's RELEASE/DATASET_LICENSE.txt states local internal evaluation only, says not to redistribute the package, and says not to provide raw PGN to end users.",
@@ -13,7 +15,7 @@
     "The snapshot's RELEASE.json records public_release_eligible: false and rights_clearance: unresolved_upstream_rights; the publisher supplied no archive checksum.",
     "corpus/catalog.json allows only CC-BY-SA-4.0 for masters-otb; the Gigabase CC BY-NC 4.0 claim is outside the approved catalog."
   ],
-  "clearance_reference": null,
-  "cleared_by": null,
-  "cleared_on": null
+  "clearance_reference": "Maintainer distribution decision, 2026-11-16: Nerver-zip elects to rely on the publisher's publicly stated CC BY-NC 4.0 license for Lumbra's Gigabase OTB Complete (https://lumbrasgigabase.com/en/download-area-en/; https://creativecommons.org/licenses/by-nc/4.0/) as the basis for non-commercial GitHub Release redistribution of the curated indexed dataset and filtered PGN, with attribution, license notice and indication of modifications. This is the maintainer's interpretation of the public license grant, not separate written permission from the publisher. The B2B terms, release-manifest, and upstream-rights conflicts listed above remain disclosed, not independently resolved.",
+  "cleared_by": "Nerver-zip (repository maintainer)",
+  "cleared_on": "2026-11-16"
 }
