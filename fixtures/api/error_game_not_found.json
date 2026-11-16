@@ -1,0 +1,13 @@
+{
+  "name": "error_game_not_found",
+  "status": 404,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "error": {
+      "code": "game_not_found",
+      "message": "Game ID 1 was not found in collection 'elite-online'."
+    }
+  }
+}

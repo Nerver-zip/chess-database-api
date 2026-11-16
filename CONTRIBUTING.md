@@ -1,6 +1,6 @@
-# Contributing to `chess-openings-db`
+# Contributing to `opening-explorer-api`
 
-Thank you for contributing to `chess-openings-db`! This document outlines our contribution workflow, coding standards, and verification expectations.
+Thank you for contributing to `opening-explorer-api`! This document outlines our contribution workflow, coding standards, and verification expectations.
 
 The project is **English-only** for code comments, user-facing strings, documentation, Pull Requests, and commit messages. Please read [AGENTS.md](AGENTS.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and [docs/DATA_CONTRACTS.md](docs/DATA_CONTRACTS.md) before modifying ingestion, storage, or indexing logic.
 

@@ -1,0 +1,13 @@
+{
+  "name": "error_not_found",
+  "status": 404,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "error": {
+      "code": "not_found",
+      "message": "No resource exists at this path."
+    }
+  }
+}

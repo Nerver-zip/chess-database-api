@@ -1,0 +1,13 @@
+{
+  "name": "error_move_sequence_too_long",
+  "status": 400,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "error": {
+      "code": "move_sequence_too_long",
+      "message": "Move sequence exceeds maximum allowed plies (201 > 200)."
+    }
+  }
+}

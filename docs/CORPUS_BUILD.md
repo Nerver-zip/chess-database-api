@@ -6,9 +6,9 @@ status: current
 
 # Corpus Build & Release Procedure
 
-This document is the operational counterpart of CORPUS_AND_DEDUPLICATION.md (what is accepted), LICENSING.md (what may be redistributed), and ARCHITECTURE.md (where the tooling sits). It covers pinned source builds, event qualification, package bootstrap, and serving through codb or Docker Compose.
+This document is the operational counterpart of CORPUS_AND_DEDUPLICATION.md (what is accepted), LICENSING.md (what may be redistributed), and ARCHITECTURE.md (where the tooling sits). It covers pinned source builds, event qualification, package bootstrap, and serving through opening-explorer or Docker Compose.
 
-The orchestration (`scripts/corpus.sh` → `scripts/corpus.py`) never reimplements ingestion, curation, deduplication, indexing, or publication. The pinned-source workflow uses only the Python standard library; the opt-in local `.7z` extraction command uses the pinned optional dependency in `scripts/requirements-corpus-archive.txt`. The tool invokes `codb build`, `codb build-index`, `codb verify --deep`, and `codb report` for catalog releases.
+The orchestration (`scripts/corpus.sh` → `scripts/corpus.py`) never reimplements ingestion, curation, deduplication, indexing, or publication. The pinned-source workflow uses only the Python standard library; the opt-in local `.7z` extraction command uses the pinned optional dependency in `scripts/requirements-corpus-archive.txt`. The tool invokes `opening-explorer build`, `opening-explorer build-index`, `opening-explorer verify --deep`, and `opening-explorer report` for catalog releases.
 
 ## 1. Pipeline
 
@@ -19,25 +19,25 @@ corpus/catalog.json (pinned sources, licenses, publisher SHA-256)
 data/sources/<collection>/*.pgn.zst              (git-ignored)
         |  corpus.sh build        verifies every archive again, then:
         v
-codb build --manifest  ->  policy + dedupe + CGB3 + games.idx   (private workspace data/work/)
-codb build-index       ->  CPI v2 positions.cpi (bounded memory)
-codb verify --deep     ->  deep integrity gate
-codb report            ->  quality report
-        |  codb publish moves a complete immutable version and atomically switches current
+opening-explorer build --manifest  ->  policy + dedupe + CGB3 + games.idx   (private workspace data/work/)
+opening-explorer build-index       ->  CPI v2 positions.cpi (bounded memory)
+opening-explorer verify --deep     ->  deep integrity gate
+opening-explorer report            ->  quality report
+        |  opening-explorer publish moves a complete immutable version and atomically switches current
         v
 data/releases/<collection>/ { versions/<id>/, current, RELEASE/ }
         |-- corpus.sh package  ->  data/packages/<collection>-<version>.tar + .sha256
-        '-- corpus.sh serve    ->  codb serve (both collections)
+        '-- corpus.sh serve    ->  opening-explorer serve (both collections)
 ```
 
 ## 2. Prerequisites
 
 | Requirement | Notes |
 | :--- | :--- |
-| Rust stable toolchain | `cargo build --release -p codb-cli` produces `target/release/codb`. |
+| Rust stable toolchain | `cargo build --release -p opening-explorer-cli` produces `target/release/opening-explorer`. |
 | Python 3.11+ | Standard library for the pinned catalog workflow. Install `scripts/requirements-corpus-archive.txt` only when using local `.7z` extraction. |
 | Network | HTTPS to `database.lichess.org`. Offline verification (`--offline`, `verify-sources`) needs none. |
-| Disk | See §3. The data directory defaults to `./data` (git-ignored); override with `--data-dir` or `CODB_DATA_DIR`. The tool refuses a data directory inside the repository unless it is under a git-ignored directory. |
+| Disk | See §3. The data directory defaults to `./data` (git-ignored); override with `--data-dir` or `OPENING_EXPLORER_DATA_DIR`. The tool refuses a data directory inside the repository unless it is under a git-ignored directory. |
 | Memory | Indexing honors `--memory-limit-mib` (default 128). Measured peaks are in §9. |
 
 `/tmp` may be mounted `noexec` or be small (it is a 512 MiB tmpfs in some sandboxes). The build sets `TMPDIR` to its own workspace under the data directory so deduplication databases and spill files never depend on `/tmp`.
@@ -113,15 +113,15 @@ The command requires one regular member with a plain basename, checks the declar
 
 The separate `scripts/local_gigabase_eval.py` workflow does not add Gigabase to `corpus/catalog.json` or the approved-source catalog. It verified the archive and member against local evidence, built the opt-in Gigabase policy, and created a package explicitly marked local-evaluation-only. The archive and PGN are not included in the package. The existing R3 snapshot is now active in the authorized private Masters deployment; its source is still not approved for public redistribution.
 
-For the build, the workflow writes a one-source manifest in the ignored work root. It pins the extracted PGN to its registered local SHA-256, leaves the source URL null, and labels the license as `Publisher claim: CC BY-NC 4.0; upstream rights unresolved`. It invokes `codb build --manifest` and checks that both the build report and persistent dataset manifest contain exactly that registered filename, local hash, size, URL, and license label. In this local path, `checksum_verified: true` means CODB matched the build-time bytes to the locally pinned manifest hash; it is not publisher authentication. The registration still records no publisher checksum, unresolved upstream rights, and `release_eligible: false`. See [DATA_CONTRACTS.md](DATA_CONTRACTS.md) for the general checksum field contract.
+For the build, the workflow writes a one-source manifest in the ignored work root. It pins the extracted PGN to its registered local SHA-256, leaves the source URL null, and labels the license as `Publisher claim: CC BY-NC 4.0; upstream rights unresolved`. It invokes `opening-explorer build --manifest` and checks that both the build report and persistent dataset manifest contain exactly that registered filename, local hash, size, URL, and license label. In this local path, `checksum_verified: true` means Opening Explorer matched the build-time bytes to the locally pinned manifest hash; it is not publisher authentication. The registration still records no publisher checksum, unresolved upstream rights, and `release_eligible: false`. See [DATA_CONTRACTS.md](DATA_CONTRACTS.md) for the general checksum field contract.
 
-Promote the already-built R3 snapshot without rerunning ingestion or indexing. The command verifies the release identity and every artifact hash, performs deep CODB verification, copies the candidate to a same-filesystem staging directory, and invokes the existing atomic storage publisher. The original evaluation snapshot is left intact; the previous active version remains under `versions/` for rollback.
+Promote the already-built R3 snapshot without rerunning ingestion or indexing. The command verifies the release identity and every artifact hash, performs deep Opening Explorer verification, copies the candidate to a same-filesystem staging directory, and invokes the existing atomic storage publisher. The original evaluation snapshot is left intact; the previous active version remains under `versions/` for rollback.
 
 ~~~bash
 python3 scripts/promote_gigabase_r3.py \
   --candidate data/work/gigabase-eval/docker-r3-smoke/releases/masters-otb/versions/codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40 \
   --target data/releases/masters-otb \
-  --codb target/release/codb \
+  --opening-explorer target/release/opening-explorer \
   --publish
 ~~~
 
@@ -136,16 +136,16 @@ tar -xf "$archive" -C data/work/gigabase-r3-install
 python3 scripts/promote_gigabase_r3.py \
   --candidate data/work/gigabase-r3-install/masters-otb/versions/codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40 \
   --target data/releases/masters-otb \
-  --codb target/release/codb \
+  --opening-explorer target/release/opening-explorer \
   --publish
 ~~~
 
 Routine `corpus.sh build` and `bootstrap` refuse to replace an active Gigabase local-evaluation release. An intentional replacement requires the explicit `--allow-replacing-local-evaluation-release` option. Rollback uses the verified publisher with a staged copy of the retained prior version, as described in [Docker deployment](DOCKER_DEPLOYMENT.md#private-gigabase-r3-deployment).
 
-Before a production-scale qualification build, run the full-stream `codb inventory` scan with `--policy-impact-output`. It records header-level r3 eligibility using the same production header-policy functions and reconciles the report to the scanned source. Those counts are candidates only: they do not establish legal moves, final eligibility after termination checks, or accepted unique games. The production build must then replay and account for the complete PGN. For r3, pass an explicit `--scratch-dir`; the local runner sets `TMPDIR` to that ignored directory and stores per-process peak RSS, wall time, and sampled allocated bytes for ingestion and CPI indexing in `RELEASE/resource_metrics.json`.
+Before a production-scale qualification build, run the full-stream `opening-explorer inventory` scan with `--policy-impact-output`. It records header-level r3 eligibility using the same production header-policy functions and reconciles the report to the scanned source. Those counts are candidates only: they do not establish legal moves, final eligibility after termination checks, or accepted unique games. The production build must then replay and account for the complete PGN. For r3, pass an explicit `--scratch-dir`; the local runner sets `TMPDIR` to that ignored directory and stores per-process peak RSS, wall time, and sampled allocated bytes for ingestion and CPI indexing in `RELEASE/resource_metrics.json`.
 
 ```bash
-target/release/codb inventory \
+target/release/opening-explorer inventory \
   --input data/sources/lumbra/extracted/LumbrasGigabase_OTB_Complete.pgn \
   --output benchmarks/gigabase/INVENTORY.json \
   --policy-impact-output benchmarks/gigabase/POLICY_IMPACT.json \
@@ -162,31 +162,31 @@ python3 scripts/local_gigabase_eval.py build \
   --work-root data/work/gigabase-eval/policy-impact-r3 \
   --output-root data/work/gigabase-eval/candidate-r3 \
   --depth-plies 40 --memory-limit-mib 128 \
-  --codb target/release/codb
+  --opening-explorer target/release/opening-explorer
 
 python3 scripts/local_gigabase_eval.py package \
   --root data/work/gigabase-eval/candidate \
   --output-dir data/work/gigabase-eval/packages \
-  --codb target/release/codb
+  --opening-explorer target/release/opening-explorer
 
 python3 scripts/local_gigabase_eval.py bootstrap \
   --package data/work/gigabase-eval/packages/masters-otb-<version>-local-evaluation.tar \
   --previous-root data/releases/masters-otb \
   --target data/work/gigabase-eval/deploy/masters-otb \
-  --codb target/release/codb
+  --opening-explorer target/release/opening-explorer
 ```
 
-Bootstrap deep-verifies the package, retains the previous snapshot in the isolated evaluation root, atomically activates the Gigabase snapshot, and runs an offline opening query. A rollback republishes the retained previous immutable version through `codb publish`:
+Bootstrap deep-verifies the package, retains the previous snapshot in the isolated evaluation root, atomically activates the Gigabase snapshot, and runs an offline opening query. A rollback republishes the retained previous immutable version through `opening-explorer publish`:
 
 ```bash
 previous_id="$(basename "$(readlink -f data/releases/masters-otb/current)")"
 python3 scripts/local_gigabase_eval.py rollback \
   --target data/work/gigabase-eval/deploy/masters-otb \
   --version "$previous_id" \
-  --codb target/release/codb
+  --opening-explorer target/release/opening-explorer
 ```
 
-For a restricted local position-statistics service, set `CODB_MASTERS_RELEASE_DIR=data/work/gigabase-eval/deploy/masters-otb` and `CODB_ENABLE_GAME_RETRIEVAL=false` before starting Compose. The disabled route does not serve raw PGN; local CLI retrieval remains an operator-only capability. The package is not an approved public or commercial release. The publisher's CC BY-NC 4.0 statement is retained as a publisher claim, publisher checksum is `null`, and unresolved upstream rights are recorded in `RELEASE/RELEASE.json` and `RELEASE/DATASET_LICENSE.txt`.
+For a restricted local position-statistics service, set `OPENING_EXPLORER_MASTERS_RELEASE_DIR=data/work/gigabase-eval/deploy/masters-otb` and `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=false` before starting Compose. The disabled route does not serve raw PGN; local CLI retrieval remains an operator-only capability. The package is not an approved public or commercial release. The publisher's CC BY-NC 4.0 statement is retained as a publisher claim, publisher checksum is `null`, and unresolved upstream rights are recorded in `RELEASE/RELEASE.json` and `RELEASE/DATASET_LICENSE.txt`.
 
 ### 4.4 Source qualification and its limits
 
@@ -218,10 +218,10 @@ Behavior (all covered by offline tests):
 
 `build` first re-verifies every archive and **refuses to build from unverified bytes**. It then runs, in a private workspace `data/work/<run-id>/`:
 
-1. `codb build --manifest … --report-json …` (sources in deterministic `(period, id)` order, disk-backed deduplication),
-2. `codb build-index --depth-plies N --memory-limit-mib 128 --json`,
-3. `codb verify --deep`,
-4. `codb report`,
+1. `opening-explorer build --manifest … --report-json …` (sources in deterministic `(period, id)` order, disk-backed deduplication),
+2. `opening-explorer build-index --depth-plies N --memory-limit-mib 128 --json`,
+3. `opening-explorer verify --deep`,
+4. `opening-explorer report`,
 
 writes RELEASE/ (provenance, license notice, reports, per-step wall time, peak RSS, and peak workspace disk) inside the completed immutable snapshot. The Rust storage publisher deeply verifies the candidate, moves it into the stable data/releases/<collection>/versions/<id> directory, then atomically replaces the relative current symlink. It preserves prior version directories and never removes the active path during transition. A failure before the pointer switch leaves the prior active snapshot untouched; a failed post-switch validation atomically restores the prior target. Failed work and any unreferenced promoted candidate are retained for diagnosis.
 
@@ -247,12 +247,12 @@ data/releases/masters-otb/
 ## 7. Verify
 
 ```bash
-./scripts/corpus.sh verify                         # codb verify --deep + artifact re-hash for both releases
-./target/release/codb verify --dataset data/releases/masters-otb --deep
+./scripts/corpus.sh verify                         # opening-explorer verify --deep + artifact re-hash for both releases
+./target/release/opening-explorer verify --dataset data/releases/masters-otb --deep
 ./scripts/corpus.sh report --collection all        # regenerate quality reports under data/reports/
 ```
 
-`codb verify --deep` checks the manifest, shard block checksums, `games.idx`, CPI integrity, collection identity, game counts, and the accounting identity `total_encountered = accepted_unique + confirmed_duplicates + superseded_prior + rejected_by_policy + rejected_variant + rejected_illegal + rejected_malformed + quarantined`.
+`opening-explorer verify --deep` checks the manifest, shard block checksums, `games.idx`, CPI integrity, collection identity, game counts, and the accounting identity `total_encountered = accepted_unique + confirmed_duplicates + superseded_prior + rejected_by_policy + rejected_variant + rejected_illegal + rejected_malformed + quarantined`.
 
 ## 8. Package, Serve, and Query
 
@@ -263,14 +263,14 @@ data/releases/masters-otb/
 ./scripts/corpus.sh verify-package --archive data/packages/masters-otb-<version>.tar
 ```
 
-The `.tar` contains the current version directory (including `positions.cpi`, shards, `games.idx`, `manifest.json`), the root symlinks, and `RELEASE/` (license notice included); it excludes lock files, the superseded pre-index version, and temporary files. The archive is written deterministically (sorted names, zero mtimes and owners), so the same release yields the same bytes. `package` emits `<archive>.sha256`, then extracts into a fresh directory, re-hashes every artifact, runs `codb verify --deep`, and executes a query before reporting success. **A package on local disk is not a public download**: nothing in this repository uploads datasets anywhere.
+The `.tar` contains the current version directory (including `positions.cpi`, shards, `games.idx`, `manifest.json`), the root symlinks, and `RELEASE/` (license notice included); it excludes lock files, the superseded pre-index version, and temporary files. The archive is written deterministically (sorted names, zero mtimes and owners), so the same release yields the same bytes. `package` emits `<archive>.sha256`, then extracts into a fresh directory, re-hashes every artifact, runs `opening-explorer verify --deep`, and executes a query before reporting success. **A package on local disk is not a public download**: nothing in this repository uploads datasets anywhere.
 
 ### 8.2 Serve
 
 ```bash
 ./scripts/corpus.sh serve                       # 127.0.0.1:8080
 # equivalent:
-./target/release/codb serve \
+./target/release/opening-explorer serve \
   --masters-dataset data/releases/masters-otb \
   --elite-dataset   data/releases/elite-online \
   --host 127.0.0.1 --port 8080 \
@@ -286,7 +286,7 @@ curl -s http://127.0.0.1:8080/v1/collections
 curl -s 'http://127.0.0.1:8080/v1/explorer/position?collection=masters-otb&moves=e4,e5,Nf3'
 curl -s 'http://127.0.0.1:8080/v1/explorer/position?collection=elite-online&moves=e4,e5,Nf3'
 curl -s 'http://127.0.0.1:8080/v1/collections/masters-otb/games/<stable-id>'   # PGN
-./target/release/codb query --dataset data/releases/masters-otb --moves "e4,e5,Nf3" --json  # must match HTTP
+./target/release/opening-explorer query --dataset data/releases/masters-otb --moves "e4,e5,Nf3" --json  # must match HTTP
 ```
 
 Stable game IDs are listed in `games.idx` (32-byte header, 16-byte records, 32-byte footer; see [DATA_CONTRACTS.md](DATA_CONTRACTS.md#23-global-game-lookup-gamesidx)); `corpus.sh http-check` samples them.
@@ -297,7 +297,7 @@ Stable game IDs are listed in `games.idx` (32-byte header, 16-byte records, 32-b
 ./scripts/corpus.sh http-check      # starts a server, runs the checks, writes data/reports/http_check.json
 ```
 
-It asserts, per collection and against the real release: collection identity and `dataset_version` equal to the manifest; `/v1/collections` metadata; W+D+L reconciliation at the position and per candidate move; candidate moves are legal (each is replayed through the API); HTTP equals `codb query` on a stratified position sample (common, mid-frequency, rare, beyond-depth, absent, and transposition pairs); transposed move orders return identical statistics; invalid FEN, illegal moves, ambiguous or missing positions, and unsupported parameters are rejected with 400; real stored games are retrieved and equal `codb get-game`; ids from one collection return 404 in the other; conditional requests return 304; and latency, concurrency (1–32 workers), and startup time are measured.
+It asserts, per collection and against the real release: collection identity and `dataset_version` equal to the manifest; `/v1/collections` metadata; W+D+L reconciliation at the position and per candidate move; candidate moves are legal (each is replayed through the API); HTTP equals `opening-explorer query` on a stratified position sample (common, mid-frequency, rare, beyond-depth, absent, and transposition pairs); transposed move orders return identical statistics; invalid FEN, illegal moves, ambiguous or missing positions, and unsupported parameters are rejected with 400; real stored games are retrieved and equal `opening-explorer get-game`; ids from one collection return 404 in the other; conditional requests return 304; and latency, concurrency (1–32 workers), and startup time are measured.
 
 ## 9. Measured Results and Current Release
 
@@ -311,7 +311,7 @@ The authorized private deployment runs Gigabase R3 build `codb-masters-otb-17947
 
 The previous 29,640-game Masters version remains in the stable root's immutable `versions/` directory for rollback. Elite Online remains unchanged at **429,150 games** and CPI depth 30. Gigabase's publisher claims CC BY-NC 4.0, supplied no publisher checksum, and incorporates heterogeneous upstream sources whose rights remain unresolved. Local archive and PGN hashes are recorded in release metadata but are not publisher-authenticated. This deployment is restricted to authorized private evaluation; public redistribution and public service are not cleared. Raw-PGN HTTP retrieval is disabled.
 
-The three independent `python-chess` sample discrepancies are closed for game legality and Opening Explorer position correctness: all three sampled source games were legal and matched canonical moves, initial positions, and final boards. Persisted metadata differed in two rows (event text twice; site, time control, and ECO once each), and all three rows had source-attribution differences. These descriptive metadata and provenance variations did not affect position statistics. The anonymized durable report does not contain player/event identities or per-row exact source and CODB values, and it does not link the rows to deduplication dispositions; those details are unavailable and are not inferred. No games were removed.
+The three independent `python-chess` sample discrepancies are closed for game legality and Opening Explorer position correctness: all three sampled source games were legal and matched canonical moves, initial positions, and final boards. Persisted metadata differed in two rows (event text twice; site, time control, and ECO once each), and all three rows had source-attribution differences. These descriptive metadata and provenance variations did not affect position statistics. The anonymized durable report does not contain player/event identities or per-row exact source and Opening Explorer values, and it does not link the rows to deduplication dispositions; those details are unavailable and are not inferred. No games were removed.
 
 **Sources actually used** (every archive downloaded in full over HTTPS and verified against the publisher's SHA-256 list; 8,664.7 MB transferred in total):
 
@@ -357,7 +357,7 @@ Masters PGN `Site` values often identify a broadcast rather than a physical venu
 
 ### 9.2 Build performance and memory (Linux, 4 cores)
 
-RSS for the final Masters release is measured per executed CODB process. The runner reads that process's `/proc` `VmHWM` while it is alive and falls back to `wait4` child resource usage if a short command exits before sampling; neither measurement includes the Python orchestrator. The Elite release predates that measurement correction; its stored `metrics.json` RSS values are retained as historical build records and are not directly comparable. Ingestion remains streaming and RSS is measured per build host; there is no fixed 30 MB release cutoff.
+RSS for the final Masters release is measured per executed Opening Explorer process. The runner reads that process's `/proc` `VmHWM` while it is alive and falls back to `wait4` child resource usage if a short command exits before sampling; neither measurement includes the Python orchestrator. The Elite release predates that measurement correction; its stored `metrics.json` RSS values are retained as historical build records and are not directly comparable. Ingestion remains streaming and RSS is measured per build host; there is no fixed 30 MB release cutoff.
 
 | Collection | Step | Wall time | Peak RSS | Peak workspace disk |
 | :--- | :--- | ---: | ---: | ---: |
@@ -386,7 +386,7 @@ The Elite artifacts were not rebuilt for this follow-up. The values above are th
 
 At 16–32 client processes the shared four-core host is oversubscribed, increasing tail latency; these are single-machine measurements, not dedicated-host capacity claims.
 
-In-process lookups (`codb bench-lookup`, 5,000 sampled games; excludes HTTP, JSON, and SAN):
+In-process lookups (`opening-explorer bench-lookup`, 5,000 sampled games; excludes HTTP, JSON, and SAN):
 
 | Measure | `masters-otb` | `elite-online` |
 | :--- | ---: | ---: |
@@ -395,15 +395,15 @@ In-process lookups (`codb bench-lookup`, 5,000 sampled games; excludes HTTP, JSO
 
 ### 9.4 Correctness, package, and Docker evidence
 
-The real HTTP/CLI run passed **414/414 checks** with **262 stratified position comparisons** and no mismatches. It checked health/readiness, both collection identities, legal candidates and W/D/L totals, invalid input errors, cross-collection game isolation, and stored PGN retrieval. For `moves=e4,e5,Nf3`, Masters returned **3,902** games (W 1,294 / D 1,690 / B 918; top moves Nc6 3,501, Nf6 353, d6 46); Elite returned **30,390** (W 14,325 / D 2,404 / B 13,661; top moves Nc6 23,951, Nf6 3,291, d6 1,799). Both HTTP bodies matched `codb query --json`; each collection returned a real stored PGN. Full bodies and PGN hashes are in [`http_examples.json`](../benchmarks/corpus/http_examples.json).
+The real HTTP/CLI run passed **414/414 checks** with **262 stratified position comparisons** and no mismatches. It checked health/readiness, both collection identities, legal candidates and W/D/L totals, invalid input errors, cross-collection game isolation, and stored PGN retrieval. For `moves=e4,e5,Nf3`, Masters returned **3,902** games (W 1,294 / D 1,690 / B 918; top moves Nc6 3,501, Nf6 353, d6 46); Elite returned **30,390** (W 14,325 / D 2,404 / B 13,661; top moves Nc6 23,951, Nf6 3,291, d6 1,799). Both HTTP bodies matched `opening-explorer query --json`; each collection returned a real stored PGN. Full bodies and PGN hashes are in [`http_examples.json`](../benchmarks/corpus/http_examples.json).
 
-The final Masters and Elite package SHA-256 values are recorded in [`package_checksums.json`](../benchmarks/corpus/package_checksums.json). A fresh Path A bootstrap verified both sidecars, extracted both immutable release trees, and passed `codb verify --deep` for each collection. Path B remains an explicit source rebuild; it downloads the pinned 8.66 GB archive set only when `bootstrap --rebuild` is run.
+The final Masters and Elite package SHA-256 values are recorded in [`package_checksums.json`](../benchmarks/corpus/package_checksums.json). A fresh Path A bootstrap verified both sidecars, extracted both immutable release trees, and passed `opening-explorer verify --deep` for each collection. Path B remains an explicit source rebuild; it downloads the pinned 8.66 GB archive set only when `bootstrap --rebuild` is run.
 
-The real Compose smoke used an independent digest-pinned curl client on a shared Docker network and reached `http://codb:8080`. The image was 98,871,472 bytes; the service ran as UID 10001 with a read-only root filesystem and both data volumes read-only, published no host ports, reached healthy/readiness, and served both real releases. It returned 3,902 Masters and 30,390 Elite games for the opening baseline, retrieved a stored PGN from each, rejected invalid requests with HTTP 400 and an unknown game with 404, and returned 403 for administrative reload while auth was disabled. **96/96** concurrent requests passed; restart preserved results and deep verification; SIGTERM shutdown completed gracefully. The sampled real-container peak was 163,045,376 bytes (159,224 KiB), below the configured 512 MiB container cap. The smoke used read-only named-volume copies because the Docker-in-Docker daemon could not access the workspace bind paths; normal Compose deployment uses read-only host bind mounts. Evidence is in [`docker_real_check.json`](../benchmarks/corpus/docker_real_check.json).
+The real Compose smoke used an independent digest-pinned curl client on a shared Docker network and reached `http://opening-explorer:8080`. The image was 98,871,472 bytes; the service ran as UID 10001 with a read-only root filesystem and both data volumes read-only, published no host ports, reached healthy/readiness, and served both real releases. It returned 3,902 Masters and 30,390 Elite games for the opening baseline, retrieved a stored PGN from each, rejected invalid requests with HTTP 400 and an unknown game with 404, and returned 403 for administrative reload while auth was disabled. **96/96** concurrent requests passed; restart preserved results and deep verification; SIGTERM shutdown completed gracefully. The sampled real-container peak was 163,045,376 bytes (159,224 KiB), below the configured 512 MiB container cap. The smoke used read-only named-volume copies because the Docker-in-Docker daemon could not access the workspace bind paths; normal Compose deployment uses read-only host bind mounts. Evidence is in [`docker_real_check.json`](../benchmarks/corpus/docker_real_check.json).
 
 ### 9.5 Reproducibility measured on the real corpus
 
-An independent second Masters build and CPI indexing pass from the pinned archives produced byte-identical `games.idx`, `positions.cpi`, and `shard_0000.cgb3` files. The unchanged Elite artifacts match two previously verified independent builds byte-for-byte. Both collections reconcile accounting and pass `codb verify --deep`; release IDs, exact hashes, and elapsed times are in [`reproducibility_check.json`](../benchmarks/corpus/reproducibility_check.json). Build IDs, timestamps, release manifests, and catalog metadata differ as expected; complete-directory bitwise identity is not claimed.
+An independent second Masters build and CPI indexing pass from the pinned archives produced byte-identical `games.idx`, `positions.cpi`, and `shard_0000.cgb3` files. The unchanged Elite artifacts match two previously verified independent builds byte-for-byte. Both collections reconcile accounting and pass `opening-explorer verify --deep`; release IDs, exact hashes, and elapsed times are in [`reproducibility_check.json`](../benchmarks/corpus/reproducibility_check.json). Build IDs, timestamps, release manifests, and catalog metadata differ as expected; complete-directory bitwise identity is not claimed.
 
 ## 9.6 Storage and Scale
 
@@ -411,7 +411,7 @@ The release-specific artifact sizes and measured runtime RSS are recorded with t
 
 ## 10. Container and Browser Access
 
-For the container deployment, the internal API address is http://codb:8080. The default Compose file publishes no host port. A separate Compose project can join the same external Docker network; the exact setup and a loopback-only debug mapping are documented in [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md).
+For the container deployment, the internal API address is http://opening-explorer:8080. The default Compose file publishes no host port. A separate Compose project can join the same external Docker network; the exact setup and a loopback-only debug mapping are documented in [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md).
 
 Container-to-container requests do not use browser CORS. A browser needs a reachable HTTP origin and either an explicitly allowed CORS origin or a same-origin reverse proxy. The default service allows no cross-origin browser access. Position and stored-game API contracts are specified in [DATA_CONTRACTS.md](DATA_CONTRACTS.md#6-opening-explorer-http-api-contract).
 
@@ -430,11 +430,11 @@ Container-to-container requests do not use browser CORS. A browser needs a reach
 | `sha256 … does not match publisher checksum` | Corrupted transfer or changed upstream | Partial file deleted; rerun. If it recurs, the upstream archive changed: re-`pin` and review before use. |
 | `insufficient disk space` | Free space below need + headroom | Free space or pass `--data-dir` on a larger volume. |
 | `source … is not verified` at build | Archive missing/tampered | `fetch` again; the build never proceeds. |
-| `step '<name>' failed` | A `codb` step failed | Active release untouched; inspect `data/work/<run>/logs/<name>.log`, fix, rerun, then delete the stale workspace. |
-| `database or disk is full` in standalone `codb build` | SQLite temporary files may be using a full or size-limited system temp directory | Set `TMPDIR` to a writable directory with enough space. `corpus.sh build` already scopes temporary files to `data/work/<run>/tmp`. |
+| `step '<name>' failed` | A `opening-explorer` step failed | Active release untouched; inspect `data/work/<run>/logs/<name>.log`, fix, rerun, then delete the stale workspace. |
+| `database or disk is full` in standalone `opening-explorer build` | SQLite temporary files may be using a full or size-limited system temp directory | Set `TMPDIR` to a writable directory with enough space. `corpus.sh build` already scopes temporary files to `data/work/<run>/tmp`. |
 | `post-publication verification failed` | Published copy failed deep verify | The previous current target is restored automatically when one exists; inspect the candidate workspace and stable release root. |
 | Interrupted `build` | Workspace left under `data/work/` | Safe to delete; the active release root changes only when the atomic current symlink is switched. |
-| Crash during `codb build` inside a dataset root | Staging directory under `versions/.staging_*` | `codb recover --dataset <dir>`; or discard the workspace. |
+| Crash during `opening-explorer build` inside a dataset root | Staging directory under `versions/.staging_*` | `opening-explorer recover --dataset <dir>`; or discard the workspace. |
 
 ## 13. Reproducibility Status
 

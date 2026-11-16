@@ -1,0 +1,13 @@
+{
+  "name": "error_invalid_query",
+  "status": 400,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "error": {
+      "code": "invalid_query",
+      "message": "Failed to deserialize query string: duplicate field `moves`"
+    }
+  }
+}

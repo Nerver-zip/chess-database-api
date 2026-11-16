@@ -6,7 +6,7 @@ status: current
 
 # Project Roadmap & Milestones
 
-This document tracks completed milestones, delivered capabilities, and planned engineering initiatives for `chess-openings-db`.
+This document tracks completed milestones, delivered capabilities, and planned engineering initiatives for `opening-explorer-api`.
 
 ---
 
@@ -27,10 +27,10 @@ flowchart LR
 | Milestone | Target Scope | Status | Primary Artifacts |
 | :--- | :--- | :--- | :--- |
 | **Stage A: Feasibility & In-Memory Prototype** | Empirical feasibility analysis, move packing (16-bit), initial dictionary compression, heuristic Heaps' Law scaling. | **Completed** | [ADR-0001](adr/0001-initial-architecture.md), [`docs/research/feasibility-report.md`](research/feasibility-report.md), Stage A benchmark fixture. |
-| **Stage B / PR-01 / PR-02: Bounded Ingestion & Persistent CGB3** | $O(1)$ RAM streaming ingestion with per-process RSS measurement, disk-backed deduplication, multi-shard packaging (`shard_XXXX.cgb3`), global binary search index (`games.idx`), atomic publication, and crash recovery. | **Completed** | [ADR-0002](adr/0002-bounded-ingestion-and-persistent-cgb3-archive.md), `codb-storage`, `crates/storage/tests/publication_tests.rs`. |
-| **PR-03: Production CPI v2 Index** | Bounded-memory external sorting pipeline (`ExternalPositionIndexer`), temporary run files (`.crun`), deterministic K-way merge, CPI v2 container (`positions.cpi`), mmap sparse index, and CLI Opening Explorer queries. | **Completed** | [ADR-0003](adr/0003-production-cpi-index.md), `codb-index`, `benchmarks/production_cpi/`. |
+| **Stage B / PR-01 / PR-02: Bounded Ingestion & Persistent CGB3** | $O(1)$ RAM streaming ingestion with per-process RSS measurement, disk-backed deduplication, multi-shard packaging (`shard_XXXX.cgb3`), global binary search index (`games.idx`), atomic publication, and crash recovery. | **Completed** | [ADR-0002](adr/0002-bounded-ingestion-and-persistent-cgb3-archive.md), `opening-explorer-storage`, `crates/storage/tests/publication_tests.rs`. |
+| **PR-03: Production CPI v2 Index** | Bounded-memory external sorting pipeline (`ExternalPositionIndexer`), temporary run files (`.crun`), deterministic K-way merge, CPI v2 container (`positions.cpi`), mmap sparse index, and CLI Opening Explorer queries. | **Completed** | [ADR-0003](adr/0003-production-cpi-index.md), `opening-explorer-index`, `benchmarks/production_cpi/`. |
 | **Governance & Quality Standardization** | Standardized engineering governance: `AGENTS.md`, `HANDOFF.md`, canonical docs re-architecture, benchmark sanitization, doc link validator, and CI hardening. | **Completed** | [docs/ARCHITECTURE.md](ARCHITECTURE.md), [docs/DATA_CONTRACTS.md](DATA_CONTRACTS.md), `scripts/validate.sh`, `scripts/validate_docs.py`. |
-| **PR-04: Opening Explorer Read-Only HTTP API** | Production-ready HTTP query service (`codb-api`), `codb serve` command, lock-free CPI reads, pooled PGN decompression, atomic reload, and integration suites. | **Completed** | [ADR-0004](adr/0004-opening-explorer-http-api.md), `codb-api`, [docs/DATA_CONTRACTS.md#6](DATA_CONTRACTS.md#6-opening-explorer-http-api-contract). |
+| **PR-04: Opening Explorer Read-Only HTTP API** | Production-ready HTTP query service (`opening-explorer-api`), `opening-explorer serve` command, lock-free CPI reads, pooled PGN decompression, atomic reload, and integration suites. | **Completed** | [ADR-0004](adr/0004-opening-explorer-http-api.md), `opening-explorer-api`, [docs/DATA_CONTRACTS.md#6](DATA_CONTRACTS.md#6-opening-explorer-http-api-contract). |
 | **PR-A: Reproducible Corpus Release** | Pinned source catalog, verified acquisition, release build/index/verify/package tooling, and local API checks. | **Delivered** | corpus/catalog.json, scripts/corpus.py, scripts/corpus.sh, [CORPUS_BUILD.md](CORPUS_BUILD.md). |
 | **PR #6: Dockerized Opening Explorer & event-qualified Masters release** | Independent API image, Compose deployment, verified package bootstrap, shared Docker network, exact event-level Masters audit, atomic version switch, and real-corpus container evidence. | **Completed** | [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md), scripts/audit_masters_events.py, scripts/docker_smoke.py. |
 | **PR #7: Locally supplied Gigabase qualification** | The current r3 full-source evaluation parsed 13,450,696 records, found 3,296,795 header candidates, and retained 3,284,429 unique games with reconciled accounting and a deeply verified depth-40 CPI. Source-to-canonical mapping and sidecar accounting passed with zero mismatches; the source-dedupe audit compared all 12,366 duplicate, supersession, and collision outcomes. The selected-position CPI oracle passed. The corrected local package passed verification, isolated bootstrap/rollback, and real Docker API QA. The earlier 156,898-game r2 package and Docker checks remain historical. The publisher supplied no checksum, upstream rights remain unresolved, and host bind-mount verification remains outstanding. | **R3 local evaluation complete; public release eligibility and production use blocked; Draft PR review pending** | [`benchmarks/gigabase/FINAL_REPORT.md`](../benchmarks/gigabase/FINAL_REPORT.md), `corpus/gigabase_source_qualification.json`, `scripts/local_gigabase_eval.py`, `crates/storage/src/dataset.rs`. |
@@ -40,12 +40,12 @@ flowchart LR
 
 ## 2. Completed Capabilities (Current Baseline)
 
-The current baseline of `chess-openings-db` delivers:
-- **Streaming PGN Ingestion (`codb-ingest`):** Transparent Zstd decompression, streaming token parsing, and 100% legal move replay via `shakmaty`.
-- **Policy Filtering & Deduplication (`codb-curate`):** Strict separation of `masters-otb` and `elite-online`, bullet time control exclusion ($T_{\text{est}} < 180\text{s}$), normalized metadata keys, move-slice prefix supersession, and disk-backed deduplication.
-- **Persistent Sharded Storage (`codb-storage`):** `CGB3` block-level dictionary interning, `shard_XXXX.cgb3` container splitting, 16-byte fixed-record `games.idx` binary search, process-level advisory flock, and atomic symlink publication with snapshot isolation.
-- **Production Position Index (`codb-index`):** Bounded-memory external sorting indexer (`ExternalPositionIndexer`), temporary run file emission (`.crun`), deterministic K-way merge, CPI v2 (`positions.cpi`), zero-allocation memory-mapped sparse index ($34\text{ B/entry}$), and functional Opening Explorer queries.
-- **Production HTTP Serving Layer (`codb-api` & `codb serve`):** Asynchronous Axum/Tokio HTTP service providing zero-copy position lookups, collection-qualified PGN retrieval, zero-downtime hot reloading, CORS/trace/timeout middleware, and p50 latencies under 300 µs at < 10 MB RAM.
+The current baseline of `opening-explorer-api` delivers:
+- **Streaming PGN Ingestion (`opening-explorer-ingest`):** Transparent Zstd decompression, streaming token parsing, and 100% legal move replay via `shakmaty`.
+- **Policy Filtering & Deduplication (`opening-explorer-curate`):** Strict separation of `masters-otb` and `elite-online`, bullet time control exclusion ($T_{\text{est}} < 180\text{s}$), normalized metadata keys, move-slice prefix supersession, and disk-backed deduplication.
+- **Persistent Sharded Storage (`opening-explorer-storage`):** `CGB3` block-level dictionary interning, `shard_XXXX.cgb3` container splitting, 16-byte fixed-record `games.idx` binary search, process-level advisory flock, and atomic symlink publication with snapshot isolation.
+- **Production Position Index (`opening-explorer-index`):** Bounded-memory external sorting indexer (`ExternalPositionIndexer`), temporary run file emission (`.crun`), deterministic K-way merge, CPI v2 (`positions.cpi`), zero-allocation memory-mapped sparse index ($34\text{ B/entry}$), and functional Opening Explorer queries.
+- **Production HTTP Serving Layer (`opening-explorer-api` & `opening-explorer serve`):** Asynchronous Axum/Tokio HTTP service providing zero-copy position lookups, collection-qualified PGN retrieval, zero-downtime hot reloading, CORS/trace/timeout middleware, and p50 latencies under 300 µs at < 10 MB RAM.
 
 ---
 

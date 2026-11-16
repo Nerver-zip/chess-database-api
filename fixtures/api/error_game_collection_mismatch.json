@@ -1,0 +1,13 @@
+{
+  "name": "error_game_collection_mismatch",
+  "status": 404,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "error": {
+      "code": "game_not_found",
+      "message": "Game ID 6138990832783294 was not found in collection 'masters-otb'."
+    }
+  }
+}

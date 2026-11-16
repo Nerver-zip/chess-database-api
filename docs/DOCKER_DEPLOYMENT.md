@@ -1,12 +1,12 @@
 ---
-summary: "Provision catalog releases or the private Gigabase R3 snapshot and run the read-only CODB Opening Explorer with Docker Compose."
+summary: "Provision catalog releases or the private Gigabase R3 snapshot and run the read-only Opening Explorer API with Docker Compose."
 read_when: "Deploying the API locally, connecting another container, or updating the mounted datasets."
 status: current
 ---
 
 # Docker Deployment
 
-The Docker image contains only the codb API executable and runtime libraries. Masters OTB and Elite Online stay outside the image and are mounted read-only from their stable release roots. The container does not fetch, build, or modify datasets at startup.
+The Docker image contains only the opening-explorer API executable and runtime libraries. Masters OTB and Elite Online stay outside the image and are mounted read-only from their stable release roots. The container does not fetch, build, or modify datasets at startup.
 
 ## Prerequisites
 
@@ -14,12 +14,12 @@ The Docker image contains only the codb API executable and runtime libraries. Ma
 - A checkout of this repository and enough local disk for release packages or source archives, extracted datasets, and build workspace.
 - The active Masters R3 snapshot uses 2,700,805,817 artifact bytes; the unchanged Elite release uses 210,308,033 bytes. The prior 29,640-game Masters snapshot remains retained for rollback. Dataset binaries remain outside Git.
 - For source rebuilds, the pinned source archives total about 8.66 GB. The largest measured build workspace was about 435.7 MB; leave additional room for source files, both published releases, and staging copies. `corpus.sh plan` reports source transfer and disk estimates.
-- Compose caps CODB at 512 MiB. The final real-corpus container smoke sampled 163,045,376 bytes (159,224 KiB) at peak under concurrent queries and PGN retrieval. RSS includes memory-mapped dataset pages and varies with query traffic.
+- Compose caps Opening Explorer at 512 MiB. The final real-corpus container smoke sampled 163,045,376 bytes (159,224 KiB) at peak under concurrent queries and PGN retrieval. RSS includes memory-mapped dataset pages and varies with query traffic.
 
 Build the host CLI used for bootstrap and verification:
 
 ~~~bash
-cargo build --locked --release --package codb-cli
+cargo build --locked --release --package opening-explorer-cli
 ~~~
 
 ## Provision Both Real Collections
@@ -34,7 +34,7 @@ Place each package and its detached .sha256 file in an accessible directory. Pac
   --elite-package /path/to/elite-online-<release-id>.tar
 ~~~
 
-Bootstrap checks each archive checksum, rejects unsafe or incomplete archive contents, validates collection and immutable-version identities, verifies every recorded artifact hash, runs codb verify --deep, and atomically installs both versions under data/releases/. Existing active versions remain available if extraction or validation fails.
+Bootstrap checks each archive checksum, rejects unsafe or incomplete archive contents, validates collection and immutable-version identities, verifies every recorded artifact hash, runs opening-explorer verify --deep, and atomically installs both versions under data/releases/. Existing active versions remain available if extraction or validation fails.
 
 ### Path B: rebuild from the pinned catalog
 
@@ -58,27 +58,27 @@ The expected host directory layout is data/releases/masters-otb/current and data
 Optionally copy the example settings, then edit .env to choose host paths or bounded resource values:
 
 ~~~bash
-cp .env.codb.example .env
+cp .env.example .env
 ~~~
 
 The defaults mount ./data/releases/masters-otb and ./data/releases/elite-online. Start the API after provisioning both collections:
 
 ~~~bash
-docker compose -f compose.codb.yaml up -d --build
-docker compose -f compose.codb.yaml ps
-docker compose -f compose.codb.yaml logs --follow codb
+docker compose -f compose.yaml up -d --build
+docker compose -f compose.yaml ps
+docker compose -f compose.yaml logs --follow opening-explorer
 ~~~
 
-The service is named codb and listens on 0.0.0.0:8080 inside the container. Compose publishes no host port by default. The image runs as UID 10001, with a read-only root filesystem, a 16 MiB /tmp, dropped Linux capabilities, no-new-privileges, a 64-process cap, and JSON logs available through docker logs. The unless-stopped restart policy brings it back after ordinary host or daemon restarts.
+The service is named opening-explorer and listens on 0.0.0.0:8080 inside the container. Compose publishes no host port by default. The image runs as UID 10001, with a read-only root filesystem, a 16 MiB /tmp, dropped Linux capabilities, no-new-privileges, a 64-process cap, and JSON logs available through docker logs. The unless-stopped restart policy brings it back after ordinary host or daemon restarts.
 
-Startup deeply validates both mounted snapshots before listening. Missing mounts, a wrong collection, a missing artifact, a bad checksum, or an invalid CPI makes startup fail and is reported in docker compose logs codb. /ready only returns success once both snapshots are loaded. /health reports process health.
+Startup deeply validates both mounted snapshots before listening. Missing mounts, a wrong collection, a missing artifact, a bad checksum, or an invalid CPI makes startup fail and is reported in docker compose logs opening-explorer. The server binds only after every configured snapshot has been verified, so `/ready` answers once it is listening; it does not re-check data afterwards. /health reports process health.
 
 ## Check the API
 
-From inside the CODB container network, use http://codb:8080. For local debugging only, add the loopback-only port mapping:
+From inside the Opening Explorer container network, use http://opening-explorer:8080. For local debugging only, add the loopback-only port mapping:
 
 ~~~bash
-docker compose -f compose.codb.yaml -f compose.codb.debug.yaml up -d --build
+docker compose -f compose.yaml -f compose.debug.yaml up -d --build
 curl --fail http://127.0.0.1:8081/health
 curl --fail http://127.0.0.1:8081/ready
 curl --fail http://127.0.0.1:8081/v1/collections
@@ -90,16 +90,16 @@ curl --fail --get 'http://127.0.0.1:8081/v1/explorer/position' \
   --data-urlencode 'moves=e4,e5,Nf3'
 ~~~
 
-Ordinary reads require no administrative token. The administrative reload route remains disabled unless an admin token is explicitly configured. Stored-game retrieval is enabled by default for compatibility; set `CODB_ENABLE_GAME_RETRIEVAL=false` when source terms permit derived position statistics but prohibit returning raw PGN to users. The position explorer and collection metadata remain available.
+Ordinary reads require no administrative token. The administrative reload route remains disabled unless an admin token is explicitly configured. Stored-game retrieval is enabled by default for compatibility; set `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=false` when source terms permit derived position statistics but prohibit returning raw PGN to users. The position explorer and collection metadata remain available.
 
 ## Connect Another Compose Project
 
-Containers in separate Compose projects need a shared external network. Create it once, then start CODB attached to that network:
+Containers in separate Compose projects need a shared external network. Create it once, then start Opening Explorer attached to that network:
 
 ~~~bash
-docker network create evalis-codb
-CODB_NETWORK_NAME=evalis-codb CODB_NETWORK_EXTERNAL=true \
-  docker compose -f compose.codb.yaml up -d --build
+docker network create evalis-opening-explorer
+OPENING_EXPLORER_NETWORK_NAME=evalis-opening-explorer OPENING_EXPLORER_NETWORK_EXTERNAL=true \
+  docker compose -f compose.yaml up -d --build
 ~~~
 
 Attach the other project's service to the same network and use Docker DNS:
@@ -108,42 +108,42 @@ Attach the other project's service to the same network and use Docker DNS:
 services:
   client:
     environment:
-      CODB_API_BASE_URL: http://codb:8080
+      OPENING_EXPLORER_API_BASE_URL: http://opening-explorer:8080
     networks:
-      - codb-shared
+      - opening-explorer-shared
 
 networks:
-  codb-shared:
+  opening-explorer-shared:
     external: true
-    name: evalis-codb
+    name: evalis-opening-explorer
 ~~~
 
-Container-to-container HTTP requests do not use browser CORS and need no published host port. A browser request is different: the browser needs an HTTP origin it can reach, such as the optional loopback mapping for local development, and that origin must be allowed by CODB_ALLOWED_ORIGINS. For a deployed browser client, expose an intentional HTTP origin through a same-origin reverse proxy or an explicitly configured CORS policy. The default deployment exposes CODB only on the Docker network.
+Container-to-container HTTP requests do not use browser CORS and need no published host port. A browser request is different: the browser needs an HTTP origin it can reach, such as the optional loopback mapping for local development, and that origin must be allowed by OPENING_EXPLORER_ALLOWED_ORIGINS. For a deployed browser client, expose an intentional HTTP origin through a same-origin reverse proxy or an explicitly configured CORS policy. The default deployment exposes Opening Explorer only on the Docker network.
 
 ## Resource and Timeout Settings
 
-.env.codb.example lists the supported settings:
+.env.example lists the supported settings. Legacy `CODB_*` names are still accepted when the matching `OPENING_EXPLORER_*` name is unset; see [MIGRATION_FROM_CODB.md](MIGRATION_FROM_CODB.md):
 
 | Setting | Default | Bound or effect |
 | --- | ---: | --- |
-| CODB_READER_POOL_SIZE | 16 | 1–64 concurrent game readers |
-| CODB_READER_POOL_TIMEOUT_SECS | 5 | 1–60 seconds waiting for a reader |
-| CODB_REQUEST_TIMEOUT_SECS | 15 | 1–300 seconds per request |
-| CODB_MAX_MOVE_PLIES | 200 | 1–512 plies per position request |
-| CODB_ENABLE_GAME_RETRIEVAL | true | `false` omits the raw-PGN game route and returns HTTP 404 there |
-| CODB_MEMORY_LIMIT | 512m | Docker memory cap |
-| CODB_CPU_LIMIT | 2 | Docker CPU quota |
-| CODB_LOG_LEVEL | info | Rust tracing filter |
+| OPENING_EXPLORER_READER_POOL_SIZE | 16 | 1–64 concurrent game readers |
+| OPENING_EXPLORER_READER_POOL_TIMEOUT_SECS | 5 | 1–60 seconds waiting for a reader |
+| OPENING_EXPLORER_REQUEST_TIMEOUT_SECS | 15 | 1–300 seconds per request |
+| OPENING_EXPLORER_MAX_MOVE_PLIES | 200 | 1–512 plies per position request |
+| OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL | true | `false` omits the raw-PGN game route and returns HTTP 404 there |
+| OPENING_EXPLORER_MEMORY_LIMIT | 512m | Docker memory cap |
+| OPENING_EXPLORER_CPU_LIMIT | 2 | Docker CPU quota |
+| OPENING_EXPLORER_LOG_LEVEL | info | Rust tracing filter |
 
 Compose also limits the process to 64 PIDs and 1,024 open files. Adjust limits only after measuring the real service workload. Dataset files are memory-mapped, so resident memory includes file-backed pages and depends on query traffic. The release directories require sizes recorded by the provisioning command; the host needs additional space for packages and bootstrap work. Run corpus.sh plan before rebuilding.
 
 ## Real Release Acceptance Evidence
 
-The current real-corpus report is `benchmarks/corpus/docker_real_check.json`. It records a digest-pinned independent client reaching `http://codb:8080`, both release IDs and game counts, the opening baseline (3,902 Masters and 30,390 Elite games for `e4,e5,Nf3`), PGN retrieval from each collection, 96/96 concurrent requests, container restart, graceful SIGTERM, read-only mounts and root filesystem, no published host ports, and failure rejection for missing, wrong, incomplete, and corrupted releases. The Docker image measured 98,871,472 bytes. The test daemon could not access the workspace through bind paths, so this run used read-only named-volume copies; the normal Compose configuration mounts host release roots read-only.
+The current real-corpus report is `benchmarks/corpus/docker_real_check.json`. It records a digest-pinned independent client reaching `http://opening-explorer:8080`, both release IDs and game counts, the opening baseline (3,902 Masters and 30,390 Elite games for `e4,e5,Nf3`), PGN retrieval from each collection, 96/96 concurrent requests, container restart, graceful SIGTERM, read-only mounts and root filesystem, no published host ports, and failure rejection for missing, wrong, incomplete, and corrupted releases. The Docker image measured 98,871,472 bytes. The test daemon could not access the workspace through bind paths, so this run used read-only named-volume copies; the normal Compose configuration mounts host release roots read-only.
 
 The [Gigabase R3 report](../benchmarks/gigabase/FINAL_REPORT.md) records the candidate build and audit evidence. R3 is now the active Masters snapshot in the authorized private deployment; it remains outside the approved source catalog and is not cleared for public distribution or public service. The original isolated API smokes are historical evidence. The current deployment uses the named-volume mode below because the Docker daemon cannot access checkout bind paths. Raw-PGN retrieval is disabled.
 
-The separate `scripts/local_gigabase_eval.py` workflow registered the supplied archive using local hashes, built it with the Gigabase-only qualification policy, and created the local-only R3 package. `scripts/promote_gigabase_r3.py` now verifies and publishes those existing artifacts through CODB's atomic storage publisher; it does not rebuild the source corpus or add Gigabase to the approved catalog. Release metadata preserves the publisher's CC BY-NC 4.0 claim, absent publisher checksum, and unresolved upstream rights. The publisher's B2B page describes internal development and a closed beta, while prohibiting direct raw-PGN downloads to end users; no written project-specific public-use permission is recorded. See [`PUBLISHER_TERMS_REVIEW.json`](../benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json). The authorized private deployment disables raw-PGN retrieval. This authorization does not clear public or commercial deployment.
+The separate `scripts/local_gigabase_eval.py` workflow registered the supplied archive using local hashes, built it with the Gigabase-only qualification policy, and created the local-only R3 package. `scripts/promote_gigabase_r3.py` now verifies and publishes those existing artifacts through Opening Explorer's atomic storage publisher; it does not rebuild the source corpus or add Gigabase to the approved catalog. Release metadata preserves the publisher's CC BY-NC 4.0 claim, absent publisher checksum, and unresolved upstream rights. The publisher's B2B page describes internal development and a closed beta, while prohibiting direct raw-PGN downloads to end users; no written project-specific public-use permission is recorded. See [`PUBLISHER_TERMS_REVIEW.json`](../benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json). The authorized private deployment disables raw-PGN retrieval. This authorization does not clear public or commercial deployment.
 
 ### Historical host-bind probe
 
@@ -156,40 +156,40 @@ The operational Masters release is Gigabase R3, while Elite Online remains the e
 After promoting and verifying the host releases as described in [Corpus Build](CORPUS_BUILD.md#43-local-gigabase-r3-package-and-operational-promotion), seed a fresh runtime volume:
 
 ~~~bash
-export CODB_RUNTIME_VOLUME=codb-gigabase-r3-runtime
-docker volume create "$CODB_RUNTIME_VOLUME"
-docker run -d --name codb-gigabase-r3-seed --network none \
-  --volume "$CODB_RUNTIME_VOLUME:/transfer" alpine:3.21 sleep infinity
-docker exec codb-gigabase-r3-seed mkdir -p /transfer/masters-otb /transfer/elite-online
+export OPENING_EXPLORER_RUNTIME_VOLUME=codb-gigabase-r3-runtime
+docker volume create "$OPENING_EXPLORER_RUNTIME_VOLUME"
+docker run -d --name opening-explorer-gigabase-r3-seed --network none \
+  --volume "$OPENING_EXPLORER_RUNTIME_VOLUME:/transfer" alpine:3.21 sleep infinity
+docker exec opening-explorer-gigabase-r3-seed mkdir -p /transfer/masters-otb /transfer/elite-online
 docker cp data/releases/masters-otb/. \
-  codb-gigabase-r3-seed:/transfer/masters-otb
+  opening-explorer-gigabase-r3-seed:/transfer/masters-otb
 docker cp data/releases/elite-online/. \
-  codb-gigabase-r3-seed:/transfer/elite-online
-cp .env.codb.gigabase.example .env.codb.gigabase
+  opening-explorer-gigabase-r3-seed:/transfer/elite-online
+cp .env.gigabase.example .env.gigabase
 docker compose --project-name codb-gigabase-r3 \
-  --env-file .env.codb.gigabase \
-  -f compose.codb.yaml -f compose.codb.named-volume.yaml up -d --build
+  --env-file .env.gigabase \
+  -f compose.yaml -f compose.named-volume.yaml up -d --build
 ~~~
 
-The override mounts the shared volume at `/datasets` and replaces both host binds; the normal service paths remain `/datasets/masters-otb` and `/datasets/elite-online`. Check `/health`, `/ready`, and `/v1/collections` from the service container or another container on its private Compose network. Confirm Masters reports the R3 build ID and 3,284,429 games; compare representative HTTP position W/D/L results with `codb query`. Confirm Elite still reports 429,150 games. The retrieval route must return 404 while `CODB_ENABLE_GAME_RETRIEVAL=false`. Inspect `docker inspect` and confirm the sole `/datasets` mount has `RW:false` and `HostConfig.PortBindings` is empty.
+The override mounts the shared volume at `/datasets` and replaces both host binds; the normal service paths remain `/datasets/masters-otb` and `/datasets/elite-online`. Check `/health`, `/ready`, and `/v1/collections` from the service container or another container on its private Compose network. Confirm Masters reports the R3 build ID and 3,284,429 games; compare representative HTTP position W/D/L results with `opening-explorer query`. Confirm Elite still reports 429,150 games. The retrieval route must return 404 while `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=false`. Inspect `docker inspect` and confirm the sole `/datasets` mount has `RW:false` and `HostConfig.PortBindings` is empty.
 
 For publisher-based rollback in the named volume, use the same atomic storage publisher. A helper can mount the volume read-write while the API retains its read-only mount:
 
 ~~~bash
-docker run -d --name codb-gigabase-r3-publisher --network none --user 0:0 \
-  --volume "$CODB_RUNTIME_VOLUME:/storage" \
-  --entrypoint /bin/sleep codb-opening-explorer:local infinity
+docker run -d --name opening-explorer-gigabase-r3-publisher --network none --user 0:0 \
+  --volume "$OPENING_EXPLORER_RUNTIME_VOLUME:/storage" \
+  --entrypoint /bin/sleep opening-explorer-api:local infinity
 PREVIOUS_ID=codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40
-docker exec codb-gigabase-r3-publisher mkdir -p /storage/.promotion-stage
-docker exec codb-gigabase-r3-publisher cp -a \
+docker exec opening-explorer-gigabase-r3-publisher mkdir -p /storage/.promotion-stage
+docker exec opening-explorer-gigabase-r3-publisher cp -a \
   "/storage/masters-otb/versions/$PREVIOUS_ID" \
   "/storage/.promotion-stage/$PREVIOUS_ID"
-docker exec codb-gigabase-r3-publisher codb publish \
+docker exec opening-explorer-gigabase-r3-publisher opening-explorer publish \
   --candidate "/storage/.promotion-stage/$PREVIOUS_ID" \
   --target /storage/masters-otb --collection masters-otb
 ~~~
 
-Restart the API if it has not hot-reloaded the symlink, then verify the previous ID and 29,640-game count through `/ready`, `/v1/collections`, and a position query. To reactivate R3, stage a copy of the pinned R3 snapshot into `/storage/.promotion-stage/<R3-build-id>` and invoke `codb publish` with that candidate. Confirm the R3 ID and count return, and recheck the disabled retrieval route. Keep `current` publication inside `codb publish`; never replace the symlink directly.
+Restart the API if it has not hot-reloaded the symlink, then verify the previous ID and 29,640-game count through `/ready`, `/v1/collections`, and a position query. To reactivate R3, stage a copy of the pinned R3 snapshot into `/storage/.promotion-stage/<R3-build-id>` and invoke `opening-explorer publish` with that candidate. Confirm the R3 ID and count return, and recheck the disabled retrieval route. Keep `current` publication inside `opening-explorer publish`; never replace the symlink directly.
 
 ## Safe Dataset Updates
 
@@ -202,8 +202,8 @@ collection=masters-otb
 previous_snapshot="$(readlink -f "data/releases/$collection/current")"
 ./scripts/corpus.sh --data-dir ./data build --collection "$collection"
 ./scripts/corpus.sh --data-dir ./data verify --collection "$collection"
-docker compose -f compose.codb.yaml restart codb
-docker compose -f compose.codb.yaml ps
+docker compose -f compose.yaml restart opening-explorer
+docker compose -f compose.yaml ps
 ~~~
 
 A restart deeply validates the new snapshots before readiness. If it fails, republish the saved immutable version through the same Rust storage publication command used by normal releases:
@@ -212,12 +212,12 @@ A restart deeply validates the new snapshots before readiness. If it fails, repu
 previous_id="$(basename "$previous_snapshot")"
 rollback_dir="$(mktemp -d "data/work/$collection-rollback-XXXXXX")"
 cp -a "$previous_snapshot" "$rollback_dir/$previous_id"
-target/release/codb publish \
+target/release/opening-explorer publish \
   --candidate "$rollback_dir/$previous_id" \
   --target "data/releases/$collection" \
   --collection "$collection"
-docker compose -f compose.codb.yaml up -d
-docker compose -f compose.codb.yaml ps
+docker compose -f compose.yaml up -d
+docker compose -f compose.yaml ps
 ~~~
 
 Repeat for `elite-online` when needed. Keep old immutable versions until no process or recovery path may reference them; never replace or hand-edit `current` directly.
@@ -225,27 +225,27 @@ Repeat for `elite-online` when needed. Keep old immutable versions until no proc
 ## Stop, Restart, and Diagnose
 
 ~~~bash
-docker compose -f compose.codb.yaml stop --timeout 30
-docker compose -f compose.codb.yaml start codb
-docker compose -f compose.codb.yaml logs --tail=200 codb
-docker compose -f compose.codb.yaml down
+docker compose -f compose.yaml stop --timeout 30
+docker compose -f compose.yaml start opening-explorer
+docker compose -f compose.yaml logs --tail=200 opening-explorer
+docker compose -f compose.yaml down
 ~~~
 
 SIGTERM is sent to the service process and Compose allows 30 seconds for graceful shutdown. docker logs shows the same service logs. The image health check calls /ready; inspect it with:
 
 ~~~bash
-docker inspect --format '{{json .State.Health}}' "$(docker compose -f compose.codb.yaml ps -q codb)"
+docker inspect --format '{{json .State.Health}}' "$(docker compose -f compose.yaml ps -q opening-explorer)"
 ~~~
 
 Common failure checks:
 
 - Compose says a bind source is missing: verify both release-root paths and the .env values; Compose is configured not to create an empty host directory.
-- Container exits before ready: inspect docker compose logs codb, then run corpus.sh verify on the host.
+- Container exits before ready: inspect docker compose logs opening-explorer, then run corpus.sh verify on the host.
 - Wrong collection or missing current target: use the complete package and bootstrap workflow; do not move internal files by hand.
-- Container-to-container DNS fails: inspect docker network inspect evalis-codb and confirm both services join that external network and the CODB service keeps alias codb.
+- Container-to-container DNS fails: inspect docker network inspect evalis-opening-explorer and confirm both services join that external network and the Opening Explorer service keeps alias opening-explorer.
 - Local curl cannot connect: the production Compose file has no host port. Use the debug override for loopback-only access.
 - A game-read request times out under load: check reader-pool saturation and CPU/memory use, then tune the bounded reader pool and timeout values.
 
 ## Dataset Licensing and Attribution
 
-Each immutable version contains RELEASE/RELEASE.json, RELEASE/DATASET_LICENSE.txt, source checksums, and (for Masters) the event qualification evidence. Masters is derived from Lichess broadcasts under CC BY-SA 4.0: retain attribution and license notices, and license redistributed adaptations under CC BY-SA 4.0 or a compatible license. Elite Online derives from Lichess CC0 data. The application code remains MIT OR Apache-2.0; the software license does not replace either dataset's terms. See [LICENSING.md](LICENSING.md).
+Each immutable version contains RELEASE/RELEASE.json, RELEASE/DATASET_LICENSE.txt, source checksums, and (for Masters) the event qualification evidence. The license is release-specific. The active Masters release (Gigabase R3) carries the publisher's CC BY-NC 4.0 claim and requires attribution; the retained historical Lichess Masters version is CC BY-SA 4.0. Retain each version's notices (see [LICENSING.md](LICENSING.md#44-lumbras-gigabase-masters-dataset)). Elite Online derives from Lichess CC0 data. The application code remains MIT OR Apache-2.0; the software license does not replace either dataset's terms. See [LICENSING.md](LICENSING.md).

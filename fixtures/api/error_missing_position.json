@@ -1,0 +1,13 @@
+{
+  "name": "error_missing_position",
+  "status": 400,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "error": {
+      "code": "missing_position",
+      "message": "Missing position representation. Exactly one of 'fen' or 'moves' parameter is required."
+    }
+  }
+}

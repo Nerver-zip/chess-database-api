@@ -1,0 +1,13 @@
+{
+  "name": "error_invalid_moves",
+  "status": 400,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "error": {
+      "code": "invalid_moves",
+      "message": "Invalid or illegal move sequence: Illegal move 'e4' at ply 2."
+    }
+  }
+}

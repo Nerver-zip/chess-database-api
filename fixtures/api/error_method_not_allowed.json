@@ -1,0 +1,13 @@
+{
+  "name": "error_method_not_allowed",
+  "status": 405,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "error": {
+      "code": "method_not_allowed",
+      "message": "The HTTP method is not allowed for this path."
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "name": "position_elite_moves",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "cache-control": "public, max-age=60",
+    "etag": "\"elite-online-codb-elite-online-1794843905253598354-86620-d620d7652db90d95-cpi-d30-3e88f9327e6dd0a7d3207fec0612d89d-aaef15bb879308b4\""
+  },
+  "json": {
+    "collection": "elite-online",
+    "dataset_version": "codb-elite-online-1794843905253598354-86620-d620d7652db90d95-cpi-d30",
+    "dataset_freshness": "2026-11-16T15:45:05Z",
+    "cpi_depth_plies": 30,
+    "position_key": "3e88f9327e6dd0a7d3207fec0612d89d",
+    "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+    "total_games": 143,
+    "white_wins": 71,
+    "draws": 72,
+    "black_wins": 0,
+    "white_win_pct": 49.7,
+    "draw_pct": 50.3,
+    "black_win_pct": 0.0,
+    "moves": [
+      {
+        "uci": "b8c6",
+        "san": "Nc6",
+        "white_wins": 0,
+        "draws": 72,
+        "black_wins": 0,
+        "total_games": 72,
+        "white_win_pct": 0.0,
+        "draw_pct": 100.0,
+        "black_win_pct": 0.0
+      },
+      {
+        "uci": "d7d6",
+        "san": "d6",
+        "white_wins": 71,
+        "draws": 0,
+        "black_wins": 0,
+        "total_games": 71,
+        "white_win_pct": 100.0,
+        "draw_pct": 0.0,
+        "black_win_pct": 0.0
+      }
+    ]
+  }
+}

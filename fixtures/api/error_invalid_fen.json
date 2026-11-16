@@ -1,0 +1,13 @@
+{
+  "name": "error_invalid_fen",
+  "status": 400,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "error": {
+      "code": "invalid_fen",
+      "message": "Invalid FEN syntax: Illegal chess position: PositionError { errors: PositionErrorKinds(EMPTY_BOARD | MISSING_KING), .. }"
+    }
+  }
+}

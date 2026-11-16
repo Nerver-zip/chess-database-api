@@ -1,0 +1,33 @@
+{
+  "recorded_at_utc": "2026-11-16T16:13:57Z",
+  "source": "synthetic sample datasets built from fixtures/stage_a_validation.pgn; not a corpus release",
+  "sample_count": 25,
+  "sample_game_id": "6138990832783294",
+  "samples": [
+    "admin_disabled",
+    "admin_reload_ok",
+    "admin_unauthorized",
+    "collections",
+    "error_ambiguous_position",
+    "error_collection_unavailable",
+    "error_game_collection_mismatch",
+    "error_game_invalid_id",
+    "error_game_not_found",
+    "error_invalid_collection",
+    "error_invalid_fen",
+    "error_invalid_moves",
+    "error_invalid_query",
+    "error_method_not_allowed",
+    "error_missing_position",
+    "error_move_sequence_too_long",
+    "error_not_found",
+    "error_unsupported_parameter",
+    "game_elite",
+    "health",
+    "position_elite_fen",
+    "position_elite_moves",
+    "position_masters_fen",
+    "position_masters_moves",
+    "ready"
+  ]
+}

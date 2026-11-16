@@ -1,0 +1,13 @@
+{
+  "name": "error_collection_unavailable",
+  "status": 503,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "error": {
+      "code": "collection_unavailable",
+      "message": "Collection 'masters-otb' is not configured or loaded on this server."
+    }
+  }
+}

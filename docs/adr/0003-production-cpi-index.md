@@ -57,8 +57,8 @@ In [`crates/storage/src/dataset.rs`](../../crates/storage/src/dataset.rs), [`bui
 
 ### 5. Opening Explorer CLI and Query Interface
 - CLI subcommands:
-  - `codb build-index --dataset <PATH> [--depth-plies <N>] [--collection <C>] [--memory-limit-mib <M>] [--json]`
-  - `codb query --dataset <PATH> [--moves <MOVES>] [--fen <FEN>] [--json]`
+  - `opening-explorer build-index --dataset <PATH> [--depth-plies <N>] [--collection <C>] [--memory-limit-mib <M>] [--json]`
+  - `opening-explorer query --dataset <PATH> [--moves <MOVES>] [--fen <FEN>] [--json]`
 - Candidate moves are decoded dynamically into Standard Algebraic Notation (SAN) alongside UCI representation.
 - Structured JSON and formatted human-readable output report position keys, legal FEN strings, game counts, and candidate move statistics with percentages rounded to 1 decimal place.
 

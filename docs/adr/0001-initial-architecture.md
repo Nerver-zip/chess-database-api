@@ -15,7 +15,7 @@ status: superseded
 
 ## 1. Context and Problem Statement
 
-The goal of the **Chess Openings DB** project is to curate, deduplicate, compress, and index high-quality chess games to power a position-centric Opening Explorer through a lightweight, reusable API.
+The goal of the **Opening Explorer API** project is to curate, deduplicate, compress, and index high-quality chess games to power a position-centric Opening Explorer through a lightweight, reusable API.
 
 The central feasibility constraint investigated is:
 > **Can we build a reliable, reproducible, publicly redistributable chess database containing millions of high-quality games, with full game retrieval and position-based opening statistics, within approximately 10 GB of deployed storage?**
@@ -39,7 +39,7 @@ The engine strictly segregates two collections:
 > [!IMPORTANT]
 > FIDE Elo ratings and online platform Glicko-2 ratings are never merged or conflated.
 
-### 2.3 Storage Representation: CODB-v3 Block-Zstd Container (`.cgb`, `CGB3`)
+### 2.3 Storage Representation: CGB3 Block-Zstd Container (format version 3) (`.cgb`, `CGB3`)
 - **16-bit Move Encoding:** All standard legal chess moves are packed into a 16-bit word (`from`: 6 bits, `to`: 6 bits, `promo`: 3 bits, reserved: 1 bit). Replaying against legal board state resolves castling, en passant, and captures without ambiguity.
 - **Dictionary Header Compression Without Truncation:** Players, events, sites, rounds, dates (`Date`/`UTCDate`), ECO codes, time controls, game-level source IDs (`GameURL`), broadcast URLs (`BroadcastURL`), and starting FENs are dictionary-encoded in blocks of $N = 512$ games with explicit `u16` bounds checking and zero fixed-width truncation.
 - **Supported-Field Round-Trip Fidelity:** Achieves **~205.5–211.3 bytes per game** (`208.2 B/game` at $N = 20{,}000$, a **5.16×** compression ratio over exported PGN) while preserving 100% fidelity across all supported canonical and provenance fields.
@@ -92,5 +92,5 @@ The engine strictly segregates two collections:
 ## 4. PR-02 Roadmap
 
 1. Implement the production binary pipeline for `.cgb` block files and `.cpi` position tables.
-2. Build the high-performance HTTP query daemon (`codb serve`) using `axum`.
+2. Build the high-performance HTTP query daemon (`opening-explorer serve`) using `axum`.
 3. Publish initial public dataset releases with cryptographically verifiable `provenance.json` manifests.

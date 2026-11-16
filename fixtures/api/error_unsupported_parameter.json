@@ -1,0 +1,13 @@
+{
+  "name": "error_unsupported_parameter",
+  "status": 400,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "error": {
+      "code": "unsupported_parameter",
+      "message": "Query parameter 'since_year' is not supported. Year/rating filtering is not supported by the CPI index."
+    }
+  }
+}

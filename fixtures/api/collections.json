@@ -1,0 +1,32 @@
+{
+  "name": "collections",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "cache-control": "public, max-age=60"
+  },
+  "json": {
+    "collections": [
+      {
+        "collection": "masters-otb",
+        "dataset_version": "codb-masters-otb-1794843996993859518-86876-b06e4e664a746cdc-cpi-d40",
+        "build_timestamp": "2026-11-16T15:46:37Z",
+        "total_games": 1000,
+        "cpi_available": true,
+        "cpi_depth_plies": 40,
+        "cpi_total_positions": 361,
+        "format_version": "CGB3/v1"
+      },
+      {
+        "collection": "elite-online",
+        "dataset_version": "codb-elite-online-1794843905253598354-86620-d620d7652db90d95-cpi-d30",
+        "build_timestamp": "2026-11-16T15:45:05Z",
+        "total_games": 1000,
+        "cpi_available": true,
+        "cpi_depth_plies": 30,
+        "cpi_total_positions": 315,
+        "format_version": "CGB3/v1"
+      }
+    ]
+  }
+}
