@@ -6,6 +6,8 @@ status: current
 
 # Licensing and Data Provenance
 
+> **Current policy in one line:** the Masters OTB dataset and the API may be used publicly for **non-commercial** purposes, with attribution. Commercial use is not covered. The authoritative statement, the terms for applications, and the remaining open questions are in [section 6](#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). Earlier sections record sources and history.
+
 ## 1. Four-Layer Legal Architecture
 
 To protect downstream consumers and maintain strict intellectual property boundaries, `opening-explorer-api` segregates software logic, raw data inputs, compressed artifacts, and metadata provenance into four independent legal layers:
@@ -66,7 +68,7 @@ The reference Opening Explorer developed by Lichess (`lila-openingexplorer`) is 
 | **Caissabase** | Caissabase.co.uk | Ambiguous (TWIC derivative) | High legal risk | ~5.0 Million | Mixed / FIDE | **Excluded** |
 | **KingBase 2019** | Community mirror | Ambiguous / CC BY-SA claimed | Upstream provenance unverified | ~2.2 Million | FIDE Elo | **Excluded / Deferred** |
 | **FIDE Official PGN Relays** | FIDE | Proprietary / Terms vary | Requires event-by-event permission | Varies | FIDE Elo | **Requires Explicit Permission** |
-| **Lumbra's Gigabase OTB Complete** | Lumbra's Gigabase | Publisher claims CC BY-NC 4.0; heterogeneous upstream records | Publisher-stated CC BY-NC 4.0: non-commercial sharing with attribution and indicated changes; source-level rights for every upstream record are not independently cleared; see section 4.4 | >13 million (publisher claim) | Publisher-supplied Elo | **Active Masters release (R3); non-commercial, attribution required; distribution gated, see section 4.4** |
+| **Lumbra's Gigabase OTB Complete** | Lumbra's Gigabase | Publisher claims CC BY-NC 4.0; heterogeneous upstream records | Publisher-stated CC BY-NC 4.0: non-commercial sharing with attribution and indicated changes; source-level rights for every upstream record are not independently cleared; see section 4.4 | >13 million (publisher claim) | Publisher-supplied Elo | **Active Masters release (R3); non-commercial use with attribution; see section 6** |
 
 ---
 
@@ -92,17 +94,17 @@ Every release produced by `scripts/corpus.sh build` carries its own legal notice
 
 Release archives produced by `corpus.sh package` include these files unchanged. The license statements for the two Lichess sources are taken from [database.lichess.org](https://database.lichess.org/) and recorded in `corpus/catalog.json` (`licenses.*.statement_source`). The catalog refuses to fetch or build from any source whose license is not marked `approved` or is not in the collection's `allowed_licenses`. **This is an engineering control, not legal advice**: whether statistical aggregates (the CPI index) count as an adaptation for ShareAlike purposes should be confirmed by the distributing party. The conservative position, adopted by the release notice, is to treat the Masters CPI as covered.
 
-A private Docker deployment is not a dataset release. Gigabase R3 is mounted from a Docker-managed volume on an authorized private network with no host port; this does not clear public distribution or service. Preserve each version's `RELEASE/` notices and provenance. CC BY-SA attribution requirements apply to the retained historical Lichess Masters version, while Gigabase R3 has separate publisher-claimed CC BY-NC 4.0 terms and unresolved upstream rights. Containerization does not change source terms. See [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) for the operator workflow.
+Containerization does not change source terms, and a deployment is not itself a dataset release. Preserve each version's `RELEASE/` notices and provenance. CC BY-SA attribution requirements apply to the retained historical Lichess Masters version, while Gigabase R3 carries the publisher's CC BY-NC 4.0 terms and unresolved upstream rights; the project's current policy for R3 is in [section 6](#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). See [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) for the operator workflow.
 
 ### 4.4 Lumbra's Gigabase Masters dataset
 
 The [publisher's download page](https://lumbrasgigabase.com/en/download-area-en/) lists OTB Complete version 2026-11-11 as one PGN containing its other OTB PGN files except LichessBroadcastDB, and shows CC BY-NC 4.0 terms. The reviewed page displayed no publisher archive checksum. Its [sources page](https://lumbrasgigabase.com/en/sources/) identifies player-provided datasets, community projects, independent collections, legacy software dumps, federation records, academic datasets, and historical archives. It says reliable or binding license information is unavailable for some abandoned independent collections and historical archives. These statements do not clear every upstream record.
 
-The publisher's [B2B terms page](https://lumbrasgigabase.com/en/commercial-licenses-en/) currently describes free internal development and a closed beta with at most 50 non-paying testers for up to six months. It permits internal derived metadata and prohibits end-user bulk exports and direct downloads of raw PGN files. The page says commercial license fees apply when a project goes live and becomes accessible to end users; its registration form also lists non-commercial use. The page asks developers to register a project or request a license, but does not specify whether a public non-commercial product or per-game PGN endpoint is permitted under those conditions. The current deployment is restricted to authorized private evaluation; this authorization does not establish source-level rights or public-release eligibility.
+The publisher's [B2B terms page](https://lumbrasgigabase.com/en/commercial-licenses-en/) currently describes free internal development and a closed beta with at most 50 non-paying testers for up to six months. It permits internal derived metadata and prohibits end-user bulk exports and direct downloads of raw PGN files. The page says commercial license fees apply when a project goes live and becomes accessible to end users; its registration form also lists non-commercial use. The page asks developers to register a project or request a license, but does not specify whether a public non-commercial product or per-game PGN endpoint is permitted under those conditions. These are the publisher's statements as reviewed on 2026-11-15. They are preserved here as an external observation; how the project reads them is recorded in [section 6](#6-current-policy-for-the-masters-otb-dataset-and-public-deployment).
 
 The official [CC BY-NC 4.0 deed](https://creativecommons.org/licenses/by-nc/4.0/) allows sharing and adaptation with attribution, a license link, and an indication of changes, while excluding commercial use. It also notes that additional permissions may be needed. The publisher's current CC BY-NC claim does not independently establish rights in heterogeneous upstream material. A machine-readable capture of the reviewed page claims and unresolved questions is in [`benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json`](../benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json).
 
-The local `.7z` extraction path records hashes computed from the supplied archive and its extracted PGN. It leaves `publisher_checksum` empty and marks the source ineligible for the approved catalog. The `scripts/local_gigabase_eval.py` workflow built the R3 snapshot; `scripts/promote_gigabase_r3.py` verifies and atomically publishes that existing snapshot without rebuilding. The package repeats the publisher's CC BY-NC 4.0 claim, keeps upstream rights unresolved, and excludes the archive and PGN. Keep `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=false` for the restricted position-statistics deployment. Do not expose stored PGN to end users without written permission. Neither a `Source` tag nor the publisher's aggregate license statement establishes redistribution permission for every included upstream record. Public service and redistribution remain unauthorized; the prior Lichess Masters version is retained separately for rollback.
+The local `.7z` extraction path records hashes computed from the supplied archive and its extracted PGN. It leaves `publisher_checksum` empty and marks the source ineligible for the approved catalog. The `scripts/local_gigabase_eval.py` workflow built the R3 snapshot; `scripts/promote_gigabase_r3.py` verifies and atomically publishes that existing snapshot without rebuilding. The package repeats the publisher's CC BY-NC 4.0 claim, keeps upstream rights unresolved, and excludes the archive and PGN. Neither a `Source` tag nor the publisher's aggregate license statement establishes redistribution permission for every included upstream record. **Historical operating posture:** when R3 was first promoted, the project ran it only as a private evaluation deployment with raw-PGN retrieval disabled and treated public service and redistribution as unauthorized. The maintainer's later decisions of 2026-11-16 (section 6) supersede that posture as current policy; the earlier evidence is preserved unchanged. The prior Lichess Masters version is retained separately for rollback.
 
 ---
 
@@ -116,18 +118,67 @@ When redistributing datasets generated by `opening-explorer-api` or operating an
 
 ---
 
-## 6. Masters OTB dataset distribution: attribution, changes, and gate
+## 6. Current policy for the Masters OTB dataset and public deployment
 
-This section applies to the two dataset products in [DATASET_RELEASES.md](DATASET_RELEASES.md) (indexed dataset and filtered PGN).
+This section is the single authoritative statement of current policy. Other documents link here instead of restating it.
 
-**Basis.** The project treats the publisher's stated CC BY-NC 4.0 license as the basis for non-commercial distribution of the curated Masters OTB dataset, with attribution, a license link, and an indication of changes. It does not claim authorship of any game, does not imply publisher endorsement, and does not apply the software license to the data.
+### 6.1 Decision records
 
-**Required acknowledgment** (shipped in each package's notice and with the PGN):
+| Record | Decides | Date |
+| :--- | :--- | :--- |
+| [`releases/distribution_clearance.json`](../releases/distribution_clearance.json) | Non-commercial GitHub Release distribution of the `masters-otb-r3` indexed dataset and filtered PGN. Unchanged. | 2026-11-16 |
+| [`releases/public_deployment_decision.json`](../releases/public_deployment_decision.json) | Public, non-commercial deployment of the API, including position statistics and individual game retrieval. | 2026-11-16 |
+
+Both rest on the same basis: the publisher's publicly stated CC BY-NC 4.0 license, as read by the maintainer. They are the maintainer's interpretation, **not separate written permission from the publisher** and not independent legal clearance. This project has no private correspondence with the publisher to cite.
+
+### 6.2 What is covered
+
+| Use | Status |
+| :--- | :--- |
+| Download and use the published release products (indexed dataset, filtered PGN) for non-commercial purposes | Covered ([release](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3)) |
+| Run a public, non-commercial instance of the API serving position statistics, move frequencies, and W/D/L | Covered |
+| Serve single games as PGN with `GET /v1/collections/{collection}/games/{id}` in a public instance | Covered. Retrieval is enabled by default. Operators may switch it off, but the project does not require or recommend that for this dataset |
+| Bulk export of games through the API | Not provided. No bulk-download endpoint exists, and none is part of this decision |
+| Commercial use of the dataset or of a service or product built on it | **Not covered.** It needs separate rights from the publisher and the upstream holders |
+
+Elite Online is a separate CC0 1.0 dataset with no attribution or non-commercial condition.
+
+### 6.3 Terms for applications and operators
+
+An application, service, or person that uses the Masters OTB data or an instance serving it is inside the maintainer's decision only if all of the following hold:
+
+1. **Non-commercial use only.** Anything that is sold, monetized, or part of a commercial offering is outside the decision.
+2. **Attribution.** Show the acknowledgment below where the data or its statistics are shown (an about page, footer, or documentation is enough), with a link to the license.
+3. **No endorsement and no authorship claim.** Do not suggest the publisher endorses your application, and do not claim authorship of any game. The games remain the work of their players, organizers, and publishers.
+4. **Indicate changes.** Say that the data was filtered, deduplicated, normalized, and indexed (the changes below).
+5. **Keep the dataset and software terms apart.** The software is MIT OR Apache-2.0. That license does not apply to the data.
+
+Operators of public instances should also keep the controls described in [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md): read-only dataset mounts, a protected or disabled admin endpoint, and resource limits.
+
+**Required acknowledgment:**
 
 > Masters OTB games and derived opening statistics from Lumbra's Gigabase, OTB Complete version 2026-11-11 (publisher claim: CC BY-NC 4.0, https://creativecommons.org/licenses/by-nc/4.0/). Curated, filtered, normalized, and indexed by the Opening Explorer API project. Not endorsed by the publisher.
 
-**Changes made** (original publisher data versus this project's derivatives): selection under the Masters OTB policy, deduplication and prefix supersession, re-serialization of each game as a legal mainline with a fixed metadata tag set, and a position index. The package notice lists them in full and states what metadata is not preserved.
+### 6.4 Changes made to the publisher's data
 
-**Distinct licenses.** Elite Online is a separate CC0 1.0 dataset and is not part of this distribution. The CC BY-NC license also means downstream users may not use the dataset commercially.
+Selection under the Masters OTB policy, deduplication and prefix supersession, re-serialization of each game as a legal mainline with a fixed metadata tag set, and a position index. The package notice lists the changes in full and states which metadata is not preserved. The publisher's original data and this project's derivatives are distinct: the published assets are derivatives, not the publisher's archive.
 
-**Recorded conflict that gates publication.** Two specific statements in the reviewed material conflict with distributing the full games to the public: the build-time `RELEASE/DATASET_LICENSE.txt` of the R3 snapshot says local internal evaluation only, and the publisher's B2B page prohibits end-user bulk exports and direct raw-PGN downloads. The affected mechanisms are the filtered PGN download (raw games) and the indexed package (which embeds the full games). The page's scope (commercial or live end-user projects versus a non-commercial public dataset) is not stated, so the project does not assume either reading. The maintainer recorded a clearance decision on 2026-11-16 in [`releases/distribution_clearance.json`](../releases/distribution_clearance.json). It rests on the maintainer's interpretation of the publisher's public CC BY-NC 4.0 grant, not on separate written permission from the publisher, and the conflicts above remain disclosed and unresolved. The release tooling refuses to publish unless that record is `cleared` with a written basis and a matching release ID. Position statistics served from a private deployment with raw-PGN retrieval disabled are unaffected by this gate.
+### 6.5 Remaining discrepancies and limits (disclosed, not resolved)
+
+These are the facts that the adopted interpretation does not remove:
+
+- **Publisher B2B terms.** The publisher's [B2B page](https://lumbrasgigabase.com/en/commercial-licenses-en/) prohibits end-user bulk exports and direct downloads of raw PGN files. It does not say whether a public non-commercial product or a per-game endpoint is allowed, and the publisher has not confirmed the maintainer's reading. The published filtered PGN is a bulk download, and the game endpoint returns raw PGN, so both are mechanisms that wording addresses. The decisions above choose to rely on the CC BY-NC grant for them.
+- **Upstream rights.** The publisher says some upstream collections have no reliable license information. Rights in individual games are not verified, and the `Source` tag does not establish them.
+- **No publisher checksum.** Local hashes of the archive and extracted PGN are not publisher-authenticated.
+- **Immutable earlier notices.** The R3 snapshot's `RELEASE/DATASET_LICENSE.txt` (local internal evaluation only), its `RELEASE.json` (`public_release_eligible: false`, `rights_clearance: unresolved_upstream_rights`), and the published `masters-otb-r3-NOTICE.md` ("not_cleared" at packaging) were written before the decisions and are checksummed. They are preserved unmodified and are superseded as current policy by section 6.1.
+- **Source catalog.** `corpus/catalog.json` still lists Gigabase outside the approved source catalog. That is a build-tooling control and does not govern use of the published release.
+- **Commercial use** is outside the clearance (section 6.2).
+
+### 6.6 Chronology
+
+| When | Event |
+| :--- | :--- |
+| 2026-11-15 | Publisher terms reviewed and recorded (`benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json`). |
+| Before 2026-11-16 | R3 built and promoted as a private evaluation deployment with raw-PGN retrieval disabled. Evidence in `benchmarks/gigabase/`. |
+| 2026-11-16 | Maintainer records the distribution clearance; `dataset-masters-otb-r3` is published. |
+| 2026-11-16 | Maintainer records the public, non-commercial deployment decision (section 6.1). |

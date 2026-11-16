@@ -255,7 +255,7 @@ Retrieval is enabled by default. Start the server with `--enable-game-retrieval 
 - the route does not exist, so the server answers `404` with the error code `not_found`, the same as any unknown path;
 - position queries and collection metadata keep working.
 
-The setting applies to the whole process and to both collections. There is no per-collection switch. Operators must disable retrieval when the dataset terms do not allow delivering raw PGN to users. The restricted private Masters deployment in [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) runs with retrieval disabled.
+The setting applies to the whole process and to both collections; there is no per-collection switch. Single-game retrieval is a supported capability of public deployments under the project's current policy ([LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment)), which also gives the required attribution for Masters OTB data and states that commercial use is not covered. Operators may still disable the route (for example, for a statistics-only service). The API has no bulk-export endpoint.
 
 ### Finding game IDs
 

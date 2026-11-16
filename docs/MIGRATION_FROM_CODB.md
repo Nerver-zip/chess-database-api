@@ -32,7 +32,7 @@ The Rust CLI subcommands and arguments, HTTP routes, and error types are unchang
 | Shared network alias | `codb` | `opening-explorer` (and `codb`) | `codb` remains a deprecated alias for sibling containers. |
 | Default shared network | `codb-shared` | `opening-explorer-shared` | Set `OPENING_EXPLORER_NETWORK_NAME` to keep an existing name. |
 | Example settings | `.env.codb.example` | `.env.example` | Same settings under new names. |
-| Restricted example settings | `.env.codb.gigabase.example` | `.env.gigabase.example` | Keeps the private R3 resource names (see below). |
+| Named-volume example settings | `.env.codb.gigabase.example` | `.env.gigabase.example` | Keeps the original R3 resource names (see below). |
 
 ## Environment variables
 
@@ -64,9 +64,9 @@ These are part of stored data, published evidence, or external references. Chang
 | Game IDs, CPI keys, collection names, HTTP routes, error types | API and storage | Compatibility contracts. |
 | Historical evidence and history | `benchmarks/`, `docs/research/`, `docs/adr/` history, `handoff/`, the older `CHANGELOG.md` entries | Recorded artifacts. Commands inside them use the legacy `codb` name and describe the build that produced them. |
 
-## Private Gigabase R3 deployment
+## Existing Gigabase R3 (named-volume) deployment
 
-The live private deployment keeps its Docker resources, so redeploying does not create a new empty runtime volume:
+The existing R3 deployment keeps its Docker resources, so redeploying does not create a new empty runtime volume:
 
 - Named volume `codb-gigabase-r3-runtime` (set `OPENING_EXPLORER_RUNTIME_VOLUME` to change it).
 - Network `codb-gigabase-r3-net` (set `OPENING_EXPLORER_NETWORK_NAME` to change it).

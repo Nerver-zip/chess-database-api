@@ -44,7 +44,7 @@ The repository ships `fixtures/stage_a_validation.pgn`, 1,000 synthetic games. B
 
 `build` applies the Elite Online selection rule and reports how many games it retained. Those games are the sample. `build-index` writes the position index (depth 30 by default for this collection) and publishes it as the dataset's `current` snapshot. The `data/` directory is ignored by Git.
 
-Do not present a locally built `masters-otb` dataset as a Masters release. Masters releases require the event-qualification audit produced by the corpus workflow (see [CORPUS_BUILD.md](CORPUS_BUILD.md)).
+Do not present a locally built sample as the published Masters OTB dataset. The published Masters release is described in [DATASET_RELEASES.md](DATASET_RELEASES.md); building a corpus from source is covered in [CORPUS_BUILD.md](CORPUS_BUILD.md).
 
 ## 4. Start the API
 
@@ -107,7 +107,9 @@ The CLI reports the same `total_games`, `white_wins`, `draws`, and `black_wins` 
 
 Real datasets are installed under `data/releases/<collection>/current`. The release packaging, verification, and Docker procedures are documented in [CORPUS_BUILD.md](CORPUS_BUILD.md) and [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md). Serve a release by passing its root directory to `--masters-dataset` or `--elite-dataset`.
 
-Each dataset carries its own license. Before you publish or redistribute a dataset, its PGN, or a service built on it, read [LICENSING.md](LICENSING.md). Some collections restrict raw-PGN delivery to end users. Disable stored-game retrieval for those (see [API_REFERENCE.md, section 6](API_REFERENCE.md#enabling-and-disabling)).
+The Masters OTB dataset (3,284,429 games, 40-ply index) is available as a [GitHub release](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3); [DATASET_RELEASES.md](DATASET_RELEASES.md#4-download-verify-reconstruct-install) shows how to download, verify, and install it. It is licensed for non-commercial use with attribution.
+
+Each dataset carries its own license. Masters OTB data is for non-commercial use with attribution, and Elite Online is CC0. Before you publish or redistribute a dataset, its PGN, or a service built on it, read [LICENSING.md](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). Single-game retrieval is enabled by default; it can be switched off (see [API_REFERENCE.md, section 6](API_REFERENCE.md#enabling-and-disabling)).
 
 ## 7. Next steps
 

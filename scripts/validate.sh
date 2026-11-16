@@ -55,7 +55,8 @@ python3 -m unittest \
     scripts/test_independent_pgn_audit_evidence.py \
     scripts/test_release_assets.py \
     scripts/test_release_pgn_verify.py \
-    scripts/test_docs_examples.py
+    scripts/test_docs_examples.py \
+    scripts/test_policy_decisions.py
 echo "  [PASS] Python unit and regression tests passed."
 
 echo ""

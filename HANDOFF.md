@@ -1,8 +1,8 @@
 # Agent Handoff (opening-explorer-api)
 
-## Current objective
+## Current state
 
-Deliver the consolidation PR stacked on PR #7 (`feat/gigabase-masters`): `opening-explorer-api` identity, two prepared Masters OTB dataset products, release tooling, licensing/attribution, README and API documentation. Keep it Draft. Do not merge, do not publish release assets, the GitHub repository is already renamed. `GOAL.md` stays untracked.
+PR #7 and PR #8 are merged. `opening-explorer-api` is the project identity and the GitHub repository name. The Masters OTB dataset is published as the GitHub release `dataset-masters-otb-r3` (2026-11-16, https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3): indexed package (2 parts), filtered PGN, notice, manifest, `SHA256SUMS`. GitHub's reported asset digests equal `releases/masters-otb-r3.json`. `GOAL.md` stays untracked.
 
 ## What changed
 
@@ -11,7 +11,7 @@ Deliver the consolidation PR stacked on PR #7 (`feat/gigabase-masters`): `openin
 - **Docs.** New: `API_REFERENCE`, `GETTING_STARTED`, `USE_CASES`, `DATASET_RELEASES`, `MIGRATION_FROM_CODB`, `examples/`, `fixtures/api/`. `DATA_CONTRACTS.md` section 6 now points at the API reference. Root README rewritten; `docs/README.md` regrouped by reader need. `scripts/test_feasibility_alignment.py` now requires the historical storage figures in `docs/BENCHMARKS.md` instead of the README (the stale-figure ban still covers the README).
 - **Distribution.** `opening-explorer export-pgn`; `scripts/release_assets.py`; `scripts/release_pgn_verify.py`; `.github/workflows/publish-dataset.yml` (manual only; validates a reviewed draft release against `releases/masters-otb-r3.json`, never rebuilds); `releases/distribution_clearance.json` gate.
 
-## Prepared assets (local only, git-ignored `data/releases-dist/masters-otb-r3/`)
+## Published assets
 
 | Asset | SHA-256 |
 | :--- | :--- |
@@ -20,20 +20,21 @@ Deliver the consolidation PR stacked on PR #7 (`feat/gigabase-masters`): `openin
 | `masters-otb-r3-indexed.tar` (reconstructed) | `89ccb7931357cf21795e9eaa8dc82b0632ce40cb0ae9834927cbc5b637f0e706` |
 | `masters-otb-r3-filtered.pgn.zst` (502 MB) | `4134599e1d6da75dbe00ce162e6c1cb90a0092e047bdfdfe5fa4662c36b306ff` |
 
-Independent verification (`benchmarks/gigabase/PGN_EXPORT_VERIFICATION_R3.json`): 3,284,429 games; headers and sidecar tags checked on every game; every 16th game (205,277) fully replayed with python-chess; zero failures. Install and rollback evidence: `benchmarks/gigabase/INSTALL_VERIFICATION_R3.json` (an earlier racy rollback-install step is superseded by a clean sequential rerun, PASS). A whole-corpus reimport of the exported PGN through the project's ingest (`benchmarks/gigabase/PGN_REIMPORT_LEGALITY_R3.json`) encountered all 3,284,429 games with 0 illegal, 0 malformed and 0 variant rejections. That reimport uses shakmaty, not an independent parser; python-chess fully replayed the 205,277-game sample.
+Local copies remain in git-ignored `data/releases-dist/masters-otb-r3/`. Verification: `benchmarks/gigabase/PGN_EXPORT_VERIFICATION_R3.json` (headers of all games, full python-chess replay of 205,277 sampled games), `PGN_REIMPORT_LEGALITY_R3.json` (all 3,284,429 games reimported through the project's ingest, 0 illegal; shakmaty, not independent), and `INSTALL_VERIFICATION_R3.json` (install, API queries, rollback).
 
-## Licensing gate (read before publishing)
+## Licensing
 
-Per the project decision, the publisher's CC BY-NC 4.0 is the basis for non-commercial distribution, with attribution and disclosed changes (`docs/LICENSING.md` section 6, `dataset/ATTRIBUTION.md`). Recorded conflicts, stated precisely: the snapshot's build-time `RELEASE/DATASET_LICENSE.txt` says local internal evaluation only; the publisher's B2B page prohibits end-user bulk exports and raw-PGN downloads to end users (scope for a non-commercial public dataset unstated); the publisher provides no archive checksum. Affected mechanisms: the filtered PGN and the indexed package (embeds full games). `releases/distribution_clearance.json` is now `cleared` (maintainer decision recorded 2026-11-16, resting on the maintainer's reading of the public CC BY-NC 4.0 grant, not on written permission from the publisher); the conflicts remain disclosed there. The tooling still refuses to publish unless the record is `cleared` with a reference and a matching release ID.
+Authoritative current policy: `docs/LICENSING.md` section 6, backed by two maintainer decision records: `releases/distribution_clearance.json` (non-commercial release distribution, unchanged) and `releases/public_deployment_decision.json` (public, non-commercial API deployment, including position statistics and single-game PGN retrieval; commercial use and bulk export are not covered, and no bulk-export endpoint exists). Both rest on the maintainer's reading of the publisher's public CC BY-NC 4.0 grant, not on separate written permission from the publisher. Other documents link to section 6 instead of restating it; `scripts/test_policy_decisions.py` guards the records and stops current docs from reasserting superseded restrictions.
+
+Disclosed and unresolved (section 6.5): the publisher's B2B page prohibits end-user bulk exports and raw-PGN downloads (scope for a non-commercial public product unstated; the publisher has not confirmed the reading); upstream rights for individual games are unverified; no publisher checksum. The immutable R3 artifacts keep their build-time wording (`RELEASE/DATASET_LICENSE.txt` local evaluation only, `RELEASE.json` `public_release_eligible: false`, the NOTICE asset "not_cleared" at packaging); they predate the decisions and were not modified. Retrieval is enabled by default (`OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=true`); `.env.gigabase.example` now matches. The live R3 deployment still runs with retrieval disabled from its own copied `.env.gigabase`; changing it needs a redeploy (not done).
 
 ## Remaining operational steps
 
-1. Merge PR #7, retarget this PR to `main`, run the final Ready-for-Review CI.
-2. After merge: record clearance, tag `dataset-masters-otb-r3` on the merged commit, upload to a DRAFT release with `release_assets.py upload` (dry run first), then run the manual publish workflow.
-3. Repository rename: GitHub already reports the repository as `Nerver-zip/opening-explorer-api` (the old URL redirects). The local `origin` was updated to the new URL. Confirm no CI or branch-protection settings still reference the old name after #7 merges.
-4. The private deployment still runs as `codb-gigabase-r3-codb-1`; a redeploy under the new compose names yields `codb-gigabase-r3-opening-explorer-1` (stop the old container first; both share the `codb` network alias).
-5. Open items from the API audit not implemented: per-collection retrieval switch; stable game IDs in the PGN export; `/ready` does not re-check after startup.
+1. The existing R3 deployment (retrieval disabled) still runs as `codb-gigabase-r3-codb-1`; a redeploy under the new compose names yields `codb-gigabase-r3-opening-explorer-1` (stop the old container first; both share the `codb` network alias).
+2. Open items from the API audit not implemented: per-collection retrieval switch; stable game IDs in the PGN export; `/ready` does not re-check after startup.
+3. For a future dataset release (r4): render a fresh notice at build time (the r3 notice text predates the clearance), record a new `distribution_clearance.json` for that release ID, then follow `docs/DATASET_RELEASES.md` section 7.
+4. Public-deployment guidance is in `docs/DOCKER_DEPLOYMENT.md` ("Operating a Public, Non-Commercial Instance"). Add a tag ruleset protecting `dataset-*` tags if not yet configured; the publish job uses an environment named `dataset-publication`.
 
 ## Verification
 
-Container run of `./scripts/validate.sh` (Rust 1.100.0): gates 1-3 passed (fmt, clippy, workspace tests); gate 4 failed on the README storage-figure test (fixed as described above) and its dependent `reproduce_benchmarks.sh --ci` test; `--ci` and the feasibility suite pass standalone after the fix. A final full run is recorded in the PR description. Not verified: host bind mounts, a live redeploy under the new names, `reload.sh` against the final binary, browser CORS.
+Final CI on the PR head passed (pull_request and manual dispatch); `./scripts/validate.sh` passed all eight gates in the Rust 1.100.0 container. Not verified: host bind mounts, a live redeploy under the new names, browser CORS.

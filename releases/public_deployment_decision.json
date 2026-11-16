@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "decision_id": "public-noncommercial-deployment-2026-11-16",
+  "status": "authorized",
+  "scope": "Public, non-commercial deployment of Opening Explorer API serving the Masters OTB R3 snapshot (masters-otb-r3) and the Elite Online collection.",
+  "decided_by": "Nerver-zip (repository maintainer)",
+  "decided_on": "2026-11-16",
+  "authorizes": [
+    "Public access to aggregate position statistics, next-move frequencies, and game results (GET /v1/explorer/position, GET /v1/collections).",
+    "Individual game retrieval (GET /v1/collections/{collection}/games/{id}) in public deployments. Retrieval is enabled by default (OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=true) and must not be disabled merely because earlier documentation described a private evaluation deployment.",
+    "Non-commercial redistribution of the published masters-otb-r3 release products, as recorded separately in releases/distribution_clearance.json (unchanged by this record)."
+  ],
+  "not_authorized": [
+    "Commercial use of the dataset, or of a service or product built on it. This remains outside the current clearance.",
+    "Bulk export of games through the API. No bulk-download endpoint exists and none is added by this decision.",
+    "Any claim that the publisher has granted separate written permission, or that upstream rights in individual games have been verified."
+  ],
+  "conditions": [
+    "Use is non-commercial only.",
+    "The publisher, the license, and the modifications made by this project are acknowledged as set out in docs/LICENSING.md section 6.",
+    "No implication that the publisher endorses this project, and no claim of authorship of any game.",
+    "The software license (MIT OR Apache-2.0) does not apply to the data. Elite Online is a separate CC0 1.0 dataset."
+  ],
+  "basis": [
+    "https://lumbrasgigabase.com/en/download-area-en/",
+    "https://creativecommons.org/licenses/by-nc/4.0/",
+    "docs/LICENSING.md section 4.4",
+    "benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json (reviewed 2026-11-15)"
+  ],
+  "decision_reference": "Maintainer decision, 2026-11-16: Nerver-zip adopts the publisher's publicly stated CC BY-NC 4.0 license for Lumbra's Gigabase OTB Complete as the basis for public, non-commercial deployment of the API, including aggregate position statistics and individual game retrieval. This is the maintainer's interpretation of the public license grant. It is not separate written permission from the publisher and not independent legal clearance.",
+  "recorded_observations": [
+    "The publisher's B2B terms, as recorded in PUBLISHER_TERMS_REVIEW.json, prohibit end-user bulk exports and direct downloads of raw PGN files. Their scope for a public non-commercial product or per-game endpoint is not stated, and the publisher has not confirmed the adopted interpretation.",
+    "The publisher states that some upstream collections have no reliable or binding license information. Rights in individual games are not verified.",
+    "The publisher supplied no archive checksum; local archive and PGN hashes are not publisher-authenticated.",
+    "The R3 snapshot's RELEASE/DATASET_LICENSE.txt (local internal evaluation only), its RELEASE.json (public_release_eligible: false, rights_clearance: unresolved_upstream_rights), and the packaged masters-otb-r3-NOTICE.md (not_cleared at packaging) predate this decision and are immutable. They are preserved unmodified.",
+    "corpus/catalog.json still lists Gigabase outside the approved source catalog. That is a build-tooling control and is unchanged."
+  ],
+  "supersedes_as_current_policy": [
+    "Earlier statements that Gigabase R3 is restricted to authorized private or local evaluation.",
+    "Earlier statements that public service requires additional maintainer clearance or source-rights authorization.",
+    "Earlier guidance to keep individual PGN retrieval disabled in public deployments."
+  ],
+  "preserved_historical_records": [
+    "benchmarks/gigabase/",
+    "releases/distribution_clearance.json",
+    "releases/masters-otb-r3.json",
+    "the immutable assets of the dataset-masters-otb-r3 release"
+  ]
+}

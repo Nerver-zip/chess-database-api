@@ -1,5 +1,5 @@
 ---
-summary: "Provision catalog releases or the private Gigabase R3 snapshot and run the read-only Opening Explorer API with Docker Compose."
+summary: "Provision catalog releases or the Gigabase R3 snapshot, run the read-only Opening Explorer API with Docker Compose, and operate it publicly for non-commercial use."
 read_when: "Deploying the API locally, connecting another container, or updating the mounted datasets."
 status: current
 ---
@@ -90,7 +90,18 @@ curl --fail --get 'http://127.0.0.1:8081/v1/explorer/position' \
   --data-urlencode 'moves=e4,e5,Nf3'
 ~~~
 
-Ordinary reads require no administrative token. The administrative reload route remains disabled unless an admin token is explicitly configured. Stored-game retrieval is enabled by default for compatibility; set `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=false` when source terms permit derived position statistics but prohibit returning raw PGN to users. The position explorer and collection metadata remain available.
+Ordinary reads require no administrative token. The administrative reload route remains disabled unless an admin token is explicitly configured. Stored-game retrieval is enabled by default and is a supported capability of public deployments under the project's current policy ([LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment)). An operator who wants a statistics-only service may set `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=false`, which removes only the game route; the position explorer and collection metadata remain available.
+
+## Operating a Public, Non-Commercial Instance
+
+The project's policy ([LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment)) allows public, non-commercial deployment, including position statistics and single-game PGN retrieval. For a public instance:
+
+- Keep the dataset mounts read-only, as in `compose.yaml`, and keep the container filesystem read-only.
+- Publish only the API port, and put a reverse proxy in front for TLS and request-rate limits. The API itself does not rate-limit.
+- Leave `OPENING_EXPLORER_ADMIN_TOKEN` unset, which disables `POST /v1/admin/reload`, or set a long random token and do not expose that route through the proxy.
+- Set `OPENING_EXPLORER_ALLOWED_ORIGINS` to the origins of your web clients. See [API_REFERENCE.md](API_REFERENCE.md#10-server-configuration).
+- Show the required acknowledgment and the non-commercial restriction on your site or documentation. The text is in LICENSING.md section 6.3.
+- Do not offer bulk export of games, and do not use the service commercially. Both are outside the decision.
 
 ## Connect Another Compose Project
 
@@ -141,17 +152,17 @@ Compose also limits the process to 64 PIDs and 1,024 open files. Adjust limits o
 
 The current real-corpus report is `benchmarks/corpus/docker_real_check.json`. It records a digest-pinned independent client reaching `http://opening-explorer:8080`, both release IDs and game counts, the opening baseline (3,902 Masters and 30,390 Elite games for `e4,e5,Nf3`), PGN retrieval from each collection, 96/96 concurrent requests, container restart, graceful SIGTERM, read-only mounts and root filesystem, no published host ports, and failure rejection for missing, wrong, incomplete, and corrupted releases. The Docker image measured 98,871,472 bytes. The test daemon could not access the workspace through bind paths, so this run used read-only named-volume copies; the normal Compose configuration mounts host release roots read-only.
 
-The [Gigabase R3 report](../benchmarks/gigabase/FINAL_REPORT.md) records the candidate build and audit evidence. R3 is now the active Masters snapshot in the authorized private deployment; it remains outside the approved source catalog. Dataset distribution rests on the maintainer's recorded clearance (see [LICENSING.md](LICENSING.md)); this deployment is not a public service. The original isolated API smokes are historical evidence. The current deployment uses the named-volume mode below because the Docker daemon cannot access checkout bind paths. Raw-PGN retrieval is disabled.
+The [Gigabase R3 report](../benchmarks/gigabase/FINAL_REPORT.md) records the candidate build and audit evidence. R3 is the active Masters snapshot. It remains outside the approved source catalog, which is a build-tooling control. Its acceptance deployment, described below, was a private, retrieval-disabled environment. That was the evaluation posture before the maintainer's decisions of 2026-11-16; it is not a standing restriction, and public non-commercial deployment is now covered by [LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). The original isolated API smokes are historical evidence. The acceptance deployment uses the named-volume mode below because its Docker daemon cannot access checkout bind paths.
 
-The separate `scripts/local_gigabase_eval.py` workflow registered the supplied archive using local hashes, built it with the Gigabase-only qualification policy, and created the local-only R3 package. `scripts/promote_gigabase_r3.py` now verifies and publishes those existing artifacts through Opening Explorer's atomic storage publisher; it does not rebuild the source corpus or add Gigabase to the approved catalog. Release metadata preserves the publisher's CC BY-NC 4.0 claim, absent publisher checksum, and unresolved upstream rights. The publisher's B2B page describes internal development and a closed beta, while prohibiting direct raw-PGN downloads to end users; no written project-specific public-use permission is recorded. See [`PUBLISHER_TERMS_REVIEW.json`](../benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json). The authorized private deployment disables raw-PGN retrieval. This authorization does not clear public or commercial deployment.
+The separate `scripts/local_gigabase_eval.py` workflow registered the supplied archive using local hashes, built it with the Gigabase-only qualification policy, and created the local-only R3 package. `scripts/promote_gigabase_r3.py` now verifies and publishes those existing artifacts through Opening Explorer's atomic storage publisher; it does not rebuild the source corpus or add Gigabase to the approved catalog. Release metadata preserves the publisher's CC BY-NC 4.0 claim, absent publisher checksum, and unresolved upstream rights. The publisher's B2B page describes internal development and a closed beta, while prohibiting direct raw-PGN downloads to end users; no written project-specific public-use permission is recorded. See [`PUBLISHER_TERMS_REVIEW.json`](../benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json). The acceptance deployment disabled raw-PGN retrieval. That reflects the posture at that time; the current policy, including the remaining open observations, is in [LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). Commercial deployment remains outside it.
 
 ### Historical host-bind probe
 
-An earlier probe failed because the Docker daemon could not access the checkout bind path. This is recorded as a deployment limitation, not a successful bind-mount test. The current authorized private deployment uses the named-volume procedure below. On another machine, use host binds only after confirming that its Docker daemon can read the host release roots.
+An earlier probe failed because the Docker daemon could not access the checkout bind path. This is recorded as a deployment limitation, not a successful bind-mount test. The acceptance deployment uses the named-volume procedure below. On another machine, use host binds only after confirming that its Docker daemon can read the host release roots.
 
-## Private Gigabase R3 Deployment
+## Named-Volume Deployment (Gigabase R3 Acceptance Environment)
 
-The operational Masters release is Gigabase R3, while Elite Online remains the existing 429,150-game release. The local Docker daemon used for acceptance could not access checkout bind paths, so the authorized private deployment uses a Docker-managed named volume instead. Compose v2.24.4 or later is required for the volume override. The service mounts the volume read-only, publishes no host ports, and keeps raw-PGN retrieval disabled. This private deployment does not establish publisher permission or public redistribution rights.
+The operational Masters release is Gigabase R3, while Elite Online remains the existing 429,150-game release. The local Docker daemon used for acceptance could not access checkout bind paths, so the acceptance deployment uses a Docker-managed named volume instead. Compose v2.24.4 or later is required for the volume override. The service mounts the volume read-only and publishes no host ports; those are good defaults for any deployment. The example settings leave game retrieval at its default (enabled). The resource names (`codb-gigabase-r3-*`) are those of the existing environment and are kept so that a redeploy reuses its volume. Using this deployment for a public, non-commercial service is covered by [LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment), which also records what the decision does not resolve.
 
 After promoting and verifying the host releases as described in [Corpus Build](CORPUS_BUILD.md#43-local-gigabase-r3-package-and-operational-promotion), seed a fresh runtime volume:
 
@@ -171,7 +182,7 @@ docker compose --project-name codb-gigabase-r3 \
   -f compose.yaml -f compose.named-volume.yaml up -d --build
 ~~~
 
-The override mounts the shared volume at `/datasets` and replaces both host binds; the normal service paths remain `/datasets/masters-otb` and `/datasets/elite-online`. Check `/health`, `/ready`, and `/v1/collections` from the service container or another container on its private Compose network. Confirm Masters reports the R3 build ID and 3,284,429 games; compare representative HTTP position W/D/L results with `opening-explorer query`. Confirm Elite still reports 429,150 games. The retrieval route must return 404 while `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=false`. Inspect `docker inspect` and confirm the sole `/datasets` mount has `RW:false` and `HostConfig.PortBindings` is empty.
+The override mounts the shared volume at `/datasets` and replaces both host binds; the normal service paths remain `/datasets/masters-otb` and `/datasets/elite-online`. Check `/health`, `/ready`, and `/v1/collections` from the service container or another container on its private Compose network. Confirm Masters reports the R3 build ID and 3,284,429 games; compare representative HTTP position W/D/L results with `opening-explorer query`. Confirm Elite still reports 429,150 games. With retrieval enabled (the default), a known game ID returns its PGN; the route returns 404 only if an operator sets `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=false`. Inspect `docker inspect` and confirm the sole `/datasets` mount has `RW:false` and `HostConfig.PortBindings` is empty.
 
 For publisher-based rollback in the named volume, use the same atomic storage publisher. A helper can mount the volume read-write while the API retains its read-only mount:
 

@@ -17,12 +17,12 @@ Start with the [project README](../README.md). Always read the source code when 
 ## 2. Datasets and licensing
 
 - [Dataset Releases](DATASET_RELEASES.md): the Masters OTB indexed dataset and filtered PGN, asset naming, verification, installation, versioning, and the maintainer publication procedure.
-- [Licensing and Attribution](LICENSING.md): software licenses, dataset licenses, required acknowledgments, modifications made, and open rights questions.
+- [Licensing and Attribution](LICENSING.md): software licenses, dataset licenses, the current policy for public non-commercial use, the terms for applications, required acknowledgments, modifications made, and open rights questions.
 - [Corpus and Deduplication Policy](CORPUS_AND_DEDUPLICATION.md): collection segregation, rating isolation, selection policies, deduplication, and accounting invariants.
 
 ## 3. Deploy
 
-- [Docker Deployment](DOCKER_DEPLOYMENT.md): provision releases, run the API with read-only mounts, resource bounds, rollback, and the restricted mode.
+- [Docker Deployment](DOCKER_DEPLOYMENT.md): provision releases, run the API with read-only mounts, resource bounds, rollback, and running a public non-commercial instance.
 - [Migration from CODB](MIGRATION_FROM_CODB.md): legacy-to-current names for the binary, environment variables, compose files, and image.
 
 ## 4. Build and develop

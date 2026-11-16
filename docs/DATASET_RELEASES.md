@@ -8,7 +8,7 @@ status: current
 
 This document covers the two distributed products for the Masters OTB corpus, how their assets are named and verified, and how they are published. The software is described in [README.md](../README.md) and the format contracts in [DATA_CONTRACTS.md](DATA_CONTRACTS.md). Licensing facts are in [LICENSING.md](LICENSING.md).
 
-**Status.** The `masters-otb-r3` assets are prepared locally in `data/releases-dist/masters-otb-r3/`. They are not published. Publication is blocked by the distribution gate in section 6.
+**Status.** `masters-otb-r3` is published as the GitHub release [`dataset-masters-otb-r3`](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3) (2026-11-16). It contains the indexed package (two parts), the filtered PGN, the dataset notice, the release manifest, and `SHA256SUMS`, about 3.2 GB in total. Distribution rests on the maintainer's recorded decision described in section 6.
 
 ## 1. Products
 
@@ -42,7 +42,9 @@ Parts are cut at fixed multiples of the part size, so the split is deterministic
 
 ## 4. Download, verify, reconstruct, install
 
-Requires the GitHub CLI (`gh`) and Python 3.11 or later. Commands run from a checkout of the repository at the release tag.
+The repository and release are public, so no authentication is needed beyond the GitHub CLI (`gh`). Requirements: Python 3.11 or later and about 3.2 GB of free disk for the download, plus about 2.7 GB more for the reconstructed package and the installed snapshot. Run the commands from a checkout of the repository at the release tag.
+
+To fetch only the PGN, run `gh release download dataset-masters-otb-r3 --pattern 'masters-otb-r3-filtered.pgn.zst'` and compare it with the `sha256sum` listed in `masters-otb-r3-SHA256SUMS.txt`.
 
 ```bash
 # 1. Download the published assets
@@ -93,8 +95,10 @@ The exporter is `opening-explorer export-pgn --dataset <snapshot> --output <file
 - The software (MIT OR Apache-2.0) does not license the dataset. The dataset carries the publisher's CC BY-NC 4.0 claim, and upstream rights are unresolved. See [LICENSING.md](LICENSING.md) section 4.4.
 - The attribution notice is [dataset/ATTRIBUTION.md](../dataset/ATTRIBUTION.md). It is rendered into `<release>-NOTICE.md` and into the indexed package. It states the distribution status at packaging time.
 - [releases/distribution_clearance.json](../releases/distribution_clearance.json) is the gate. `upload --execute` and the publish workflow refuse unless `status` is `cleared`, `clearance_reference` names the written basis, and `release_id` matches.
+- The canonical statement of current policy, including public API deployment, is [LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment); this section covers only the release gate.
 - **Current status: `cleared` (maintainer decision, 2026-11-16).** The record states that the maintainer relies on the publisher's public CC BY-NC 4.0 grant for non-commercial GitHub Release redistribution. It is the maintainer's interpretation, not separate written permission from the publisher. The recorded conflicts stay disclosed in that file. They include the snapshot's own release notice (local evaluation only, do not redistribute), the publisher's terms as reviewed (end-user bulk and raw-PGN downloads prohibited), and the absence of a publisher checksum.
-- The `RELEASE/DATASET_LICENSE.txt` inside the existing snapshot describes local evaluation only. A public release needs a new release record and notice; it cannot be produced by editing this one.
+- **Notice wording in `masters-otb-r3`.** The release assets are immutable and checksummed, so they keep their build-time text. The `RELEASE/DATASET_LICENSE.txt` inside the indexed package describes local evaluation only, and `masters-otb-r3-NOTICE.md` records the status "not_cleared" as of packaging. Both predate the maintainer's decision. Read them together with `releases/distribution_clearance.json` and the release notes, which state the current position. A future release should render a fresh notice at build time.
+- The release notes of `dataset-masters-otb-r3` are editable and were written to reflect the current status; the asset files were not changed.
 
 ## 7. Maintainer procedure
 
@@ -106,14 +110,15 @@ The exporter is `opening-explorer export-pgn --dataset <snapshot> --output <file
 6. **Upload to a draft** only after the gate is cleared: add `--execute`. This creates a draft release and never publishes it.
 7. **Publish** with the `Publish dataset release` workflow (manual, `workflow_dispatch`). It requires the tag to be reachable from `main`, the committed manifest and gate to pass, the draft to match the manifest by name and size, every downloaded byte to match its SHA-256, and the uploaded manifest to equal the committed one. Only then does it run `gh release edit --draft=false --latest=false`.
 
-The workflow never rebuilds data. Dataset releases are not marked "Latest", so they do not replace software releases in the GitHub sidebar.
+The workflow never rebuilds data. It asks GitHub not to mark the dataset release as "Latest" so that it does not displace software releases. GitHub still reports a release as latest when it is the repository's only published release (this is the case for `dataset-masters-otb-r3` until a software release exists); the flag then stops mattering once a software release is published.
 
 ## 8. Verification evidence
 
 | Evidence | Produced by | Covers |
 | --- | --- | --- |
-| `benchmarks/gigabase/PGN_EXPORT_VERIFICATION_R3.json` | `scripts/release_pgn_verify.py` (scratch venv: python-chess, zstandard) | Every PGN game parsed with python-chess; legality of every mainline; per-game metadata, sidecar tags, and move sequence compared with a direct decode of the CGB3 shards; probe positions compared with `opening-explorer query` |
+| `benchmarks/gigabase/PGN_EXPORT_VERIFICATION_R3.json` | `scripts/release_pgn_verify.py` (scratch venv: python-chess, zstandard) | Headers, sidecar tags, `Result`, `PlyCount`, and SAN token count of every game against a direct decode of the CGB3 shards; full python-chess replay of every 16th game (205,277 of 3,284,429), comparing the replayed moves; probe positions compared with `opening-explorer query` |
+| `benchmarks/gigabase/PGN_REIMPORT_LEGALITY_R3.json` | `opening-explorer build` over the whole filtered PGN | All 3,284,429 games reimported through the project's own ingest (shakmaty, not an independent parser): 0 illegal, 0 malformed, 0 variant rejections. Its policy and duplicate counts come from the default Masters policy and are not findings about the export |
 | `benchmarks/gigabase/PGN_EXPORT_R3_REPORT.json` | `opening-explorer export-pgn --report` | Exact counts, omitted tags, and the sidecar hash used |
-| `benchmarks/gigabase/INSTALL_VERIFICATION_R3.json` | Reconstruction, installation, rollback, and API run on the prepared assets | Reconstructed hashes, install into a scratch root, deep verification, rollback, and API responses |
+| `benchmarks/gigabase/INSTALL_VERIFICATION_R3.json` | Reconstruction, installation, rollback, and API run on the prepared assets | Reconstructed hashes, install into a scratch root, deep verification, rollback, and API responses. The published asset digests reported by GitHub equal the manifest checksums |
 
 The offline test suites are `scripts/test_release_assets.py` and `scripts/test_release_pgn_verify.py`. They run in `./scripts/validate.sh`. The network and scratch-environment checks are not part of the offline gate.

@@ -7,8 +7,8 @@ This notice ships inside the indexed package (`RELEASE/NOTICE.md`) and accompani
 - Dataset version: `{{DATASET_VERSION}}`
 - Distribution status when packaged: **{{DISTRIBUTION_STATUS}}**
 - Upstream rights: **unresolved**. The publisher's CC BY-NC 4.0 claim is recorded, but it does not independently clear every upstream game.
-- The publisher's commercial-license (B2B) page, as reviewed on 2026-11-15, describes free internal development and a closed beta, permits internal derived metadata, and prohibits end-user bulk exports and direct raw-PGN downloads. No written permission for public redistribution of this release is recorded.
-- The `RELEASE/DATASET_LICENSE.txt` file inside the indexed package is the build-time record for this snapshot. It describes local internal evaluation only. Do not treat this package as cleared for redistribution unless the project publishes a later release record that says so.
+- The publisher's commercial-license (B2B) page, as reviewed on 2026-11-15, describes free internal development and a closed beta, permits internal derived metadata, and prohibits end-user bulk exports and direct raw-PGN downloads. No separate written permission from the publisher for public redistribution of this release is recorded. The maintainer's decisions, which rely on the publisher's public CC BY-NC 4.0 grant for distribution and for public non-commercial deployment of the API, are recorded in `releases/distribution_clearance.json` and `releases/public_deployment_decision.json`. Current policy and the terms for applications: `docs/LICENSING.md` section 6.
+- The `RELEASE/DATASET_LICENSE.txt` file inside the indexed package is the build-time record for this snapshot. It is the unmodified build-time record, describes local internal evaluation only, and predates the distribution decision. Read it together with `releases/distribution_clearance.json` and the release notes.
 
 ## Source and attribution
 
