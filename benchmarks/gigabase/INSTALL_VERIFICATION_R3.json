@@ -58,7 +58,8 @@
     {
       "step": "rollback: install R3 over the previous version in that root",
       "result": "PARTIAL",
-      "detail": "codb publish succeeded and the staged snapshot passed deep verify. The install's final current-pointer assertion failed (exit 2, fail-closed) because a separate manual rollback publish changed current while the install's post-publish deep verify was still running. This was a test-procedure race, not a publish defect. Clean installs passed in the scratch-root step above."
+      "detail": "codb publish succeeded and the staged snapshot passed deep verify. The install's final current-pointer assertion failed (exit 2, fail-closed) because a separate manual rollback publish changed current while the install's post-publish deep verify was still running. This was a test-procedure race, not a publish defect. Clean installs passed in the scratch-root step above.",
+      "superseded_by": "rollback: sequential rerun of install R3 over previous version (no concurrent operations)"
     },
     {
       "step": "rollback: reactivate retained previous version from a staged copy",
@@ -69,6 +70,11 @@
       "step": "rollback: reactivate R3 from a staged copy",
       "result": "PASS",
       "detail": "publish succeeded; current -> R3 build; deep verify SUCCESS; e2e4 total_games 1,469,608 (matches the FINAL_REPORT value)"
+    },
+    {
+      "step": "rollback: sequential rerun of install R3 over previous version (fresh scratch root, no concurrent operations)",
+      "result": "PASS",
+      "detail": "published the retained 29,640-game build (e4 total_games 14,138); release_assets.py install of the reconstructed R3 tar succeeded, deep verify passed, current -> R3 build, e4 total_games 1,469,608; previous version retained under versions/"
     }
   ],
   "api": {
