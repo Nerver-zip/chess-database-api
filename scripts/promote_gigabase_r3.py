@@ -48,7 +48,7 @@ def load_and_verify_release(candidate: Path) -> dict:
         raise PromotionError("candidate is not the pinned Gigabase R3 release")
     if (manifest.get("dataset_build_id") != BUILD_ID or manifest.get("collection") != "masters-otb"
             or manifest.get("total_games") != 3_284_429):
-        raise PromotionError("CODB manifest identity or collection does not match Gigabase R3 Masters")
+        raise PromotionError("Opening Explorer manifest identity or collection does not match Gigabase R3 Masters")
     if release.get("collection") != "masters-otb" or release.get("accepted_games") != 3_284_429:
         raise PromotionError("release metadata does not record 3,284,429 Masters games")
     if release.get("index", {}).get("depth_plies") != 40:
@@ -94,10 +94,10 @@ def load_and_verify_release(candidate: Path) -> dict:
     return release
 
 
-def run_codb(codb: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run([str(codb), *arguments], capture_output=True, text=True)
+def run_opening_explorer(opening_explorer: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run([str(opening_explorer), *arguments], capture_output=True, text=True)
     if result.returncode:
-        raise PromotionError(f"codb {' '.join(arguments)} failed:\n{result.stdout}{result.stderr}")
+        raise PromotionError(f"opening-explorer {' '.join(arguments)} failed:\n{result.stdout}{result.stderr}")
     return result
 
 
@@ -117,39 +117,39 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--candidate", type=Path, default=DEFAULT_CANDIDATE)
     parser.add_argument("--target", type=Path, default=ROOT / "data/releases/masters-otb")
-    parser.add_argument("--codb", type=Path, default=ROOT / "target/release/codb")
+    parser.add_argument("--opening-explorer", type=Path, default=ROOT / "target/release/opening-explorer")
     parser.add_argument("--publish", action="store_true", help="publish after checksum and deep verification")
     args = parser.parse_args()
 
     candidate = args.candidate.resolve(strict=True)
     target = args.target.absolute()
-    codb = args.codb.resolve(strict=True)
+    opening_explorer = args.opening_explorer.resolve(strict=True)
     release = load_and_verify_release(candidate)
-    run_codb(codb, "verify", "--dataset", str(candidate), "--deep")
+    run_opening_explorer(opening_explorer, "verify", "--dataset", str(candidate), "--deep")
     previous = current_version(target)
     print(f"[verified] {release['dataset_version']} games={release['accepted_games']} "
           f"depth={release['index']['depth_plies']} previous={previous or 'none'}")
     if not args.publish:
-        print("[check-only] pass --publish to invoke the atomic CODB publisher")
+        print("[check-only] pass --publish to invoke the atomic Opening Explorer publisher")
         return 0
     if previous == BUILD_ID:
         print("[published] Gigabase R3 is already active")
         return 0
 
     target.parent.mkdir(parents=True, exist_ok=True)
-    staging_root = target.parent / f".codb-gigabase-promotion-{os.getpid()}-{time.time_ns()}"
+    staging_root = target.parent / f".opening-explorer-gigabase-promotion-{os.getpid()}-{time.time_ns()}"
     staging_root.mkdir(parents=True, exist_ok=False)
     staged = staging_root / BUILD_ID
     shutil.copytree(candidate, staged)
     # Recheck the staged copy so publication never trusts a partial copy.
     load_and_verify_release(staged)
-    run_codb(codb, "verify", "--dataset", str(staged), "--deep")
-    run_codb(codb, "publish", "--candidate", str(staged), "--target", str(target),
+    run_opening_explorer(opening_explorer, "verify", "--dataset", str(staged), "--deep")
+    run_opening_explorer(opening_explorer, "publish", "--candidate", str(staged), "--target", str(target),
              "--collection", "masters-otb")
     active = current_version(target)
     if active != BUILD_ID:
         raise PromotionError(f"publication returned without activating {BUILD_ID}; current is {active}")
-    run_codb(codb, "verify", "--dataset", str(target), "--deep")
+    run_opening_explorer(opening_explorer, "verify", "--dataset", str(target), "--deep")
     load_and_verify_release(target / "current")
     if previous and not (target / "versions" / previous).is_dir():
         raise PromotionError(f"previous version {previous} is missing after publication")

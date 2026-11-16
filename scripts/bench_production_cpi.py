@@ -36,8 +36,8 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Work directory for datasets, temporary runs and published candidates. Defaults to a repo-local directory on
 # the real filesystem: /tmp is frequently tmpfs, where file contents and mmap'd pages are RAM-backed (shmem)
 # and would distort both RSS and "temporary disk" measurements.
-WORK_BASE = os.environ.get("CODB_BENCH_WORKDIR", os.path.join(ROOT_DIR, "target", "bench_work"))
-BIN_PATH = os.path.join(ROOT_DIR, "target", "release", "codb")
+WORK_BASE = os.environ.get("OPENING_EXPLORER_BENCH_WORKDIR", os.path.join(ROOT_DIR, "target", "bench_work"))
+BIN_PATH = os.path.join(ROOT_DIR, "target", "release", "opening-explorer")
 OUTPUT_DIR = os.path.join(ROOT_DIR, "benchmarks", "production_cpi")
 
 BENCHMARK_MOVES = [
@@ -171,7 +171,7 @@ def measure_query_latencies(dataset_dir):
     """
     Measures warm-cache and fresh-process Opening Explorer query latencies in microseconds.
 
-    NOTE: the "fresh-process" series launches a new `codb query` subprocess per query (so index
+    NOTE: the "fresh-process" series launches a new `opening-explorer query` subprocess per query (so index
     open/mmap/parse is included) but does NOT invalidate the OS page cache. It is therefore a
     cold-start latency, not a cold-cache latency. Genuine cold-cache measurement needs privileged
     `drop_caches` and is intentionally not attempted.
@@ -240,7 +240,7 @@ def prepare_dataset(collection, max_games, input_file, work_root):
     ]
     res = subprocess.run(build_cmd, capture_output=True, text=True)
     if res.returncode != 0:
-        raise RuntimeError(f"codb build failed: {res.stderr}")
+        raise RuntimeError(f"opening-explorer build failed: {res.stderr}")
     dur = time.perf_counter() - t0
     size = compute_dir_size_bytes(dataset_dir)
     print(f"   CGB3 dataset built in {dur:.2f}s ({size} bytes)")
@@ -259,7 +259,7 @@ def run_single_benchmark(
     input_size_bytes = os.path.getsize(input_file)
     git_commit = get_git_commit_sha()
 
-    work_dir = tempfile.mkdtemp(prefix=f"codb_bench_{collection}_{max_games}_", dir=_ensure_work_base())
+    work_dir = tempfile.mkdtemp(prefix=f"opening_explorer_bench_{collection}_{max_games}_", dir=_ensure_work_base())
     dataset_dir = os.path.join(work_dir, "dataset")
     try:
         shutil.copytree(base_dataset, dataset_dir, symlinks=True)
@@ -275,7 +275,7 @@ def run_single_benchmark(
             run_command_with_rusage(index_cmd)
         )
         if exit_code != 0:
-            raise RuntimeError(f"codb build-index failed ({exit_code}): {stderr_str}")
+            raise RuntimeError(f"opening-explorer build-index failed ({exit_code}): {stderr_str}")
 
         report = json.loads(stdout_str)
         peak_rss_bytes = peak_rss_kib * 1024
@@ -290,7 +290,7 @@ def run_single_benchmark(
             capture_output=True, text=True,
         )
         if v_res.returncode != 0:
-            raise RuntimeError(f"codb verify --deep failed: {v_res.stderr}")
+            raise RuntimeError(f"opening-explorer verify --deep failed: {v_res.stderr}")
         verify_duration_secs = time.perf_counter() - t0
 
         print("4. Measuring Opening Explorer query latencies...")
@@ -393,7 +393,7 @@ def run_single_benchmark(
                     "p95_latency_us": round(latencies["warm_p95_us"], 1),
                     "p99_latency_us": round(latencies["warm_p99_us"], 1),
                     "sample_size": latencies["warm_samples"],
-                    "methodology": "Repeated `codb query` subprocess invocations over common opening move sequences (e4, d4, c4, Nf3) after the CPI file was recently written/read (OS page cache warm). Includes process launch and index open.",
+                    "methodology": "Repeated `opening-explorer query` subprocess invocations over common opening move sequences (e4, d4, c4, Nf3) after the CPI file was recently written/read (OS page cache warm). Includes process launch and index open.",
                 },
                 "fresh_process_cold_start": {
                     "p50_latency_us": round(latencies["fresh_p50_us"], 1),
@@ -444,10 +444,10 @@ def main():
     args = parser.parse_args()
 
     masters_file = args.masters_file or pick_input(
-        "CODB_MASTERS_FILE", ["masters_broadcast_2025-01_2026-09.pgn.zst", "masters_combined.pgn.zst"]
+        "OPENING_EXPLORER_MASTERS_FILE", ["masters_broadcast_2025-01_2026-09.pgn.zst", "masters_combined.pgn.zst"]
     )
     elite_file = args.elite_file or pick_input(
-        "CODB_ELITE_FILE", ["elite_online_2025-01_110k.pgn.zst", "elite_online_sample.pgn.zst"]
+        "OPENING_EXPLORER_ELITE_FILE", ["elite_online_2025-01_110k.pgn.zst", "elite_online_sample.pgn.zst"]
     )
     if not masters_file or not elite_file or not os.path.isfile(masters_file) or not os.path.isfile(elite_file):
         print("Error: required datasets missing in data/ (see docs/research/benchmark-reproduction.md section 6)")
@@ -473,7 +473,7 @@ def main():
         plan.append((100000, 128, 2, "stress_fanin2"))
         plan.append((100000, 16, 2, "stress_mem16_fanin2"))
 
-    work_root = tempfile.mkdtemp(prefix="codb_bench_root_", dir=_ensure_work_base())
+    work_root = tempfile.mkdtemp(prefix="opening_explorer_bench_root_", dir=_ensure_work_base())
     all_results = []
     try:
         for col, depth, path, desc in collections:

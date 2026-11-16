@@ -1,0 +1,117 @@
+{
+  "accounting": {
+    "accepted_unique": 3284429,
+    "completion_status": "CompleteEof",
+    "confirmed_duplicates": 4018,
+    "quarantined": 7842,
+    "rejected_by_policy": 10153901,
+    "rejected_illegal": 0,
+    "rejected_malformed": 0,
+    "rejected_variant": 0,
+    "superseded_prior": 506,
+    "total_encountered": 13450696
+  },
+  "assets": [
+    {
+      "kind": "indexed-package",
+      "name": "masters-otb-r3-indexed.tar",
+      "parts": [
+        {
+          "name": "masters-otb-r3-indexed.tar.part-001",
+          "sha256": "6e71be9b8614fb6cdc8ff12b924cc3b9102ca2a9489feb06ab75f7e69f81625a",
+          "size_bytes": 1992294400
+        },
+        {
+          "name": "masters-otb-r3-indexed.tar.part-002",
+          "sha256": "861d539ab6a869f1d28b66bbc11b7ec9d586bd73037fcbbe5dd8f14470b7e8b7",
+          "size_bytes": 708669440
+        }
+      ],
+      "sha256": "89ccb7931357cf21795e9eaa8dc82b0632ce40cb0ae9834927cbc5b637f0e706",
+      "size_bytes": 2700963840
+    },
+    {
+      "kind": "filtered-pgn",
+      "name": "masters-otb-r3-filtered.pgn.zst",
+      "parts": [
+        {
+          "name": "masters-otb-r3-filtered.pgn.zst",
+          "sha256": "4134599e1d6da75dbe00ce162e6c1cb90a0092e047bdfdfe5fa4662c36b306ff",
+          "size_bytes": 502176367
+        }
+      ],
+      "sha256": "4134599e1d6da75dbe00ce162e6c1cb90a0092e047bdfdfe5fa4662c36b306ff",
+      "size_bytes": 502176367
+    }
+  ],
+  "built_at": "2026-11-15T20:37:57Z",
+  "collection": "masters-otb",
+  "dataset_version": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+  "distribution": {
+    "clearance_file": "releases/distribution_clearance.json",
+    "part_size_limit_bytes": 1992294400
+  },
+  "formats": {
+    "game_lookup": "games.idx",
+    "pgn": "PGN, one game per canonical game, Zstandard-compressed in the .zst product",
+    "shard": "CGB3/v1",
+    "source_attribution": "source-attribution.jsonl"
+  },
+  "game_count": 3284429,
+  "index": {
+    "depth_plies": 40,
+    "format": "CPI/v2",
+    "unique_position_move_pairs": 55864091,
+    "unique_positions": 51909604
+  },
+  "license": {
+    "dataset": "Lumbra's Gigabase OTB Complete, publisher claim CC BY-NC 4.0; upstream rights unresolved",
+    "elite_online": "separate collection under CC0 1.0; not part of this release",
+    "notice": "masters-otb-r3-NOTICE.md",
+    "publisher_claim": "CC BY-NC 4.0",
+    "software": "MIT OR Apache-2.0 (software only; does not apply to dataset contents)",
+    "source_level_rights": "unresolved"
+  },
+  "metadata_assets": [
+    "masters-otb-r3-RELEASE_MANIFEST.json",
+    "masters-otb-r3-SHA256SUMS.txt"
+  ],
+  "reconstruction": {
+    "shell": "cat <name>.part-* > <name>  (order: part-001, part-002, ...)",
+    "tool": "python3 scripts/release_assets.py reconstruct"
+  },
+  "release_id": "masters-otb-r3",
+  "schema_version": 1,
+  "sources": {
+    "mode_provenance_counts": {
+      "missing_mode": 3284429
+    },
+    "otb_provenance_tier": "publisher_asserted_otb",
+    "product": "OTB Complete",
+    "publisher": "Lumbra's Gigabase",
+    "publisher_checksum": null,
+    "publisher_download_url": "https://lumbrasgigabase.com/en/download-area-en/",
+    "publisher_terms_url": "https://lumbrasgigabase.com/en/commercial-licenses-en/",
+    "publisher_version": "2026-11-11",
+    "source_tag_counts": {
+      "AnaSchaigorodsky": 140276,
+      "Britbase": 45979,
+      "CanadianChessFederation": 130,
+      "ChessScotland": 2605,
+      "Community Project": 22071,
+      "DanBase": 39854,
+      "Federscacchi": 55510,
+      "GreekBase": 44495,
+      "Historical Archive": 555337,
+      "Independent Collection": 467795,
+      "LEDB": 14,
+      "Legacy Software Dump": 1736531,
+      "LichessBroadcastAPI": 172950,
+      "NiederrheinischerSchachverband": 1,
+      "NiedersächsischerSchachverband": 24,
+      "SchachverbandRuhrgebiet": 128,
+      "VargaCsabaZoltan": 2926
+    }
+  },
+  "tag": "dataset-masters-otb-r3"
+}

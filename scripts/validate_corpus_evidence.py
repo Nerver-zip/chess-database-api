@@ -13,6 +13,9 @@ ROOT = Path(__file__).resolve().parent.parent
 EVIDENCE = ROOT / "benchmarks" / "corpus"
 CATALOG = ROOT / "corpus" / "catalog.json"
 SHA = re.compile(r"^[0-9a-f]{64}$")
+# Docker evidence recorded before the rename used the `codb` service name and network alias.
+LEGACY_OR_CURRENT_SERVICE_NAMES = ("codb", "opening-explorer")
+LEGACY_OR_CURRENT_API_ADDRESSES = ("http://codb:8080", "http://opening-explorer:8080")
 COLLECTIONS = ("masters-otb", "elite-online")
 CLASSES = ("verified_otb", "verified_online", "unresolved")
 COUNTERS = (
@@ -206,7 +209,7 @@ def validate_masters_audit(release: dict, build: dict) -> None:
 
 def validate_docker(report: dict, releases: dict[str, dict]) -> None:
     if (report.get("schema_version") != 1 or report.get("mode") != "real"
-            or report.get("service") != "codb" or report.get("api_address") != "http://codb:8080"):
+            or report.get("service") not in LEGACY_OR_CURRENT_SERVICE_NAMES or report.get("api_address") not in LEGACY_OR_CURRENT_API_ADDRESSES):
         fail("Docker evidence is not a real-corpus Compose run")
     if "@sha256:" not in report.get("independent_client_image", ""):
         fail("Docker evidence does not identify a digest-pinned independent client image")

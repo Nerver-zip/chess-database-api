@@ -30,6 +30,12 @@ CANONICAL_DOCUMENTS = [
     "docs/BENCHMARKS.md",
     "docs/ROADMAP.md",
     "docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+    "docs/GETTING_STARTED.md",
+    "docs/API_REFERENCE.md",
+    "docs/USE_CASES.md",
+    "docs/DATASET_RELEASES.md",
+    "docs/DOCKER_DEPLOYMENT.md",
+    "docs/MIGRATION_FROM_CODB.md",
 ]
 
 ADR_DOCUMENTS = [

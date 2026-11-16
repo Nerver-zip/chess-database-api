@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+  "collection": "masters-otb",
+  "expected_games": 3284429,
+  "output_file": "masters-otb-r3-filtered.pgn.zst",
+  "zstd_level": 19,
+  "source_attribution": {
+    "filename": "source-attribution.jsonl",
+    "sha256": "7d11330a704746306d53afcb39bcc74ccf95c7a11cf55346374dd05188b45cbc",
+    "entries": 3284429
+  },
+  "games_written": 3284429,
+  "plain_bytes": 2608949207,
+  "setup_games": 0,
+  "missing_source_tag": 0,
+  "omitted_conflicting_tags": {
+    "BlackFideId": 37,
+    "BlackTitle": 18,
+    "WhiteFideId": 33,
+    "WhiteTitle": 17
+  }
+}

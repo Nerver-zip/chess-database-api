@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "release_id": "masters-otb-r3",
+  "status": "not_cleared",
+  "scope": "Public GitHub Release distribution of the masters-otb-r3 indexed package and filtered PGN.",
+  "basis": [
+    "docs/LICENSING.md section 4.4",
+    "benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json (reviewed 2026-11-15)"
+  ],
+  "recorded_conflicts": [
+    "The snapshot's RELEASE/DATASET_LICENSE.txt states local internal evaluation only, says not to redistribute the package, and says not to provide raw PGN to end users.",
+    "The publisher's B2B terms, as recorded in PUBLISHER_TERMS_REVIEW.json, prohibit end-user bulk exports and direct raw-PGN downloads to end users.",
+    "The snapshot's RELEASE.json records public_release_eligible: false and rights_clearance: unresolved_upstream_rights; the publisher supplied no archive checksum.",
+    "corpus/catalog.json allows only CC-BY-SA-4.0 for masters-otb; the Gigabase CC BY-NC 4.0 claim is outside the approved catalog."
+  ],
+  "clearance_reference": null,
+  "cleared_by": null,
+  "cleared_on": null
+}

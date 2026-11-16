@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "release_id": "masters-otb-r3",
+  "dataset_version": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+  "scope": "Reconstruction, installation from reconstructed artifacts, rollback compatibility, and API queries on the installed copy. Scratch roots only; the live Masters root was not modified.",
+  "dist_assets": [
+    {
+      "name": "masters-otb-r3-indexed.tar",
+      "size_bytes": 2700963840,
+      "sha256": "89ccb7931357cf21795e9eaa8dc82b0632ce40cb0ae9834927cbc5b637f0e706",
+      "parts": [
+        {
+          "name": "masters-otb-r3-indexed.tar.part-001",
+          "size_bytes": 1992294400,
+          "sha256": "6e71be9b8614fb6cdc8ff12b924cc3b9102ca2a9489feb06ab75f7e69f81625a"
+        },
+        {
+          "name": "masters-otb-r3-indexed.tar.part-002",
+          "size_bytes": 708669440,
+          "sha256": "861d539ab6a869f1d28b66bbc11b7ec9d586bd73037fcbbe5dd8f14470b7e8b7"
+        }
+      ]
+    },
+    {
+      "name": "masters-otb-r3-filtered.pgn.zst",
+      "size_bytes": 502176367,
+      "sha256": "4134599e1d6da75dbe00ce162e6c1cb90a0092e047bdfdfe5fa4662c36b306ff",
+      "parts": [
+        {
+          "name": "masters-otb-r3-filtered.pgn.zst",
+          "size_bytes": 502176367,
+          "sha256": "4134599e1d6da75dbe00ce162e6c1cb90a0092e047bdfdfe5fa4662c36b306ff"
+        }
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "step": "verify dist against committed manifest",
+      "result": "PASS",
+      "detail": "2 indexed parts and 1 filtered PGN: sizes and SHA-256 match; manifest asset byte-identical to releases/masters-otb-r3.json"
+    },
+    {
+      "step": "reconstruct whole products",
+      "result": "PASS",
+      "detail": "indexed tar 2,700,963,840 bytes sha256 89ccb7931357cf21795e9eaa8dc82b0632ce40cb0ae9834927cbc5b637f0e706; PGN 502,176,367 bytes sha256 4134599e1d6da75dbe00ce162e6c1cb90a0092e047bdfdfe5fa4662c36b306ff"
+    },
+    {
+      "step": "install indexed package into a scratch root (staging, extraction, release-identity check, codb verify --deep, codb publish, deep verify target, current pointer check)",
+      "result": "PASS",
+      "detail": "codb verify --deep passed on the staged snapshot and on the published target; current -> codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40"
+    },
+    {
+      "step": "rollback: publish retained previous Masters version (29,640-game build codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40) into a second scratch root",
+      "result": "PASS",
+      "detail": "deep verify passed; e2e4 total_games 14,138"
+    },
+    {
+      "step": "rollback: install R3 over the previous version in that root",
+      "result": "PARTIAL",
+      "detail": "codb publish succeeded and the staged snapshot passed deep verify. The install's final current-pointer assertion failed (exit 2, fail-closed) because a separate manual rollback publish changed current while the install's post-publish deep verify was still running. This was a test-procedure race, not a publish defect. Clean installs passed in the scratch-root step above."
+    },
+    {
+      "step": "rollback: reactivate retained previous version from a staged copy",
+      "result": "PASS",
+      "detail": "publish of a staged copy of the retained version succeeded; current -> previous build; e2e4 total_games 14,138"
+    },
+    {
+      "step": "rollback: reactivate R3 from a staged copy",
+      "result": "PASS",
+      "detail": "publish succeeded; current -> R3 build; deep verify SUCCESS; e2e4 total_games 1,469,608 (matches the FINAL_REPORT value)"
+    }
+  ],
+  "api": {
+    "command": "opening-explorer serve --masters-dataset <scratch install root> --host 127.0.0.1 --port 18081 --enable-game-retrieval false",
+    "health": {
+      "status": "ok"
+    },
+    "ready": {
+      "status": "ready",
+      "collections_loaded": [
+        "masters-otb"
+      ]
+    },
+    "collections": "masters-otb: total_games 3284429, cpi_depth_plies 40, cpi_total_positions 51909604, format_version CGB3/v1",
+    "game_retrieval_route_when_disabled": "HTTP 404",
+    "start_position_without_fen_or_moves": "HTTP 400 missing_position (a FEN or moves parameter is required)",
+    "startup_note": "The port opened about 3 minutes after launch while the CPI and game lookup loaded alongside another CPU-heavy job."
+  },
+  "api_vs_cli_probes": {
+    "method": "same 15 probe sequences plus the start position, queried via GET /v1/explorer/position and via opening-explorer query --json against the same installed root",
+    "result": "16/16 match on total_games, white_wins, draws, black_wins, and every per-move candidate count",
+    "results": [
+      {
+        "id": "start",
+        "moves": "",
+        "api_total_games": 3284429,
+        "cli_total_games": 3284429,
+        "match": true,
+        "candidate_moves": 20
+      },
+      {
+        "id": "e4",
+        "moves": "e2e4",
+        "api_total_games": 1469608,
+        "cli_total_games": 1469608,
+        "match": true,
+        "candidate_moves": 20
+      },
+      {
+        "id": "d4",
+        "moves": "d2d4",
+        "api_total_games": 1167896,
+        "cli_total_games": 1167896,
+        "match": true,
+        "candidate_moves": 20
+      },
+      {
+        "id": "c4",
+        "moves": "c2c4",
+        "api_total_games": 235078,
+        "cli_total_games": 235078,
+        "match": true,
+        "candidate_moves": 20
+      },
+      {
+        "id": "Nf3",
+        "moves": "g1f3",
+        "api_total_games": 351796,
+        "cli_total_games": 351796,
+        "match": true,
+        "candidate_moves": 20
+      },
+      {
+        "id": "e4_c5",
+        "moves": "e2e4 c7c5",
+        "api_total_games": 661852,
+        "cli_total_games": 661852,
+        "match": true,
+        "candidate_moves": 29
+      },
+      {
+        "id": "e4_e5",
+        "moves": "e2e4 e7e5",
+        "api_total_games": 324601,
+        "cli_total_games": 324601,
+        "match": true,
+        "candidate_moves": 20
+      },
+      {
+        "id": "ruy_lopez",
+        "moves": "e2e4 e7e5 g1f3 b8c6 f1b5",
+        "api_total_games": 153263,
+        "cli_total_games": 153263,
+        "match": true,
+        "candidate_moves": 22
+      },
+      {
+        "id": "italian",
+        "moves": "e2e4 e7e5 g1f3 b8c6 f1c4 f8c5",
+        "api_total_games": 26445,
+        "cli_total_games": 26445,
+        "match": true,
+        "candidate_moves": 20
+      },
+      {
+        "id": "sicilian_najdorf",
+        "moves": "e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6",
+        "api_total_games": 100285,
+        "cli_total_games": 100285,
+        "match": true,
+        "candidate_moves": 25
+      },
+      {
+        "id": "qgd",
+        "moves": "d2d4 d7d5 c2c4 e7e6 b1c3 g8f6",
+        "api_total_games": 39621,
+        "cli_total_games": 39621,
+        "match": true,
+        "candidate_moves": 14
+      },
+      {
+        "id": "nimzo",
+        "moves": "d2d4 g8f6 c2c4 e7e6 b1c3 f8b4",
+        "api_total_games": 94672,
+        "cli_total_games": 94672,
+        "match": true,
+        "candidate_moves": 17
+      },
+      {
+        "id": "caro_advance",
+        "moves": "e2e4 c7c6 d2d4 d7d5 b1c3 d5e4 c3e4",
+        "api_total_games": 34634,
+        "cli_total_games": 34634,
+        "match": true,
+        "candidate_moves": 12
+      },
+      {
+        "id": "kid",
+        "moves": "d2d4 g8f6 c2c4 g7g6 b1c3 f8g7 e2e4 d7d6",
+        "api_total_games": 84539,
+        "cli_total_games": 84539,
+        "match": true,
+        "candidate_moves": 18
+      },
+      {
+        "id": "transposition_knights",
+        "moves": "g1f3 g8f6 b1c3 b8c6",
+        "api_total_games": 13,
+        "cli_total_games": 13,
+        "match": true,
+        "candidate_moves": 6
+      },
+      {
+        "id": "en_passant_probe",
+        "moves": "e2e4 a7a6 e4e5 d7d5",
+        "api_total_games": 0,
+        "cli_total_games": 0,
+        "match": true,
+        "candidate_moves": 0
+      }
+    ]
+  }
+}

@@ -15,6 +15,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROJECTIONS_PATH = os.path.join(ROOT_DIR, "benchmarks", "results", "historical", "projections_heaps.json")
 FEASIBILITY_PATH = os.path.join(ROOT_DIR, "docs", "research", "feasibility-report.md")
 README_PATH = os.path.join(ROOT_DIR, "README.md")
+BENCHMARKS_PATH = os.path.join(ROOT_DIR, "docs", "BENCHMARKS.md")
 
 STALE_PATTERNS = [
     "7.50 GB",
@@ -109,6 +110,11 @@ class TestFeasibilityAlignment(unittest.TestCase):
             self.feasibility_text = f.read()
         with open(README_PATH) as f:
             self.readme_text = f.read()
+        # The README is a concise landing page and no longer carries the historical storage
+        # estimate. The authoritative figures live in docs/BENCHMARKS.md; the stale-figure ban
+        # still applies to the README, and the presence requirement is met by BENCHMARKS.md.
+        with open(BENCHMARKS_PATH) as f:
+            self.readme_text += "\n" + f.read()
 
     def test_authoritative_projections_and_docs_are_consistent(self):
         """Validates that real repo artifacts pass all alignment checks."""
