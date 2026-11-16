@@ -2,7 +2,7 @@
 
 ## Current objective
 
-Deliver the consolidation PR stacked on PR #7 (`feat/gigabase-masters`): `opening-explorer-api` identity, two prepared Masters OTB dataset products, release tooling, licensing/attribution, README and API documentation. Keep it Draft. Do not merge, do not publish release assets, do not rename the GitHub repository before the post-merge cutover. `GOAL.md` stays untracked.
+Deliver the consolidation PR stacked on PR #7 (`feat/gigabase-masters`): `opening-explorer-api` identity, two prepared Masters OTB dataset products, release tooling, licensing/attribution, README and API documentation. Keep it Draft. Do not merge, do not publish release assets, the GitHub repository is already renamed. `GOAL.md` stays untracked.
 
 ## What changed
 
@@ -30,7 +30,7 @@ Per the project decision, the publisher's CC BY-NC 4.0 is the basis for non-comm
 
 1. Merge PR #7, retarget this PR to `main`, run the final Ready-for-Review CI.
 2. After merge: record clearance, tag `dataset-masters-otb-r3` on the merged commit, upload to a DRAFT release with `release_assets.py upload` (dry run first), then run the manual publish workflow.
-3. Rename the GitHub repository to `Nerver-zip/opening-explorer-api`; update the local remote URL (`git remote set-url origin ...`). The old URL redirects. Not done yet.
+3. Repository rename: GitHub already reports the repository as `Nerver-zip/opening-explorer-api` (the old URL redirects). The local `origin` was updated to the new URL. Confirm no CI or branch-protection settings still reference the old name after #7 merges.
 4. The private deployment still runs as `codb-gigabase-r3-codb-1`; a redeploy under the new compose names yields `codb-gigabase-r3-opening-explorer-1` (stop the old container first; both share the `codb` network alias).
 5. Open items from the API audit not implemented: per-collection retrieval switch; stable game IDs in the PGN export; `/ready` does not re-check after startup.
 
