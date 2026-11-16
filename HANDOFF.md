@@ -22,7 +22,7 @@ Finish the authorized private Gigabase R3 Masters promotion on PR #7 (`feat/giga
 
 ## Audit discrepancy disposition
 
-The three `python-chess` sample games were legal and matched canonical moves, starting positions, and final boards. Two rows had persisted metadata differences: event text differed twice; site, time control, and ECO differed once each. All three rows had source-attribution differences. These differences do not change position statistics. The checked-in anonymized reports do not preserve exact per-row source/CODB values or row-level deduplication dispositions; these details are recorded as unavailable and are not inferred. No games were removed and no deduplication replay was run.
+The three `python-chess` sample games were legal and matched canonical moves, starting positions, and final boards. Exact persisted metadata differences and source-versus-sidecar attribution values are recorded in `benchmarks/gigabase/FINAL_REPORT.md`; they do not change position statistics. The source-occurrence deduplication dispositions are not linked in retained audit evidence and remain unavailable; no replay or game removal was done.
 
 ## Implementation in progress
 
@@ -36,7 +36,7 @@ The three `python-chess` sample games were legal and matched canonical moves, st
 
 Completed: all 18 host artifact checks; local package checksum; promoter check-only and publish; host and volume deep verification; Compose configuration parse; targeted bootstrap guard tests and runtime rejection checks; API startup/restart, query/WDL, concurrency, retrieval, rollback, and reactivation checks. `./scripts/validate.sh` passed all eight gates in the Rust 1.100.0 validation container, including Rust formatting, Clippy, workspace tests, Python suites, evidence validators, documentation links, and manifest verification. `git diff --check` passed. No full source corpus rebuild occurred.
 
-Completed: the verified implementation is committed and pushed to PR #7. Local `./scripts/reproduce_benchmarks.sh --ci` passed, and the manually dispatched GitHub Actions run passed both `scripts/validate.sh` and the reproduction step. The PR remains Draft, open, and unmerged; its PR-triggered job was skipped as configured. No older expensive run remained active. Do not publish publicly or rebuild the corpus.
+The implementation is committed on PR #7; the exact discrepancy values have now been documented from the saved source PGNs, candidate CODB records, and attribution sidecar without a deduplication replay. `./scripts/validate.sh` passed after this documentation correction, and `./scripts/reproduce_benchmarks.sh --ci` passed on the implementation. The last hosted full CI run passed before this documentation-only update; after pushing the final docs commit, run the final manual GitHub CI gate once. Keep PR #7 Draft and unmerged. Do not publish publicly or rebuild the corpus.
 
 ## Evidence paths
 
