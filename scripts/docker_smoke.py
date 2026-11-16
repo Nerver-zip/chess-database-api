@@ -79,7 +79,8 @@ def populate_volume(name: str, source: Path) -> None:
         subprocess.run(["docker", "rm", "-f", loader], capture_output=True)
 
 
-def write_compose_env(path: Path, roots: dict[str, Path], network: str) -> None:
+def write_compose_env(path: Path, roots: dict[str, Path], network: str,
+                      enable_game_retrieval: bool = True) -> None:
     path.write_text(
         f"CODB_DATA_DIR={path.parent}\n"
         f"CODB_MASTERS_RELEASE_DIR={roots['masters-otb']}\n"
@@ -92,6 +93,7 @@ def write_compose_env(path: Path, roots: dict[str, Path], network: str) -> None:
         "CODB_READER_POOL_TIMEOUT_SECS=5\n"
         "CODB_REQUEST_TIMEOUT_SECS=15\n"
         "CODB_MAX_MOVE_PLIES=200\n"
+        f"CODB_ENABLE_GAME_RETRIEVAL={'true' if enable_game_retrieval else 'false'}\n"
         "CODB_LOG_LEVEL=info\n"
     )
 
@@ -182,7 +184,8 @@ def wait_healthy(project: str, container: str, timeout_seconds: float = 240) -> 
 
 
 def check_live_api(codb: Path, roots: dict[str, Path], client: str,
-                   expected_counts: dict[str, int] | None = None) -> dict[str, dict]:
+                   expected_counts: dict[str, int] | None = None,
+                   enable_game_retrieval: bool = True) -> dict[str, dict]:
     status, body = curl_from_client(client, "/health")
     assert status == 200, (status, body)
     status, ready = curl_from_client(client, "/ready")
@@ -224,8 +227,17 @@ def check_live_api(codb: Path, roots: dict[str, Path], client: str,
         status, pgn = curl_from_client(
             client, f"/v1/collections/{collection}/games/{ids[0]}"
         )
-        assert status == 200, (status, pgn)
-        assert pgn.lstrip().startswith(b"[Event "), pgn[:200]
+        cli_pgn_matches: bool | None = None
+        if enable_game_retrieval:
+            assert status == 200, (status, pgn)
+            assert pgn.lstrip().startswith(b"[Event "), pgn[:200]
+            cli_pgn = run([
+                str(codb), "get-game", "--dataset", str(dataset), "--id", str(ids[0]),
+            ], timeout=120).stdout.encode()
+            cli_pgn_matches = pgn == cli_pgn
+            assert cli_pgn_matches, (collection, ids[0], len(pgn), len(cli_pgn))
+        else:
+            assert status == 404, (status, pgn)
         queries[collection] = {
             "dataset_version": response["dataset_version"],
             "position_http_response": response,
@@ -242,8 +254,9 @@ def check_live_api(codb: Path, roots: dict[str, Path], client: str,
             "sample_game_id": ids[0],
             "stored_game_http_status": status,
             "stored_game_bytes": len(pgn),
-            "stored_game_sha256": hashlib.sha256(pgn).hexdigest(),
-            "stored_game_is_pgn": pgn.lstrip().startswith(b"[Event "),
+            "stored_game_sha256": hashlib.sha256(pgn).hexdigest() if pgn else None,
+            "stored_game_is_pgn": pgn.lstrip().startswith(b"[Event ") if pgn else False,
+            "stored_game_matches_cli": cli_pgn_matches,
         }
 
 
@@ -359,6 +372,8 @@ def main() -> int:
                       help="exercise existing releases in the configured data directory")
     parser.add_argument("--data-dir", type=Path, help="real release root (default ./data)")
     parser.add_argument("--skip-build", action="store_true", help="use the current local image")
+    parser.add_argument("--disable-game-retrieval", action="store_true",
+                        help="omit the raw-PGN game route for restricted local datasets")
     parser.add_argument("--report-json", type=Path, help="write machine-readable smoke evidence")
     args = parser.parse_args()
 
@@ -373,9 +388,15 @@ def main() -> int:
     container = f"{project}-codb-1"
     client = f"{project}-client"
     if args.fixtures:
-        (REPO / "data").mkdir(exist_ok=True)
-    temp = tempfile.TemporaryDirectory(prefix=f"codb-smoke-{nonce}-",
-                                       dir=REPO / "data" if args.fixtures else None)
+        temp_parent = REPO / "data"
+    else:
+        # Real snapshots can be several gigabytes, so keep copied invalid-dataset
+        # fixtures on the workspace data volume instead of a small system /tmp.
+        temp_parent = REPO / "data" / "work" / "docker-smoke"
+    temp_parent.mkdir(parents=True, exist_ok=True)
+    temp = tempfile.TemporaryDirectory(
+        prefix=f"codb-smoke-{nonce}-", dir=temp_parent
+    )
     temp_root = Path(temp.name)
     if args.fixtures:
         temp_root.mkdir(parents=True, exist_ok=True)
@@ -393,7 +414,8 @@ def main() -> int:
                                    f"{report.stdout}{report.stderr}")
 
     env_file = temp_root / "compose.env"
-    write_compose_env(env_file, roots, network)
+    enable_game_retrieval = not args.disable_game_retrieval
+    write_compose_env(env_file, roots, network, enable_game_retrieval)
     masters_volume = f"{project}-masters"
     elite_volume = f"{project}-elite"
     corrupt_volume = f"{project}-corrupt"
@@ -418,18 +440,22 @@ def main() -> int:
             mount_type = "volume"
         populate_volume(masters_volume, roots["masters-otb"])
         populate_volume(elite_volume, roots["elite-online"])
+        startup_started = time.monotonic()
         run([*compose, "up", "-d"], timeout=1800)
         compose_started = True
         wait_healthy(project, container)
+        startup_time_to_healthy_seconds = time.monotonic() - startup_started
 
         run(["docker", "run", "-d", "--name", client, "--network", network,
              "--entrypoint", "/bin/sh", CLIENT_IMAGE, "-c", "while true; do sleep 3600; done"])
         client_started = True
 
         expected = None
-        if args.real:
+        default_data_dir = (REPO / "data").resolve()
+        selected_data_dir = (args.data_dir or default_data_dir).resolve()
+        if args.real and selected_data_dir == default_data_dir:
             expected = {"masters-otb": 3902, "elite-online": 30390}
-        first = check_live_api(codb, roots, client, expected)
+        first = check_live_api(codb, roots, client, expected, enable_game_retrieval)
         check_bad_starts({"masters-otb": masters_volume, "elite-online": elite_volume,
                           "corrupt": corrupt_volume, "incomplete": incomplete_volume},
                          roots, temp_root / "invalid-datasets")
@@ -454,8 +480,10 @@ def main() -> int:
                 status, body = curl_from_client(
                     client, f"/v1/collections/{collection}/games/{game_id}"
                 )
-                if status == 200:
+                if enable_game_retrieval and status == 200:
                     assert body.lstrip().startswith(b"[Event "), body[:200]
+                elif not enable_game_retrieval:
+                    assert status == 404, (status, body)
             return status
         peak_rss = [runtime_rss_kib(container)]
         stop_monitor = threading.Event()
@@ -475,7 +503,11 @@ def main() -> int:
         finally:
             stop_monitor.set()
             monitor.join(timeout=5)
-        assert all(status == 200 for status in statuses), statuses
+        expected_statuses = [
+            200 if index % 2 == 0 or enable_game_retrieval else 404
+            for index in range(len(statuses))
+        ]
+        assert statuses == expected_statuses, statuses
         rss_kib = runtime_rss_kib(container)
         peak_rss.append(rss_kib)
         rootfs_read_only = inspect_value(container, "{{.HostConfig.ReadonlyRootfs}}") == "true"
@@ -502,9 +534,11 @@ def main() -> int:
                             container])
         assert inspect_ports.stdout.strip() in ("null", "{}"), inspect_ports.stdout
 
+        restart_started = time.monotonic()
         run([*compose, "restart", "codb"], timeout=180)
         wait_healthy(project, container)
-        second = check_live_api(codb, roots, client, expected)
+        restart_time_to_healthy_seconds = time.monotonic() - restart_started
+        second = check_live_api(codb, roots, client, expected, enable_game_retrieval)
         assert first == second, (first, second)
 
         # Deep-verify the mounted read-only snapshots from inside the restarted service container.
@@ -537,8 +571,12 @@ def main() -> int:
             "concurrent_requests": {
                 "count": len(statuses),
                 "successful": sum(status == 200 for status in statuses),
+                "expected_not_found": sum(status == 404 for status in statuses),
                 "concurrent_workers": 12,
             },
+            "raw_game_route_enabled": enable_game_retrieval,
+            "startup_time_to_healthy_seconds": round(startup_time_to_healthy_seconds, 3),
+            "restart_time_to_healthy_seconds": round(restart_time_to_healthy_seconds, 3),
             "runtime_rss": {
                 "sampled_peak_kib": max(peak_rss),
                 "sampled_peak_bytes": max(peak_rss) * 1024,
@@ -578,6 +616,7 @@ def main() -> int:
             subprocess.run(["docker", "rm", "-f", client], capture_output=True)
         if compose_started:
             subprocess.run([*compose, "down", "--remove-orphans"], capture_output=True)
+        subprocess.run(["docker", "network", "rm", network], capture_output=True)
         for volume in (masters_volume, elite_volume, corrupt_volume, incomplete_volume):
             subprocess.run(["docker", "volume", "rm", "-f", volume], capture_output=True)
         temp.cleanup()

@@ -286,6 +286,7 @@ dependencies = [
  "codb-ingest",
  "codb-storage",
  "pgn-reader",
+ "rusqlite",
  "serde",
  "serde_json",
  "shakmaty",

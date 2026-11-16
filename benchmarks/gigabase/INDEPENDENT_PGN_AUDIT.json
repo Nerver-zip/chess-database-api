@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "audit_kind": "independent_pgn_parser_stratified_sample",
+  "candidate_dataset_build_id": "codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40",
+  "source_pgn_filename": "LumbrasGigabase_OTB_Complete.pgn",
+  "source_pgn_size_bytes": 12300428287,
+  "source_pgn_sha256_local": "87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759",
+  "source_sha256_computed_by_this_audit": false,
+  "external_parser": {
+    "distribution": "python-chess",
+    "distribution_version": "1.999",
+    "parser_module_version": "1.11.2",
+    "python_runtime_version": "3.13.5",
+    "repository_dependency": false,
+    "used_by_production_build": false,
+    "parser_package": "chess",
+    "parser_package_version": "1.11.2",
+    "parser_package_source": "PyPI wheel chess-1.11.2-py3-none-any.whl, retained in local pip cache",
+    "license": "GPL-3.0-or-later",
+    "wheel_filename": "chess-1.11.2-py3-none-any.whl",
+    "wheel_sha256_local": "541cf40233bc7a76081a916abd013298dcf1c90e64a7450f8494c4d89ee5f238",
+    "installed_metadata_sha256_local": "b43ff2d5c9d07672abf6661bee1e6f9ae6b6e3f4ff0b99b3bd3a87c617f43f96",
+    "installed_license_sha256_local": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+    "runner_in_git_or_pr": false,
+    "wheel_in_git_or_pr": false
+  },
+  "audit_runner_path_local": "data/work/gigabase-eval/independent_pgn_sample_audit.py",
+  "audit_runner_sha256_local": "e40405292fb07e2fb493db38b56cb27a6beba95636fd3de45b03f151b35d210b",
+  "method": "Take systematic offsets over the source file byte range, advance each to the next PGN Event-header boundary, parse the selected one-game window with python-chess, reimplement the documented CODB stable-ID mixing to join sampled records to the candidate, then compare independently parsed source headers/moves/boards with codb get-game JSON.",
+  "sampling": {
+    "byte_offsets_requested": 40000,
+    "source_records_examined": 40000,
+    "candidate_id_hits": 551,
+    "unique_candidate_games_selected": 144,
+    "candidate_games_compared": 144,
+    "selection_is_byte_weighted_not_game_weighted": true,
+    "selection_dimensions": [
+      "year_decade",
+      "minimum_rating_band",
+      "game_length_band",
+      "source_tag",
+      "identity_tier"
+    ],
+    "target_quotas_met": false,
+    "dimension_counts": {
+      "year_decade": {
+        "2020s": 66
+      },
+      "minimum_rating_band": {
+        "2200-2399": 89
+      },
+      "game_length_band": {
+        "40-79_plies": 65,
+        "80+_plies": 59
+      },
+      "source_tag": {},
+      "identity_tier": {
+        "Confirmed+Confirmed": 119
+      }
+    },
+    "dimension_coverage_nonzero_counts_suppressed": {
+      "year_decade": [
+        "1970s",
+        "1980s",
+        "1990s",
+        "2000s",
+        "2010s",
+        "2020s"
+      ],
+      "minimum_rating_band": [
+        "2000-2199",
+        "2200-2399",
+        "2400+"
+      ],
+      "game_length_band": [
+        "0-19_plies",
+        "20-39_plies",
+        "40-79_plies",
+        "80+_plies"
+      ],
+      "source_tag": [
+        "AnaSchaigorodsky",
+        "Britbase",
+        "ChessScotland",
+        "DanBase",
+        "Federscacchi",
+        "GreekBase",
+        "LichessBroadcastAPI"
+      ],
+      "identity_tier": [
+        "Confirmed+Confirmed",
+        "Confirmed+Strong",
+        "Strong+Confirmed",
+        "Strong+Strong"
+      ]
+    },
+    "suppressed_dimension_cells_below_fifty": 19,
+    "record_identifiers_player_names_event_names_and_raw_pgn_in_report": false
+  },
+  "validation": {
+    "source_parser_error_games": 0,
+    "source_parser_errors_on_candidate_id_hits": 0,
+    "source_illegal_mainline_games": 0,
+    "canonical_illegal_mainline_games": 0,
+    "candidate_retrieval_failures": 0,
+    "metadata_field_details_included": false,
+    "sample_level_metadata_disposition_counts_suppressed_below_fifty": true,
+    "metadata_differences_reconcile_to_confirmed_duplicate_or_collision_dispositions": true,
+    "move_sequence_mismatches": 0,
+    "starting_position_mismatches": 0,
+    "final_position_mismatches": 0,
+    "all_sampled_source_rows_reconciled": true
+  },
+  "limitations": [
+    "This is a byte-weighted stratified sample, not a full independent parse of the 12.3 GB source.",
+    "The CODB stable-ID algorithm was independently reimplemented for candidate joins; exact joins therefore rely on that ID contract even though PGN syntax and move replay use a different parser.",
+    "The candidate was read through codb get-game; this audit does not independently validate the CGB3 binary decoder.",
+    "The external parser is audit-only and is not a repository dependency or production component.",
+    "The audit runner is retained only under ignored data/work and is not included in the Draft PR.",
+    "The 1970s sample cell was below the 50-record suppression threshold; the full-source mapping check covers that decade with the repository parser.",
+    "Exact parser agreement does not establish source rights, event-level OTB play, or official Elo provenance."
+  ],
+  "duration_seconds": 166.453,
+  "process_peak_rss_kib": 1386212,
+  "memory_interpretation": {
+    "completed_run_scope": "40,000-window byte-weighted sample only",
+    "completed_sample_peak_rss_kib": 1386212,
+    "completed_full_source_scan": false,
+    "completed_bounded_memory_full_source_scan": false,
+    "separate_buffered_full_scan_status": "interrupted_before_eof; no completion metrics or quota reconciliation were produced",
+    "separate_buffered_full_scan_maximum_line_bytes": 4194304,
+    "separate_buffered_full_scan_maximum_record_bytes": 67108864,
+    "bounded_memory_claim_supported": false
+  }
+}

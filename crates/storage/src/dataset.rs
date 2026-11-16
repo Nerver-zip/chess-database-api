@@ -1,4 +1,4 @@
-use codb_core::{Collection, IngestionStats, ParsedGame, PositionKey};
+use codb_core::{Collection, GameSourceAttribution, IngestionStats, ParsedGame, PositionKey};
 use codb_index::external::{
     ExternalIndexConfig, ExternalIndexFaultPoint, ExternalIndexStats, ExternalPositionIndexer,
     DEFAULT_CPI_ZSTD_LEVEL, DEFAULT_MAX_MERGE_FAN_IN, DEFAULT_MEMORY_LIMIT_BYTES,
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs::{self, File};
-use std::io::Read;
+use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 
 #[cfg(unix)]
@@ -220,6 +220,15 @@ pub struct DatasetManifest {
     pub is_complete: bool,
     #[serde(default)]
     pub position_index: Option<PositionIndexMetadata>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_attribution: Option<FileChecksumMetadata>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SourceAttributionLine {
+    schema_version: u32,
+    game_id: u64,
+    source_attributions: Vec<GameSourceAttribution>,
 }
 
 pub struct DatasetWriterConfig {
@@ -569,6 +578,12 @@ impl DatasetWriter {
         })
     }
 
+    /// Returns the active private staging directory for sidecar writers that participate in the
+    /// same atomic publication as the CGB3 shards and manifest.
+    pub fn staging_directory(&self) -> &Path {
+        &self.staging_dir
+    }
+
     fn ensure_active_shard(&mut self) -> Result<&mut ShardWriter, StorageError> {
         if self.active_shard.is_none() {
             let shard_filename = format!("shard_{:04}.cgb3", self.current_shard_idx);
@@ -673,9 +688,20 @@ impl DatasetWriter {
     /// Finalizes the dataset build, writing the global lookup index, verifying integrity,
     /// generating manifest, and atomically publishing to `target_dir`.
     pub fn finalize(
+        self,
+        accounting: IngestionStats,
+        sources: Vec<SourceArchiveMetadata>,
+    ) -> Result<DatasetManifest, StorageError> {
+        self.finalize_with_source_attribution(accounting, sources, None)
+    }
+
+    /// Finalizes a dataset and registers the optional JSONL source-attribution sidecar.
+    /// The sidecar is separate from CGB3 and is included in snapshot integrity checks.
+    pub fn finalize_with_source_attribution(
         mut self,
         accounting: IngestionStats,
         sources: Vec<SourceArchiveMetadata>,
+        source_attribution: Option<FileChecksumMetadata>,
     ) -> Result<DatasetManifest, StorageError> {
         // Flush remaining in-memory block
         self.flush_block()?;
@@ -690,6 +716,42 @@ impl DatasetWriter {
 
         let total_retained = self.catalog.count_active_games()?;
 
+        if let Some(attribution) = &source_attribution {
+            let filename = Path::new(&attribution.filename);
+            if filename.file_name().and_then(|name| name.to_str())
+                != Some(attribution.filename.as_str())
+            {
+                return Err(StorageError::Encoding(
+                    "Source attribution filename must be a plain file name".into(),
+                ));
+            }
+            if attribution.filename != "source-attribution.jsonl" {
+                return Err(StorageError::Encoding(
+                    "Unsupported source attribution filename".into(),
+                ));
+            }
+            if attribution.entry_count != total_retained {
+                return Err(StorageError::Encoding(format!(
+                    "Source attribution record count ({}) does not match retained games ({})",
+                    attribution.entry_count, total_retained
+                )));
+            }
+            let sidecar_path = self.staging_dir.join(&attribution.filename);
+            let sidecar_metadata = fs::symlink_metadata(&sidecar_path)?;
+            if !sidecar_metadata.file_type().is_file()
+                || sidecar_metadata.len() != attribution.file_size_bytes
+            {
+                return Err(StorageError::Integrity(
+                    "Source attribution sidecar is not a regular file or has the wrong size".into(),
+                ));
+            }
+            if compute_file_sha256(&sidecar_path)? != attribution.sha256 {
+                return Err(StorageError::Integrity(
+                    "Source attribution sidecar checksum does not match its registration".into(),
+                ));
+            }
+        }
+
         // Write global game lookup index (games.idx) via streaming from catalog
         let lookup_path = self.staging_dir.join("games.idx");
         let (_written_lookup_path, lookup_size_bytes, _internal_sha) = self
@@ -703,6 +765,9 @@ impl DatasetWriter {
         // Compute checksums for all finalized shards
         let mut shards_meta = Vec::new();
         let mut total_physical_bytes = lookup_size_bytes;
+        if let Some(attribution) = &source_attribution {
+            total_physical_bytes = total_physical_bytes.saturating_add(attribution.file_size_bytes);
+        }
 
         for (shard_path, descriptors, size_bytes, shard_id) in &self.completed_shards {
             let sha256 = compute_file_sha256(shard_path)?;
@@ -770,6 +835,7 @@ impl DatasetWriter {
             total_physical_bytes,
             is_complete: true,
             position_index: None,
+            source_attribution,
         };
 
         // Write manifest.json in staging directory
@@ -1395,6 +1461,8 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
         )));
     }
 
+    verify_source_attribution(&snapshot_dir, &manifest, &reader.lookup_reader, deep)?;
+
     // 2. Verify all shard file SHA-256 checksums and headers
     for shard_meta in &manifest.shards {
         let shard_path = snapshot_dir.join("shards").join(&shard_meta.filename);
@@ -1470,6 +1538,12 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
         let shards_bytes: u64 = manifest.shards.iter().map(|s| s.file_size_bytes).sum();
         let expected_physical = shards_bytes
             .saturating_add(manifest.lookup_table.file_size_bytes)
+            .saturating_add(
+                manifest
+                    .source_attribution
+                    .as_ref()
+                    .map_or(0, |metadata| metadata.file_size_bytes),
+            )
             .saturating_add(cpi_meta.file_size_bytes);
         if manifest.total_physical_bytes != expected_physical {
             return Err(StorageError::Integrity(format!(
@@ -1523,6 +1597,24 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
             return Err(StorageError::Integrity(format!(
                 "Undeclared positions.cpi found in snapshot '{}' while manifest.position_index is None",
                 snapshot_dir.display()
+            )));
+        }
+        let expected_physical = manifest
+            .shards
+            .iter()
+            .map(|shard| shard.file_size_bytes)
+            .sum::<u64>()
+            .saturating_add(manifest.lookup_table.file_size_bytes)
+            .saturating_add(
+                manifest
+                    .source_attribution
+                    .as_ref()
+                    .map_or(0, |metadata| metadata.file_size_bytes),
+            );
+        if manifest.total_physical_bytes != expected_physical {
+            return Err(StorageError::Integrity(format!(
+                "Manifest total_physical_bytes ({}) != sum of shards + lookup + source attribution ({})",
+                manifest.total_physical_bytes, expected_physical
             )));
         }
         (None, None, None, None)
@@ -1662,6 +1754,135 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
         unique_position_move_pairs,
         status: "PASS".into(),
     })
+}
+
+fn verify_source_attribution(
+    snapshot_dir: &Path,
+    manifest: &DatasetManifest,
+    lookup_reader: &GameLookupReader,
+    deep: bool,
+) -> Result<(), StorageError> {
+    let Some(metadata) = &manifest.source_attribution else {
+        return Ok(());
+    };
+    if metadata.filename != "source-attribution.jsonl" {
+        return Err(StorageError::Integrity(format!(
+            "Unsupported source attribution sidecar filename '{}'",
+            metadata.filename
+        )));
+    }
+    if metadata.entry_count != manifest.total_games {
+        return Err(StorageError::Integrity(format!(
+            "Source attribution entry count ({}) != manifest total_games ({})",
+            metadata.entry_count, manifest.total_games
+        )));
+    }
+    let sidecar_path = snapshot_dir.join(&metadata.filename);
+    let sidecar_fs_metadata = fs::symlink_metadata(&sidecar_path)?;
+    if !sidecar_fs_metadata.file_type().is_file() {
+        return Err(StorageError::Integrity(
+            "Source attribution sidecar is not a regular file".into(),
+        ));
+    }
+    if sidecar_fs_metadata.len() != metadata.file_size_bytes {
+        return Err(StorageError::Integrity(format!(
+            "Source attribution size mismatch: actual {} bytes, manifest {} bytes",
+            sidecar_fs_metadata.len(),
+            metadata.file_size_bytes
+        )));
+    }
+    let actual_sha256 = compute_file_sha256(&sidecar_path)?;
+    if !actual_sha256.eq_ignore_ascii_case(&metadata.sha256) {
+        return Err(StorageError::Integrity(format!(
+            "Source attribution checksum mismatch: calculated {}, manifest {}",
+            actual_sha256, metadata.sha256
+        )));
+    }
+    if !deep {
+        return Ok(());
+    }
+
+    const MAX_SOURCE_ATTRIBUTIONS_PER_GAME: usize = 64;
+    const MAX_SOURCE_ATTRIBUTION_LINE_BYTES: usize = 1 << 20;
+    let file = File::open(&sidecar_path)?;
+    let mut reader = BufReader::new(file);
+    let mut previous_game_id = None;
+    let mut line_number = 0u64;
+    let mut line = String::new();
+    loop {
+        line.clear();
+        let read = reader.read_line(&mut line)?;
+        if read == 0 {
+            break;
+        }
+        line_number += 1;
+        if read > MAX_SOURCE_ATTRIBUTION_LINE_BYTES {
+            return Err(StorageError::Integrity(format!(
+                "Source attribution line {} exceeds the {}-byte limit",
+                line_number, MAX_SOURCE_ATTRIBUTION_LINE_BYTES
+            )));
+        }
+        let record: SourceAttributionLine = serde_json::from_str(&line).map_err(|error| {
+            StorageError::Decoding(format!(
+                "Invalid source attribution JSON at line {}: {}",
+                line_number, error
+            ))
+        })?;
+        if record.schema_version != 1 {
+            return Err(StorageError::Integrity(format!(
+                "Unsupported source attribution schema version {} at line {}",
+                record.schema_version, line_number
+            )));
+        }
+        if record.source_attributions.is_empty()
+            || record.source_attributions.len() > MAX_SOURCE_ATTRIBUTIONS_PER_GAME
+        {
+            return Err(StorageError::Integrity(format!(
+                "Source attribution line {} has {} source records; expected 1..={}",
+                line_number,
+                record.source_attributions.len(),
+                MAX_SOURCE_ATTRIBUTIONS_PER_GAME
+            )));
+        }
+        if record
+            .source_attributions
+            .iter()
+            .any(|source| source.source_tag.as_deref().is_none_or(str::is_empty))
+        {
+            return Err(StorageError::Integrity(format!(
+                "Source attribution line {} contains a missing or empty Source tag",
+                line_number
+            )));
+        }
+        if previous_game_id.is_some_and(|previous| record.game_id <= previous) {
+            return Err(StorageError::Integrity(format!(
+                "Source attribution game IDs are not strictly sorted at line {}",
+                line_number
+            )));
+        }
+        let lookup_entry = lookup_reader
+            .get_entry((line_number - 1) as usize)
+            .ok_or_else(|| {
+                StorageError::Integrity(format!(
+                    "Source attribution line {} has no corresponding games.idx entry",
+                    line_number
+                ))
+            })?;
+        if lookup_entry.game_id != record.game_id {
+            return Err(StorageError::Integrity(format!(
+                "Source attribution game ID {} at line {} does not match games.idx ID {}",
+                record.game_id, line_number, lookup_entry.game_id
+            )));
+        }
+        previous_game_id = Some(record.game_id);
+    }
+    if line_number != manifest.total_games {
+        return Err(StorageError::Integrity(format!(
+            "Source attribution line count ({}) != manifest total_games ({})",
+            line_number, manifest.total_games
+        )));
+    }
+    Ok(())
 }
 
 /// Resolves a dataset directory to its immutable physical snapshot directory.
@@ -3529,6 +3750,20 @@ pub fn build_dataset_position_index(
         &src_manifest.lookup_table.sha256,
     )?;
 
+    let source_attribution_bytes = if let Some(attribution) = &src_manifest.source_attribution {
+        let src_attribution = src_snapshot.join(&attribution.filename);
+        let dst_attribution = staging_dir.join(&attribution.filename);
+        link_or_copy_verified_file(
+            &src_attribution,
+            &dst_attribution,
+            attribution.file_size_bytes,
+            &attribution.sha256,
+        )?;
+        attribution.file_size_bytes
+    } else {
+        0
+    };
+
     for shard_meta in &src_manifest.shards {
         let src_shard = src_snapshot.join("shards").join(&shard_meta.filename);
         let dst_shard = staging_dir.join("shards").join(&shard_meta.filename);
@@ -3543,6 +3778,7 @@ pub fn build_dataset_position_index(
     let shards_bytes: u64 = src_manifest.shards.iter().map(|s| s.file_size_bytes).sum();
     let total_physical_bytes = shards_bytes
         .saturating_add(src_manifest.lookup_table.file_size_bytes)
+        .saturating_add(source_attribution_bytes)
         .saturating_add(cpi_size_bytes);
 
     let new_build_id = config.build_id_override.clone().unwrap_or_else(|| {
@@ -3588,6 +3824,7 @@ pub fn build_dataset_position_index(
         total_physical_bytes,
         is_complete: true,
         position_index: Some(pos_index_meta),
+        source_attribution: src_manifest.source_attribution.clone(),
     };
 
     let manifest_json = serde_json::to_string_pretty(&new_manifest)

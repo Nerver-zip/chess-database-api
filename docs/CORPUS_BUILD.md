@@ -1,5 +1,5 @@
 ---
-summary: "Step-by-step reproducible procedure from pinned source catalog to verified Masters OTB and Elite Online releases served over HTTP, with measured results, resource needs, license obligations, and failure recovery."
+summary: "Reproducible catalog releases, the private Gigabase R3 Masters promotion, Docker deployment, verification evidence, licensing limits, and rollback procedures."
 read_when: "Building, verifying, packaging, or serving the real corpus; integrating a client (for example Evalis) with real opening data; or changing the source catalog."
 status: current
 ---
@@ -8,7 +8,7 @@ status: current
 
 This document is the operational counterpart of CORPUS_AND_DEDUPLICATION.md (what is accepted), LICENSING.md (what may be redistributed), and ARCHITECTURE.md (where the tooling sits). It covers pinned source builds, event qualification, package bootstrap, and serving through codb or Docker Compose.
 
-The orchestration (`scripts/corpus.sh` → `scripts/corpus.py`, Python standard library only) never reimplements ingestion, curation, deduplication, indexing, or publication. It invokes `codb build`, `codb build-index`, `codb verify --deep`, and `codb report`.
+The orchestration (`scripts/corpus.sh` → `scripts/corpus.py`) never reimplements ingestion, curation, deduplication, indexing, or publication. The pinned-source workflow uses only the Python standard library; the opt-in local `.7z` extraction command uses the pinned optional dependency in `scripts/requirements-corpus-archive.txt`. The tool invokes `codb build`, `codb build-index`, `codb verify --deep`, and `codb report` for catalog releases.
 
 ## 1. Pipeline
 
@@ -35,7 +35,7 @@ data/releases/<collection>/ { versions/<id>/, current, RELEASE/ }
 | Requirement | Notes |
 | :--- | :--- |
 | Rust stable toolchain | `cargo build --release -p codb-cli` produces `target/release/codb`. |
-| Python 3.11+ | Standard library only; no `pip install`. |
+| Python 3.11+ | Standard library for the pinned catalog workflow. Install `scripts/requirements-corpus-archive.txt` only when using local `.7z` extraction. |
 | Network | HTTPS to `database.lichess.org`. Offline verification (`--offline`, `verify-sources`) needs none. |
 | Disk | See §3. The data directory defaults to `./data` (git-ignored); override with `--data-dir` or `CODB_DATA_DIR`. The tool refuses a data directory inside the repository unless it is under a git-ignored directory. |
 | Memory | Indexing honors `--memory-limit-mib` (default 128). Measured peaks are in §9. |
@@ -48,7 +48,7 @@ data/releases/<collection>/ { versions/<id>/, current, RELEASE/ }
 ./scripts/corpus.sh plan --collection all
 ```
 
-prints network transfer remaining, input storage, expected accepted games, expected CGB3 and CPI bytes, temporary workspace, the CPI memory limit, and a rebuild-time estimate, computed from the planning figures stored in the catalog (`collections.<c>.planning`). These are estimates, not guarantees. The table below records the delivered releases; Masters is the independently verified OTB subset described in §9.1. Sizes use decimal MB.
+prints network transfer remaining, input storage, expected accepted games, expected CGB3 and CPI bytes, temporary workspace, the CPI memory limit, and a rebuild-time estimate, computed from the planning figures stored in the catalog (`collections.<c>.planning`). These are estimates, not guarantees. The historical approved Lichess baseline is recorded in §9.1. The active private Masters R3 release is summarized in §9.0. Sizes use decimal MB.
 
 | Measure | `masters-otb` | `elite-online` |
 | :--- | ---: | ---: |
@@ -92,7 +92,103 @@ Pinned archives live in profiles. `baseline` is the delivered corpus; add furthe
 
 No other source is approved. TWIC, PGN Mentor, Caissabase, KingBase, commercial databases, and community mirrors are excluded because their redistribution rights or upstream provenance cannot be established ([LICENSING.md](LICENSING.md)).
 
-### 4.2 Source qualification and its limits
+### 4.2 User-supplied local `.7z` archives
+
+An archive supplied directly by a user can be inventoried and extracted for local evaluation without being added to `corpus/catalog.json`:
+
+```bash
+python3 -m pip install -r scripts/requirements-corpus-archive.txt
+./scripts/corpus.sh --data-dir data extract-local-7z \
+    --archive data/sources/lumbra/OTB_DATABASE.7z \
+    --member LumbrasGigabase_OTB_Complete.pgn \
+    --output data/sources/lumbra/extracted/LumbrasGigabase_OTB_Complete.pgn \
+    --max-expanded-bytes 68719476736 \
+    --expected-local-archive-sha256 <locally-recorded-hash> \
+    --expected-member-sha256 <locally-recorded-hash>
+```
+
+The command requires one regular member with a plain basename, checks the declared expansion size and compression ratio, extracts into a private temporary directory, confirms the actual size, hashes both archive and member, then atomically installs the output and a `*.local-source.json` record. Archive paths, directories, links, multiple members, output overwrites, and size-limit violations fail closed. The two optional hash arguments pin prior **local computations**; they do not become publisher checksums. The record marks `publisher_checksum_verified: false` and `release_eligible: false`. This local-only path does not bypass catalog rules: a source without a publisher checksum or an approved collection license cannot enter a corpus release.
+
+### 4.3 Local Gigabase R3 package and operational promotion
+
+The separate `scripts/local_gigabase_eval.py` workflow does not add Gigabase to `corpus/catalog.json` or the approved-source catalog. It verified the archive and member against local evidence, built the opt-in Gigabase policy, and created a package explicitly marked local-evaluation-only. The archive and PGN are not included in the package. The existing R3 snapshot is now active in the authorized private Masters deployment; its source is still not approved for public redistribution.
+
+For the build, the workflow writes a one-source manifest in the ignored work root. It pins the extracted PGN to its registered local SHA-256, leaves the source URL null, and labels the license as `Publisher claim: CC BY-NC 4.0; upstream rights unresolved`. It invokes `codb build --manifest` and checks that both the build report and persistent dataset manifest contain exactly that registered filename, local hash, size, URL, and license label. In this local path, `checksum_verified: true` means CODB matched the build-time bytes to the locally pinned manifest hash; it is not publisher authentication. The registration still records no publisher checksum, unresolved upstream rights, and `release_eligible: false`. See [DATA_CONTRACTS.md](DATA_CONTRACTS.md) for the general checksum field contract.
+
+Promote the already-built R3 snapshot without rerunning ingestion or indexing. The command verifies the release identity and every artifact hash, performs deep CODB verification, copies the candidate to a same-filesystem staging directory, and invokes the existing atomic storage publisher. The original evaluation snapshot is left intact; the previous active version remains under `versions/` for rollback.
+
+~~~bash
+python3 scripts/promote_gigabase_r3.py \
+  --candidate data/work/gigabase-eval/docker-r3-smoke/releases/masters-otb/versions/codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40 \
+  --target data/releases/masters-otb \
+  --codb target/release/codb \
+  --publish
+~~~
+
+On another authorized machine, first install its approved Elite package and the retained event-audited Masters baseline through the normal catalog bootstrap. Then transfer the verified R3 package and use the dedicated promotion command; the Gigabase package is not accepted by the approved-catalog bootstrap. The package SHA-256 is `297b7d2ab67951fd9655c35f6993da4d0fb5dd55ee763b62f9249c1804019247`; the release manifest independently hashes all 18 artifacts. Local hashes are not publisher authentication or public redistribution permission.
+
+~~~bash
+archive=/path/to/masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-local-evaluation.tar
+checksum="$archive.sha256"
+(cd "$(dirname "$archive")" && sha256sum -c "$(basename "$checksum")")
+mkdir -p data/work/gigabase-r3-install
+tar -xf "$archive" -C data/work/gigabase-r3-install
+python3 scripts/promote_gigabase_r3.py \
+  --candidate data/work/gigabase-r3-install/masters-otb/versions/codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40 \
+  --target data/releases/masters-otb \
+  --codb target/release/codb \
+  --publish
+~~~
+
+Routine `corpus.sh build` and `bootstrap` refuse to replace an active Gigabase local-evaluation release. An intentional replacement requires the explicit `--allow-replacing-local-evaluation-release` option. Rollback uses the verified publisher with a staged copy of the retained prior version, as described in [Docker deployment](DOCKER_DEPLOYMENT.md#private-gigabase-r3-deployment).
+
+Before a production-scale qualification build, run the full-stream `codb inventory` scan with `--policy-impact-output`. It records header-level r3 eligibility using the same production header-policy functions and reconciles the report to the scanned source. Those counts are candidates only: they do not establish legal moves, final eligibility after termination checks, or accepted unique games. The production build must then replay and account for the complete PGN. For r3, pass an explicit `--scratch-dir`; the local runner sets `TMPDIR` to that ignored directory and stores per-process peak RSS, wall time, and sampled allocated bytes for ingestion and CPI indexing in `RELEASE/resource_metrics.json`.
+
+```bash
+target/release/codb inventory \
+  --input data/sources/lumbra/extracted/LumbrasGigabase_OTB_Complete.pgn \
+  --output benchmarks/gigabase/INVENTORY.json \
+  --policy-impact-output benchmarks/gigabase/POLICY_IMPACT.json \
+  --scratch-dir data/work/gigabase-r3-impact
+
+python3 scripts/local_gigabase_eval.py register \
+  --archive data/sources/lumbra/OTB_DATABASE.7z \
+  --pgn data/sources/lumbra/extracted/LumbrasGigabase_OTB_Complete.pgn \
+  --local-record benchmarks/gigabase/archive_inventory.json \
+  --output data/work/gigabase-eval/source-registration-r3.json
+
+python3 scripts/local_gigabase_eval.py build \
+  --registration data/work/gigabase-eval/source-registration-r3.json \
+  --work-root data/work/gigabase-eval/policy-impact-r3 \
+  --output-root data/work/gigabase-eval/candidate-r3 \
+  --depth-plies 40 --memory-limit-mib 128 \
+  --codb target/release/codb
+
+python3 scripts/local_gigabase_eval.py package \
+  --root data/work/gigabase-eval/candidate \
+  --output-dir data/work/gigabase-eval/packages \
+  --codb target/release/codb
+
+python3 scripts/local_gigabase_eval.py bootstrap \
+  --package data/work/gigabase-eval/packages/masters-otb-<version>-local-evaluation.tar \
+  --previous-root data/releases/masters-otb \
+  --target data/work/gigabase-eval/deploy/masters-otb \
+  --codb target/release/codb
+```
+
+Bootstrap deep-verifies the package, retains the previous snapshot in the isolated evaluation root, atomically activates the Gigabase snapshot, and runs an offline opening query. A rollback republishes the retained previous immutable version through `codb publish`:
+
+```bash
+previous_id="$(basename "$(readlink -f data/releases/masters-otb/current)")"
+python3 scripts/local_gigabase_eval.py rollback \
+  --target data/work/gigabase-eval/deploy/masters-otb \
+  --version "$previous_id" \
+  --codb target/release/codb
+```
+
+For a restricted local position-statistics service, set `CODB_MASTERS_RELEASE_DIR=data/work/gigabase-eval/deploy/masters-otb` and `CODB_ENABLE_GAME_RETRIEVAL=false` before starting Compose. The disabled route does not serve raw PGN; local CLI retrieval remains an operator-only capability. The package is not an approved public or commercial release. The publisher's CC BY-NC 4.0 statement is retained as a publisher claim, publisher checksum is `null`, and unresolved upstream rights are recorded in `RELEASE/RELEASE.json` and `RELEASE/DATASET_LICENSE.txt`.
+
+### 4.4 Source qualification and its limits
 
 * **Masters OTB.** The broadcast archives can contain both OTB and online games. A separate event audit groups accepted baseline games by the broadcast tournament identifier and records official Lichess tournament metadata plus linked event or standings evidence. Verified online requires explicit event-level online or engine evidence. Verified OTB requires an official physical venue and a linked event page that matches both tournament identity and location. Missing Site venue data and high FIDE ratings do not prove play mode. Events that cannot be corroborated are unresolved and excluded from the release. See the complete per-event record in corpus/masters_event_qualification.json and the policy details in CORPUS_AND_DEDUPLICATION.md. The [Lichess Broadcast help](https://lichess.org/broadcast/help) notes that venue and other tournament fields are optional, so absence is not treated as online evidence.
 * **Elite Online.** The complete monthly archives are SHA-256 verified end to end. Ratings are Lichess Glicko-2 and are never pooled with FIDE Elo. Existing rated, variant, length, and time-control checks are enforced; explicit aborted, abandoned, no-contest, unplayed, unterminated, and rules-infraction `Termination` values are rejected. The months (2015-09 to 2017-03) were chosen because complete archives of that era are small enough to download in full and verify (0.5–2.2 GB each); modern monthly archives are tens of gigabytes. They span three calendar years at roughly quarterly spacing, but the corpus reflects 2015–2017 Lichess play and rating levels; recent play is not represented. A partial or truncated stream of a larger archive would **not** be a verified archive and is never produced by this tool.
@@ -203,9 +299,19 @@ Stable game IDs are listed in `games.idx` (32-byte header, 16-byte records, 32-b
 
 It asserts, per collection and against the real release: collection identity and `dataset_version` equal to the manifest; `/v1/collections` metadata; W+D+L reconciliation at the position and per candidate move; candidate moves are legal (each is replayed through the API); HTTP equals `codb query` on a stratified position sample (common, mid-frequency, rare, beyond-depth, absent, and transposition pairs); transposed move orders return identical statistics; invalid FEN, illegal moves, ambiguous or missing positions, and unsupported parameters are rejected with 400; real stored games are retrieved and equal `codb get-game`; ids from one collection return 404 in the other; conditional requests return 304; and latency, concurrency (1–32 workers), and startup time are measured.
 
-## 9. Measured Results (this delivery)
+## 9. Measured Results and Current Release
 
-All values were measured on the delivery machine (4 cores, 15 GiB RAM, Linux, Rust 1.100 release build, commit recorded in `RELEASE.json`, clean working tree) and are copied from the committed evidence in `benchmarks/corpus/` (validated by `scripts/validate_corpus_evidence.py`).
+The historical baseline measurements below were measured on the original delivery machine (4 cores, 15 GiB RAM, Linux, Rust 1.100 release build) and are copied from committed evidence in `benchmarks/corpus/` (validated by `scripts/validate_corpus_evidence.py`). Current R3 identity, counts, and hashes are stated separately and come from its own release manifest and verification records.
+
+The baseline measurements below are historical evidence for the approved Lichess release; they do not describe the active Masters snapshot. The current private operational Masters version is recorded first.
+
+### 9.0 Current private operational Masters release
+
+The authorized private deployment runs Gigabase R3 build `codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40`. Its active Masters snapshot contains **3,284,429 accepted games**, **51,909,604 indexed positions**, and **55,864,091 position/move pairs** to CPI depth 40. The complete 18-artifact release inventory is in the snapshot's `RELEASE/RELEASE.json`; all 18 artifacts, including seven shards, `games.idx`, CPI, and source-attribution sidecar, match their recorded SHA-256 values. CPI SHA-256 is `284898e18f4a4aba0b56d383e8b1a163790a85e1081749f0ff9204fdab5a971c`; source-attribution sidecar SHA-256 is `7d11330a704746306d53afcb39bcc74ccf95c7a11cf55346374dd05188b45cbc`.
+
+The previous 29,640-game Masters version remains in the stable root's immutable `versions/` directory for rollback. Elite Online remains unchanged at **429,150 games** and CPI depth 30. Gigabase's publisher claims CC BY-NC 4.0, supplied no publisher checksum, and incorporates heterogeneous upstream sources whose rights remain unresolved. Local archive and PGN hashes are recorded in release metadata but are not publisher-authenticated. This deployment is restricted to authorized private evaluation; public redistribution and public service are not cleared. Raw-PGN HTTP retrieval is disabled.
+
+The three independent `python-chess` sample discrepancies are closed for game legality and Opening Explorer position correctness: all three sampled source games were legal and matched canonical moves, initial positions, and final boards. Persisted metadata differed in two rows (event text twice; site, time control, and ECO once each), and all three rows had source-attribution differences. These descriptive metadata and provenance variations did not affect position statistics. The anonymized durable report does not contain player/event identities or per-row exact source and CODB values, and it does not link the rows to deduplication dispositions; those details are unavailable and are not inferred. No games were removed.
 
 **Sources actually used** (every archive downloaded in full over HTTPS and verified against the publisher's SHA-256 list; 8,664.7 MB transferred in total):
 
@@ -225,9 +331,9 @@ All values were measured on the delivery machine (4 cores, 15 GiB RAM, Linux, Ru
 | `lichess-standard-2015-12` | elite-online | CC0-1.0 | 757,824,089 | `83c6a8583e618d1321cb655e579010ccb1531593fbcf44622da5e8a5d2e99c4f` |
 | `lichess-standard-2017-03` | elite-online | CC0-1.0 | 2,169,142,067 | `b319297e9270285635d615cbcd19a9b0d44747be3ff91d5b3eac41175b794320` |
 
-### 9.1 Corpus composition and Masters event qualification
+### 9.1 Historical Lichess baseline composition and Masters event qualification
 
-The Masters release is the subset supported by deterministic event-level evidence, not the full 42,612-game source-qualified baseline. The audit classifies 29,640 games across 622 events as verified OTB, 1 game across 1 event as verified online, and 12,971 games across 365 events as unresolved. Only verified OTB event IDs enter `masters-otb`; the audited release is 360 games below the earlier 30,000-game planning target. The unresolved set is excluded rather than inferred from missing venue fields or high ratings. The complete event evidence and audit hash are in [`benchmarks/corpus/masters-otb/masters_event_qualification.json`](../benchmarks/corpus/masters-otb/masters_event_qualification.json).
+This section describes the historical Lichess baseline, retained as a rollback version and provenance record. That release was the subset supported by deterministic event-level evidence, not the full 42,612-game source-qualified baseline. The audit classifies 29,640 games across 622 events as verified OTB, 1 game across 1 event as verified online, and 12,971 games across 365 events as unresolved. Only verified OTB event IDs entered that historical release; the unresolved set was excluded rather than inferred from missing venue fields or high ratings. The complete event evidence and audit hash are in [`benchmarks/corpus/masters-otb/masters_event_qualification.json`](../benchmarks/corpus/masters-otb/masters_event_qualification.json).
 
 | | `masters-otb` | `elite-online` |
 | :--- | ---: | ---: |
@@ -301,7 +407,7 @@ An independent second Masters build and CPI indexing pass from the pinned archiv
 
 ## 9.6 Storage and Scale
 
-The release-specific artifact sizes and measured runtime RSS are recorded with the current evidence in this section. The historical 15-million-game feasibility model is research, not a dataset built or qualified by this release; see [research/feasibility-report.md](research/feasibility-report.md). This follow-up does not expand the corpus beyond the two provisionable releases.
+The release-specific artifact sizes and measured runtime RSS are recorded with the current evidence in this section. The historical 15-million-game feasibility model is research, not a dataset built or qualified by this release; see [research/feasibility-report.md](research/feasibility-report.md). Gigabase R3 is the active private Masters snapshot; it does not change Elite Online.
 
 ## 10. Container and Browser Access
 
@@ -311,7 +417,7 @@ Container-to-container requests do not use browser CORS. A browser needs a reach
 
 ## 11. License Obligations
 
-* **Masters OTB (CC BY-SA 4.0):** any public distribution or deployment must show the attribution in `RELEASE/DATASET_LICENSE.txt`, state that the data was modified (filtered, deduplicated, re-encoded, aggregated), and license redistributed adaptations under CC BY-SA 4.0 or a compatible license.
+* **Historical Lichess Masters baseline (CC BY-SA 4.0):** any public distribution or deployment of that version must show the attribution in `RELEASE/DATASET_LICENSE.txt`, state that the data was modified (filtered, deduplicated, re-encoded, aggregated), and license redistributed adaptations under CC BY-SA 4.0 or a compatible license. Active Gigabase R3 has separate unresolved source rights and is not cleared for public use.
 * **Elite Online (CC0 1.0):** no attribution is required; provenance is preserved in the release.
 * **Software:** `MIT OR Apache-2.0`; independent of the dataset licenses. The release notice says so and makes no claim over material outside the listed archives.
 * Keep `RELEASE/` with any redistributed copy. This is not legal advice (see [LICENSING.md](LICENSING.md#43-release-artifacts-and-notices)).
@@ -338,10 +444,10 @@ Container-to-container requests do not use browser CORS. A browser needs a reach
 
 ## 14. Limitations and Remaining Work
 
-* This is a real, useful baseline, not the future 15-million-game goal ([ROADMAP.md](ROADMAP.md)).
-* Masters coverage is six recent monthly Lichess broadcast archives. The corpus release contains only the event-level verified OTB subset. Verified online and unresolved events are excluded. The audit is based on accepted games in the source-qualified baseline; its linked-page matching rule, missing-event evidence, and aggregate unresolved counts remain visible in each release. It does not assert that every event in the complete broadcast archives has been classified.
+* Masters coverage is now the publisher-asserted Gigabase R3 snapshot for authorized private evaluation. Missing `Mode` values rely on the archive assertion; supplied Elo and GM labels are not independently verified, event-level OTB audit coverage is zero, and source-level rights remain unresolved. The prior event-audited Lichess subset remains available for rollback; the separate historical analysis is recorded in §9.1.
+* This does not qualify the future 15-million-game goal ([ROADMAP.md](ROADMAP.md)).
 * Elite coverage consists of seven complete monthly archives from 2015-09 to 2017-03. It spans multiple years but reflects old Lichess play and rating levels; recent games are absent and no per-period balancing is applied.
 * `ProvisionalRating` cannot be filtered from the standard PGN export because it contains no provisional-rating marker. Explicit aborted, abandoned, no-contest, unplayed, unterminated, and rules-infraction `Termination` values are rejected; unknown termination values remain eligible.
 * Build RSS is recorded per executed process and host. The final Masters run measured 23,015,424 bytes; the unchanged Elite release retains earlier RSS measurements that are not directly comparable because the prior orchestration included Python parent memory.
 * The 128 MiB index setting bounds the configured observation buffer; total process RSS is higher due to runtime and mapped data. HTTP concurrency measurements share the same 4-core host as the client.
-* Releases and verified package archives remain local. Publishing requires a separately approved destination and retaining the license notice.
+* The Gigabase package and dataset binaries remain local/private. Public redistribution or public service requires additional source-rights authorization; retain the release notices and provenance metadata.

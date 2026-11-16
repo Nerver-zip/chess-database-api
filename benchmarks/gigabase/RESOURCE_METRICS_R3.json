@@ -1,0 +1,40 @@
+{
+  "candidate_root": "/workspace/data/work/gigabase-eval/candidate-r3-measured",
+  "index_memory_limit_mib": 128,
+  "index_report": {
+    "cpi_file_size_bytes": 1107897085,
+    "cpi_sha256": "284898e18f4a4aba0b56d383e8b1a163790a85e1081749f0ff9204fdab5a971c",
+    "merge_passes": 1,
+    "peak_temporary_bytes": 2132859200,
+    "raw_observations_extracted": 127444117,
+    "runs_generated": 35,
+    "unique_positions": 51909604
+  },
+  "measurement_method": "Linux process VmHWM sampled from /proc, with wait4 peak-RSS fallback; current anonymous, file-backed, and shared RSS components sampled every 5 ms; allocated bytes sampled every 250 ms across the explicit scratch directory and candidate dataset root. Component samples may understate their true peaks.",
+  "schema_version": 1,
+  "scratch_directory": "/workspace/data/work/gigabase-eval/policy-impact-r3/scratch",
+  "steps": {
+    "build": {
+      "command": "/workspace/target/release/codb build --manifest /workspace/data/work/gigabase-eval/policy-impact-r3/sources.manifest.json --collection masters-otb --gigabase-source-policy /workspace/corpus/gigabase_source_qualification.json --output /workspace/data/work/gigabase-eval/candidate-r3 --scratch-dir /workspace/data/work/gigabase-eval/policy-impact-r3/scratch --report-json /workspace/data/work/gigabase-eval/policy-impact-r3/build_report.json",
+      "log": "/workspace/data/work/gigabase-eval/policy-impact-r3/build.log",
+      "peak_rss_bytes": 67895296,
+      "peak_workspace_disk_bytes": 3905630208,
+      "returncode": 0,
+      "wall_seconds": 4723.004
+    },
+    "build_index": {
+      "command": "/workspace/target/release/codb build-index --dataset data/work/gigabase-eval/candidate-r3 --collection masters-otb --depth-plies 40 --memory-limit-mib 128 --json",
+      "log": "data/work/gigabase-eval/policy-impact-r3/build-index-component-measured.log",
+      "peak_rss_anon_bytes": 122548224,
+      "peak_rss_bytes": 1027588096,
+      "peak_rss_file_bytes": 1021509632,
+      "peak_rss_shmem_bytes": 0,
+      "peak_workspace_disk_bytes": 5913501696,
+      "returncode": 0,
+      "rss_component_sample_count": 36971,
+      "rss_component_sample_interval_seconds": 0.005,
+      "rss_sampling_note": "VmHWM is the kernel high-water mark of total process RSS. Anonymous, file-backed, and shared values are 5 ms procfs samples and may understate their true peaks.",
+      "wall_seconds": 204.8
+    }
+  }
+}

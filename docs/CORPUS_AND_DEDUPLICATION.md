@@ -50,6 +50,20 @@ pub struct MastersOtbPolicy {
    - Chess960, Fischer Random, and custom handicap variants are rejected.
    - At least 4 plies (2 full moves) to exclude accidental aborts and trivial forfeits.
 
+#### Opt-in Gigabase source qualification
+
+The CLI has a separate `--gigabase-source-policy` path for restricted private evaluation of Lumbra's Gigabase; this R3 policy now underlies the active private Masters deployment. It remains outside the pinned Lichess catalog and is not cleared for public redistribution. Policy `gigabase-otb/2026-11-r3` trusts the publisher's OTB Complete archive classification when a record has no concrete contradictory metadata. It accepts any nonempty `Source` tag and preserves the original value and publisher identity-evidence labels in the attribution sidecar. These choices broaden source and identity eligibility; they do not independently verify source rights, player identity, or play mode.
+
+The r3 strength rules are symmetric by color: both supplied Elo values are at least 2200; one is at least 2400 and the other at least 1800; one exact case-insensitive `GM` title and an opponent Elo of at least 1800; or exact `GM` titles for both players. Any supplied Elo must parse and fall in the inclusive 100–3500 plausibility range. `GM` is treated as a publisher label, with no claim that the player held that title on the game date. Other titles, including `WGM`, do not satisfy the GM rule. Missing Elo can qualify only through the applicable GM-title rule.
+
+An absent `Mode` relies on the archive-level assertion. Explicit correspondence, online, engine-only, or other non-OTB modes are rejected, as is concrete online or correspondence evidence in event/site metadata. A broadcast-hosting URL by itself does not contradict OTB play. Dates may be complete, valid partial dates, or unknown; supplied components are preserved, and there is no pre-1970 cutoff or inferred rating/title history. The existing standard-chess, legal-move, minimum-four-ply, termination, deduplication, and fail-closed accounting rules still apply. This opt-in policy is not enabled by the pinned Lichess catalog build and does not change the default Masters or Elite policy.
+
+Ratings in this path are publisher-supplied values. They are not independently verified as official FIDE ratings for each game or as contemporaneous event ratings. The full-source `codb inventory` policy-impact report counts header candidates only; legal replay, deduplication, and final retention are measured by the production build. The inventory also reports candidates with pre-1970 dates without treating those dates as ineligible.
+
+If a source-qualified candidate collides on stable game ID with a distinct normalized game record, the Gigabase path quarantines that candidate under `stable_game_id_collision`; the count is reported separately and included in accounting. Other deduplication errors remain fatal. This avoids publishing two records under one ID while preserving the existing duplicate and supersession rules.
+
+Accepted source and identity fields are kept in an optional `source-attribution.jsonl` sidecar. The sidecar has a manifest checksum and one sorted record per retained game; deep verification aligns each record's stable game ID with `games.idx`. It is outside CGB3, so the persisted binary layout and existing datasets remain compatible. The sidecar is attribution evidence, not a record-level license grant.
+
 ---
 
 ### 2.2 Elite Online Policy (`EliteOnlinePolicy`)

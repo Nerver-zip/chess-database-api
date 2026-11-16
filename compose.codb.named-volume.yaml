@@ -1,0 +1,11 @@
+services:
+  codb:
+    volumes: !override
+      - type: volume
+        source: codb-r3-runtime
+        target: /datasets
+        read_only: true
+
+volumes:
+  codb-r3-runtime:
+    name: ${CODB_RUNTIME_VOLUME:-codb-gigabase-r3-runtime}

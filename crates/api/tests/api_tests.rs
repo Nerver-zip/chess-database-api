@@ -43,6 +43,7 @@ fn make_test_game(id: u64, collection: Collection, moves: Vec<CompactMove>) -> P
             time_control: Some("5400+30".into()),
             source_id: Some(format!("https://example.com/games/{}", id)),
             broadcast_url: None,
+            source_attribution: None,
         },
         moves,
         fen_start: None,
@@ -429,6 +430,36 @@ async fn test_game_retrieval_endpoint() {
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     let err: ErrorEnvelope = response_json(resp).await;
     assert_eq!(err.error.code, "invalid_collection");
+}
+
+#[tokio::test]
+async fn test_game_retrieval_route_can_be_disabled_for_restricted_datasets() {
+    let tmp = tempdir().unwrap();
+    let masters_dir = tmp.path().join("masters");
+    setup_test_dataset(&masters_dir, Collection::MastersOtb, 2);
+
+    let config = ServerConfig {
+        masters_dataset: Some(masters_dir),
+        elite_dataset: None,
+        enable_game_retrieval: false,
+        ..Default::default()
+    };
+    let state = AppState::new(config).unwrap();
+    let app = create_router(state);
+
+    let game_request = Request::builder()
+        .uri("/v1/collections/masters-otb/games/1")
+        .body(Body::empty())
+        .unwrap();
+    let game_response = app.clone().oneshot(game_request).await.unwrap();
+    assert_eq!(game_response.status(), StatusCode::NOT_FOUND);
+
+    let position_request = Request::builder()
+        .uri("/v1/explorer/position?collection=masters-otb&moves=e4")
+        .body(Body::empty())
+        .unwrap();
+    let position_response = app.oneshot(position_request).await.unwrap();
+    assert_eq!(position_response.status(), StatusCode::OK);
 }
 
 #[tokio::test]

@@ -27,6 +27,7 @@ services:
     environment:
       RUST_LOG: ${CODB_LOG_LEVEL:-info}
       CODB_ALLOWED_ORIGINS: ${CODB_ALLOWED_ORIGINS:-}
+      CODB_ENABLE_GAME_RETRIEVAL: ${CODB_ENABLE_GAME_RETRIEVAL:-true}
     command:
       - serve
       - --masters-dataset
@@ -45,6 +46,8 @@ services:
       - "${CODB_REQUEST_TIMEOUT_SECS:-15}"
       - --max-move-plies
       - "${CODB_MAX_MOVE_PLIES:-200}"
+      - --enable-game-retrieval
+      - "${CODB_ENABLE_GAME_RETRIEVAL:-true}"
       - --deep-validate-on-startup
     volumes:
       - type: bind

@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "policy_id": "gigabase-otb/2026-11-r3",
+  "publisher_otb_basis": "lumbra_otb_complete_archive_assertion",
+  "source_policy": "accept_any_nonempty_publisher_source_tag",
+  "source_tag_provenance": "preserve_original_tag_and_record_source_limitations",
+  "identity_policy": "usable_names_and_reject_explicit_conflicts",
+  "identity_evidence_policy": "retain_original_labels_as_unverified_publisher_identity_provenance",
+  "missing_mode_basis": "publisher_otb_complete_assertion",
+  "explicit_mode_policy": "reject_explicit_non_otb_and_contradictory_evidence",
+  "date_policy": "accept_valid_partial_dates; preserve_unknown_components; no_pre_1970_cutoff",
+  "rating_semantics": "publisher_supplied_elo_not_independently_verified_as_official_fide",
+  "rating_plausibility": {
+    "minimum": 100,
+    "maximum": 3500
+  },
+  "rating_thresholds": {
+    "both_at_least": 2200,
+    "original_one_at_least": 2400,
+    "original_other_at_least": 2000,
+    "relaxed_one_at_least": 2400,
+    "relaxed_other_at_least": 1800,
+    "gm_opponent_at_least": 1800
+  },
+  "gm_title_labels": [
+    "GM"
+  ],
+  "gm_title_semantics": "exact_case_insensitive_source_label; publisher_supplied_and_not_verified_as_held_on_game_date",
+  "eligibility_rules": [
+    "both_elo_at_least_2200",
+    "one_elo_at_least_2400_and_other_at_least_1800",
+    "one_exact_GM_title_and_other_elo_at_least_1800",
+    "both_exact_GM_titles"
+  ],
+  "incompatible_play_modes": [
+    "correspondence",
+    "online_play",
+    "engine_only",
+    "other_explicit_non_otb"
+  ],
+  "contradictory_metadata_policy": "reject_explicit_correspondence_online_or_engine_only_event_or_site_evidence; broadcast_hosting_alone_is_not_a_contradiction",
+  "publisher_title_data_limitations": [
+    "Title labels are treated as publisher-supplied evidence, not independently verified official records.",
+    "A title attached retrospectively does not establish that it was held on the game date.",
+    "No historical title dates or missing ratings are inferred."
+  ],
+  "rights_basis": {
+    "gigabase": "Publisher-claimed CC BY-NC 4.0; upstream rights remain unresolved.",
+    "source_tags": "Retain publisher Source tags and source-specific provenance limitations; technical acceptance does not establish redistribution rights."
+  },
+  "limitations": [
+    "Missing Mode relies on the archive-level OTB Complete assertion; it is not independent event-level verification.",
+    "Publisher-supplied Elo and GM title labels are not independently verified for each game.",
+    "The archive's publisher-claimed CC BY-NC 4.0 license and unresolved upstream rights do not authorize public or commercial distribution."
+  ]
+}

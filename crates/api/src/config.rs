@@ -23,6 +23,8 @@ pub struct ServerConfig {
     pub reader_pool_size: usize,
     /// Maximum time in seconds to wait for an available reader from the pool (default: 5, maximum: 60).
     pub reader_pool_timeout_secs: u64,
+    /// Whether `GET /v1/collections/{collection}/games/{id}` may return stored PGN.
+    pub enable_game_retrieval: bool,
     /// Deeply verifies every stored block before the service becomes ready.
     pub deep_validate_on_startup: bool,
     /// Secret administrative authorization token required for `POST /v1/admin/reload`.
@@ -42,6 +44,7 @@ impl Default for ServerConfig {
             max_move_plies: 200,
             reader_pool_size: 16,
             reader_pool_timeout_secs: 5,
+            enable_game_retrieval: true,
             deep_validate_on_startup: false,
             admin_token: None,
         }

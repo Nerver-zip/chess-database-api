@@ -1,5 +1,5 @@
 ---
-summary: "Provision real corpus releases and run the read-only CODB Opening Explorer with Docker Compose."
+summary: "Provision catalog releases or the private Gigabase R3 snapshot and run the read-only CODB Opening Explorer with Docker Compose."
 read_when: "Deploying the API locally, connecting another container, or updating the mounted datasets."
 status: current
 ---
@@ -12,7 +12,7 @@ The Docker image contains only the codb API executable and runtime libraries. Ma
 
 - Docker Engine and Docker Compose v2.
 - A checkout of this repository and enough local disk for release packages or source archives, extracted datasets, and build workspace.
-- The current extracted release directories use 29,892,368 bytes (Masters, including the event audit) and 210,308,033 bytes (Elite). The verified packages are 38,072,320 and 210,370,560 bytes respectively.
+- The active Masters R3 snapshot uses 2,700,805,817 artifact bytes; the unchanged Elite release uses 210,308,033 bytes. The prior 29,640-game Masters snapshot remains retained for rollback. Dataset binaries remain outside Git.
 - For source rebuilds, the pinned source archives total about 8.66 GB. The largest measured build workspace was about 435.7 MB; leave additional room for source files, both published releases, and staging copies. `corpus.sh plan` reports source transfer and disk estimates.
 - Compose caps CODB at 512 MiB. The final real-corpus container smoke sampled 163,045,376 bytes (159,224 KiB) at peak under concurrent queries and PGN retrieval. RSS includes memory-mapped dataset pages and varies with query traffic.
 
@@ -90,7 +90,7 @@ curl --fail --get 'http://127.0.0.1:8081/v1/explorer/position' \
   --data-urlencode 'moves=e4,e5,Nf3'
 ~~~
 
-Ordinary reads require no administrative token. The administrative reload route remains disabled unless an admin token is explicitly configured. Read-only queries and stored-game retrieval do not need it.
+Ordinary reads require no administrative token. The administrative reload route remains disabled unless an admin token is explicitly configured. Stored-game retrieval is enabled by default for compatibility; set `CODB_ENABLE_GAME_RETRIEVAL=false` when source terms permit derived position statistics but prohibit returning raw PGN to users. The position explorer and collection metadata remain available.
 
 ## Connect Another Compose Project
 
@@ -130,6 +130,7 @@ Container-to-container HTTP requests do not use browser CORS and need no publish
 | CODB_READER_POOL_TIMEOUT_SECS | 5 | 1–60 seconds waiting for a reader |
 | CODB_REQUEST_TIMEOUT_SECS | 15 | 1–300 seconds per request |
 | CODB_MAX_MOVE_PLIES | 200 | 1–512 plies per position request |
+| CODB_ENABLE_GAME_RETRIEVAL | true | `false` omits the raw-PGN game route and returns HTTP 404 there |
 | CODB_MEMORY_LIMIT | 512m | Docker memory cap |
 | CODB_CPU_LIMIT | 2 | Docker CPU quota |
 | CODB_LOG_LEVEL | info | Rust tracing filter |
@@ -140,12 +141,55 @@ Compose also limits the process to 64 PIDs and 1,024 open files. Adjust limits o
 
 The current real-corpus report is `benchmarks/corpus/docker_real_check.json`. It records a digest-pinned independent client reaching `http://codb:8080`, both release IDs and game counts, the opening baseline (3,902 Masters and 30,390 Elite games for `e4,e5,Nf3`), PGN retrieval from each collection, 96/96 concurrent requests, container restart, graceful SIGTERM, read-only mounts and root filesystem, no published host ports, and failure rejection for missing, wrong, incomplete, and corrupted releases. The Docker image measured 98,871,472 bytes. The test daemon could not access the workspace through bind paths, so this run used read-only named-volume copies; the normal Compose configuration mounts host release roots read-only.
 
-To reproduce after provisioning both real releases:
+The [Gigabase R3 report](../benchmarks/gigabase/FINAL_REPORT.md) records the candidate build and audit evidence. R3 is now the active Masters snapshot in the authorized private deployment; it remains outside the approved source catalog and is not cleared for public distribution or public service. The original isolated API smokes are historical evidence. The current deployment uses the named-volume mode below because the Docker daemon cannot access checkout bind paths. Raw-PGN retrieval is disabled.
+
+The separate `scripts/local_gigabase_eval.py` workflow registered the supplied archive using local hashes, built it with the Gigabase-only qualification policy, and created the local-only R3 package. `scripts/promote_gigabase_r3.py` now verifies and publishes those existing artifacts through CODB's atomic storage publisher; it does not rebuild the source corpus or add Gigabase to the approved catalog. Release metadata preserves the publisher's CC BY-NC 4.0 claim, absent publisher checksum, and unresolved upstream rights. The publisher's B2B page describes internal development and a closed beta, while prohibiting direct raw-PGN downloads to end users; no written project-specific public-use permission is recorded. See [`PUBLISHER_TERMS_REVIEW.json`](../benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json). The authorized private deployment disables raw-PGN retrieval. This authorization does not clear public or commercial deployment.
+
+### Historical host-bind probe
+
+An earlier probe failed because the Docker daemon could not access the checkout bind path. This is recorded as a deployment limitation, not a successful bind-mount test. The current authorized private deployment uses the named-volume procedure below. On another machine, use host binds only after confirming that its Docker daemon can read the host release roots.
+
+## Private Gigabase R3 Deployment
+
+The operational Masters release is Gigabase R3, while Elite Online remains the existing 429,150-game release. The local Docker daemon used for acceptance could not access checkout bind paths, so the authorized private deployment uses a Docker-managed named volume instead. Compose v2.24.4 or later is required for the volume override. The service mounts the volume read-only, publishes no host ports, and keeps raw-PGN retrieval disabled. This private deployment does not establish publisher permission or public redistribution rights.
+
+After promoting and verifying the host releases as described in [Corpus Build](CORPUS_BUILD.md#43-local-gigabase-r3-package-and-operational-promotion), seed a fresh runtime volume:
 
 ~~~bash
-python3 scripts/docker_smoke.py --real --data-dir data \
-  --report-json benchmarks/corpus/docker_real_check.json
+export CODB_RUNTIME_VOLUME=codb-gigabase-r3-runtime
+docker volume create "$CODB_RUNTIME_VOLUME"
+docker run -d --name codb-gigabase-r3-seed --network none \
+  --volume "$CODB_RUNTIME_VOLUME:/transfer" alpine:3.21 sleep infinity
+docker exec codb-gigabase-r3-seed mkdir -p /transfer/masters-otb /transfer/elite-online
+docker cp data/releases/masters-otb/. \
+  codb-gigabase-r3-seed:/transfer/masters-otb
+docker cp data/releases/elite-online/. \
+  codb-gigabase-r3-seed:/transfer/elite-online
+cp .env.codb.gigabase.example .env.codb.gigabase
+docker compose --project-name codb-gigabase-r3 \
+  --env-file .env.codb.gigabase \
+  -f compose.codb.yaml -f compose.codb.named-volume.yaml up -d --build
 ~~~
+
+The override mounts the shared volume at `/datasets` and replaces both host binds; the normal service paths remain `/datasets/masters-otb` and `/datasets/elite-online`. Check `/health`, `/ready`, and `/v1/collections` from the service container or another container on its private Compose network. Confirm Masters reports the R3 build ID and 3,284,429 games; compare representative HTTP position W/D/L results with `codb query`. Confirm Elite still reports 429,150 games. The retrieval route must return 404 while `CODB_ENABLE_GAME_RETRIEVAL=false`. Inspect `docker inspect` and confirm the sole `/datasets` mount has `RW:false` and `HostConfig.PortBindings` is empty.
+
+For publisher-based rollback in the named volume, use the same atomic storage publisher. A helper can mount the volume read-write while the API retains its read-only mount:
+
+~~~bash
+docker run -d --name codb-gigabase-r3-publisher --network none --user 0:0 \
+  --volume "$CODB_RUNTIME_VOLUME:/storage" \
+  --entrypoint /bin/sleep codb-opening-explorer:local infinity
+PREVIOUS_ID=codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40
+docker exec codb-gigabase-r3-publisher mkdir -p /storage/.promotion-stage
+docker exec codb-gigabase-r3-publisher cp -a \
+  "/storage/masters-otb/versions/$PREVIOUS_ID" \
+  "/storage/.promotion-stage/$PREVIOUS_ID"
+docker exec codb-gigabase-r3-publisher codb publish \
+  --candidate "/storage/.promotion-stage/$PREVIOUS_ID" \
+  --target /storage/masters-otb --collection masters-otb
+~~~
+
+Restart the API if it has not hot-reloaded the symlink, then verify the previous ID and 29,640-game count through `/ready`, `/v1/collections`, and a position query. To reactivate R3, stage a copy of the pinned R3 snapshot into `/storage/.promotion-stage/<R3-build-id>` and invoke `codb publish` with that candidate. Confirm the R3 ID and count return, and recheck the disabled retrieval route. Keep `current` publication inside `codb publish`; never replace the symlink directly.
 
 ## Safe Dataset Updates
 

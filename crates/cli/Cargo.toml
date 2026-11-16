@@ -28,3 +28,4 @@ tracing-subscriber.workspace = true
 tempfile.workspace = true
 shakmaty.workspace = true
 tokio = { version = "1.40", features = ["macros", "rt-multi-thread"] }
+rusqlite.workspace = true

@@ -1,0 +1,2 @@
+# Optional dependency for `corpus.sh extract-local-7z` only.
+py7zr==1.1.4

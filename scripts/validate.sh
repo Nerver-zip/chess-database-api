@@ -38,6 +38,7 @@ echo "  [PASS] Clippy passed with zero warnings."
 echo ""
 echo "=== [3/8] Running workspace unit and integration tests (cargo test) ==="
 cargo test --workspace
+cargo test -p codb-cli --example audit_dedupe_source
 echo "  [PASS] All Rust test suites passed."
 
 echo ""
@@ -48,8 +49,10 @@ python3 -m unittest \
     scripts/test_validate_benchmarks.py \
     scripts/test_bench_http.py \
     scripts/test_corpus.py \
+    scripts/test_gigabase_eval.py \
     scripts/test_docker_deployment.py \
-    scripts/test_masters_event_audit.py
+    scripts/test_masters_event_audit.py \
+    scripts/test_independent_pgn_audit_evidence.py
 echo "  [PASS] Python unit and regression tests passed."
 
 echo ""

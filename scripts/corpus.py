@@ -7,7 +7,9 @@ publication: it pins and verifies source archives, invokes `codb build`,
 `codb build-index`, `codb verify --deep`, and `codb report`, records release
 provenance, packages releases, and drives `codb serve`.
 
-Only the Python standard library is used.
+The normal acquisition and release workflow uses only the Python standard library. The
+opt-in local 7z extraction command requires the pinned py7zr dependency in
+scripts/requirements-corpus-archive.txt.
 
 Design rules (see docs/CORPUS_BUILD.md):
   * Fail closed: an archive without a publisher checksum, with an unapproved
@@ -81,6 +83,201 @@ def sha256_file(path: Path) -> str:
         while chunk := f.read(CHUNK):
             h.update(chunk)
     return h.hexdigest()
+
+
+def safe_archive_member_name(name: str) -> bool:
+    """Accept only a plain printable file name, never an archive path."""
+    return bool(
+        name
+        and name not in {".", ".."}
+        and not name.startswith(".")
+        and "/" not in name
+        and "\\" not in name
+        and ":" not in name
+        and not any(ord(char) < 32 or ord(char) == 127 for char in name)
+    )
+
+
+def _write_json_new(path: Path, value: dict[str, Any]) -> None:
+    """Atomically create a JSON record without replacing an existing file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(fd, "wb") as output:
+            output.write(payload)
+            output.flush()
+            os.fsync(output.fileno())
+        os.link(temporary, path)
+        temporary.unlink()
+        fsync_dir(path.parent)
+    except Exception:
+        with contextlib.suppress(FileNotFoundError):
+            temporary.unlink()
+        raise
+
+
+def extract_local_7z(
+    archive_path: Path,
+    member_name: str,
+    output_path: Path,
+    record_path: Path | None = None,
+    max_expanded_bytes: int = 64 * 1024**3,
+    max_expansion_ratio: int = 1000,
+    expected_local_archive_sha256: str | None = None,
+    expected_member_sha256: str | None = None,
+) -> dict[str, Any]:
+    """Safely extract one regular 7z member and write local-only provenance.
+
+    This intentionally does not make a source catalog entry or classify local hashes as
+    publisher-authenticated. The generated record is for reproducible local evaluation.
+    """
+    archive_path = Path(archive_path)
+    archive_lstat = archive_path.lstat()
+    if not os.path.isfile(archive_path) or archive_path.is_symlink():
+        raise CorpusError(f"7z archive must be a regular non-symlink file: {archive_path}")
+    output_path = Path(os.path.abspath(output_path))
+    output_parent = output_path.parent.resolve()
+    output_path = output_parent / output_path.name
+    assert_untracked_location(output_path)
+    output_parent.mkdir(parents=True, exist_ok=True)
+    if not safe_archive_member_name(member_name):
+        raise CorpusError(f"requested 7z member must be a plain file name: {member_name!r}")
+    if max_expanded_bytes <= 0 or max_expansion_ratio <= 0:
+        raise CorpusError("7z expansion limits must be positive")
+    if output_path.name != member_name:
+        raise CorpusError("7z output file name must match the selected archive member")
+    if os.path.lexists(output_path):
+        raise CorpusError(f"7z output already exists; refusing to overwrite: {output_path}")
+    record_path = Path(record_path) if record_path else output_path.with_name(
+        output_path.name + ".local-source.json"
+    )
+    record_path = Path(os.path.abspath(record_path))
+    record_path = record_path.parent.resolve() / record_path.name
+    assert_untracked_location(record_path)
+    if os.path.lexists(record_path):
+        raise CorpusError(f"local source record already exists; refusing to overwrite: {record_path}")
+
+    archive_sha256 = sha256_file(archive_path)
+    if expected_local_archive_sha256 and archive_sha256 != expected_local_archive_sha256.lower():
+        raise ChecksumMismatch(
+            f"local archive SHA-256 mismatch: {archive_sha256} != expected local "
+            f"{expected_local_archive_sha256}"
+        )
+
+    try:
+        import py7zr
+    except ImportError as error:
+        raise CorpusError(
+            "safe .7z extraction requires py7zr; install scripts/requirements-corpus-archive.txt"
+        ) from error
+
+    try:
+        with py7zr.SevenZipFile(archive_path, mode="r") as seven_zip:
+            members = seven_zip.list()
+            if len(members) != 1:
+                raise CorpusError(
+                    f"7z archive must contain exactly one member; found {len(members)}"
+                )
+            member = members[0]
+            if (
+                member.filename != member_name
+                or not safe_archive_member_name(member.filename)
+                or not member.is_file
+                or member.is_directory
+                or member.is_symlink
+                or not member.archivable
+            ):
+                raise CorpusError(
+                    f"7z member must be the requested regular file only: {member.filename!r}"
+                )
+            declared_size = member.uncompressed
+            compressed_size = member.compressed
+            if not isinstance(declared_size, int) or declared_size < 0:
+                raise CorpusError("7z member has an invalid declared uncompressed size")
+            if declared_size > max_expanded_bytes:
+                raise CorpusError(
+                    f"7z member expands to {declared_size} bytes, above the configured limit "
+                    f"{max_expanded_bytes}"
+                )
+            if not isinstance(compressed_size, int) or compressed_size <= 0:
+                raise CorpusError("7z member has an invalid compressed size")
+            if declared_size > compressed_size * max_expansion_ratio:
+                raise CorpusError(
+                    f"7z member expansion ratio exceeds the configured limit "
+                    f"{max_expansion_ratio}:1"
+                )
+
+            with tempfile.TemporaryDirectory(prefix=".codb-7z-", dir=output_parent) as temp_name:
+                temp_dir = Path(temp_name)
+                seven_zip.extract(path=temp_dir, targets=[member.filename])
+                extracted_path = temp_dir / member.filename
+                extracted_stat = extracted_path.lstat()
+                if not os.path.isfile(extracted_path) or extracted_path.is_symlink():
+                    raise CorpusError("7z extraction did not produce a regular output file")
+                if extracted_stat.st_size != declared_size:
+                    raise CorpusError(
+                        f"7z extracted size {extracted_stat.st_size} differs from declared "
+                        f"size {declared_size}"
+                    )
+                if extracted_stat.st_size > max_expanded_bytes:
+                    raise CorpusError("7z extracted output exceeds the configured expansion limit")
+                member_sha256 = sha256_file(extracted_path)
+                if expected_member_sha256 and member_sha256 != expected_member_sha256.lower():
+                    raise ChecksumMismatch(
+                        f"local member SHA-256 mismatch: {member_sha256} != expected local "
+                        f"{expected_member_sha256}"
+                    )
+                os.chmod(extracted_path, 0o644)
+                os.link(extracted_path, output_path)
+                fsync_dir(output_parent)
+    except CorpusError:
+        raise
+    except Exception as error:
+        raise CorpusError(f"7z archive extraction failed closed: {error}") from error
+
+    record = {
+        "schema_version": 1,
+        "source_kind": "user_supplied_local_archive",
+        "archive_path": str(archive_path.resolve()),
+        "archive_filename": archive_path.name,
+        "archive_size_bytes": archive_lstat.st_size,
+        "archive_sha256_local": archive_sha256,
+        "publisher_checksum": None,
+        "publisher_checksum_verified": False,
+        "member_filename": member_name,
+        "member_size_bytes": output_path.stat().st_size,
+        "member_sha256_local": member_sha256,
+        "extraction_tool": f"py7zr {py7zr.__version__}",
+        "license_status": "publisher_claimed_CC-BY-NC-4.0_upstream_rights_not_independently_cleared",
+        "release_eligible": False,
+        "created_at": utc_now(),
+    }
+    try:
+        _write_json_new(record_path, record)
+    except Exception:
+        with contextlib.suppress(FileNotFoundError):
+            output_path.unlink()
+        raise
+    record["output_path"] = str(output_path)
+    record["record_path"] = str(record_path)
+    return record
+
+
+def cmd_extract_local_7z(args: argparse.Namespace) -> int:
+    record = extract_local_7z(
+        Path(args.archive),
+        args.member,
+        Path(args.output),
+        Path(args.record) if args.record else None,
+        args.max_expanded_bytes,
+        args.max_expansion_ratio,
+        args.expected_local_archive_sha256,
+        args.expected_member_sha256,
+    )
+    log(json.dumps(record, indent=2, sort_keys=True))
+    return 0
 
 
 def fsync_dir(path: Path) -> None:
@@ -788,19 +985,51 @@ def process_peak_rss_bytes(pid: int, executable: Path) -> int:
     return 0
 
 
+def process_rss_components_bytes(pid: int, executable: Path) -> tuple[int, int, int]:
+    """Sample current anonymous, file-backed, and shared RSS for the executed process."""
+    proc_dir = Path("/proc") / str(pid)
+    try:
+        if (proc_dir / "exe").resolve() != executable.resolve():
+            return (0, 0, 0)
+        fields = {}
+        for line in (proc_dir / "status").read_text().splitlines():
+            name, sep, value = line.partition(":")
+            if sep and name in {"RssAnon", "RssFile", "RssShmem"}:
+                fields[name] = int(value.split()[0]) * 1024  # Linux reports KiB.
+        return (
+            fields.get("RssAnon", 0),
+            fields.get("RssFile", 0),
+            fields.get("RssShmem", 0),
+        )
+    except (OSError, ValueError, IndexError):
+        return (0, 0, 0)
+
+
 def run_measured(
     cmd: list[str], log_path: Path, env: dict[str, str], sample_paths: list[Path]
 ) -> dict[str, Any]:
-    """Run a command, capturing wall time, executed-process VmHWM and peak disk use."""
+    """Run a command, capturing wall time, process VmHWM, RSS components, and peak disk use."""
     sampler = DiskSampler(sample_paths)
     executable = Path(cmd[0]).resolve()
     t0 = time.monotonic()
     peak_rss_bytes = 0
+    peak_rss_anon_bytes = 0
+    peak_rss_file_bytes = 0
+    peak_rss_shmem_bytes = 0
+    component_samples = 0
     with open(log_path, "wb") as out:
         sampler.start()
         proc = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, env=env)
         while True:
             peak_rss_bytes = max(peak_rss_bytes, process_peak_rss_bytes(proc.pid, executable))
+            anon_bytes, file_bytes, shmem_bytes = process_rss_components_bytes(
+                proc.pid, executable
+            )
+            if anon_bytes or file_bytes or shmem_bytes:
+                component_samples += 1
+            peak_rss_anon_bytes = max(peak_rss_anon_bytes, anon_bytes)
+            peak_rss_file_bytes = max(peak_rss_file_bytes, file_bytes)
+            peak_rss_shmem_bytes = max(peak_rss_shmem_bytes, shmem_bytes)
             finished_pid, status, ru = os.wait4(proc.pid, os.WNOHANG)
             if finished_pid:
                 proc.returncode = os.waitstatus_to_exitcode(status)
@@ -819,6 +1048,15 @@ def run_measured(
         "returncode": proc.returncode,
         "wall_seconds": round(wall, 3),
         "peak_rss_bytes": peak_rss_bytes,
+        "peak_rss_anon_bytes": peak_rss_anon_bytes,
+        "peak_rss_file_bytes": peak_rss_file_bytes,
+        "peak_rss_shmem_bytes": peak_rss_shmem_bytes,
+        "rss_component_sample_count": component_samples,
+        "rss_component_sample_interval_seconds": 0.005,
+        "rss_sampling_note": (
+            "VmHWM is the kernel high-water mark of total process RSS. Anonymous, file-backed, "
+            "and shared values are 5 ms procfs samples and may understate their true peaks."
+        ),
         "peak_workspace_disk_bytes": peak_disk,
         "log": str(log_path),
     }
@@ -860,6 +1098,40 @@ def current_version_dir(root: Path) -> Path:
     return (root / os.readlink(cur)).resolve() if not os.path.isabs(os.readlink(cur)) else Path(os.readlink(cur))
 
 
+def active_gigabase_version(root: Path) -> str | None:
+    """Return the active Gigabase local-evaluation ID, if this root points to one."""
+    current = root / "current"
+    if not current.is_symlink():
+        return None
+    version_dir = current_version_dir(root)
+    release_path = version_dir / "RELEASE" / "RELEASE.json"
+    if not release_path.is_file():
+        return None
+    try:
+        release = json.loads(release_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise CorpusError(f"could not inspect active release metadata {release_path}: {error}") from error
+    source = release.get("source", {})
+    if (release.get("source_kind") == "local_evaluation_only"
+            or source.get("source_kind") == "local_evaluation_only"):
+        if source.get("publisher") == "Lumbra's Gigabase":
+            return str(release.get("dataset_version") or version_dir.name)
+    return None
+
+
+def guard_active_gigabase_replacement(
+    root: Path, candidate_version: str | None, *, explicitly_allowed: bool = False
+) -> None:
+    """Prevent routine bootstrap from silently replacing the active local Gigabase release."""
+    active_version = active_gigabase_version(root)
+    if (active_version and active_version != candidate_version and not explicitly_allowed):
+        raise CorpusError(
+            f"refusing to replace active local Gigabase evaluation release {active_version}; "
+            "use the verified publish workflow or pass "
+            "--allow-replacing-local-evaluation-release"
+        )
+
+
 # --------------------------------------------------------------------------- #
 # Build
 # --------------------------------------------------------------------------- #
@@ -870,6 +1142,10 @@ def cmd_build(args: argparse.Namespace) -> int:
     cat = load_catalog(Path(args.catalog))
     data_dir = data_dir_from(args)
     assert_untracked_location(data_dir)
+    guard_active_gigabase_replacement(
+        release_root(data_dir, collection), None,
+        explicitly_allowed=getattr(args, "allow_replacing_local_evaluation_release", False),
+    )
     codb = find_codb(args.codb)
     profile = args.profile or "baseline"
     ccfg = cat["collections"][collection]
@@ -1685,6 +1961,12 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
     codb = find_codb(args.codb)
     catalog = load_catalog(Path(args.catalog))
     if args.rebuild:
+        for collection in COLLECTIONS:
+            guard_active_gigabase_replacement(
+                release_root(data_dir, collection), None,
+                explicitly_allowed=args.allow_replacing_local_evaluation_release,
+            )
+    if args.rebuild:
         log("[bootstrap] fetching the pinned baseline sources; this downloads approximately 8.66 GB")
         fetch_args = argparse.Namespace(
             catalog=args.catalog, data_dir=str(data_dir), codb=args.codb, collection="all",
@@ -1699,6 +1981,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
                 collection=collection, profile=args.profile, depth_plies=None,
                 memory_limit_mib=args.memory_limit_mib,
                 masters_event_audit=DEFAULT_MASTERS_EVENT_AUDIT,
+                allow_replacing_local_evaluation_release=args.allow_replacing_local_evaluation_release,
             )
             cmd_build(build_args)
         verify_args = argparse.Namespace(
@@ -1736,6 +2019,11 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
 
         for collection, root in extracted.items():
             target = release_root(data_dir, collection)
+            candidate_manifest = json.loads((root / "manifest.json").read_text())
+            guard_active_gigabase_replacement(
+                target, candidate_manifest.get("dataset_build_id"),
+                explicitly_allowed=args.allow_replacing_local_evaluation_release,
+            )
             target.parent.mkdir(parents=True, exist_ok=True)
             result = subprocess.run(
                 [str(codb), "publish", "--candidate", str(root), "--target", str(target),
@@ -2227,6 +2515,30 @@ def build_parser() -> argparse.ArgumentParser:
     sp = with_col(sub.add_parser("verify-sources", help="offline re-hash of local archives"))
     sp.set_defaults(fn=cmd_verify_sources)
 
+    sp = sub.add_parser(
+        "extract-local-7z",
+        help="safely extract one user-supplied 7z member for local evaluation only",
+    )
+    sp.add_argument("--archive", required=True, help="local .7z archive path")
+    sp.add_argument("--member", required=True, help="exact regular member file name")
+    sp.add_argument("--output", required=True, help="new output path under a git-ignored data directory")
+    sp.add_argument("--record", help="local provenance JSON path (default: OUTPUT.local-source.json)")
+    sp.add_argument(
+        "--max-expanded-bytes",
+        type=int,
+        default=64 * 1024**3,
+        help="maximum declared and extracted member size (default: 64 GiB)",
+    )
+    sp.add_argument(
+        "--max-expansion-ratio",
+        type=int,
+        default=1000,
+        help="maximum uncompressed-to-compressed ratio (default: 1000:1)",
+    )
+    sp.add_argument("--expected-local-archive-sha256", help="optional locally computed archive hash pin")
+    sp.add_argument("--expected-member-sha256", help="optional locally computed member hash pin")
+    sp.set_defaults(fn=cmd_extract_local_7z)
+
     sp = sub.add_parser("pin", help="add catalog entries from the publisher checksum list")
     sp.add_argument("--family", choices=tuple(FAMILIES), required=True)
     sp.add_argument("--periods", required=True, help="comma separated YYYY-MM")
@@ -2243,6 +2555,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--memory-limit-mib", type=int, default=128)
     sp.add_argument("--masters-event-audit", type=Path,
                     help="event-level Masters policy JSON (required by the current production policy)")
+    sp.add_argument(
+        "--allow-replacing-local-evaluation-release", action="store_true",
+        help="explicitly allow this build to replace an active local Gigabase evaluation release",
+    )
     sp.set_defaults(fn=cmd_build)
 
     sp = with_col(sub.add_parser("verify", help="deep-verify published releases"))
@@ -2270,6 +2586,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--max-download-bytes", type=int,
                     help="optional cap for the explicit --rebuild source download")
     sp.add_argument("--profile", default="baseline")
+    sp.add_argument(
+        "--allow-replacing-local-evaluation-release", action="store_true",
+        help="explicitly allow bootstrap to replace an active local Gigabase evaluation release",
+    )
     sp.set_defaults(fn=cmd_bootstrap)
 
     sp = sub.add_parser("serve", help="serve both collections via codb serve")

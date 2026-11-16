@@ -1,0 +1,81 @@
+{
+  "build_ids_and_timestamps_differ_as_expected": true,
+  "compared_build_report_fields": [
+    "accounting",
+    "collection",
+    "gigabase_source_policy",
+    "is_reconciled",
+    "policy_rejection_reasons",
+    "quarantine_reasons",
+    "retained_matches_accepted",
+    "source_archives",
+    "total_games",
+    "total_physical_bytes"
+  ],
+  "compared_manifest_fields": [
+    "accounting",
+    "collection",
+    "curation_policy",
+    "deduplication_policy_version",
+    "lookup_table",
+    "position_index",
+    "shards",
+    "source_archives",
+    "source_attribution",
+    "total_games",
+    "total_physical_bytes"
+  ],
+  "deterministic_content_match": true,
+  "independent_dataset_build_id": "codb-masters-otb-1794722373850654316-20882-6502a96286fd50cb-cpi-d40",
+  "independent_deep_verify_passed": true,
+  "limitation": "Sampled VmHWM for each codb process on the local Linux build host; RSS reports the full process, including file-backed pages. The CPI buffer limit is checked separately by the indexer.",
+  "matching_build_report_fields": [
+    "accounting",
+    "collection",
+    "gigabase_source_policy",
+    "is_reconciled",
+    "policy_rejection_reasons",
+    "quarantine_reasons",
+    "retained_matches_accepted",
+    "source_archives",
+    "total_games",
+    "total_physical_bytes"
+  ],
+  "matching_manifest_fields": [
+    "accounting",
+    "collection",
+    "curation_policy",
+    "deduplication_policy_version",
+    "lookup_table",
+    "position_index",
+    "shards",
+    "source_archives",
+    "source_attribution",
+    "total_games",
+    "total_physical_bytes"
+  ],
+  "reference_dataset_build_id": "codb-masters-otb-1794721639733091532-17393-ebd97b2287ae7375-cpi-d40",
+  "reference_deep_verify_passed": true,
+  "resource_measurements": {
+    "host_process_sample_interval_ms": 25,
+    "ingestion": {
+      "duration_seconds": 74.874013187,
+      "peak_process_rss_bytes": 16150528,
+      "peak_process_rss_kib": 15772
+    },
+    "position_index": {
+      "cpi_sha256": "fe221a2360785809505efa479aaafaefa1438bbe94b1a93c3842e233cf03996d",
+      "cpi_size_bytes": 72656173,
+      "duration_ms": 9623,
+      "games_indexed": 156898,
+      "memory_limit_mib": 128,
+      "merge_passes": 1,
+      "peak_process_rss_bytes": 128843776,
+      "peak_process_rss_kib": 125824,
+      "peak_temporary_bytes": 112686434,
+      "runs_generated": 2,
+      "unique_positions": 3406233
+    }
+  },
+  "schema_version": 1
+}

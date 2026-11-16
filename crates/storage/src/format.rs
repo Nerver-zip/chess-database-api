@@ -398,6 +398,7 @@ impl GameBlock {
                     time_control,
                     source_id,
                     broadcast_url,
+                    source_attribution: None,
                 },
                 moves,
                 fen_start,
@@ -518,6 +519,7 @@ mod tests {
                 broadcast_url: Some(
                     "https://lichess.org/broadcast/tata-steel-2024/round-5/abc12345".into(),
                 ),
+                source_attribution: None,
             },
             moves: vec![
                 CompactMove::new(12, 28, None), // e2e4
@@ -584,6 +586,7 @@ mod tests {
                 broadcast_url: Some(
                     "https://lichess.org/broadcast/2026-anu-open/round-2/iDPcCots".into(),
                 ),
+                source_attribution: None,
             },
             moves: vec![
                 CompactMove::new(12, 28, None), // e2e4
@@ -665,6 +668,7 @@ mod tests {
                 time_control: Some("90+30".into()),
                 source_id: None,
                 broadcast_url: None,
+                source_attribution: None,
             },
             moves,
             fen_start: None,

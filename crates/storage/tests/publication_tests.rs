@@ -48,6 +48,7 @@ fn sample_game(id_seed: u64, collection: Collection, white: &str, black: &str) -
             time_control: Some("5400+30".into()),
             source_id: Some(format!("game-{}", id_seed)),
             broadcast_url: Some("https://lichess.org/broadcast/tata-steel-2025".into()),
+            source_attribution: None,
         },
         moves,
         fen_start: None,
