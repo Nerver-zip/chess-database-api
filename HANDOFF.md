@@ -6,8 +6,8 @@ Complete the R3 local Gigabase Masters evaluation for PR #7. The user authorized
 
 ## Current state
 
-- Branch `feat/gigabase-masters` has the R3 policy, ingestion updates, reports, and documentation plus the final independent-build and parser-sample evidence in the working tree. These final evidence/documentation updates are not yet committed or pushed.
-- PR [#7](https://github.com/Nerver-zip/chess-openings-db/pull/7) is open, Draft, and unmerged. Its current R3-focused description predates the independent rebuild and R3 external parser sample; update it after pushing the final commit and preserve Draft/open/unmerged state.
+- Branch `feat/gigabase-masters` includes the final independent-build and parser-sample evidence in commit `76f7708` (pushed). A follow-up handoff-only commit records the completed push and PR update.
+- PR [#7](https://github.com/Nerver-zip/chess-openings-db/pull/7) is open, Draft, and unmerged. Its description now summarizes the R3 policy/build, independent rebuild and parser sample, verification, and local-only/rights limits. Preserve Draft/open/unmerged state.
 - The R3 build ID is `codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40`. The source archive is locally 2,570,013,439 bytes (SHA-256 `4e4209ccc1870e7fede557aae09b4dd40b721d4697db9b4c272ff0e4fbbdb500`); its PGN member is 12,300,428,287 bytes (SHA-256 `87fde5bc0a893fcfc877634a42bf0b41bd0a24b84b3e4d7553d6352f96dad759`). The publisher supplied no checksum, so these are local hashes.
 - Policy `gigabase-otb/2026-11-r3` has SHA-256 `93b9d0c7fd8eb35bb3bf36425a5e7b02f95fa80910942bbda615a453bd2ef3a9`. The streaming inventory found 13,450,696 records and clean EOF with no recoverable syntax errors. Build accounting reconciles: 3,284,429 accepted unique, 4,018 confirmed duplicates, 506 superseded, 10,153,901 policy rejects, 7,842 quarantined stable-ID collisions, and zero variant, illegal, or malformed rejects.
 - CPI v2 indexes 3,284,429 games to 40 plies, with 51,909,604 positions and 55,864,091 position/move pairs. CPI size is 1,107,897,085 bytes (SHA-256 `284898e18f4a4aba0b56d383e8b1a163790a85e1081749f0ff9204fdab5a971c`). Indexing used a 128 MiB configured budget, 35 runs, one merge pass, and 2,132,859,200 bytes peak spill. Sampled anonymous RSS was 122,548,224 bytes; total process RSS was 1,027,588,096 bytes, mostly file-backed. The build sampled 67,895,296 bytes peak RSS and took 4,723.004 seconds.
@@ -22,8 +22,7 @@ Complete the R3 local Gigabase Masters evaluation for PR #7. The user authorized
 
 ## Next actions
 
-1. Review the final diff and Git status; commit only the tracked evidence, documentation, test, manifest, and handoff files. Keep ignored source data, local audit runners, wheels, and release packages out of the commit.
-2. Push `feat/gigabase-masters`, update PR #7 with the independent rebuild and parser-sample results plus the local-only/rights limitations, and verify the PR remains Draft, open, and unmerged.
+- No further implementation or release action is needed for this R3 delivery. Keep PR #7 Draft, open, and unmerged pending review. Do not change production dataset pointers or publish/deploy the local evaluation.
 
 ## Evidence paths
 
