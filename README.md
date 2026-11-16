@@ -1,273 +1,140 @@
-# Chess Openings DB (`codb`)
+# Opening Explorer API
 
-> **Status: Draft PR #7 — Gigabase R3 is active in the authorized private Masters deployment; public redistribution and public service remain unauthorized.**
-> This repository contains the scalable persistent game storage pipeline, bounded-memory CPI v2 indexer, atomic dataset publication engine, verified real corpus releases, and a Dockerized read-only Opening Explorer API.
+A self-hosted, read-only HTTP API for chess opening statistics. Give it a position (as a move sequence or a FEN) and it returns how many games reached it, the White / draw / Black results, and the moves that were played next, with their own results.
 
-A high-performance, compact, and reproducible chess game database and position-centric indexing engine written in Rust. The system curates, deduplicates, compresses, and indexes high-quality chess games to power a position-based Opening Explorer through a lightweight, reusable API.
+Opening Explorer API curates and deduplicates large game collections, stores them compactly, indexes every position, and serves the statistics from a small Rust service. It is written independently and shares no code with the AGPL-licensed Lichess opening explorer.
 
----
+> **Availability.** There is no hosted public instance. You run the service yourself. The Masters OTB dataset assets are prepared but **not yet published**. Publication goes through a gated, manually triggered workflow ([Dataset releases](docs/DATASET_RELEASES.md#6-licensing-and-the-distribution-gate)).
 
-## Delivered Corpus and Scope
+## Who it is for
 
-The real-corpus pipeline delivers two isolated release collections and a read-only HTTP Opening Explorer. Release sizes, current game and index counts, licensing, provenance audit results, and test evidence are recorded in [docs/CORPUS_BUILD.md](docs/CORPUS_BUILD.md).
+- Developers building an **opening explorer** or opening trainer into a chess app.
+- Analysts who want **opening statistics in a pipeline** (batch queries, CSV export).
+- Researchers who want **curated, legal, deduplicated PGN** to work with.
 
-The active private Masters OTB release contains 3,284,429 Gigabase R3 games indexed to 40 plies (51,909,604 positions). Elite Online remains at 429,150 games (6,136,307 positions at depth 30). The prior 29,640-game Masters release remains retained for rollback. Raw-PGN API retrieval is disabled for the restricted Masters deployment; no public service or dataset redistribution is authorized.
+## Collections
 
-The historical 15-million-game storage feasibility work remains in [docs/research/feasibility-report.md](docs/research/feasibility-report.md). Expanding to that future corpus is not required to run or validate the Docker service.
+Two collections are kept strictly apart. Their ratings and statistics are never pooled.
 
-For historical capacity context, the prior 15-million-game estimate projected **7.68 GB baseline** (**6.44 GB optimistic**, **9.98 GB conservative**). Its conservative case left **20 MB (0.2%)** under the 10 GB limit, so that estimate was conditional; it is separate from the current release sizes.
+| | `masters-otb` | `elite-online` |
+| :--- | :--- | :--- |
+| Games | 3,284,429 | 429,150 |
+| Source | Lumbra's Gigabase OTB Complete (publisher-asserted over-the-board) | Lichess rated archive |
+| Rating scale | Publisher-supplied Elo (FIDE-style) | Lichess platform rating |
+| Selection | Standard legal chess, at least four plies, rating thresholds | Both players 2200+, or one 2400+ and the other 2000+; no bullet; at least six plies |
+| Indexed depth | 40 plies | 30 plies |
+| Dataset license | CC BY-NC 4.0 (publisher claim); non-commercial, attribution required | CC0 1.0 |
 
----
+Do not compare an OTB Elo with an online rating as if they were one scale. Details: [API reference, interpreting statistics](docs/API_REFERENCE.md).
 
-## Two Distinct Curated Collections
+## What the API provides
 
-The database maintains two strictly isolated collections with distinct rating semantics and provenance:
+| Endpoint | Purpose |
+| :--- | :--- |
+| `GET /v1/explorer/position` | Position statistics from `moves=` (SAN or UCI) or `fen=`: total games, W/D/L, next moves, each with W/D/L |
+| `GET /v1/collections` | Loaded collections and their dataset versions |
+| `GET /v1/collections/{collection}/games/{id}` | Canonical PGN of one stored game (can be disabled per deployment) |
+| `GET /health`, `GET /ready` | Liveness and readiness |
+| `POST /v1/admin/reload` | Token-protected hot reload of a newly published dataset |
 
-1. **Masters OTB:** The active private release is the publisher-asserted OTB Gigabase R3 snapshot. It retains 3,284,429 games; the full policy, source, checksum, and unresolved upstream-rights qualifications are recorded in its release metadata and [corpus report](docs/CORPUS_BUILD.md). The earlier 29,640-game event-audited Lichess release is retained as a rollback snapshot and historical baseline.
-2. **Elite Online:** High-rated online games filtering for verified high rating tiers (2200+, 2400+, 2500+), clean time controls (classical/rapid/blitz; bullet strictly excluded), and non-aborted games (sourced from Lichess Rated Archives under CC0 1.0).
+Full contract, errors, caching, and configuration: [docs/API_REFERENCE.md](docs/API_REFERENCE.md).
 
-> [!IMPORTANT]
-> OTB FIDE ratings and online platform ratings are **never** conflated or merged. Position statistics and player ratings remain independently queryable with collection isolation.
+## Quick start
 
----
-
-## Service Boundary
-
-The CODB service owns corpus ingestion, curation, legal validation, compact storage, position indexing, and read-only HTTP queries. Docker Compose runs the API independently from corpus releases, mounted read-only from the host or a Docker-managed volume. The restricted Gigabase deployment uses a named volume, disables raw-PGN retrieval, and publishes no host port. Other containers can reach the API on its authorized Docker network at http://codb:8080.
-
----
-
-## Workspace Architecture
-
-```
-chess-openings-db/
-├── AGENTS.md       # Operational guide for AI agents
-├── HANDOFF.md      # Workstream status, verification log, and next actions
-├── CONTRIBUTING.md # Contribution workflows and PR expectations
-├── CHANGELOG.md    # Release and milestone delivery log
-├── MANIFEST.sha256 # Cryptographic manifest of core contracts and schemas
-├── Cargo.toml      # Workspace root configuration
-├── crates/
-│   ├── core/       # Fundamental domain models (CompactMove, PositionKey, GameResult)
-│   ├── ingest/     # Streaming PGN parser (Zstandard streaming, full legal move replay)
-│   ├── curate/     # Policy filters, header canonicalization, prefix deduplication
-│   ├── storage/    # CGB3 container, sharding, games.idx binary search, advisory flock
-│   ├── index/      # CPI v2 index, bounded external sorting, Opening Explorer queries
-│   ├── api/        # Production-ready read-only HTTP Opening Explorer service (Axum & Tokio)
-│   └── cli/        # CLI tool (codb) for builds, indexing, queries, serving, and verification
-├── docs/
-│   ├── README.md   # Canonical documentation index
-│   ├── ARCHITECTURE.md # End-to-end architecture, sharding, and memory bounds
-│   ├── DOCKER_DEPLOYMENT.md # Real release provisioning and Compose operations
-│   ├── DATA_CONTRACTS.md # Binary formats (CGB3, CPI), models, and API schemas
-│   ├── CORPUS_AND_DEDUPLICATION.md # Collection policies, dedupe, and accounting
-│   ├── LICENSING.md # Dual-licensing, dataset provenance, zero-AGPL boundary
-│   ├── QA_STRATEGY.md # Storage crash recovery, snapshot isolation, test strategy
-│   ├── BENCHMARKS.md # Benchmark methodology, production CPI baselines, Heaps' Law
-│   ├── ROADMAP.md  # Milestone progress and planned API service
-│   ├── DECISIONS_AND_OPEN_QUESTIONS.md # Accepted decisions and API open questions
-│   ├── adr/        # Architecture Decision Records (ADR-0001, ADR-0002, ADR-0003)
-│   └── research/   # Historical research tracks preserved for provenance
-├── benchmarks/
-│   ├── README.md   # Benchmark directory overview and methodology
-│   ├── production_cpi/ # Active production CPI baseline measurements (ADR-0003)
-│   └── results/
-│       └── historical/ # Preserved PR-01, PR-02, Stage A/B, and projection artifacts
-├── fixtures/       # Deterministic PGN test fixtures (stage_a_validation.pgn)
-├── scripts/        # Unified validate.sh, validate_docs.py, runners, and tests
-└── .github/        # GitHub Actions CI workflow
-```
-
----
-
-## Build and Run the Real Service
-
-Build the host CLI used to provision and verify releases. The explicit rebuild command downloads the pinned sources (about 8.66 GB), then builds, indexes, and deeply verifies both collections. A package bootstrap is also available when verified release archives and their .sha256 sidecars are already present.
+Build the CLI (`opening-explorer`), make a small sample dataset from the bundled synthetic fixture, serve it, and query it:
 
 ```bash
-cargo build --locked --release --package codb-cli
-./scripts/corpus.sh plan --collection all
-./scripts/corpus.sh --data-dir ./data bootstrap --rebuild  # fresh catalog setup; refuses to replace active Gigabase R3 by default
-./scripts/corpus.sh --data-dir ./data verify
-docker compose -f compose.codb.yaml up -d --build
-docker compose -f compose.codb.yaml ps
+cargo build --locked --release --package opening-explorer-cli
+
+./target/release/opening-explorer build \
+  --input fixtures/stage_a_validation.pgn --collection elite-online \
+  --output data/sample/elite-online
+./target/release/opening-explorer build-index \
+  --dataset data/sample/elite-online --collection elite-online
+
+./target/release/opening-explorer serve \
+  --elite-dataset data/sample/elite-online --host 127.0.0.1 --port 8080
 ```
 
-Compose never downloads or rebuilds datasets. The restricted deployment uses [`.env.codb.gigabase.example`](.env.codb.gigabase.example) and the named-volume override; raw-PGN retrieval stays disabled. See [docs/DOCKER_DEPLOYMENT.md](docs/DOCKER_DEPLOYMENT.md) for package bootstrap, the private R3 deployment, rollback, debug queries, resource bounds, and troubleshooting. The release workflow and evidence are in [docs/CORPUS_BUILD.md](docs/CORPUS_BUILD.md).
+In another terminal, ask for the position after `1.e4 e5 2.Nf3`:
 
----
-
-## CLI Usage (`codb`)
-
-### 1. Build Persistent Curated Dataset
-Stream large PGN or PGN.zst sources directly into compressed, sharded CGB3 archives:
 ```bash
-./target/release/codb build \
-    --input data/masters_combined.pgn.zst \
-    --collection masters-otb \
-    --output data/builds/masters-otb-20k \
-    --max-games 20000
+curl --get 'http://127.0.0.1:8080/v1/explorer/position' \
+  --data-urlencode 'collection=elite-online' \
+  --data-urlencode 'moves=e4,e5,Nf3'
 ```
 
-### 2. Build Production Position Index (CPI)
-Construct a compressed, randomly accessible position index from a completed dataset using bounded-memory external sorting:
+The result lists `total_games`, `white_wins`, `draws`, `black_wins`, and a `moves` array with the same counts per candidate move. The sample is synthetic test data. [Getting started](docs/GETTING_STARTED.md) walks through it step by step.
+
+### With Docker
+
 ```bash
-./target/release/codb build-index \
-    --dataset data/builds/masters-otb-20k \
-    --depth-plies 40 \
-    --collection masters-otb \
-    --memory-limit-mib 128 \
-    --json
+cp .env.example .env          # point it at your dataset directory
+docker compose up -d --build
+curl http://127.0.0.1:8080/ready
 ```
 
-### 3. Query Opening Explorer
-Query opening statistics and candidate next moves by move sequence or FEN:
+See [Deployment](docs/DOCKER_DEPLOYMENT.md) for read-only mounts, resource bounds, and the restricted (retrieval disabled) mode.
+
+## Get the datasets
+
+Two products are prepared, both containing the same 3,284,429 curated Masters OTB games:
+
+| Product | What you get |
+| :--- | :--- |
+| **Indexed dataset** | Ready-to-serve game storage, position index, metadata, notice, checksums |
+| **Filtered PGN** | One PGN per canonical game, Zstandard-compressed |
+
+Once a dataset release is published, the assets are large files on GitHub Releases, split into numbered parts with per-part SHA-256 checksums and a machine-readable manifest. Download, reconstruction, verification, and installation steps are in [docs/DATASET_RELEASES.md](docs/DATASET_RELEASES.md). Elite Online can be rebuilt from pinned Lichess sources ([Corpus build](docs/CORPUS_BUILD.md)).
+
+## Use cases
+
+Worked examples are in [docs/USE_CASES.md](docs/USE_CASES.md), with runnable code in [`examples/`](examples/) (curl, dependency-free JavaScript, Python):
+
+1. **Opening explorer in a chess app**: query on every move and render next-move bars.
+2. **Masters vs. Elite comparison**: query both collections for one position and show them side by side, never merged.
+3. **Next-move frequencies and W/D/L** for a position.
+4. **Analysis pipeline**: batch positions through the API and export CSV.
+5. **Curated PGN for research**: use the filtered PGN download.
+
+A minimal JavaScript client:
+
+```js
+import { OpeningExplorer } from "./examples/js/opening-explorer.mjs";
+
+const explorer = new OpeningExplorer("http://127.0.0.1:8080");
+const result = await explorer.position({ collection: "elite-online", moves: ["e4", "e5", "Nf3"] });
+console.log(result.total_games, result.moves[0]);
+```
+
+## Documentation
+
+| Need | Read |
+| :--- | :--- |
+| First run | [Getting started](docs/GETTING_STARTED.md) |
+| Endpoints, errors, config | [API reference](docs/API_REFERENCE.md) |
+| Downloading and installing datasets | [Dataset releases](docs/DATASET_RELEASES.md) |
+| Running it in production | [Deployment](docs/DOCKER_DEPLOYMENT.md) |
+| Building from source and rebuilding corpora | [Corpus build](docs/CORPUS_BUILD.md), [Contributing](CONTRIBUTING.md) |
+| Data and licensing | [Licensing and attribution](docs/LICENSING.md) |
+| Internals and formats | [Architecture](docs/ARCHITECTURE.md), [Data contracts](docs/DATA_CONTRACTS.md) |
+| Benchmarks and research | [Benchmarks](docs/BENCHMARKS.md), [research archive](docs/research/) |
+| Upgrading from the old `codb` names | [Migration](docs/MIGRATION_FROM_CODB.md) |
+
+The complete index is [docs/README.md](docs/README.md).
+
+## Development
+
 ```bash
-# Query by move sequence (SAN or UCI, comma or space delimited):
-./target/release/codb query \
-    --dataset data/builds/masters-otb-20k \
-    --moves "e4,e5,Nf3" \
-    --json
-
-# Query by orthodox legal FEN:
-./target/release/codb query \
-    --dataset data/builds/masters-otb-20k \
-    --fen "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2"
+./scripts/validate.sh   # format, clippy, tests, evidence and documentation gates
 ```
 
-### 4. Verify Dataset Integrity
-Verify block checksums, manifest accounting, game lookup table, and CPI position index:
-```bash
-./target/release/codb verify --dataset data/builds/masters-otb-20k --deep
-```
+Contribution rules are in [CONTRIBUTING.md](CONTRIBUTING.md); agent workflow notes are in [AGENTS.md](AGENTS.md).
 
-### 5. Inspect Dataset Structure
-Inspect shard layout, total retained games, CPI index metadata, and physical byte density:
-```bash
-./target/release/codb inspect --dataset data/builds/masters-otb-20k --json
-```
+## Licenses
 
-### 6. Retrieve Game by Stable ID
-Random access lookup in sub-millisecond page-cache time:
-```bash
-./target/release/codb get-game --dataset data/builds/masters-otb-20k --id 1234567890
-```
+- **Software:** [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option. These licenses do not apply to the datasets.
+- **Masters OTB data:** games from [Lumbra's Gigabase](https://lumbrasgigabase.com/), which the publisher offers under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). This project filtered, deduplicated, normalized, and indexed them; it claims no authorship of any game and is not endorsed by the publisher. Non-commercial use only, with attribution.
+- **Elite Online data:** CC0 1.0 (Lichess rated games).
 
-### 7. Run Opening Explorer HTTP Server (`codb serve`)
-Start the high-performance, asynchronous, read-only HTTP query service exposing `/v1/explorer/position`, `/v1/collections/{collection}/games/{id}`, `/v1/collections`, `/health`, and `/ready`:
-```bash
-# Start server mounting datasets with bounded reader pool and admin reload token:
-./target/release/codb serve \
-    --masters-dataset data/builds/masters-otb-100k \
-    --elite-dataset data/builds/elite-online-100k \
-    --host 127.0.0.1 \
-    --port 8080 \
-    --reader-pool-size 4 \
-    --reader-pool-timeout-secs 5 \
-    --admin-token "your-admin-secret"
-
-# Query opening statistics by SAN move sequence:
-curl -s "http://127.0.0.1:8080/v1/explorer/position?moves=e4,e5,Nf3&collection=masters-otb" | jq .
-
-# Query by orthodox legal FEN:
-curl -s "http://127.0.0.1:8080/v1/explorer/position?fen=rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR%20b%20KQkq%20-%200%201" | jq .
-
-# Retrieve canonical game in PGN format:
-curl -s "http://127.0.0.1:8080/v1/collections/masters-otb/games/1048220"
-
-# Inspect loaded collections and dataset versions:
-curl -s "http://127.0.0.1:8080/v1/collections" | jq .
-
-# Liveness and readiness health checks:
-curl -s "http://127.0.0.1:8080/health"
-curl -s "http://127.0.0.1:8080/ready"
-
-# Trigger zero-downtime hot-reload after publishing a new dataset version:
-curl -s -X POST "http://127.0.0.1:8080/v1/admin/reload" \
-    -H "Authorization: Bearer your-admin-secret" | jq .
-
-# Or trigger zero-downtime reload locally via standard Unix SIGHUP:
-kill -HUP <pid>
-```
-
----
-
-## Reproducing the Benchmarks
-
-### 1. Build the Release Binary
-```bash
-cargo build --release
-```
-
-### 2. Run Deterministic Stage A Validation (1,000 games)
-```bash
-./target/release/codb bench \
-    --input fixtures/stage_a_validation.pgn \
-    --collection masters-otb \
-    --run-name stage_a_validation
-```
-
-### 3. Run Stage B & Progressive Scaling Benchmarks
-```bash
-# Lightweight CI validation (no external data required):
-./scripts/reproduce_benchmarks.sh --ci
-
-# Full empirical reproduction (when external source datasets are present in data/):
-./scripts/reproduce_benchmarks.sh --all
-```
-
-For complete step-by-step reproduction instructions, dataset checksums, and combined corpus assembly, see the [Benchmark Reproduction Guide](docs/BENCHMARKS.md).
-
-Machine-readable JSON reports are written to `benchmarks/results/` (with completed milestones archived in [`benchmarks/results/historical/`](benchmarks/results/historical/)).
-
-### Gigabase R3 private release
-
-The opt-in `--gigabase-source-policy` path and `corpus.sh extract-local-7z` produced the R3 snapshot now active in the authorized private Masters deployment. Its 3,284,429 accepted games from 13,450,696 encountered records, build evidence, and the three closed parser-sample differences are documented in [`benchmarks/gigabase/FINAL_REPORT.md`](benchmarks/gigabase/FINAL_REPORT.md). Local SHA-256 values are not publisher checksums. The publisher claims CC BY-NC 4.0, upstream rights remain unresolved, and public redistribution is not authorized. See [promotion and rollback](docs/CORPUS_BUILD.md), [deployment](docs/DOCKER_DEPLOYMENT.md), [source qualification policy](docs/CORPUS_AND_DEDUPLICATION.md), and [licensing limits](docs/LICENSING.md).
-
----
-
-## Canonical Engineering Documentation
-
-- **Master Index:** [Documentation Index](docs/README.md)
-- **System Architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- **Data Contracts & Formats:** [docs/DATA_CONTRACTS.md](docs/DATA_CONTRACTS.md)
-- **Corpus Build & Release Procedure:** [docs/CORPUS_BUILD.md](docs/CORPUS_BUILD.md)
-- **Corpus & Deduplication Policy:** [docs/CORPUS_AND_DEDUPLICATION.md](docs/CORPUS_AND_DEDUPLICATION.md)
-- **Licensing & Data Provenance:** [docs/LICENSING.md](docs/LICENSING.md)
-- **QA & Testing Strategy:** [docs/QA_STRATEGY.md](docs/QA_STRATEGY.md)
-- **Benchmarks & Scaling Methodology:** [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
-- **Project Roadmap & Milestones:** [docs/ROADMAP.md](docs/ROADMAP.md)
-- **Decisions & Open Questions:** [docs/DECISIONS_AND_OPEN_QUESTIONS.md](docs/DECISIONS_AND_OPEN_QUESTIONS.md)
-- **Architecture Decision Records (ADRs):** [docs/adr/README.md](docs/adr/README.md)
-  - [ADR-0001: Initial Architecture Decisions](docs/adr/0001-initial-architecture.md)
-  - [ADR-0002: Bounded-Memory Ingestion, CGB3 Sharding & Global Game Lookup](docs/adr/0002-bounded-ingestion-and-persistent-cgb3-archive.md)
-  - [ADR-0003: Production CPI Index, Bounded-Memory External Sorting & Explorer Queries](docs/adr/0003-production-cpi-index.md)
-  - [ADR-0004: Opening Explorer Read-Only HTTP API Service](docs/adr/0004-opening-explorer-http-api.md)
-- **Governance & Contributor Guides:**
-  - [Agent Development Guide](AGENTS.md)
-  - [Handoff Log](HANDOFF.md)
-  - [Contributing Guidelines](CONTRIBUTING.md)
-  - [Release Changelog](CHANGELOG.md)
-
----
-
-## Historical Research Tracks
-
-Initial exploratory research deliverables preserved for historical reference and reproducibility:
-- [Storage Feasibility & Scaling Report](docs/research/feasibility-report.md)
-- [Compact Storage & Layout Options](docs/research/storage-options.md)
-- [Source Inventory & Classification Matrix](docs/research/source-inventory.md)
-- [Source Licensing & Legal Architecture](docs/research/source-licenses.md)
-- [Corpus Inclusion Policies (Draft)](docs/research/corpus-policy.md)
-- [Deduplication & Conflict Resolution (Draft)](docs/research/deduplication.md)
-- [Benchmark Reproduction Guide (Draft)](docs/research/benchmark-reproduction.md)
-- [Future API Contract & Decoupling (Draft)](docs/research/api-contract.md)
-
----
-
-## Licenses & Data Redistribution
-
-- **Software:** Independently authored and dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE).
-- **Elite Online Data:** Creative Commons CC0 1.0 Universal.
-- **Historical Lichess Masters Data:** Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0). Active Gigabase R3 is restricted to the authorized private deployment; its publisher claims CC BY-NC 4.0 and upstream rights remain unresolved.
-- **Zero AGPL Code Reuse:** Designed and implemented independently from first principles.
+Attribution text, changes made, and the open upstream-rights questions: [docs/LICENSING.md](docs/LICENSING.md).

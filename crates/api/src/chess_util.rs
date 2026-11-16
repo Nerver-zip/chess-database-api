@@ -1,8 +1,8 @@
 //! Reusable chess position validation, move parsing, and SAN notation generation.
 
 use crate::error::ApiError;
-use codb_core::PositionKey;
-use codb_index::position::compute_position_key;
+use opening_explorer_core::PositionKey;
+use opening_explorer_index::position::compute_position_key;
 use sha2::{Digest, Sha256};
 use shakmaty::fen::Fen;
 use shakmaty::san::{San, SanPlus};
@@ -37,29 +37,36 @@ pub fn parse_and_apply_moves(
         return Err(ApiError::MoveSequenceTooLong(tokens.len(), max_plies));
     }
 
-    for token in tokens {
-        // Try parsing as SAN first, then SAN Plus, then UCI
-        let played_move = if let Ok(san) = San::from_ascii(token.as_bytes()) {
-            san.to_move(board).ok()
-        } else if let Ok(san_plus) = SanPlus::from_ascii(token.as_bytes()) {
-            san_plus.san.to_move(board).ok()
-        } else {
-            None
-        };
+    for (index, token) in tokens.into_iter().enumerate() {
+        let ply = index + 1;
+        // A token is read as SAN and as UCI. It is accepted if either reading is legal here.
+        let san = San::from_ascii(token.as_bytes()).ok().or_else(|| {
+            SanPlus::from_ascii(token.as_bytes())
+                .ok()
+                .map(|san_plus| san_plus.san)
+        });
+        let uci = token.parse::<UciMove>().ok();
+        let played_move = san
+            .as_ref()
+            .and_then(|san| san.to_move(board).ok())
+            .or_else(|| uci.as_ref().and_then(|uci| uci.to_move(board).ok()));
 
-        let m = match played_move {
-            Some(m) => m,
-            None => {
-                let uci: UciMove = token.parse().map_err(|e| {
-                    ApiError::InvalidMoves(format!("Invalid move token '{}': {}", token, e))
-                })?;
-                uci.to_move(board).map_err(|e| {
-                    ApiError::InvalidMoves(format!("Illegal move '{}': {:?}", token, e))
-                })?
+        match played_move {
+            Some(m) => board.play_unchecked(m),
+            // Notation that parses but is not legal in this position.
+            None if san.is_some() || uci.is_some() => {
+                return Err(ApiError::InvalidMoves(format!(
+                    "Illegal move '{}' at ply {}.",
+                    token, ply
+                )));
             }
-        };
-
-        board.play_unchecked(m);
+            None => {
+                return Err(ApiError::InvalidMoves(format!(
+                    "Invalid move token '{}' at ply {}: expected SAN or UCI notation.",
+                    token, ply
+                )));
+            }
+        }
     }
 
     Ok(())

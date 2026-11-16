@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate small deterministic PGN fixtures for the offline corpus tests.
 
-The files are intentionally tiny and synthetic. They exercise the real `codb`
+The files are intentionally tiny and synthetic. They exercise the real `opening-explorer`
 pipeline (policy, deduplication, accounting) without any network access and are
 never presented as real corpus data.
 """

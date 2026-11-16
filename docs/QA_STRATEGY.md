@@ -8,7 +8,7 @@ status: current
 
 ## 1. Principles and Engineering Guardrails
 
-`chess-openings-db` employs an evidence-based, fail-closed verification strategy designed for mission-critical persistence and high-concurrency analytical queries:
+`opening-explorer-api` employs an evidence-based, fail-closed verification strategy designed for mission-critical persistence and high-concurrency analytical queries:
 
 1. **Intouchability of Binary Formats:** Persistent storage (`CGB3`), position index layouts (`CPI v2`), and deduplication rules are immutable contracts. Changes must never silently break backward compatibility or determinism.
 2. **Fail-Closed Accounting:** Every encountered game is accounted for across mutually exclusive categories. Any counter discrepancy halts the pipeline and refuses publication.
@@ -20,7 +20,7 @@ status: current
 ## 2. Test Suite Architecture
 
 ```
-chess-openings-db/
+opening-explorer-api/
 ├── crates/
 │   ├── core/src/models.rs            # Unit tests for compact moves, position keys, stable IDs
 │   ├── curate/src/                   # Unit tests for policy filters and deduplication
@@ -91,7 +91,7 @@ Offline, network-free regression tests (a local HTTP server with fault injection
 - **Catalog:** schema validation, mixed-collection profile rejection, deterministic `(period, id)` source ordering.
 - **Assembly:** exact accounting on a fixture with OTB, online, low-rated, variant, illegal, duplicate, superseded, historical, and missing-metadata records; cross-archive deduplication; source-order independence; identical CPI hashes across rebuilds.
 - **Publication:** a failed build, failed index step, or failed deep verification never replaces the active release; repeated builds preserve the previous release and its immutable versions; artifact tampering is detected.
-- **Packaging:** required files present, lock/temporary files excluded, checksum emitted, extraction re-verified with `codb verify --deep`, tamper detection, byte-reproducible archives.
+- **Packaging:** required files present, lock/temporary files excluded, checksum emitted, extraction re-verified with `opening-explorer verify --deep`, tamper detection, byte-reproducible archives.
 - **Serving:** both collections served from generated releases; semantic HTTP checks (WDL reconciliation, collection identity, dataset version, candidate legality, HTTP/CLI equivalence on stratified positions, transposition equality, absent and beyond-depth positions, error behavior, game retrieval, cross-collection isolation); hot reload of a newly published snapshot.
 
 Offline tests cover release checksum verification, unsafe or incomplete package rejection, exact event-audit qualification, Gigabase complete-date qualification, source-attribution aggregation, the restricted stored-PGN route, publication while active readers pin a snapshot, and Docker/Compose configuration. The local Gigabase package/bootstrap/rollback workflow is an explicit local-only action under ignored `data/work/gigabase-eval/`; its fixtures and tests do not download the supplied source archive. The fixture container smoke runs when a Docker daemon is available with raw-PGN retrieval disabled, verifying position queries and a 404 for game retrieval. It does not fetch production archives. Real-corpus verification and the real Docker API integration are explicit opt-in steps documented in [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md). Ordinary CI never downloads the 8.66 GB source archives.
@@ -100,7 +100,7 @@ Offline tests cover release checksum verification, unsafe or incomplete package 
 
 ### 4.3 Real-corpus Docker integration
 
-The opt-in acceptance run uses the final provisioned Masters and Elite releases and an independent digest-pinned HTTP client container on the same Docker network. The latest recorded run reached `http://codb:8080`, queried health/readiness/collections, checked the real `e4,e5,Nf3` totals (3,902 and 30,390), retrieved stored PGNs from both collections, and passed 96/96 concurrent requests. It then restarted the service and repeated readiness and deep dataset verification. Invalid mounts and corrupted or incomplete datasets were rejected, volumes and root filesystem were read-only, no host ports were published, administrative reload remained disabled, and SIGTERM shutdown completed. The observed runtime peak was 159,224 KiB under the 512 MiB container cap. Full evidence is in [`benchmarks/corpus/docker_real_check.json`](../benchmarks/corpus/docker_real_check.json); this is separate from the deterministic fixture smoke used in CI.
+The opt-in acceptance run uses the final provisioned Masters and Elite releases and an independent digest-pinned HTTP client container on the same Docker network. The latest recorded run reached `http://opening-explorer:8080`, queried health/readiness/collections, checked the real `e4,e5,Nf3` totals (3,902 and 30,390), retrieved stored PGNs from both collections, and passed 96/96 concurrent requests. It then restarted the service and repeated readiness and deep dataset verification. Invalid mounts and corrupted or incomplete datasets were rejected, volumes and root filesystem were read-only, no host ports were published, administrative reload remained disabled, and SIGTERM shutdown completed. The observed runtime peak was 159,224 KiB under the 512 MiB container cap. Full evidence is in [`benchmarks/corpus/docker_real_check.json`](../benchmarks/corpus/docker_real_check.json); this is separate from the deterministic fixture smoke used in CI.
 
 ## 5. Automated Verification Gates
 
@@ -140,7 +140,7 @@ sha256sum -c MANIFEST.sha256
 The pinned validation image includes the Rust formatting and lint components and runs the same gate without copying local datasets:
 
 ```bash
-docker build --progress=plain -f Dockerfile.validation -t codb-validation:local .
+docker build --progress=plain -f Dockerfile.validation -t opening-explorer-validation:local .
 ```
 
 All 8 steps are bundled into the executable test harness:

@@ -1,5 +1,5 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use codb_core::{Collection, CompactMove, GameMetadata, GameResult, ParsedGame};
+use opening_explorer_core::{Collection, CompactMove, GameMetadata, GameResult, ParsedGame};
 use shakmaty::san::SanPlus;
 use shakmaty::Chess;
 use std::collections::HashMap;
@@ -37,10 +37,10 @@ impl From<rusqlite::Error> for StorageError {
     }
 }
 
-impl From<codb_index::position::IndexError> for StorageError {
-    fn from(err: codb_index::position::IndexError) -> Self {
+impl From<opening_explorer_index::position::IndexError> for StorageError {
+    fn from(err: opening_explorer_index::position::IndexError) -> Self {
         match err {
-            codb_index::position::IndexError::Io(io_err) => StorageError::Io(io_err),
+            opening_explorer_index::position::IndexError::Io(io_err) => StorageError::Io(io_err),
             other => StorageError::Integrity(other.to_string()),
         }
     }

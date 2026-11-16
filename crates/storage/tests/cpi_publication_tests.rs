@@ -1,9 +1,9 @@
-use codb_core::{
+use opening_explorer_core::{
     compute_position_key, Collection, CompactMove, GameMetadata, GameResult, IngestionStats,
     ParsedGame,
 };
-use codb_storage::fault::{self, FaultPoint};
-use codb_storage::{
+use opening_explorer_storage::fault::{self, FaultPoint};
+use opening_explorer_storage::{
     build_dataset_position_index, recover_dataset, verify_dataset, DatasetIndexConfig,
     DatasetReader, DatasetWriter, DatasetWriterConfig, SourceArchiveMetadata,
 };

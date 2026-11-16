@@ -1,4 +1,4 @@
-# Agent Development Guide (`chess-openings-db`)
+# Agent Development Guide (`opening-explorer-api`)
 
 Begin every agent turn by reading `AGENTS.md` and `HANDOFF.md`, then verify the current Git state with `git status`. Consult `README.md` and [docs/README.md](docs/README.md) as needed to navigate relevant technical specifications. Inspect the source code before modifying behavior. At the end of every substantive turn, update `HANDOFF.md` with current state, verification evidence, and next actions.
 
@@ -10,7 +10,7 @@ Documentation is a maintained product artifact, not a byproduct of development. 
 
 1. **English Language Requirement:** All project code, docstrings, comments, documentation, commit messages, and user-visible strings must be in **English**.
 2. **Untouchability of Core & Binary Formats:** Never break the backward compatibility, bit-level layout, or determinism of `CGB3` (`shard_XXXX.cgb3`), `CPI v2` (`positions.cpi`), `games.idx`, or deduplication policies (`crates/curate/src/policy.rs`, `dedupe.rs`).
-3. **Zero AGPL Code Reuse:** Never import, copy, or derive logic from `lila-openingexplorer` or any other AGPL-3.0 codebase. All components in `chess-openings-db` must remain independently authored and dual-licensed under MIT OR Apache-2.0.
+3. **Zero AGPL Code Reuse:** Never import, copy, or derive logic from `lila-openingexplorer` or any other AGPL-3.0 codebase. All components in `opening-explorer-api` must remain independently authored and dual-licensed under MIT OR Apache-2.0.
 4. **Collection Segregation:** Keep `masters-otb` and `elite-online` strictly segregated across data pipelines, persistent shards, and query engines. Never pool or average FIDE Elo ratings with online platform ratings.
 5. **Fail-Closed Accounting:** Every encountered game must be accounted for across mutually exclusive categories (`total_encountered = accepted_unique + confirmed_duplicates + superseded_prior + rejected_by_policy + rejected_variant + rejected_illegal + rejected_malformed + quarantined`). If counters diverge or `retained_canonical_games != accepted_unique`, fail closed immediately.
 6. **Bounded Memory Guarantees:** Ingestion remains streaming with $O(1)$ memory scaling relative to input size; record per-process RSS on the build host without a fixed 30 MB ceiling. Position indexing must strictly respect `--memory-limit-mib` (default 128 MiB) via external sorting and partitioned `.crun` spill files.
@@ -24,19 +24,19 @@ Documentation is a maintained product artifact, not a byproduct of development. 
 
 The workspace is organized into seven dedicated crates:
 
-- **[`codb-core`](crates/core):** Foundational domain models (`Collection`, `CompactMove`, `PositionKey`, `GameResult`, `GameMetadata`, `IngestionStats`). Contains bit-packing logic, stable 64-bit ID computation, and core invariant definitions.
-- **[`codb-ingest`](crates/ingest):** High-throughput streaming PGN parser supporting transparent `.zst` decompression and full legal move validation via `shakmaty`. Computes time control duration ($T_{\text{est}} = \text{base} + 40 \times \text{inc}$) to exclude bullet games.
-- **[`codb-curate`](crates/curate):** Policy filters (`MastersOtbPolicy`, `EliteOnlinePolicy`) and multi-key deduplication (`Deduplicator`). Implements normalized metadata keys, move-slice prefix supersession, and disk-backed SQLite staging catalog.
-- **[`codb-storage`](crates/storage):** CGB3 block container (`CODB-v3`), multi-shard management (`shard_XXXX.cgb3`), 16-byte fixed-record `games.idx` memory-mapped binary search index, process-level advisory file locking (`.dataset.lock`), and atomic symlink publication.
-- **[`codb-index`](crates/index):** Position extraction (`extract_game_positions_detailed`), bounded-memory external merge sort pipeline (`ExternalPositionIndexer`), `.crun` temporary run emission, hierarchical K-way merge, CPI v2 container (`positions.cpi`), and Opening Explorer query execution.
-- **[`codb-api`](crates/api):** Production-ready, asynchronous, read-only HTTP Opening Explorer service built on Axum 0.8 and Tokio. Serves position statistics, canonical PGN game retrieval, zero-downtime hot-reloading, and health probes.
-- **[`codb-cli`](crates/cli):** The unified command-line tool (`codb`) providing commands for `build`, `build-index`, `query`, `verify`, `inspect`, `get-game`, `bench`, and `serve`.
+- **[`opening-explorer-core`](crates/core):** Foundational domain models (`Collection`, `CompactMove`, `PositionKey`, `GameResult`, `GameMetadata`, `IngestionStats`). Contains bit-packing logic, stable 64-bit ID computation, and core invariant definitions.
+- **[`opening-explorer-ingest`](crates/ingest):** High-throughput streaming PGN parser supporting transparent `.zst` decompression and full legal move validation via `shakmaty`. Computes time control duration ($T_{\text{est}} = \text{base} + 40 \times \text{inc}$) to exclude bullet games.
+- **[`opening-explorer-curate`](crates/curate):** Policy filters (`MastersOtbPolicy`, `EliteOnlinePolicy`) and multi-key deduplication (`Deduplicator`). Implements normalized metadata keys, move-slice prefix supersession, and disk-backed SQLite staging catalog.
+- **[`opening-explorer-storage`](crates/storage):** CGB3 block container (format version 3), multi-shard management (`shard_XXXX.cgb3`), 16-byte fixed-record `games.idx` memory-mapped binary search index, process-level advisory file locking (`.dataset.lock`), and atomic symlink publication.
+- **[`opening-explorer-index`](crates/index):** Position extraction (`extract_game_positions_detailed`), bounded-memory external merge sort pipeline (`ExternalPositionIndexer`), `.crun` temporary run emission, hierarchical K-way merge, CPI v2 container (`positions.cpi`), and Opening Explorer query execution.
+- **[`opening-explorer-api`](crates/api):** Production-ready, asynchronous, read-only HTTP Opening Explorer service built on Axum 0.8 and Tokio. Serves position statistics, canonical PGN game retrieval, zero-downtime hot-reloading, and health probes.
+- **[`opening-explorer-cli`](crates/cli):** The unified command-line tool (`opening-explorer`) providing commands for `build`, `build-index`, `query`, `verify`, `inspect`, `get-game`, `bench`, and `serve`.
 
 ---
 
 ## 2.1 Corpus Release Tooling (outside the Rust workspace)
 
-`corpus/catalog.json` (pinned sources, licenses, publisher checksums) and `scripts/corpus.py` / `scripts/corpus.sh` acquire verified source archives and orchestrate the existing `codb` CLI into versioned releases (see [docs/CORPUS_BUILD.md](docs/CORPUS_BUILD.md)). Rules: the tool must never reimplement ingestion, curation, indexing, or publication; sources without a publisher checksum or an approved license must fail closed; large archives and releases live only under git-ignored `data/`; `scripts/test_corpus.py` must stay offline (no real downloads); real-corpus validation is an explicit opt-in stage.
+`corpus/catalog.json` (pinned sources, licenses, publisher checksums) and `scripts/corpus.py` / `scripts/corpus.sh` acquire verified source archives and orchestrate the existing `opening-explorer` CLI into versioned releases (see [docs/CORPUS_BUILD.md](docs/CORPUS_BUILD.md)). Rules: the tool must never reimplement ingestion, curation, indexing, or publication; sources without a publisher checksum or an approved license must fail closed; large archives and releases live only under git-ignored `data/`; `scripts/test_corpus.py` must stay offline (no real downloads); real-corpus validation is an explicit opt-in stage.
 
 ---
 

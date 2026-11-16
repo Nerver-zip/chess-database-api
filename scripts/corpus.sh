@@ -12,7 +12,8 @@
 #   ./scripts/corpus.sh http-check
 #
 # Thin wrapper around scripts/corpus.py, which in turn only orchestrates the existing
-# `codb` CLI. Data lives in $CODB_DATA_DIR (default ./data, git-ignored).
+# `opening-explorer` CLI. Data lives in $OPENING_EXPLORER_DATA_DIR (default ./data,
+# git-ignored; the deprecated $CODB_DATA_DIR is still honored).
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [ -d "$HOME/.cargo/bin" ]; then export PATH="$HOME/.cargo/bin:$PATH"; fi

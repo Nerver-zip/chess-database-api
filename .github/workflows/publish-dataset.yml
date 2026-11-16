@@ -1,0 +1,115 @@
+# Manual, draft-safe publication of prepared dataset release assets.
+#
+# This workflow never rebuilds data. A maintainer prepares the assets locally with
+# `scripts/release_assets.py prepare`, uploads them to a DRAFT release with
+# `scripts/release_assets.py upload --execute`, and then runs this workflow. The
+# workflow publishes the draft only after it proves that:
+#   * the tag exists and points at a commit reachable from main;
+#   * the committed manifest is valid and the distribution clearance gate is cleared;
+#   * the draft release is a draft and its asset names and sizes match the manifest;
+#   * the downloaded bytes match every part and whole-product SHA-256 in the manifest,
+#     and the uploaded manifest asset equals the committed manifest.
+#
+# Tags for dataset releases are dataset-<release_id> (for example dataset-masters-otb-r3).
+# They are immutable by convention: create them only on a reviewed commit, protect them
+# with a repository tag ruleset, and never move them. Dataset tags are independent of
+# software version tags.
+
+name: Publish dataset release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: "Dataset release identifier, for example masters-otb-r3"
+        required: true
+        type: string
+      confirm_tag:
+        description: "Repeat the tag name, dataset-<release_id>, to confirm publication"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-dataset-${{ inputs.release_id }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify draft assets and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    environment: dataset-publication
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_ID: ${{ inputs.release_id }}
+      TAG: dataset-${{ inputs.release_id }}
+      CONFIRM_TAG: ${{ inputs.confirm_tag }}
+    steps:
+      - name: Check the confirmation input
+        run: |
+          set -euo pipefail
+          if [ "$CONFIRM_TAG" != "$TAG" ]; then
+            echo "confirm_tag must equal $TAG" >&2
+            exit 1
+          fi
+          case "$RELEASE_ID" in
+            masters-otb-r[0-9]*) ;;
+            *) echo "unexpected release id: $RELEASE_ID" >&2; exit 1 ;;
+          esac
+
+      - name: Check out the tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/dataset-${{ inputs.release_id }}
+          fetch-depth: 0
+
+      - name: Require the tag on a commit reachable from main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          commit="$(git rev-parse --verify "refs/tags/${TAG}^{commit}")"
+          if ! git merge-base --is-ancestor "$commit" refs/remotes/origin/main; then
+            echo "tag $TAG ($commit) is not reachable from main" >&2
+            exit 1
+          fi
+          echo "tag $TAG -> $commit (reachable from main)"
+
+      - name: Validate the committed manifest and the distribution gate
+        run: |
+          set -euo pipefail
+          python3 scripts/release_assets.py check-manifest \
+            --manifest "releases/${RELEASE_ID}.json" --require-clearance
+
+      - name: Compare the draft release with the manifest
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" \
+            | jq -s --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)]
+                | if length != 1 then error("expected exactly one release for " + $tag) else .[0] end' \
+            > "$RUNNER_TEMP/release.json"
+          jq '{tag_name, draft, assets: [.assets[] | {name, size}]}' \
+            "$RUNNER_TEMP/release.json" > "$RUNNER_TEMP/remote.json"
+          python3 scripts/release_assets.py verify-remote \
+            --manifest "releases/${RELEASE_ID}.json" \
+            --assets-json "$RUNNER_TEMP/remote.json"
+
+      - name: Download the draft assets and verify every checksum
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/dist"
+          gh release download "$TAG" --dir "$RUNNER_TEMP/dist" --pattern '*'
+          python3 scripts/release_assets.py verify \
+            --manifest "releases/${RELEASE_ID}.json" \
+            --dist-dir "$RUNNER_TEMP/dist" \
+            --committed
+
+      - name: Publish the verified draft
+        run: |
+          set -euo pipefail
+          gh release edit "$TAG" --draft=false --latest=false
+          echo "published $TAG"

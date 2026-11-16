@@ -4,11 +4,11 @@ use std::ops::ControlFlow;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use codb_curate::policy::{
+use opening_explorer_curate::policy::{
     classify_gigabase_strength, parse_gigabase_date, r3_header_rejections, GigabaseDatePrecision,
     GigabaseHeaderMetadata, PolicyRejectionReason, APPROVED_GIGABASE_SOURCE_TAGS,
 };
-use codb_ingest::reader::{
+use opening_explorer_ingest::reader::{
     build_pgn_reader, is_recoverable_pgn_syntax_error, resync_after_syntax_error,
 };
 use pgn_reader::{RawTag, SanPlus, Visitor};

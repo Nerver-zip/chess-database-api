@@ -1,5 +1,5 @@
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
-use codb_core::{CompactMove, GameResult, ParsedGame, PositionKey};
+use opening_explorer_core::{CompactMove, GameResult, ParsedGame, PositionKey};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use shakmaty::fen::Fen;
@@ -71,7 +71,7 @@ pub struct GamePositionExtraction {
     pub repeated_positions_skipped: usize,
 }
 
-pub use codb_core::compute_position_key;
+pub use opening_explorer_core::compute_position_key;
 
 /// Extracts position-to-next-move records from a game up to `max_plies` with full accounting details.
 ///
@@ -1303,7 +1303,7 @@ impl DiskPositionIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use codb_core::{Collection, GameMetadata};
+    use opening_explorer_core::{Collection, GameMetadata};
     use shakmaty::{Move, Role, Square};
 
     #[test]

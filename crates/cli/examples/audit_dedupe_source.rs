@@ -5,14 +5,16 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
-use codb_core::{Collection, GameMetadata, GameSourceAttribution, ParsedGame};
-use codb_curate::dedupe::{normalize_metadata, DedupeError, Deduplicator, DuplicateVerdict};
-use codb_curate::policy::GigabaseOtbPolicy;
-use codb_ingest::{
+use opening_explorer_core::{Collection, GameMetadata, GameSourceAttribution, ParsedGame};
+use opening_explorer_curate::dedupe::{
+    normalize_metadata, DedupeError, Deduplicator, DuplicateVerdict,
+};
+use opening_explorer_curate::policy::GigabaseOtbPolicy;
+use opening_explorer_ingest::{
     build_pgn_reader, is_recoverable_pgn_syntax_error, resync_after_syntax_error,
     ShakmatyGameVisitor,
 };
-use codb_storage::{DatasetReader, StorageError};
+use opening_explorer_storage::{DatasetReader, StorageError};
 use pgn_reader::Reader;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -151,7 +153,10 @@ fn replay_final_position(game: &ParsedGame) -> Result<Chess> {
     Ok(board)
 }
 
-fn is_strict_prefix(shorter: &[codb_core::CompactMove], longer: &[codb_core::CompactMove]) -> bool {
+fn is_strict_prefix(
+    shorter: &[opening_explorer_core::CompactMove],
+    longer: &[opening_explorer_core::CompactMove],
+) -> bool {
     shorter.len() < longer.len() && longer.starts_with(shorter)
 }
 
@@ -585,7 +590,7 @@ fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::is_strict_prefix;
-    use codb_core::CompactMove;
+    use opening_explorer_core::CompactMove;
 
     #[test]
     fn strict_move_prefix_is_directional_and_excludes_equal_sequences() {

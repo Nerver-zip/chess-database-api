@@ -11,7 +11,7 @@ use axum::extract::{Query, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
-use codb_core::Collection;
+use opening_explorer_core::Collection;
 use shakmaty::Chess;
 use std::sync::Arc;
 
@@ -39,9 +39,10 @@ pub async fn query_position(
     }
 
     // 2. Validate collection parameter
-    let col_str = query.collection.as_deref().ok_or_else(|| {
-        ApiError::InvalidCollection("missing collection query parameter".to_string())
-    })?;
+    let col_str = query
+        .collection
+        .as_deref()
+        .ok_or(ApiError::MissingCollection)?;
 
     let collection = match col_str {
         "masters-otb" => Collection::MastersOtb,
@@ -69,6 +70,12 @@ pub async fn query_position(
     let cpi_index = snapshot
         .cpi_index
         .as_ref()
+        .ok_or_else(|| ApiError::IndexUnavailable(collection.as_str().to_string()))?;
+    let cpi_depth_plies = snapshot
+        .manifest
+        .position_index
+        .as_ref()
+        .map(|meta| meta.indexed_depth_plies as u32)
         .ok_or_else(|| ApiError::IndexUnavailable(collection.as_str().to_string()))?;
 
     // 5. Query CPI v2 position index (memory-mapped, lock-free)
@@ -146,6 +153,7 @@ pub async fn query_position(
         collection: collection.as_str().to_string(),
         dataset_version: snapshot.manifest.dataset_build_id.clone(),
         dataset_freshness: snapshot.manifest.build_timestamp.clone(),
+        cpi_depth_plies,
         position_key: key.to_hex(),
         fen: fen_str,
         total_games,

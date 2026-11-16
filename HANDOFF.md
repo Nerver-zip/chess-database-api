@@ -1,47 +1,39 @@
-# Agent Handoff (chess-openings-db)
+# Agent Handoff (opening-explorer-api)
 
 ## Current objective
 
-Finish the authorized private Gigabase R3 Masters promotion on PR #7 (`feat/gigabase-masters`). Keep the PR Draft, open, and unmerged. Do not rebuild the source corpus or publish the dataset publicly.
+Deliver the consolidation PR stacked on PR #7 (`feat/gigabase-masters`): `opening-explorer-api` identity, two prepared Masters OTB dataset products, release tooling, licensing/attribution, README and API documentation. Keep it Draft. Do not merge, do not publish release assets, the GitHub repository is already renamed. `GOAL.md` stays untracked.
 
-## Active release and preserved data
+## What changed
 
-- `data/releases/masters-otb/current` now points to `codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40`: 3,284,429 accepted games, CPI depth 40, 51,909,604 positions, and 55,864,091 position/move pairs.
-- The previous 29,640-game Masters version `codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40` remains in `data/releases/masters-otb/versions/` and was used in a successful publisher-based rollback test.
-- Elite remains at `codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30` with 429,150 games and CPI depth 30.
-- The original R3 candidate remains at `data/work/gigabase-eval/docker-r3-smoke/releases/masters-otb/versions/codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40`. Its 18 release artifacts were individually SHA-256 checked. The existing local package checksum passed (`297b7d2ab67951fd9655c35f6993da4d0fb5dd55ee763b62f9249c1804019247`). No corpus rebuild occurred.
-- The separate repeat-build shards in the accidentally removed `codb-pr7-rust-work` container are unavailable. This does not affect the complete baseline snapshot, its verified package, or this promotion.
+- **Identity.** CLI `opening-explorer`; crates `opening-explorer-*`; env vars `OPENING_EXPLORER_*` with deprecated `CODB_*` fallbacks; compose files `compose.yaml`, `compose.named-volume.yaml`, `compose.debug.yaml`; image `opening-explorer-api:local`. Unchanged by design: binary magics (`CGB3`, `CODB_CPI`, ...), game IDs, CPI keys, the `codb-` build-identifier prefix and existing release IDs, HTTP routes, historical evidence. Legacy-to-current table: `docs/MIGRATION_FROM_CODB.md`.
+- **API fixes (backward compatible, tested).** Additive `cpi_depth_plies`; reload exempt from the 15 s timeout (HTTP reload previously 408'd on the 3.28 M-game snapshot); framework rejections use the error envelope (`invalid_query`, `not_found`, `method_not_allowed`, `request_timeout`); only 500s sanitized; clearer illegal-move/missing-collection messages.
+- **Docs.** New: `API_REFERENCE`, `GETTING_STARTED`, `USE_CASES`, `DATASET_RELEASES`, `MIGRATION_FROM_CODB`, `examples/`, `fixtures/api/`. `DATA_CONTRACTS.md` section 6 now points at the API reference. Root README rewritten; `docs/README.md` regrouped by reader need. `scripts/test_feasibility_alignment.py` now requires the historical storage figures in `docs/BENCHMARKS.md` instead of the README (the stale-figure ban still covers the README).
+- **Distribution.** `opening-explorer export-pgn`; `scripts/release_assets.py`; `scripts/release_pgn_verify.py`; `.github/workflows/publish-dataset.yml` (manual only; validates a reviewed draft release against `releases/masters-otb-r3.json`, never rebuilds); `releases/distribution_clearance.json` gate.
 
-## Deployment evidence
+## Prepared assets (local only, git-ignored `data/releases-dist/masters-otb-r3/`)
 
-- The private API runs as container `codb-gigabase-r3-codb-1` from the named volume `codb-gigabase-r3-runtime`, on dedicated network `codb-gigabase-r3-net`. The Docker daemon could not access checkout bind paths; bind-mount support is not claimed as tested.
-- Compose mounts `/datasets` read-only; no host port is published. `CODB_ENABLE_GAME_RETRIEVAL=false`; a known game route returned 404.
-- Startup, restart, readiness, 96/96 concurrent requests, API/CLI query equality, and W/D/L reconciliation passed for both collections. Masters and Elite position-query counts are recorded in `benchmarks/gigabase/OPERATIONAL_DEPLOYMENT_R3.json`.
-- The old Masters version was reactivated through `codb publish`, deep verification passed, the API was restarted against it, then R3 was republished through `codb publish`, deep verification passed, and the API restarted on R3. All 18 R3 artifact hashes were also verified in the runtime volume.
-- The publisher claims CC BY-NC 4.0 but supplied no publisher checksum; upstream rights remain unresolved. Private operation is authorized for this deployment; public redistribution and public service remain unauthorized. All accepted games lack `Mode` and rely on the publisher's archive-level OTB assertion.
+| Asset | SHA-256 |
+| :--- | :--- |
+| `masters-otb-r3-indexed.tar.part-001` (2.0 GB) | `6e71be9b8614fb6cdc8ff12b924cc3b9102ca2a9489feb06ab75f7e69f81625a` |
+| `masters-otb-r3-indexed.tar.part-002` (709 MB) | `861d539ab6a869f1d28b66bbc11b7ec9d586bd73037fcbbe5dd8f14470b7e8b7` |
+| `masters-otb-r3-indexed.tar` (reconstructed) | `89ccb7931357cf21795e9eaa8dc82b0632ce40cb0ae9834927cbc5b637f0e706` |
+| `masters-otb-r3-filtered.pgn.zst` (502 MB) | `4134599e1d6da75dbe00ce162e6c1cb90a0092e047bdfdfe5fa4662c36b306ff` |
 
-## Audit discrepancy disposition
+Independent verification (`benchmarks/gigabase/PGN_EXPORT_VERIFICATION_R3.json`): 3,284,429 games; headers and sidecar tags checked on every game; every 16th game (205,277) fully replayed with python-chess; zero failures. Install and rollback evidence: `benchmarks/gigabase/INSTALL_VERIFICATION_R3.json` (an earlier racy rollback-install step is superseded by a clean sequential rerun, PASS). A whole-corpus reimport of the exported PGN through the project's ingest (`benchmarks/gigabase/PGN_REIMPORT_LEGALITY_R3.json`) encountered all 3,284,429 games with 0 illegal, 0 malformed and 0 variant rejections. That reimport uses shakmaty, not an independent parser; python-chess fully replayed the 205,277-game sample.
 
-The three `python-chess` sample games were legal and matched canonical moves, starting positions, and final boards. Exact persisted metadata differences and source-versus-sidecar attribution values are recorded in `benchmarks/gigabase/FINAL_REPORT.md`; they do not change position statistics. The source-occurrence deduplication dispositions are not linked in retained audit evidence and remain unavailable; no replay or game removal was done.
+## Licensing gate (read before publishing)
 
-## Implementation in progress
+Per the project decision, the publisher's CC BY-NC 4.0 is the basis for non-commercial distribution, with attribution and disclosed changes (`docs/LICENSING.md` section 6, `dataset/ATTRIBUTION.md`). Recorded conflicts, stated precisely: the snapshot's build-time `RELEASE/DATASET_LICENSE.txt` says local internal evaluation only; the publisher's B2B page prohibits end-user bulk exports and raw-PGN downloads to end users (scope for a non-commercial public dataset unstated); the publisher provides no archive checksum. Affected mechanisms: the filtered PGN and the indexed package (embeds full games). `releases/distribution_clearance.json` is now `cleared` (maintainer decision recorded 2026-11-16, resting on the maintainer's reading of the public CC BY-NC 4.0 grant, not on written permission from the publisher); the conflicts remain disclosed there. The tooling still refuses to publish unless the record is `cleared` with a reference and a matching release ID.
 
-- `scripts/promote_gigabase_r3.py` checks the pinned R3 `RELEASE.json` hash, all 18 artifact hashes, release identity/accounting, source restrictions, and deep CODB verification; it stages a copy and invokes the existing atomic `codb publish` command.
-- `scripts/corpus.py` blocks routine Masters build/bootstrap replacement of active Gigabase R3 unless the explicit `--allow-replacing-local-evaluation-release` option is supplied.
-- `compose.codb.named-volume.yaml` and `.env.codb.gigabase.example` provide the restricted named-volume mode with raw-PGN retrieval disabled. `.gitignore` permits the tracked example settings file.
-- `.github/workflows/ci.yml` keeps `main` pushes and required PR events, skips Draft PR jobs, and includes `workflow_dispatch` for the final gate without changing test coverage.
-- README, corpus, deduplication, licensing, Docker, benchmark, and audit evidence now describe the current private R3 deployment and retain historical baselines as history.
+## Remaining operational steps
 
-## Verification and next actions
+1. Merge PR #7, retarget this PR to `main`, run the final Ready-for-Review CI.
+2. After merge: record clearance, tag `dataset-masters-otb-r3` on the merged commit, upload to a DRAFT release with `release_assets.py upload` (dry run first), then run the manual publish workflow.
+3. Repository rename: GitHub already reports the repository as `Nerver-zip/opening-explorer-api` (the old URL redirects). The local `origin` was updated to the new URL. Confirm no CI or branch-protection settings still reference the old name after #7 merges.
+4. The private deployment still runs as `codb-gigabase-r3-codb-1`; a redeploy under the new compose names yields `codb-gigabase-r3-opening-explorer-1` (stop the old container first; both share the `codb` network alias).
+5. Open items from the API audit not implemented: per-collection retrieval switch; stable game IDs in the PGN export; `/ready` does not re-check after startup.
 
-Completed: all 18 host artifact checks; local package checksum; promoter check-only and publish; host and volume deep verification; Compose configuration parse; targeted bootstrap guard tests and runtime rejection checks; API startup/restart, query/WDL, concurrency, retrieval, rollback, and reactivation checks. `./scripts/validate.sh` passed all eight gates in the Rust 1.100.0 validation container, including Rust formatting, Clippy, workspace tests, Python suites, evidence validators, documentation links, and manifest verification. `git diff --check` passed. No full source corpus rebuild occurred.
+## Verification
 
-The implementation is committed on PR #7; the exact discrepancy values have now been documented from the saved source PGNs, candidate CODB records, and attribution sidecar without a deduplication replay. `./scripts/validate.sh` passed after this documentation correction, and `./scripts/reproduce_benchmarks.sh --ci` passed on the implementation. The last hosted full CI run passed before this documentation-only update; after pushing the final docs commit, run the final manual GitHub CI gate once. Keep PR #7 Draft and unmerged. Do not publish publicly or rebuild the corpus.
-
-## Evidence paths
-
-- `benchmarks/gigabase/OPERATIONAL_DEPLOYMENT_R3.json`
-- `benchmarks/gigabase/R3_REPRODUCIBILITY.json`
-- `benchmarks/gigabase/INDEPENDENT_PGN_AUDIT_R3.json`
-- `benchmarks/gigabase/FINAL_REPORT.md`
-- `docs/CORPUS_BUILD.md`, `docs/DOCKER_DEPLOYMENT.md`, `docs/LICENSING.md`
+Container run of `./scripts/validate.sh` (Rust 1.100.0): gates 1-3 passed (fmt, clippy, workspace tests); gate 4 failed on the README storage-figure test (fixed as described above) and its dependent `reproduce_benchmarks.sh --ci` test; `--ci` and the feasibility suite pass standalone after the fix. A final full run is recorded in the PR description. Not verified: host bind mounts, a live redeploy under the new names, `reload.sh` against the final binary, browser CORS.

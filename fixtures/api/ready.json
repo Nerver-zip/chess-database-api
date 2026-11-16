@@ -1,0 +1,14 @@
+{
+  "name": "ready",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "status": "ready",
+    "collections_loaded": [
+      "masters-otb",
+      "elite-online"
+    ]
+  }
+}

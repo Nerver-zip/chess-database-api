@@ -41,8 +41,8 @@ if [ "$MODE" = "--help" ] || [ "$MODE" = "-h" ]; then
     exit 0
 fi
 
-DATA_DIR="${CODB_DATA_DIR:-data}"
-FIXTURES_DIR="${CODB_FIXTURES_DIR:-fixtures}"
+DATA_DIR="${OPENING_EXPLORER_DATA_DIR:-${CODB_DATA_DIR:-data}}"
+FIXTURES_DIR="${OPENING_EXPLORER_FIXTURES_DIR:-${CODB_FIXTURES_DIR:-fixtures}}"
 
 # Expected SHA-256 constants
 SHA_OTB_07="714d0eb99f99fca8d791142038b6c59b5ca6a51b3339bd3891a92f4bdffcbf0c"
@@ -79,9 +79,9 @@ verify_file_hash() {
 }
 
 echo "=== [1/5] Building release binaries ==="
-cargo build --release -p codb-cli
+cargo build --release -p opening-explorer-cli
 
-BIN="./target/release/codb"
+BIN="./target/release/opening-explorer"
 RESULTS_DIR="benchmarks/results/historical"
 mkdir -p "$RESULTS_DIR"
 
@@ -94,7 +94,7 @@ echo "=== [2/5] Stage A Benchmark (Deterministic Fixture: 1,000 games) ==="
 
 if [ "$MODE" = "--ci" ] || [ "$MODE" = "--stage-a" ]; then
     echo "=== Running Persistent Dataset Lifecycle Verification (CI Mode) ==="
-    CI_DATASET_DIR=$(mktemp -d /tmp/codb_ci_dataset_XXXXXX)
+    CI_DATASET_DIR=$(mktemp -d /tmp/opening-explorer-ci-dataset-XXXXXX)
     trap 'rm -rf "$CI_DATASET_DIR"' EXIT
 
     echo "Building persistent dataset from deterministic fixture..."

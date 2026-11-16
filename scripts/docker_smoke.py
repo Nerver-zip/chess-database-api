@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Container integration check for CODB, with deterministic fixtures or real releases.
+"""Container integration check for Opening Explorer, with deterministic fixtures or real releases.
 
 Fixture mode is suitable for CI. Pass --real --data-dir PATH to exercise provisioned
 production releases without copying or modifying them.
@@ -29,7 +29,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
 import corpus  # noqa: E402
 
-IMAGE = "codb-opening-explorer:local"
+IMAGE = "opening-explorer-api:local"
 CLIENT_IMAGE = "curlimages/curl@sha256:94e9e444bcba979c2ea12e27ae39bee4cd10bc7041a472c4727a558e213744e6"
 
 
@@ -48,7 +48,7 @@ def docker_available() -> bool:
     return subprocess.run(["docker", "info"], capture_output=True).returncode == 0
 
 
-def build_fixture_datasets(codb: Path, root: Path) -> dict[str, Path]:
+def build_fixture_datasets(opening_explorer: Path, root: Path) -> dict[str, Path]:
     root.mkdir(parents=True, exist_ok=True)
     output: dict[str, Path] = {}
     fixtures = {
@@ -58,11 +58,11 @@ def build_fixture_datasets(codb: Path, root: Path) -> dict[str, Path]:
     for collection, pgn in fixtures.items():
         dataset = root / collection
         depth = "40" if collection == "masters-otb" else "30"
-        run([str(codb), "build", "--input", str(pgn), "--collection", collection,
+        run([str(opening_explorer), "build", "--input", str(pgn), "--collection", collection,
              "--output", str(dataset)], timeout=600)
-        run([str(codb), "build-index", "--dataset", str(dataset), "--collection", collection,
+        run([str(opening_explorer), "build-index", "--dataset", str(dataset), "--collection", collection,
              "--depth-plies", depth, "--memory-limit-mib", "16"], timeout=600)
-        run([str(codb), "verify", "--dataset", str(dataset), "--deep"], timeout=600)
+        run([str(opening_explorer), "verify", "--dataset", str(dataset), "--deep"], timeout=600)
         output[collection] = dataset
     return output
 
@@ -82,26 +82,26 @@ def populate_volume(name: str, source: Path) -> None:
 def write_compose_env(path: Path, roots: dict[str, Path], network: str,
                       enable_game_retrieval: bool = True) -> None:
     path.write_text(
-        f"CODB_DATA_DIR={path.parent}\n"
-        f"CODB_MASTERS_RELEASE_DIR={roots['masters-otb']}\n"
-        f"CODB_ELITE_RELEASE_DIR={roots['elite-online']}\n"
-        f"CODB_NETWORK_NAME={network}\n"
-        "CODB_NETWORK_EXTERNAL=false\n"
-        "CODB_MEMORY_LIMIT=512m\n"
-        "CODB_CPU_LIMIT=2\n"
-        "CODB_READER_POOL_SIZE=8\n"
-        "CODB_READER_POOL_TIMEOUT_SECS=5\n"
-        "CODB_REQUEST_TIMEOUT_SECS=15\n"
-        "CODB_MAX_MOVE_PLIES=200\n"
-        f"CODB_ENABLE_GAME_RETRIEVAL={'true' if enable_game_retrieval else 'false'}\n"
-        "CODB_LOG_LEVEL=info\n"
+        f"OPENING_EXPLORER_DATA_DIR={path.parent}\n"
+        f"OPENING_EXPLORER_MASTERS_RELEASE_DIR={roots['masters-otb']}\n"
+        f"OPENING_EXPLORER_ELITE_RELEASE_DIR={roots['elite-online']}\n"
+        f"OPENING_EXPLORER_NETWORK_NAME={network}\n"
+        "OPENING_EXPLORER_NETWORK_EXTERNAL=false\n"
+        "OPENING_EXPLORER_MEMORY_LIMIT=512m\n"
+        "OPENING_EXPLORER_CPU_LIMIT=2\n"
+        "OPENING_EXPLORER_READER_POOL_SIZE=8\n"
+        "OPENING_EXPLORER_READER_POOL_TIMEOUT_SECS=5\n"
+        "OPENING_EXPLORER_REQUEST_TIMEOUT_SECS=15\n"
+        "OPENING_EXPLORER_MAX_MOVE_PLIES=200\n"
+        f"OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL={'true' if enable_game_retrieval else 'false'}\n"
+        "OPENING_EXPLORER_LOG_LEVEL=info\n"
     )
 
 
 def compose_volume_override(path: Path, masters_volume: str, elite_volume: str) -> None:
     path.write_text(
         "services:\n"
-        "  codb:\n"
+        "  opening-explorer:\n"
         "    volumes:\n"
         "      - type: volume\n"
         "        source: masters_release\n"
@@ -138,7 +138,7 @@ def host_bind_mounts_available(roots: dict[str, Path]) -> bool:
 
 
 def curl_from_client(client: str, path: str, *, method: str = "GET") -> tuple[int, bytes]:
-    url = f"http://codb:8080{path}"
+    url = f"http://opening-explorer:8080{path}"
     result = run([
         "docker", "exec", client, "/usr/bin/curl", "--silent", "--show-error",
         "--connect-timeout", "3", "--max-time", "20", "--request", method,
@@ -163,7 +163,7 @@ def wait_healthy(project: str, container: str, timeout_seconds: float = 240) -> 
         )
         if state.returncode == 0 and state.stdout.strip() == "exited":
             logs = subprocess.run(["docker", "logs", container], text=True, capture_output=True)
-            raise RuntimeError(f"CODB container exited before readiness:\n{logs.stdout}{logs.stderr}")
+            raise RuntimeError(f"Opening Explorer container exited before readiness:\n{logs.stdout}{logs.stderr}")
         time.sleep(2)
     logs = subprocess.run(["docker", "logs", container], text=True, capture_output=True)
     state = subprocess.run(
@@ -176,14 +176,14 @@ def wait_healthy(project: str, container: str, timeout_seconds: float = 240) -> 
         text=True, capture_output=True,
     )
     raise RuntimeError(
-        f"CODB did not become healthy within {timeout_seconds:g} seconds:\n"
+        f"Opening Explorer did not become healthy within {timeout_seconds:g} seconds:\n"
         f"state={state.stdout}{state.stderr}\n"
         f"direct readiness={readiness.returncode}: {readiness.stdout}{readiness.stderr}\n"
         f"logs={logs.stdout}{logs.stderr}"
     )
 
 
-def check_live_api(codb: Path, roots: dict[str, Path], client: str,
+def check_live_api(opening_explorer: Path, roots: dict[str, Path], client: str,
                    expected_counts: dict[str, int] | None = None,
                    enable_game_retrieval: bool = True) -> dict[str, dict]:
     status, body = curl_from_client(client, "/health")
@@ -204,7 +204,7 @@ def check_live_api(codb: Path, roots: dict[str, Path], client: str,
         dataset = roots[collection]
         assert by_collection[collection]["total_games"] > 0
         position_args = ["query", "--dataset", str(dataset), "--moves", "e4,e5,Nf3", "--json"]
-        cli = corpus.codb_json(codb, position_args)
+        cli = corpus.opening_explorer_json(opening_explorer, position_args)
         path = (f"/v1/explorer/position?collection={collection}"
                 "&moves=e4%2Ce5%2CNf3")
         status, body = curl_from_client(client, path)
@@ -232,7 +232,7 @@ def check_live_api(codb: Path, roots: dict[str, Path], client: str,
             assert status == 200, (status, pgn)
             assert pgn.lstrip().startswith(b"[Event "), pgn[:200]
             cli_pgn = run([
-                str(codb), "get-game", "--dataset", str(dataset), "--id", str(ids[0]),
+                str(opening_explorer), "get-game", "--dataset", str(dataset), "--id", str(ids[0]),
             ], timeout=120).stdout.encode()
             cli_pgn_matches = pgn == cli_pgn
             assert cli_pgn_matches, (collection, ids[0], len(pgn), len(cli_pgn))
@@ -288,7 +288,7 @@ def check_bad_starts(volumes: dict[str, str], roots: dict[str, Path], bad_root: 
         "--tmpfs", "/tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777",
     ]
     base_command = [
-        "--entrypoint", "/usr/local/bin/codb", IMAGE, "serve",
+        "--entrypoint", "/usr/local/bin/opening-explorer", IMAGE, "serve",
         "--host", "0.0.0.0", "--port", "8080", "--deep-validate-on-startup",
         "--masters-dataset", "/datasets/masters-otb", "--elite-dataset", "/datasets/elite-online",
     ]
@@ -346,13 +346,15 @@ def inspect_value(container: str, template: str) -> str:
 
 
 def runtime_rss_kib(container: str) -> int:
+    # Linux truncates process names to 15 characters, so the 16-character binary
+    # `opening-explorer` appears in /proc as `opening-explore`.
     shell = (
         "for f in /proc/[0-9]*/status; do "
         "name=; rss=; "
         "while read -r key value rest; do "
         "case \"$key\" in Name:) name=$value ;; VmRSS:) rss=$value ;; esac; "
         "done < \"$f\"; "
-        "if [ \"$name\" = codb ] && [ -n \"$rss\" ]; then "
+        "if [ \"$name\" = opening-explore ] && [ -n \"$rss\" ]; then "
         "printf '%s\\n' \"$rss\"; exit 0; fi; "
         "done; exit 1"
     )
@@ -360,7 +362,7 @@ def runtime_rss_kib(container: str) -> int:
     try:
         return int(result.stdout.strip())
     except ValueError as error:
-        raise RuntimeError(f"could not read CODB VmRSS from container: {result.stdout}") from error
+        raise RuntimeError(f"could not read Opening Explorer VmRSS from container: {result.stdout}") from error
 
 
 def main() -> int:
@@ -381,11 +383,11 @@ def main() -> int:
         print("Docker daemon is unavailable; container integration check skipped.")
         return 77
 
-    codb = corpus.find_codb(None)
+    opening_explorer = corpus.find_opening_explorer(None)
     nonce = uuid.uuid4().hex[:10]
-    project = f"codb-smoke-{nonce}"
-    network = f"codb-smoke-net-{nonce}"
-    container = f"{project}-codb-1"
+    project = f"opening-explorer-smoke-{nonce}"
+    network = f"opening-explorer-smoke-net-{nonce}"
+    container = f"{project}-opening-explorer-1"
     client = f"{project}-client"
     if args.fixtures:
         temp_parent = REPO / "data"
@@ -395,19 +397,19 @@ def main() -> int:
         temp_parent = REPO / "data" / "work" / "docker-smoke"
     temp_parent.mkdir(parents=True, exist_ok=True)
     temp = tempfile.TemporaryDirectory(
-        prefix=f"codb-smoke-{nonce}-", dir=temp_parent
+        prefix=f"opening-explorer-smoke-{nonce}-", dir=temp_parent
     )
     temp_root = Path(temp.name)
     if args.fixtures:
         temp_root.mkdir(parents=True, exist_ok=True)
-        roots = build_fixture_datasets(codb, temp_root / "datasets")
+        roots = build_fixture_datasets(opening_explorer, temp_root / "datasets")
     else:
         data_dir = (args.data_dir or REPO / "data").resolve()
         roots = {c: data_dir / "releases" / c for c in corpus.COLLECTIONS}
         for collection, root in roots.items():
             if not root.is_dir():
                 raise RuntimeError(f"real release directory is missing: {root}")
-            report = subprocess.run([str(codb), "verify", "--dataset", str(root), "--deep"],
+            report = subprocess.run([str(opening_explorer), "verify", "--dataset", str(root), "--deep"],
                                      capture_output=True, text=True)
             if report.returncode:
                 raise RuntimeError(f"real release failed deep verification ({collection}): "
@@ -421,12 +423,12 @@ def main() -> int:
     corrupt_volume = f"{project}-corrupt"
     incomplete_volume = f"{project}-incomplete"
     base_compose = ["docker", "compose", "--project-name", project, "--env-file", str(env_file),
-                    "-f", str(REPO / "compose.codb.yaml")]
+                    "-f", str(REPO / "compose.yaml")]
     client_started = False
     compose_started = False
     try:
         if not args.skip_build:
-            run([*base_compose, "build", "codb"], timeout=1800)
+            run([*base_compose, "build", "opening-explorer"], timeout=1800)
         run(["docker", "pull", CLIENT_IMAGE], timeout=600)
         if host_bind_mounts_available(roots):
             compose = base_compose
@@ -455,7 +457,7 @@ def main() -> int:
         selected_data_dir = (args.data_dir or default_data_dir).resolve()
         if args.real and selected_data_dir == default_data_dir:
             expected = {"masters-otb": 3902, "elite-online": 30390}
-        first = check_live_api(codb, roots, client, expected, enable_game_retrieval)
+        first = check_live_api(opening_explorer, roots, client, expected, enable_game_retrieval)
         check_bad_starts({"masters-otb": masters_volume, "elite-online": elite_volume,
                           "corrupt": corrupt_volume, "incomplete": incomplete_volume},
                          roots, temp_root / "invalid-datasets")
@@ -535,23 +537,23 @@ def main() -> int:
         assert inspect_ports.stdout.strip() in ("null", "{}"), inspect_ports.stdout
 
         restart_started = time.monotonic()
-        run([*compose, "restart", "codb"], timeout=180)
+        run([*compose, "restart", "opening-explorer"], timeout=180)
         wait_healthy(project, container)
         restart_time_to_healthy_seconds = time.monotonic() - restart_started
-        second = check_live_api(codb, roots, client, expected, enable_game_retrieval)
+        second = check_live_api(opening_explorer, roots, client, expected, enable_game_retrieval)
         assert first == second, (first, second)
 
         # Deep-verify the mounted read-only snapshots from inside the restarted service container.
         for collection in corpus.COLLECTIONS:
             report = subprocess.run(
-                ["docker", "exec", container, "/usr/local/bin/codb", "verify",
+                ["docker", "exec", container, "/usr/local/bin/opening-explorer", "verify",
                  "--dataset", f"/datasets/{collection}", "--deep"],
                 capture_output=True, text=True,
             )
             assert report.returncode == 0, (collection, report.stdout, report.stderr)
 
         run([*compose, "stop", "-t", "30"], timeout=60)
-        logs = run([*compose, "logs", "codb"]).stdout
+        logs = run([*compose, "logs", "opening-explorer"]).stdout
         graceful_shutdown = "shutdown completed gracefully" in logs.lower()
         assert graceful_shutdown, logs
         run(["docker", "rm", "-f", client], timeout=60)
@@ -562,8 +564,8 @@ def main() -> int:
         report = {
             "schema_version": 1,
             "mode": "real" if args.real else "fixtures",
-            "service": "codb",
-            "api_address": "http://codb:8080",
+            "service": "opening-explorer",
+            "api_address": "http://opening-explorer:8080",
             "network": network,
             "independent_client_image": CLIENT_IMAGE,
             "collections": {c: first[c] for c in corpus.COLLECTIONS},

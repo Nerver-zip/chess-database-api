@@ -1,0 +1,14 @@
+{
+  "name": "admin_reload_ok",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "status": "ok",
+    "reloaded_collections": [
+      "masters-otb (version: codb-masters-otb-1794843996993859518-86876-b06e4e664a746cdc-cpi-d40)",
+      "elite-online (version: codb-elite-online-1794843905253598354-86620-d620d7652db90d95-cpi-d30)"
+    ]
+  }
+}

@@ -1,10 +1,17 @@
 # Changelog
 
-All notable changes to `chess-openings-db` are documented in this file. The project adheres to [Semantic Versioning](https://semver.org/).
+All notable changes to `opening-explorer-api` are documented in this file. The project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
 ## [Unreleased]
+
+### Changed
+- **Opening Explorer API consolidation (Draft PR, stacked on PR #7):**
+  - `opening-explorer-api` is the single public identity: CLI `opening-explorer`, crates `opening-explorer-*`, `OPENING_EXPLORER_*` environment variables (legacy `CODB_*` accepted as deprecated fallbacks), renamed compose files and image. Binary magics, game IDs, CPI keys, the `codb-` build-identifier prefix, HTTP routes, and historical evidence are unchanged. See [docs/MIGRATION_FROM_CODB.md](docs/MIGRATION_FROM_CODB.md).
+  - The root README is a first-visit landing page; the API contract moved to [docs/API_REFERENCE.md](docs/API_REFERENCE.md), with getting-started, use-case, and dataset-release guides and runnable `examples/`.
+  - Backward-compatible API fixes: additive `cpi_depth_plies` on position responses; `POST /v1/admin/reload` is no longer cut off by the 15 s read timeout; framework rejections (bad query, 404, 405, timeout) use the standard error envelope; clearer illegal-move and missing-collection messages.
+- **Dataset distribution tooling:** `opening-explorer export-pgn` (deterministic streaming PGN export), `scripts/release_assets.py` (prepare, split, verify, reconstruct, install, dry-run-by-default upload), an independent python-chess verifier, a manually triggered `publish-dataset.yml` workflow that only validates and publishes a reviewed draft release, and a distribution gate (`releases/distribution_clearance.json`) that blocks publication until written clearance is recorded. Assets are prepared locally and not published.
 
 ### Added
 - **PR #7: Local Gigabase source qualification and evaluation (Draft PR):**
@@ -39,6 +46,8 @@ All notable changes to `chess-openings-db` are documented in this file. The proj
   - Atomic immutable release publication, per-process RSS measurement, and real container-to-container HTTP integration evidence for both collections.
 
 ### Changed
+- **Project renamed to `opening-explorer-api`:** the repository, documentation, and Docker image (`opening-explorer-api:local`) use the new name. The CLI binary is `opening-explorer`; the Cargo packages are `opening-explorer-{core,ingest,curate,storage,index,api,cli}`; Compose files are `compose.yaml`, `compose.named-volume.yaml`, and `compose.debug.yaml`; example settings are `.env.example` and `.env.gigabase.example`. The legacy `CODB_*` environment variables remain accepted as deprecated fallbacks. See [MIGRATION_FROM_CODB.md](docs/MIGRATION_FROM_CODB.md).
+- **Immutable identifiers are unchanged:** generated build and release IDs keep the `codb-` prefix; the `CGB3`, `CODB_CPI`, and `CODB_RUN` binary magics, game IDs, CPI keys, HTTP routes, and error types are unchanged; historical benchmark and release evidence is not rewritten.
 - **Curation policy revisions `2026.11-r3` / `2026.11-r2`:** Masters r3 applies exact event-level verified OTB tournament IDs from the checked-in audit and excludes verified online and unresolved events; it retains termination and historical provenance filters. Elite r2 rejects explicit aborted, abandoned, no-contest, unplayed, unterminated, and rules-infraction `Termination` values alongside its casual and bullet exclusions. Unknown termination values remain eligible. `ProvisionalRating` cannot be inferred because standard Lichess PGNs expose no provisional marker.
 - Policy rejections are reported by stable category (`PolicyRejectionReason::category`).
 

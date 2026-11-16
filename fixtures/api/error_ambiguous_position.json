@@ -1,0 +1,13 @@
+{
+  "name": "error_ambiguous_position",
+  "status": 400,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "error": {
+      "code": "ambiguous_position",
+      "message": "Ambiguous position representation. Specify either 'fen' or 'moves', not both."
+    }
+  }
+}

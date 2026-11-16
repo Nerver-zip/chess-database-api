@@ -127,7 +127,7 @@ def make_http_request(
 
 
 def run_benchmark(bin_path: str, fixture_pgn: str, output_json: str | None = None) -> dict:
-    temp_dir = tempfile.mkdtemp(prefix="codb_http_bench_")
+    temp_dir = tempfile.mkdtemp(prefix="opening_explorer_http_bench_")
     dataset_dir = os.path.join(temp_dir, "masters_dataset")
     port = 18888
     host = "127.0.0.1"
@@ -135,7 +135,7 @@ def run_benchmark(bin_path: str, fixture_pgn: str, output_json: str | None = Non
     admin_token = "bench-admin-secret"
 
     print("========================================================================")
-    print("      CODB Opening Explorer HTTP API Production Benchmark Suite         ")
+    print("      Opening Explorer HTTP API Production Benchmark Suite         ")
     print("========================================================================")
 
     # 1. Build persistent CGB3 dataset and CPI index
@@ -155,7 +155,7 @@ def run_benchmark(bin_path: str, fixture_pgn: str, output_json: str | None = Non
     print("  Dataset and CPI index initialized successfully.")
 
     # 2. Launch HTTP server and measure startup time & RSS
-    print(f"[2/6] Starting codb serve on {host}:{port} (reader pool size: {reader_pool_size})...")
+    print(f"[2/6] Starting opening-explorer serve on {host}:{port} (reader pool size: {reader_pool_size})...")
     t_start = time.perf_counter()
     proc = subprocess.Popen(
         [
@@ -426,9 +426,9 @@ def run_benchmark(bin_path: str, fixture_pgn: str, output_json: str | None = Non
 
 if __name__ == "__main__":
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    target_bin = os.path.join(repo_root, "target", "release", "codb")
+    target_bin = os.path.join(repo_root, "target", "release", "opening-explorer")
     if not os.path.exists(target_bin):
-        target_bin = os.path.join(repo_root, "target", "debug", "codb")
+        target_bin = os.path.join(repo_root, "target", "debug", "opening-explorer")
 
     fixture = os.path.join(repo_root, "fixtures", "stage_a_validation.pgn")
     out_file = os.path.join(repo_root, "benchmarks", "results", "http_api_benchmark.json")

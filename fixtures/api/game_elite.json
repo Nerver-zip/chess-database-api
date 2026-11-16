@@ -1,0 +1,10 @@
+{
+  "name": "game_elite",
+  "status": 200,
+  "headers": {
+    "content-type": "application/x-chess-pgn; charset=utf-8",
+    "cache-control": "public, max-age=3600",
+    "etag": "\"elite-online-codb-elite-online-1794843905253598354-86620-d620d7652db90d95-cpi-d30-6138990832783294\""
+  },
+  "text": "[Event \"Edge Case En Passant Stage A\"]\n[Site \"Venue 4\"]\n[Date \"2032.001.15\"]\n[Round \"9\"]\n[White \"PawnBreaker\"]\n[Black \"PawnShield\"]\n[Result \"1/2-1/2\"]\n[WhiteElo \"2359\"]\n[BlackElo \"2303\"]\n[ECO \"B12\"]\n\n1. e4 c6 2. e5 d5 3. exd6 exd6 4. d4 d5 5. c4 Nf6 6. Nc3 Be7 7. Nf3 O-O 8. Be2 dxc4 9. Bxc4 Nbd7 10. O-O Nb6 1/2-1/2\n"
+}

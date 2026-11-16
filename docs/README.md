@@ -1,60 +1,47 @@
 ---
-summary: "Navigable index of all canonical engineering documentation and architectural records."
-read_when: "Starting work, searching for authoritative specifications, or exploring project documentation."
+summary: "Navigable index of Opening Explorer API documentation, grouped by reader need."
+read_when: "Starting work, looking for a specification, or deciding which document answers a question."
 status: current
 ---
 
-# Documentation Index (`chess-openings-db`)
+# Documentation Index
 
-Welcome to the canonical technical documentation for `chess-openings-db`. Always read the source code when changing behavior; this index covers current production contracts, maintained workflows, and historical decision records.
+Start with the [project README](../README.md). Always read the source code when changing behavior; this index separates the documents users need from the ones contributors and researchers need.
 
----
+## 1. Use the service
 
-## 1. System Architecture & Core Concepts
+- [Getting Started](GETTING_STARTED.md): build the CLI, create a sample dataset, serve it, and make a first query.
+- [API Reference](API_REFERENCE.md): endpoints, parameters, response fields, errors, HTTP semantics, configuration, and how to interpret statistics.
+- [Use Cases](USE_CASES.md): integration patterns for apps, collection comparison, analysis pipelines, and research downloads. Runnable code is in [`examples/`](../examples/).
 
-- [System Architecture](ARCHITECTURE.md) — Comprehensive end-to-end architecture across all seven crates (`core`, `ingest`, `curate`, `storage`, `index`, `api`, `cli`), data flow, sharding layout, advisory locking, and memory bounds.
-- [Docker Deployment](DOCKER_DEPLOYMENT.md) — Provision verified releases, run the API with read-only mounts, and connect another container over a shared network.
-- [Corpus Build & Release Procedure](CORPUS_BUILD.md) — Step-by-step reproducible workflow from the pinned source catalog through checksum-verified acquisition, curated builds, CPI indexing, deep verification, release packaging, `codb serve`, and HTTP validation; also documents local-only `.7z` extraction and its release restrictions.
-- [Data Contracts](DATA_CONTRACTS.md) — Normative binary format specifications for CGB3 containers (`shard_XXXX.cgb3`), global binary search index (`games.idx`), Compact Position Index (`positions.cpi`), domain models, and the current HTTP API payload schema.
-- [Corpus & Deduplication Policy](CORPUS_AND_DEDUPLICATION.md) — Rules governing collection segregation (`masters-otb` vs `elite-online`), rating isolation, speed category filtering, multi-key deduplication, prefix-supersession, accounting reconciliation invariants, and the opt-in Gigabase local-evaluation gates.
+## 2. Datasets and licensing
 
----
+- [Dataset Releases](DATASET_RELEASES.md): the Masters OTB indexed dataset and filtered PGN, asset naming, verification, installation, versioning, and the maintainer publication procedure.
+- [Licensing and Attribution](LICENSING.md): software licenses, dataset licenses, required acknowledgments, modifications made, and open rights questions.
+- [Corpus and Deduplication Policy](CORPUS_AND_DEDUPLICATION.md): collection segregation, rating isolation, selection policies, deduplication, and accounting invariants.
 
-## 2. Quality, Testing & Performance
+## 3. Deploy
 
-- [QA Strategy](QA_STRATEGY.md) — Integrity testing methodology, crash recovery simulations, reader snapshot isolation, staging fault injection, clippy linting rules, and verification gates.
-- [Benchmarks & Reproduction Guide](BENCHMARKS.md) — Authoritative benchmark methodology, production CPI baseline matrix, empirical dataset checksums, step-by-step reproduction instructions, and Heaps' Law scaling projections.
+- [Docker Deployment](DOCKER_DEPLOYMENT.md): provision releases, run the API with read-only mounts, resource bounds, rollback, and the restricted mode.
+- [Migration from CODB](MIGRATION_FROM_CODB.md): legacy-to-current names for the binary, environment variables, compose files, and image.
 
----
+## 4. Build and develop
 
-## 3. Governance, Licensing & Legal
+- [Corpus Build and Release Procedure](CORPUS_BUILD.md): reproducible acquisition, curation, indexing, verification, packaging, and promotion.
+- [QA Strategy](QA_STRATEGY.md): integrity testing, crash recovery, snapshot isolation, and verification gates.
+- [Contributing](../CONTRIBUTING.md), [Agent Development Guide](../AGENTS.md), [Changelog](../CHANGELOG.md).
 
-- [Licensing & Data Provenance](LICENSING.md) — Codebase dual-licensing (`LICENSE-MIT` / `LICENSE-APACHE`), clean-room zero-AGPL boundary, approved Lichess sources, local-only Gigabase rights limitations, and redistribution requirements.
-- [Contributor Guidelines](../CONTRIBUTING.md) — Contribution workflow, code formatting, PR standards, and local verification.
-- [Delivery Changelog](../CHANGELOG.md) — Versioned history of milestone deliverables and release capabilities.
+## 5. Technical architecture
 
----
+- [Architecture](ARCHITECTURE.md): the seven crates, data flow, sharding, locking, and memory bounds.
+- [Data Contracts](DATA_CONTRACTS.md): normative binary formats (CGB3, `games.idx`, CPI v2) and domain models.
+- [Architecture Decision Records](adr/README.md): [ADR-0001](adr/0001-initial-architecture.md), [ADR-0002](adr/0002-bounded-ingestion-and-persistent-cgb3-archive.md), [ADR-0003](adr/0003-production-cpi-index.md), [ADR-0004](adr/0004-opening-explorer-http-api.md).
+- [Decisions and Open Questions](DECISIONS_AND_OPEN_QUESTIONS.md) and [Roadmap](ROADMAP.md).
 
-## 4. Architectural Decisions & Planning
+## 6. Benchmarks and historical research
 
-- [Roadmap & Milestones](ROADMAP.md) — Progress tracker from Stage A feasibility through persistent CGB3 archives, production CPI v2 index, and the Dockerized standalone API service.
-- [Decisions & Open Questions](DECISIONS_AND_OPEN_QUESTIONS.md) — Record of accepted technical trade-offs, open design questions for the upcoming HTTP service, and historical research classifications.
-- [Architecture Decision Records (ADRs)](adr/README.md) — Formal register of architectural decisions:
-  - [ADR-0001: Initial Architecture Decisions](adr/0001-initial-architecture.md)
-  - [ADR-0002: Bounded-Memory Ingestion, CGB3 Sharding & Global Lookup](adr/0002-bounded-ingestion-and-persistent-cgb3-archive.md)
-  - [ADR-0003: Production CPI Index, External Sorting & Explorer Queries](adr/0003-production-cpi-index.md)
-  - [ADR-0004: Production Opening Explorer HTTP API](adr/0004-opening-explorer-http-api.md)
+Preserved for reproducibility. Ordinary users do not need these.
 
----
-
-## 5. Historical Research Documents
-
-Initial feasibility studies and exploratory research deliverables preserved for historical provenance and reproducibility:
-- [Storage Feasibility Report](research/feasibility-report.md) — Empirical feasibility calculations and Heaps' Law parameter fitting.
-- [Storage Options Trade-Off Study](research/storage-options.md) — Comparative evaluation of SQLite, RocksDB, flat binary blocks, and CGB containers.
-- [Source Inventory & Evaluation](research/source-inventory.md) — Early survey and legal classification of prospective chess game data sources.
-- [Source Licensing Architecture](research/source-licenses.md) — Original legal architecture and CC BY-SA / CC0 segregation plan.
-- [Corpus Inclusion Policies (Research)](research/corpus-policy.md) — Early draft of collection policies (superseded by [CORPUS_AND_DEDUPLICATION.md](CORPUS_AND_DEDUPLICATION.md)).
-- [Deduplication & Collision Study](research/deduplication.md) — Research notes on multi-key chess identity (superseded by [CORPUS_AND_DEDUPLICATION.md](CORPUS_AND_DEDUPLICATION.md)).
-- [Benchmark Reproduction (Research)](research/benchmark-reproduction.md) — Initial PR-01 reproduction notes (superseded by [BENCHMARKS.md](BENCHMARKS.md)).
-- [API Contract (Research)](research/api-contract.md) — Preliminary API draft (superseded by [DATA_CONTRACTS.md](DATA_CONTRACTS.md)).
+- [Benchmarks and Reproduction Guide](BENCHMARKS.md): methodology, production CPI baselines, and reproduction steps.
+- Historical research (status `historical` or `reference`, never a production specification): [storage feasibility](research/feasibility-report.md), [storage options](research/storage-options.md), [source inventory](research/source-inventory.md), [source licensing](research/source-licenses.md), [corpus policy](research/corpus-policy.md), [deduplication](research/deduplication.md), [benchmark reproduction](research/benchmark-reproduction.md), [API contract draft](research/api-contract.md).
+- Release evidence for the active Masters corpus: [`benchmarks/gigabase/FINAL_REPORT.md`](../benchmarks/gigabase/FINAL_REPORT.md).

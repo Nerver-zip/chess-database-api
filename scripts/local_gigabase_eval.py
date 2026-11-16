@@ -233,40 +233,40 @@ def load_registration(path: Path) -> tuple[dict[str, Any], Path]:
     return registration, pgn
 
 
-def find_codb(value: str | None) -> Path:
-    candidate = Path(value) if value else REPO_ROOT / "target" / "release" / "codb"
+def find_opening_explorer(value: str | None) -> Path:
+    candidate = Path(value) if value else REPO_ROOT / "target" / "release" / "opening-explorer"
     if candidate.is_file() and os.access(candidate, os.X_OK):
         return candidate.resolve()
-    located = shutil.which(value or "codb")
+    located = shutil.which(value or "opening-explorer")
     if located:
         return Path(located).resolve()
-    raise EvaluationError("codb executable not found; build it or pass --codb")
+    raise EvaluationError("opening-explorer executable not found; build it or pass --opening-explorer")
 
 
-def run_codb(codb: Path, arguments: list[str]) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run([str(codb), *arguments], capture_output=True, text=True)
+def run_opening_explorer(opening_explorer: Path, arguments: list[str]) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run([str(opening_explorer), *arguments], capture_output=True, text=True)
     if result.returncode != 0:
         detail = result.stderr.strip() or result.stdout.strip()
-        raise EvaluationError(f"codb {' '.join(arguments)} failed: {detail}")
+        raise EvaluationError(f"opening-explorer {' '.join(arguments)} failed: {detail}")
     return result
 
 
-def run_measured_codb(
-    codb: Path,
+def run_measured_opening_explorer(
+    opening_explorer: Path,
     arguments: list[str],
     *,
     log_path: Path,
     environment: dict[str, str],
     sample_paths: list[Path],
 ) -> tuple[subprocess.CompletedProcess[str], dict[str, Any]]:
-    """Run one production codb stage and retain process and workspace measurements."""
-    command = [str(codb), *arguments]
+    """Run one production opening-explorer stage and retain process and workspace measurements."""
+    command = [str(opening_explorer), *arguments]
     metrics = corpus.run_measured(command, log_path, environment, sample_paths)
     output = log_path.read_text(encoding="utf-8", errors="replace")
     result = subprocess.CompletedProcess(command, metrics["returncode"], output, "")
     if result.returncode != 0:
         detail = output.strip()[-4000:] or "no command output"
-        raise EvaluationError(f"codb {' '.join(arguments)} failed: {detail}")
+        raise EvaluationError(f"opening-explorer {' '.join(arguments)} failed: {detail}")
     return result, metrics
 
 
@@ -388,7 +388,7 @@ def _validate_source_archive_metadata(
         "sha256": registration["member_sha256_local"],
         "size_bytes": registration["member_size_bytes"],
         "license": _source_license_label(registration),
-        # CODB verified the manifest-pinned local digest; this is not a publisher checksum.
+        # Opening Explorer verified the manifest-pinned local digest; this is not a publisher checksum.
         "checksum_verified": True,
     }
     if any(source.get(key) != value for key, value in expected.items()):
@@ -442,7 +442,7 @@ def build_evaluation(args: argparse.Namespace) -> dict[str, Any]:
     work_root = _work_path(Path(args.work_root), "evaluation workspace")
     output_root = _work_path(Path(args.output_root), "candidate dataset root")
     registration, pgn = load_registration(Path(args.registration))
-    codb = find_codb(args.codb)
+    opening_explorer = find_opening_explorer(args.opening_explorer)
     if output_root.exists():
         raise EvaluationError(f"candidate output already exists: {output_root}")
     output_root.parent.mkdir(parents=True, exist_ok=True)
@@ -470,26 +470,26 @@ def build_evaluation(args: argparse.Namespace) -> dict[str, Any]:
     command_environment = os.environ.copy()
     command_environment["TMPDIR"] = str(scratch_dir)
     _write_json_new(source_manifest_path, _local_source_manifest(registration, pgn))
-    _, build_metrics = run_measured_codb(codb, [
+    _, build_metrics = run_measured_opening_explorer(opening_explorer, [
         "build", "--manifest", str(source_manifest_path), "--collection", COLLECTION,
         "--gigabase-source-policy", str(POLICY_PATH), "--output", str(output_root),
         "--scratch-dir", str(scratch_dir), "--report-json", str(build_report_path),
     ], log_path=work_root / "build.log", environment=command_environment,
        sample_paths=[scratch_dir, output_root])
     resource_metrics["steps"]["build"] = build_metrics
-    index_result, index_metrics = run_measured_codb(codb, [
+    index_result, index_metrics = run_measured_opening_explorer(opening_explorer, [
         "build-index", "--dataset", str(output_root), "--collection", COLLECTION,
         "--depth-plies", str(args.depth_plies), "--memory-limit-mib", str(args.memory_limit_mib),
         "--json",
     ], log_path=work_root / "build-index.log", environment=command_environment,
        sample_paths=[scratch_dir, output_root])
     resource_metrics["steps"]["build_index"] = index_metrics
-    index_report = read_json_output(index_result, "codb build-index")
+    index_report = read_json_output(index_result, "opening-explorer build-index")
     index_report_path.write_text(json.dumps(index_report, indent=2, sort_keys=True) + "\n")
     resource_metrics["index_memory_limit_mib"] = args.memory_limit_mib
     _write_json_new(resource_metrics_path, resource_metrics)
-    run_codb(codb, ["verify", "--dataset", str(output_root), "--deep"])
-    run_codb(codb, ["report", "--dataset", str(output_root), "--output", str(quality_report_path)])
+    run_opening_explorer(opening_explorer, ["verify", "--dataset", str(output_root), "--deep"])
+    run_opening_explorer(opening_explorer, ["report", "--dataset", str(output_root), "--output", str(quality_report_path)])
 
     build_report = json.loads(build_report_path.read_text(encoding="utf-8"))
     if not build_report.get("is_reconciled") or not build_report.get("retained_matches_accepted"):
@@ -582,17 +582,17 @@ def build_evaluation(args: argparse.Namespace) -> dict[str, Any]:
     problem = corpus.verify_release_files(output_root)
     if problem:
         raise EvaluationError(f"evaluation artifacts failed checksum verification: {problem}")
-    run_codb(codb, ["verify", "--dataset", str(output_root), "--deep"])
+    run_opening_explorer(opening_explorer, ["verify", "--dataset", str(output_root), "--deep"])
     query = read_json_output(
-        run_codb(codb, ["query", "--dataset", str(output_root), "--moves", "e4", "--json"]),
-        "codb query",
+        run_opening_explorer(opening_explorer, ["query", "--dataset", str(output_root), "--moves", "e4", "--json"]),
+        "opening-explorer query",
     )
     if not isinstance(query.get("total_games"), int):
         raise EvaluationError("evaluation snapshot query returned no statistics")
     return release
 
 
-def verify_evaluation_release(root: Path, codb: Path) -> dict[str, Any]:
+def verify_evaluation_release(root: Path, opening_explorer: Path) -> dict[str, Any]:
     problem = corpus.verify_release_files(root)
     if problem:
         raise EvaluationError(f"release artifact verification failed: {problem}")
@@ -614,10 +614,10 @@ def verify_evaluation_release(root: Path, codb: Path) -> dict[str, Any]:
         raise EvaluationError("package qualification policy checksum mismatch")
     if not (snapshot / "RELEASE" / "DATASET_LICENSE.txt").is_file():
         raise EvaluationError("package is missing its local-evaluation license notice")
-    run_codb(codb, ["verify", "--dataset", str(root), "--deep"])
+    run_opening_explorer(opening_explorer, ["verify", "--dataset", str(root), "--deep"])
     query = read_json_output(
-        run_codb(codb, ["query", "--dataset", str(root), "--moves", "e4", "--json"]),
-        "codb query",
+        run_opening_explorer(opening_explorer, ["query", "--dataset", str(root), "--moves", "e4", "--json"]),
+        "opening-explorer query",
     )
     if not isinstance(query.get("total_games"), int) or query["total_games"] <= 0:
         raise EvaluationError("package offline query returned no opening statistics")
@@ -646,7 +646,7 @@ def _add_tar_member(tf: tarfile.TarFile, path: Path, arcname: str) -> None:
 def package_evaluation(
     root: Path,
     output_dir: Path,
-    codb: Path,
+    opening_explorer: Path,
     registration_path: Path | None = None,
 ) -> Path:
     root = _work_path(root, "candidate dataset root", must_exist=True)
@@ -698,7 +698,7 @@ def package_evaluation(
     release_path.write_text(
         json.dumps(release_metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
-    release = verify_evaluation_release(root, codb)
+    release = verify_evaluation_release(root, opening_explorer)
     output_dir.mkdir(parents=True, exist_ok=True)
     archive = output_dir / f"{COLLECTION}-{release['dataset_version']}-local-evaluation.tar"
     if archive.exists() or archive.is_symlink():
@@ -732,7 +732,7 @@ def package_evaluation(
     checksum = _sha256(archive)
     checksum_path.write_text(f"{checksum}  {archive.name}\n", encoding="utf-8")
     try:
-        verify_evaluation_package(archive, codb)
+        verify_evaluation_package(archive, opening_explorer)
     except Exception:
         archive.unlink(missing_ok=True)
         checksum_path.unlink(missing_ok=True)
@@ -740,12 +740,12 @@ def package_evaluation(
     return archive
 
 
-def verify_evaluation_package(archive: Path, codb: Path) -> dict[str, Any]:
+def verify_evaluation_package(archive: Path, opening_explorer: Path) -> dict[str, Any]:
     archive = _regular_file(archive, "evaluation package")
     with tempfile.TemporaryDirectory(prefix="gigabase-package-verify-", dir=archive.parent) as name:
         destination = Path(name)
         root = corpus.extract_release_archive(archive, destination, COLLECTION)
-        release = verify_evaluation_release(root, codb)
+        release = verify_evaluation_release(root, opening_explorer)
         with tarfile.open(archive, "r") as tf:
             for member in tf.getmembers():
                 lower = member.name.lower()
@@ -756,19 +756,19 @@ def verify_evaluation_package(archive: Path, codb: Path) -> dict[str, Any]:
         return release
 
 
-def _publish(codb: Path, candidate: Path, target: Path) -> str:
-    result = run_codb(codb, [
+def _publish(opening_explorer: Path, candidate: Path, target: Path) -> str:
+    result = run_opening_explorer(opening_explorer, [
         "publish", "--candidate", str(candidate), "--target", str(target),
         "--collection", COLLECTION,
     ])
     del result
     current = corpus.current_version_dir(target)
-    run_codb(codb, ["verify", "--dataset", str(target), "--deep"])
+    run_opening_explorer(opening_explorer, ["verify", "--dataset", str(target), "--deep"])
     return current.name
 
 
 def bootstrap_package(
-    archive: Path, target: Path, codb: Path, previous_root: Path | None = None
+    archive: Path, target: Path, opening_explorer: Path, previous_root: Path | None = None
 ) -> dict[str, Any]:
     target = _work_path(target, "deployment root")
     archive = _regular_file(archive, "evaluation package")
@@ -782,17 +782,17 @@ def bootstrap_package(
             previous_snapshot = corpus.current_version_dir(previous_root)
             seed = staging_parent / previous_snapshot.name
             shutil.copytree(previous_snapshot, seed, symlinks=True)
-            _publish(codb, seed, target)
+            _publish(opening_explorer, seed, target)
 
         extracted = staging_parent / "package"
         extracted.mkdir()
         root = corpus.extract_release_archive(archive, extracted, COLLECTION)
-        release = verify_evaluation_release(root, codb)
-        active = _publish(codb, root, target)
+        release = verify_evaluation_release(root, opening_explorer)
+        active = _publish(opening_explorer, root, target)
         if active != release["dataset_version"]:
             raise EvaluationError("bootstrap published an unexpected dataset version")
         query = read_json_output(
-            run_codb(codb, ["query", "--dataset", str(target), "--moves", "e4", "--json"]),
+            run_opening_explorer(opening_explorer, ["query", "--dataset", str(target), "--moves", "e4", "--json"]),
             "offline bootstrap query",
         )
         return {
@@ -808,7 +808,7 @@ def bootstrap_package(
         shutil.rmtree(staging_parent, ignore_errors=True)
 
 
-def rollback(target: Path, version: str, codb: Path) -> dict[str, Any]:
+def rollback(target: Path, version: str, opening_explorer: Path) -> dict[str, Any]:
     target = _work_path(target, "deployment root", must_exist=True)
     if not version or version.startswith(".") or Path(version).name != version:
         raise EvaluationError("rollback version must be a safe immutable version directory name")
@@ -822,7 +822,7 @@ def rollback(target: Path, version: str, codb: Path) -> dict[str, Any]:
     try:
         candidate = staging / version
         shutil.copytree(snapshot, candidate, symlinks=True)
-        active = _publish(codb, candidate, target)
+        active = _publish(opening_explorer, candidate, target)
         if active != version:
             raise EvaluationError("rollback did not activate the requested immutable version")
         return {
@@ -835,7 +835,7 @@ def rollback(target: Path, version: str, codb: Path) -> dict[str, Any]:
 
 
 def _add_shared_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--codb", help="codb executable (default: target/release/codb)")
+    parser.add_argument("--opening-explorer", help="opening-explorer executable (default: target/release/opening-explorer)")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -867,14 +867,14 @@ def build_parser() -> argparse.ArgumentParser:
                          help="refresh source evidence and license notice from a registration")
     _add_shared_args(package)
     package.set_defaults(function=lambda args: package_evaluation(
-        args.root, args.output_dir, find_codb(args.codb), args.registration
+        args.root, args.output_dir, find_opening_explorer(args.opening_explorer), args.registration
     ))
 
     verify = subparsers.add_parser("verify-package", help="extract, verify, and query a package")
     verify.add_argument("--package", required=True, type=Path)
     _add_shared_args(verify)
     verify.set_defaults(function=lambda args: verify_evaluation_package(
-        args.package, find_codb(args.codb)
+        args.package, find_opening_explorer(args.opening_explorer)
     ))
 
     bootstrap = subparsers.add_parser("bootstrap", help="install into an isolated local root")
@@ -884,7 +884,7 @@ def build_parser() -> argparse.ArgumentParser:
                            help="optional old Masters root to seed for rollback testing")
     _add_shared_args(bootstrap)
     bootstrap.set_defaults(function=lambda args: bootstrap_package(
-        args.package, args.target, find_codb(args.codb), args.previous_root
+        args.package, args.target, find_opening_explorer(args.opening_explorer), args.previous_root
     ))
 
     rollback_cmd = subparsers.add_parser("rollback", help="atomically restore an immutable version")
@@ -892,7 +892,7 @@ def build_parser() -> argparse.ArgumentParser:
     rollback_cmd.add_argument("--version", required=True, help="immutable version directory ID")
     _add_shared_args(rollback_cmd)
     rollback_cmd.set_defaults(function=lambda args: rollback(
-        args.target, args.version, find_codb(args.codb)
+        args.target, args.version, find_opening_explorer(args.opening_explorer)
     ))
     return parser
 

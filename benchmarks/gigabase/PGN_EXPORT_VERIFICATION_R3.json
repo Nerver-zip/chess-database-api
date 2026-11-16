@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "verifier": "scripts/release_pgn_verify.py",
+  "independence": "CGB3 and sidecar decoded here from the on-disk format; PGN parsed here with python-chess for the sampled full check; no Rust export or DatasetReader code is used",
+  "result": "PASS",
+  "failed_checks": [],
+  "coverage": {
+    "headers_all_games": true,
+    "full_legality_sample_every": 16,
+    "full_checked_games": 205277,
+    "probes_full_replay": false
+  },
+  "pgn": {
+    "file_name": "masters-otb-r3-filtered.pgn.zst",
+    "compressed_bytes": 502176367,
+    "compressed_sha256": "4134599e1d6da75dbe00ce162e6c1cb90a0092e047bdfdfe5fa4662c36b306ff",
+    "plain_sha256": "54cf25a0d805f10d9ca6c403403041e427daed33bcfb6c39eac535859fd4b0f4",
+    "games": 3284429,
+    "expected_games": 3284429
+  },
+  "canonical": {
+    "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+    "shards": 7,
+    "games": 3284429,
+    "sidecar_entries": 3284429,
+    "sidecar_sha256": "7d11330a704746306d53afcb39bcc74ccf95c7a11cf55346374dd05188b45cbc"
+  },
+  "checks": {
+    "games_header_checked": 3284429,
+    "games_full_checked": 205277,
+    "games_with_parse_or_tag_problems": 0,
+    "games_header_mismatch": 0,
+    "games_sidecar_tag_mismatch": 0,
+    "games_move_mismatch_in_full_sample": 0,
+    "header_check_scope": "every game: all PGN-visible metadata, sidecar tags, Result token, PlyCount, and SAN token count against the canonical ply count",
+    "full_check_scope": "sampled games (every Nth): python-chess legality of each mainline move, python-chess error count, and the packed CompactMove mainline compared byte-for-byte with CGB3",
+    "problem_examples": [],
+    "mismatch_examples": []
+  },
+  "probes": {
+    "count": 0,
+    "mismatches": 0,
+    "results": []
+  },
+  "timing_seconds": {
+    "sidecar_load": 39.1,
+    "total": 1014.6
+  },
+  "environment": {
+    "python": "3.13.5",
+    "python_chess": "1.11.2",
+    "zstandard": "0.25.0",
+    "cpu_count": 4
+  }
+}

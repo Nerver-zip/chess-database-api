@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Reproducible corpus acquisition, build, release, and serving orchestration.
 
-This tool is a thin orchestration layer around the existing `codb` Rust CLI. It
+This tool is a thin orchestration layer around the existing `opening-explorer` Rust CLI. It
 never reimplements ingestion, curation, deduplication, indexing, or dataset
-publication: it pins and verifies source archives, invokes `codb build`,
-`codb build-index`, `codb verify --deep`, and `codb report`, records release
-provenance, packages releases, and drives `codb serve`.
+publication: it pins and verifies source archives, invokes `opening-explorer build`,
+`opening-explorer build-index`, `opening-explorer verify --deep`, and `opening-explorer report`, records release
+provenance, packages releases, and drives `opening-explorer serve`.
 
 The normal acquisition and release workflow uses only the Python standard library. The
 opt-in local 7z extraction command requires the pinned py7zr dependency in
@@ -51,7 +51,12 @@ CATALOG_SCHEMA_VERSION = 1
 CHUNK = 1 << 20
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 CONFIDENCE_LEVELS = ("high", "medium", "low")
-USER_AGENT = "chess-openings-db-corpus/1 (+https://github.com/Nerver-zip/chess-openings-db)"
+USER_AGENT = "opening-explorer-api-corpus/1 (+https://github.com/Nerver-zip/opening-explorer-api)"
+
+
+def env_setting(name: str) -> str | None:
+    """Returns OPENING_EXPLORER_<name>, falling back to the deprecated CODB_<name> alias."""
+    return os.environ.get(f"OPENING_EXPLORER_{name}") or os.environ.get(f"CODB_{name}") or None
 
 
 class CorpusError(Exception):
@@ -209,7 +214,7 @@ def extract_local_7z(
                     f"{max_expansion_ratio}:1"
                 )
 
-            with tempfile.TemporaryDirectory(prefix=".codb-7z-", dir=output_parent) as temp_name:
+            with tempfile.TemporaryDirectory(prefix=".opening-explorer-7z-", dir=output_parent) as temp_name:
                 temp_dir = Path(temp_name)
                 seven_zip.extract(path=temp_dir, targets=[member.filename])
                 extracted_path = temp_dir / member.filename
@@ -316,7 +321,7 @@ def dir_allocated_bytes(paths: Iterable[Path]) -> int:
 
 
 def data_dir_from(args: argparse.Namespace) -> Path:
-    d = args.data_dir or os.environ.get("CODB_DATA_DIR") or str(REPO_ROOT / "data")
+    d = args.data_dir or env_setting("DATA_DIR") or str(REPO_ROOT / "data")
     return Path(d).resolve()
 
 
@@ -351,7 +356,7 @@ def load_catalog(path: Path) -> dict[str, Any]:
 
 
 def _allow_http() -> bool:
-    return os.environ.get("CODB_CORPUS_ALLOW_HTTP") == "1"
+    return env_setting("CORPUS_ALLOW_HTTP") == "1"
 
 
 def validate_catalog(cat: dict[str, Any]) -> None:
@@ -930,22 +935,22 @@ def cmd_plan(args: argparse.Namespace) -> int:
 
 
 # --------------------------------------------------------------------------- #
-# codb invocation helpers
+# opening-explorer invocation helpers
 # --------------------------------------------------------------------------- #
-def find_codb(explicit: str | None) -> Path:
-    for cand in (explicit, os.environ.get("CODB_BIN")):
+def find_opening_explorer(explicit: str | None) -> Path:
+    for cand in (explicit, env_setting("BIN")):
         if cand:
             p = Path(cand)
             if p.is_file():
                 return p.resolve()
-            raise CorpusError(f"codb binary not found: {cand}")
+            raise CorpusError(f"opening-explorer binary not found: {cand}")
     for sub in ("release", "debug"):
-        p = REPO_ROOT / "target" / sub / "codb"
+        p = REPO_ROOT / "target" / sub / "opening-explorer"
         if p.is_file():
             return p
     raise CorpusError(
-        "codb binary not found. Build it with `cargo build --release -p codb-cli` "
-        "or pass --codb / CODB_BIN."
+        "opening-explorer binary not found. Build it with `cargo build --release -p opening-explorer-cli` "
+        "or pass --opening-explorer / OPENING_EXPLORER_BIN."
     )
 
 
@@ -1062,10 +1067,10 @@ def run_measured(
     }
 
 
-def codb_json(codb: Path, args: list[str]) -> Any:
-    r = subprocess.run([str(codb), *args], capture_output=True, text=True)
+def opening_explorer_json(opening_explorer: Path, args: list[str]) -> Any:
+    r = subprocess.run([str(opening_explorer), *args], capture_output=True, text=True)
     if r.returncode != 0:
-        raise CorpusError(f"codb {' '.join(args)} failed: {r.stderr.strip() or r.stdout.strip()}")
+        raise CorpusError(f"opening-explorer {' '.join(args)} failed: {r.stderr.strip() or r.stdout.strip()}")
     return json.loads(r.stdout)
 
 
@@ -1146,7 +1151,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         release_root(data_dir, collection), None,
         explicitly_allowed=getattr(args, "allow_replacing_local_evaluation_release", False),
     )
-    codb = find_codb(args.codb)
+    opening_explorer = find_opening_explorer(args.opening_explorer)
     profile = args.profile or "baseline"
     ccfg = cat["collections"][collection]
     masters_event_audit = None
@@ -1217,19 +1222,19 @@ def cmd_build(args: argparse.Namespace) -> int:
         return m
 
     build_report = work / "build_report.json"
-    build_command = [str(codb), "build", "--manifest", str(manifest_path), "--collection", collection,
+    build_command = [str(opening_explorer), "build", "--manifest", str(manifest_path), "--collection", collection,
                      "--output", str(ds_root), "--report-json", str(build_report)]
     if masters_event_audit is not None:
         build_command.extend(["--masters-event-audit", str(masters_event_audit)])
     step("build", build_command)
-    step("build-index", [str(codb), "build-index", "--dataset", str(ds_root), "--collection", collection,
+    step("build-index", [str(opening_explorer), "build-index", "--dataset", str(ds_root), "--collection", collection,
                          "--depth-plies", str(depth), "--memory-limit-mib", str(args.memory_limit_mib),
                          "--json"])
     index_report = json.loads(_extract_json((logs / "build-index.log").read_text()))
     (work / "index_report.json").write_text(json.dumps(index_report, indent=2) + "\n")
-    step("verify", [str(codb), "verify", "--dataset", str(ds_root), "--deep"])
+    step("verify", [str(opening_explorer), "verify", "--dataset", str(ds_root), "--deep"])
     quality = work / "quality_report.json"
-    step("report", [str(codb), "report", "--dataset", str(ds_root), "--output", str(quality)])
+    step("report", [str(opening_explorer), "report", "--dataset", str(ds_root), "--output", str(quality)])
     metrics["total_wall_seconds"] = round(time.monotonic() - t_all, 3)
 
     # 3. Release provenance and legal notices.
@@ -1239,7 +1244,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     qj = json.loads(quality.read_text())
     version_dir = current_version_dir(ds_root)
     write_release_files(cat, collection, profile, sources, ds_root, version_dir, bj, index_report,
-                        qj, metrics, depth, args, codb, masters_event_audit)
+                        qj, metrics, depth, args, opening_explorer, masters_event_audit)
     release_dir = version_dir / "RELEASE"
     shutil.copy(build_report, release_dir / "build_report.json")
     shutil.copy(work / "index_report.json", release_dir / "index_report.json")
@@ -1262,7 +1267,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     final.parent.mkdir(parents=True, exist_ok=True)
     shutil.rmtree(tmp, ignore_errors=True)
     publish = subprocess.run(
-        [str(codb), "publish", "--candidate", str(ds_root), "--target", str(final),
+        [str(opening_explorer), "publish", "--candidate", str(ds_root), "--target", str(final),
          "--collection", collection],
         capture_output=True, text=True,
     )
@@ -1272,7 +1277,7 @@ def cmd_build(args: argparse.Namespace) -> int:
             "the active pointer is preserved when a prior version exists: "
             f"{publish.stdout[-500:]}{publish.stderr[-500:]}"
         )
-    r = subprocess.run([str(codb), "verify", "--dataset", str(final), "--deep"],
+    r = subprocess.run([str(opening_explorer), "verify", "--dataset", str(final), "--deep"],
                        capture_output=True, text=True)
     problem = verify_release_files(final)
     if r.returncode != 0 or problem:
@@ -1319,7 +1324,7 @@ ATTRIBUTION = {
 
 
 def write_release_files(cat, collection, profile, sources, ds_root, version_dir, bj, index_report,
-                        qj, metrics, depth, args, codb, masters_event_audit=None) -> None:
+                        qj, metrics, depth, args, opening_explorer, masters_event_audit=None) -> None:
     lic = cat["licenses"][sources[0]["license"]]
     rel_dir = version_dir / "RELEASE"
     rel_dir.mkdir(exist_ok=True)
@@ -1389,12 +1394,12 @@ def write_release_files(cat, collection, profile, sources, ds_root, version_dir,
         "tool": {
             "git_commit": git_commit(),
             "git_tree_dirty": git_dirty(),
-            "codb_version": _codb_version(codb),
+            "codb_version": _opening_explorer_version(opening_explorer),
         },
         "commands": {
             "fetch": f"./scripts/corpus.sh fetch --collection {collection} --profile {profile}",
             "build": f"./scripts/corpus.sh build --collection {collection} --profile {profile}",
-            "verify": f"codb verify --dataset <release-dir> --deep",
+            "verify": f"opening-explorer verify --dataset <release-dir> --deep",
             "serve": "./scripts/corpus.sh serve",
         },
         "build_metrics_summary": {
@@ -1421,15 +1426,15 @@ def write_release_files(cat, collection, profile, sources, ds_root, version_dir,
     notice = (
         f"Dataset: {collection} ({release['dataset_version']})\n"
         f"License: {lic['name']} ({lic['url']})\n\n{ATTRIBUTION[collection]}\n"
-        "The chess-openings-db software is licensed MIT OR Apache-2.0; that license does not\n"
+        "The opening-explorer-api software is licensed MIT OR Apache-2.0; that license does not\n"
         "apply to this dataset. Source archives are listed with checksums in RELEASE/RELEASE.json.\n"
         "No claim is made that this license covers material outside the listed Lichess archives.\n"
     )
     (rel_dir / "DATASET_LICENSE.txt").write_text(notice)
 
 
-def _codb_version(codb: Path) -> str:
-    r = subprocess.run([str(codb), "--version"], capture_output=True, text=True)
+def _opening_explorer_version(opening_explorer: Path) -> str:
+    r = subprocess.run([str(opening_explorer), "--version"], capture_output=True, text=True)
     return r.stdout.strip() or "unknown"
 
 
@@ -1629,19 +1634,19 @@ def verify_release_compatibility(root: Path, expected_collection: str,
 
 def cmd_verify(args: argparse.Namespace) -> int:
     data_dir = data_dir_from(args)
-    codb = find_codb(args.codb)
+    opening_explorer = find_opening_explorer(args.opening_explorer)
     catalog = load_catalog(Path(args.catalog))
     collections = COLLECTIONS if args.collection == "all" else (args.collection,)
     failures = 0
     for c in collections:
         root = release_root(data_dir, c)
-        r = subprocess.run([str(codb), "verify", "--dataset", str(root), "--deep"],
+        r = subprocess.run([str(opening_explorer), "verify", "--dataset", str(root), "--deep"],
                            capture_output=True, text=True)
         ok = r.returncode == 0 and "Result: SUCCESS" in r.stdout
         verdict = verify_release_files(root)
         if verdict is None:
             verdict = verify_release_compatibility(root, c, catalog)
-        log(f"[verify] {c}: codb verify --deep {'PASS' if ok else 'FAIL'}; "
+        log(f"[verify] {c}: opening-explorer verify --deep {'PASS' if ok else 'FAIL'}; "
             f"release artifacts {'PASS' if verdict is None else 'FAIL: ' + verdict}")
         failures += 0 if ok and verdict is None else 1
     if failures:
@@ -1684,12 +1689,12 @@ def verify_release_files(root: Path) -> str | None:
 
 def cmd_report(args: argparse.Namespace) -> int:
     data_dir = data_dir_from(args)
-    codb = find_codb(args.codb)
+    opening_explorer = find_opening_explorer(args.opening_explorer)
     collections = COLLECTIONS if args.collection == "all" else (args.collection,)
     for c in collections:
         out = data_dir / "reports" / f"{c}.quality.json"
         out.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run([str(codb), "report", "--dataset", str(release_root(data_dir, c)),
+        subprocess.run([str(opening_explorer), "report", "--dataset", str(release_root(data_dir, c)),
                         "--output", str(out)], check=True)
         log(f"[report] wrote {out}")
     return 0
@@ -1700,7 +1705,7 @@ def cmd_report(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------- #
 def cmd_package(args: argparse.Namespace) -> int:
     data_dir = data_dir_from(args)
-    codb = find_codb(args.codb)
+    opening_explorer = find_opening_explorer(args.opening_explorer)
     c = args.collection
     root = release_root(data_dir, c)
     problem = verify_release_files(root)
@@ -1749,7 +1754,7 @@ def cmd_package(args: argparse.Namespace) -> int:
     log(f"[package] {archive} ({archive.stat().st_size} bytes) sha256 {digest}")
 
     # Independent verification: extract into a fresh directory and re-open it.
-    verify_package(archive, codb, expected_games=release["accepted_games"], catalog=catalog)
+    verify_package(archive, opening_explorer, expected_games=release["accepted_games"], catalog=catalog)
     log(f"[package] extraction and deep verification PASSED for {archive.name}")
     return 0
 
@@ -1759,23 +1764,23 @@ def info_collection(root: Path) -> str:
     return json.loads(release_path.read_text())["collection"]
 
 
-def verify_package(archive: Path, codb: Path, expected_games: int | None = None,
+def verify_package(archive: Path, opening_explorer: Path, expected_games: int | None = None,
                    catalog: dict[str, Any] | None = None) -> dict[str, Any]:
-    with tempfile.TemporaryDirectory(prefix="codb-pkg-", dir=archive.parent) as td:
+    with tempfile.TemporaryDirectory(prefix="opening-explorer-pkg-", dir=archive.parent) as td:
         root = extract_release_archive(archive, Path(td))
         problem = verify_release_files(root)
         if problem is None and catalog is not None:
             problem = verify_release_compatibility(root, info_collection(root), catalog)
         if problem:
             raise CorpusError(f"extracted package failed artifact or compatibility verification: {problem}")
-        r = subprocess.run([str(codb), "verify", "--dataset", str(root), "--deep"],
+        r = subprocess.run([str(opening_explorer), "verify", "--dataset", str(root), "--deep"],
                            capture_output=True, text=True)
         if r.returncode != 0 or "Result: SUCCESS" not in r.stdout:
-            raise CorpusError(f"extracted package failed codb verify --deep:\n{r.stdout}{r.stderr}")
+            raise CorpusError(f"extracted package failed opening-explorer verify --deep:\n{r.stdout}{r.stderr}")
         info = json.loads((current_version_dir(root) / "RELEASE" / "RELEASE.json").read_text())
         if expected_games is not None and info["accepted_games"] != expected_games:
             raise CorpusError("extracted release game count differs from the source release")
-        q = codb_json(codb, ["query", "--dataset", str(root), "--moves", "e4", "--json"])
+        q = opening_explorer_json(opening_explorer, ["query", "--dataset", str(root), "--moves", "e4", "--json"])
         if "total_games" not in q:
             raise CorpusError("extracted package query returned no statistics")
         return info
@@ -1958,7 +1963,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
     '''Install verified packages or explicitly fetch and rebuild the pinned source corpus.'''
     data_dir = data_dir_from(args)
     assert_untracked_location(data_dir)
-    codb = find_codb(args.codb)
+    opening_explorer = find_opening_explorer(args.opening_explorer)
     catalog = load_catalog(Path(args.catalog))
     if args.rebuild:
         for collection in COLLECTIONS:
@@ -1969,7 +1974,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
     if args.rebuild:
         log("[bootstrap] fetching the pinned baseline sources; this downloads approximately 8.66 GB")
         fetch_args = argparse.Namespace(
-            catalog=args.catalog, data_dir=str(data_dir), codb=args.codb, collection="all",
+            catalog=args.catalog, data_dir=str(data_dir), opening_explorer=args.opening_explorer, collection="all",
             profile=args.profile, source=None, max_download_bytes=args.max_download_bytes,
             offline=False, retries=4, backoff=2.0, min_free_bytes=2 * 1024**3,
             rehash=True, update_catalog=False,
@@ -1977,7 +1982,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
         cmd_fetch(fetch_args)
         for collection in COLLECTIONS:
             build_args = argparse.Namespace(
-                catalog=args.catalog, data_dir=str(data_dir), codb=args.codb,
+                catalog=args.catalog, data_dir=str(data_dir), opening_explorer=args.opening_explorer,
                 collection=collection, profile=args.profile, depth_plies=None,
                 memory_limit_mib=args.memory_limit_mib,
                 masters_event_audit=DEFAULT_MASTERS_EVENT_AUDIT,
@@ -1985,7 +1990,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
             )
             cmd_build(build_args)
         verify_args = argparse.Namespace(
-            catalog=args.catalog, data_dir=str(data_dir), codb=args.codb, collection="all",
+            catalog=args.catalog, data_dir=str(data_dir), opening_explorer=args.opening_explorer, collection="all",
         )
         return cmd_verify(verify_args)
 
@@ -2008,7 +2013,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
             if problem:
                 raise CorpusError(f"{collection} package failed release compatibility verification: {problem}")
             result = subprocess.run(
-                [str(codb), "verify", "--dataset", str(root), "--deep"],
+                [str(opening_explorer), "verify", "--dataset", str(root), "--deep"],
                 capture_output=True, text=True,
             )
             if result.returncode != 0 or "Result: SUCCESS" not in result.stdout:
@@ -2026,7 +2031,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
             )
             target.parent.mkdir(parents=True, exist_ok=True)
             result = subprocess.run(
-                [str(codb), "publish", "--candidate", str(root), "--target", str(target),
+                [str(opening_explorer), "publish", "--candidate", str(root), "--target", str(target),
                  "--collection", collection],
                 capture_output=True, text=True,
             )
@@ -2041,7 +2046,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
             log(f"[bootstrap] installed {collection} at {current_version_dir(target)}")
 
         verify_args = argparse.Namespace(
-            catalog=args.catalog, data_dir=str(data_dir), codb=args.codb, collection="all",
+            catalog=args.catalog, data_dir=str(data_dir), opening_explorer=args.opening_explorer, collection="all",
         )
         return cmd_verify(verify_args)
     finally:
@@ -2049,7 +2054,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
 
 
 def cmd_verify_package(args: argparse.Namespace) -> int:
-    info = verify_package(Path(args.archive), find_codb(args.codb),
+    info = verify_package(Path(args.archive), find_opening_explorer(args.opening_explorer),
                           catalog=load_catalog(Path(args.catalog)))
     log(f"[verify-package] OK: {info['collection']} {info['dataset_version']} "
         f"({info['accepted_games']} games)")
@@ -2062,9 +2067,9 @@ def cmd_verify_package(args: argparse.Namespace) -> int:
 DEFAULT_ORIGINS = "http://localhost:3000,http://localhost:5173"
 
 
-def serve_command(codb: Path, masters: Path, elite: Path, host: str, port: int, origins: str,
+def serve_command(opening_explorer: Path, masters: Path, elite: Path, host: str, port: int, origins: str,
                   extra: list[str] | None = None) -> list[str]:
-    cmd = [str(codb), "serve", "--masters-dataset", str(masters), "--elite-dataset", str(elite),
+    cmd = [str(opening_explorer), "serve", "--masters-dataset", str(masters), "--elite-dataset", str(elite),
            "--host", host, "--port", str(port)]
     if origins:
         cmd += ["--allowed-origins", origins]
@@ -2073,8 +2078,8 @@ def serve_command(codb: Path, masters: Path, elite: Path, host: str, port: int, 
 
 def cmd_serve(args: argparse.Namespace) -> int:
     data_dir = data_dir_from(args)
-    codb = find_codb(args.codb)
-    cmd = serve_command(codb, release_root(data_dir, "masters-otb"), release_root(data_dir, "elite-online"),
+    opening_explorer = find_opening_explorer(args.opening_explorer)
+    cmd = serve_command(opening_explorer, release_root(data_dir, "masters-otb"), release_root(data_dir, "elite-online"),
                         args.host, args.port, args.allowed_origins)
     log("[serve] " + " ".join(cmd))
     os.execv(cmd[0], cmd)
@@ -2128,7 +2133,7 @@ SAN_RE = re.compile(r"^(?:O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])
 
 
 def parse_export_blocks(pgn: str) -> list[list[str]]:
-    """Extracts SAN move lists from `codb export` output.
+    """Extracts SAN move lists from `opening-explorer export` output.
 
     Only the last paragraph of each record is read as movetext, and a record is
     skipped unless every token is a well-formed SAN move (this protects against
@@ -2147,8 +2152,8 @@ def parse_export_blocks(pgn: str) -> list[list[str]]:
     return games
 
 
-def sample_move_sequences(codb: Path, root: Path, max_games: int) -> list[list[str]]:
-    r = subprocess.run([str(codb), "export", "--dataset", str(root), "--max-games", str(max_games)],
+def sample_move_sequences(opening_explorer: Path, root: Path, max_games: int) -> list[list[str]]:
+    r = subprocess.run([str(opening_explorer), "export", "--dataset", str(root), "--max-games", str(max_games)],
                        capture_output=True, text=True, check=True)
     return parse_export_blocks(r.stdout)
 
@@ -2216,10 +2221,10 @@ def pos_url(collection: str, moves: list[str] | None = None, fen: str | None = N
 START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 
-def cli_query(codb: Path, root: Path, moves: list[str]) -> dict[str, Any]:
+def cli_query(opening_explorer: Path, root: Path, moves: list[str]) -> dict[str, Any]:
     if moves:
-        return codb_json(codb, ["query", "--dataset", str(root), "--moves", ",".join(moves), "--json"])
-    return codb_json(codb, ["query", "--dataset", str(root), "--fen", START_FEN, "--json"])
+        return opening_explorer_json(opening_explorer, ["query", "--dataset", str(root), "--moves", ",".join(moves), "--json"])
+    return opening_explorer_json(opening_explorer, ["query", "--dataset", str(root), "--fen", START_FEN, "--json"])
 
 
 def normalize_moves(ms: list[dict[str, Any]]) -> list[tuple]:
@@ -2256,13 +2261,13 @@ TRANSPOSITIONS = [
 ]
 
 
-def run_http_checks(codb: Path, roots: dict[str, Path], host: str, port: int, serve_log: Path,
+def run_http_checks(opening_explorer: Path, roots: dict[str, Path], host: str, port: int, serve_log: Path,
                     depth_by_col: dict[str, int], requests_per_col: int = 400,
                     sample_games: int = 3000, extra_serve_args: list[str] | None = None,
                     per_stratum: int = 8) -> dict[str, Any]:
     checks = Checks()
     report: dict[str, Any] = {"host": host, "port": port, "collections": {}}
-    cmd = serve_command(codb, roots["masters-otb"], roots["elite-online"], host, port,
+    cmd = serve_command(opening_explorer, roots["masters-otb"], roots["elite-online"], host, port,
                         DEFAULT_ORIGINS, extra_serve_args)
     t_start = time.monotonic()
     with open(serve_log, "wb") as lf:
@@ -2279,7 +2284,7 @@ def run_http_checks(codb: Path, roots: dict[str, Path], host: str, port: int, se
             except OSError:
                 pass
             if proc.poll() is not None:
-                raise CorpusError(f"codb serve exited early (see {serve_log})")
+                raise CorpusError(f"opening-explorer serve exited early (see {serve_log})")
             time.sleep(0.05)
         if ready_at is None:
             raise CorpusError("server did not become ready")
@@ -2311,7 +2316,7 @@ def run_http_checks(codb: Path, roots: dict[str, Path], host: str, port: int, se
 
             def compare(label: str, moves: list[str]) -> dict[str, Any] | None:
                 st, body = http_c.json(pos_url(c, moves) if moves else pos_url(c, fen=START_FEN))
-                cli = cli_query(codb, root, moves)
+                cli = cli_query(opening_explorer, root, moves)
                 cr["cases"] += 1
                 if st != 200:
                     cr["mismatches"] += 1
@@ -2344,11 +2349,11 @@ def run_http_checks(codb: Path, roots: dict[str, Path], host: str, port: int, se
                     legal_ok = legal_ok and st == 200 and child["total_games"] >= mv["total_games"]
                 checks.check(f"{c}: initial candidate moves are legal and child totals >= candidate totals", legal_ok)
 
-            games = sample_move_sequences(codb, root, sample_games)
+            games = sample_move_sequences(opening_explorer, root, sample_games)
             strata = stratified_cases(games, depth, per_stratum)
             absent = None
             for cand in strata["absent_candidates"]:
-                if cli_query(codb, root, cand)["total_games"] == 0:
+                if cli_query(opening_explorer, root, cand)["total_games"] == 0:
                     absent = cand
                     break
             for label in ("common", "mid", "rare", "beyond_depth"):
@@ -2393,7 +2398,7 @@ def run_http_checks(codb: Path, roots: dict[str, Path], host: str, port: int, se
             other = "elite-online" if c == "masters-otb" else "masters-otb"
             for gid in sample_ids:
                 st, hdr, body = http_c.get(f"/v1/collections/{c}/games/{gid}")
-                cli_pgn = subprocess.run([str(codb), "get-game", "--dataset", str(root), "--id", str(gid)],
+                cli_pgn = subprocess.run([str(opening_explorer), "get-game", "--dataset", str(root), "--id", str(gid)],
                                          capture_output=True, text=True).stdout
                 checks.check(f"{c}: game {gid} PGN retrieved and equals CLI",
                              st == 200 and body.decode().strip() == cli_pgn.strip() and "[White " in body.decode(),
@@ -2460,13 +2465,13 @@ def run_http_checks(codb: Path, roots: dict[str, Path], host: str, port: int, se
 
 def cmd_http_check(args: argparse.Namespace) -> int:
     data_dir = data_dir_from(args)
-    codb = find_codb(args.codb)
+    opening_explorer = find_opening_explorer(args.opening_explorer)
     cat = load_catalog(Path(args.catalog))
     roots = {c: release_root(data_dir, c) for c in COLLECTIONS}
     depth = {c: cat["collections"][c]["default_depth_plies"] for c in COLLECTIONS}
     out = data_dir / "reports"
     out.mkdir(parents=True, exist_ok=True)
-    rep = run_http_checks(codb, roots, args.host, args.port or free_port(), out / "serve.log", depth,
+    rep = run_http_checks(opening_explorer, roots, args.host, args.port or free_port(), out / "serve.log", depth,
                           requests_per_col=args.requests, sample_games=args.sample_games,
                           per_stratum=args.per_stratum)
     (out / "http_check.json").write_text(json.dumps(rep, indent=2) + "\n")
@@ -2483,8 +2488,8 @@ def cmd_http_check(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--catalog", default=str(DEFAULT_CATALOG), help="pinned source catalog")
-    p.add_argument("--data-dir", help="data directory (default $CODB_DATA_DIR or ./data)")
-    p.add_argument("--codb", help="path to the codb binary (default target/release/codb)")
+    p.add_argument("--data-dir", help="data directory (default $OPENING_EXPLORER_DATA_DIR or ./data)")
+    p.add_argument("--opening-explorer", help="path to the opening-explorer binary (default target/release/opening-explorer)")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     def with_col(sp, default="all"):
@@ -2592,7 +2597,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sp.set_defaults(fn=cmd_bootstrap)
 
-    sp = sub.add_parser("serve", help="serve both collections via codb serve")
+    sp = sub.add_parser("serve", help="serve both collections via opening-explorer serve")
     sp.add_argument("--host", default="127.0.0.1")
     sp.add_argument("--port", type=int, default=8080)
     sp.add_argument("--allowed-origins", default=DEFAULT_ORIGINS)

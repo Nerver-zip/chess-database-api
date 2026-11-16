@@ -23,7 +23,7 @@ class DockerDeploymentTests(unittest.TestCase):
     def test_production_image_configuration_is_restrictive(self):
         dockerfile = (REPO / "Dockerfile").read_text()
         ignore = (REPO / ".dockerignore").read_text()
-        compose = (REPO / "compose.codb.yaml").read_text()
+        compose = (REPO / "compose.yaml").read_text()
         self.assertIn("AS builder", dockerfile)
         self.assertIn("AS runtime", dockerfile)
         self.assertIn("USER 10001:10001", dockerfile)
@@ -37,14 +37,14 @@ class DockerDeploymentTests(unittest.TestCase):
         self.assertIn("create_host_path: false", compose)
         self.assertIn("restart: unless-stopped", compose)
         self.assertIn("cap_drop:", compose)
-        self.assertIn("external: ${CODB_NETWORK_EXTERNAL:-false}", compose)
+        self.assertIn("external: ${OPENING_EXPLORER_NETWORK_EXTERNAL:-${CODB_NETWORK_EXTERNAL:-false}}", compose)
         self.assertIn("--deep-validate-on-startup", compose)
-        self.assertIn("CODB_ENABLE_GAME_RETRIEVAL", compose)
+        self.assertIn("OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL", compose)
         self.assertIn("--enable-game-retrieval", compose)
-        self.assertIn("CODB_ENABLE_GAME_RETRIEVAL=true", (REPO / ".env.codb.example").read_text())
+        self.assertIn("OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=true", (REPO / ".env.example").read_text())
         self.assertNotIn("ports:", compose)
         self.assertIn(".env.*", (REPO / ".gitignore").read_text())
-        self.assertIn("!.env.codb.example", (REPO / ".gitignore").read_text())
+        self.assertIn("!.env.example", (REPO / ".gitignore").read_text())
         validation_ignore = (REPO / "Dockerfile.validation.dockerignore").read_text()
         self.assertIn("data/", validation_ignore)
         self.assertIn(".git/", validation_ignore)
@@ -56,24 +56,24 @@ class DockerDeploymentTests(unittest.TestCase):
     @unittest.skipUnless(docker_daemon_available(), "Docker daemon is unavailable")
     def test_compose_configs_parse(self):
         subprocess.run(
-            ["docker", "compose", "-f", "compose.codb.yaml", "config", "--quiet"],
+            ["docker", "compose", "-f", "compose.yaml", "config", "--quiet"],
             cwd=REPO, check=True, capture_output=True, text=True,
         )
         debug_config = subprocess.run(
-            ["docker", "compose", "-f", "compose.codb.yaml", "-f",
-             "compose.codb.debug.yaml", "config", "--format", "json"],
+            ["docker", "compose", "-f", "compose.yaml", "-f",
+             "compose.debug.yaml", "config", "--format", "json"],
             cwd=REPO, check=True, capture_output=True, text=True,
         )
-        debug_ports = json.loads(debug_config.stdout)["services"]["codb"]["ports"]
+        debug_ports = json.loads(debug_config.stdout)["services"]["opening-explorer"]["ports"]
         self.assertEqual(len(debug_ports), 1)
         self.assertEqual(debug_ports[0]["host_ip"], "127.0.0.1")
         self.assertEqual(debug_ports[0]["published"], "8081")
         self.assertEqual(debug_ports[0]["target"], 8080)
         config = subprocess.run(
-            ["docker", "compose", "-f", "compose.codb.yaml", "config", "--format", "json"],
+            ["docker", "compose", "-f", "compose.yaml", "config", "--format", "json"],
             cwd=REPO, check=True, capture_output=True, text=True,
         )
-        service = json.loads(config.stdout)["services"]["codb"]
+        service = json.loads(config.stdout)["services"]["opening-explorer"]
         self.assertFalse(service.get("ports"))
         self.assertTrue(all(volume.get("read_only") for volume in service["volumes"]))
 

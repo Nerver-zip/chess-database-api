@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ByteOrder};
-use codb_core::{Collection, GameLocation};
 use memmap2::Mmap;
+use opening_explorer_core::{Collection, GameLocation};
 use sha2::{Digest, Sha256};
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use crate::format::StorageError;
 
-pub const LOOKUP_MAGIC: &[u8; 4] = b"CGL1"; // CODB Game Lookup v1
+pub const LOOKUP_MAGIC: &[u8; 4] = b"CGL1"; // Game lookup v1 (named CODB in earlier releases)
 pub const LOOKUP_VERSION: u32 = 1;
 pub const LOOKUP_HEADER_SIZE: usize = 32;
 pub const LOOKUP_ENTRY_SIZE: usize = 16;

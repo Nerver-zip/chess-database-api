@@ -1,0 +1,13 @@
+{
+  "name": "admin_unauthorized",
+  "status": 401,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "error": {
+      "code": "unauthorized",
+      "message": "Unauthorized: valid administrative authorization token required."
+    }
+  }
+}

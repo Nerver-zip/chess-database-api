@@ -1,18 +1,22 @@
-//! Integration, contract, concurrency, and equivalence tests for `codb-api`.
+//! Integration, contract, concurrency, and equivalence tests for `opening-explorer-api`.
 
 use axum::body::Body;
 use axum::http::{header, Method, Request, StatusCode};
-use codb_api::config::ServerConfig;
-use codb_api::models::{CollectionsResponse, HealthResponse, PositionResponse, ReadyResponse};
-use codb_api::routes::create_router;
-use codb_api::state::AppState;
-use codb_api::{ApiError, ErrorEnvelope};
-use codb_core::{Collection, CompactMove, GameMetadata, GameResult, IngestionStats, ParsedGame};
-use codb_storage::{
+use http_body_util::BodyExt;
+use opening_explorer_api::config::ServerConfig;
+use opening_explorer_api::models::{
+    AdminReloadResponse, CollectionsResponse, HealthResponse, PositionResponse, ReadyResponse,
+};
+use opening_explorer_api::routes::{create_router, create_router_with_request_timeout};
+use opening_explorer_api::state::AppState;
+use opening_explorer_api::{ApiError, ErrorEnvelope};
+use opening_explorer_core::{
+    Collection, CompactMove, GameMetadata, GameResult, IngestionStats, ParsedGame,
+};
+use opening_explorer_storage::{
     build_dataset_position_index, DatasetIndexConfig, DatasetWriter, DatasetWriterConfig,
     SourceArchiveMetadata,
 };
-use http_body_util::BodyExt;
 use std::path::Path;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -703,10 +707,10 @@ async fn test_cli_and_http_query_equivalence() {
     let app = create_router(state);
 
     // Directly query the dataset using DatasetReader (same underlying call as CLI)
-    let reader = codb_storage::DatasetReader::open(&masters_dir).unwrap();
+    let reader = opening_explorer_storage::DatasetReader::open(&masters_dir).unwrap();
     let mut board = shakmaty::Chess::default();
-    codb_api::chess_util::parse_and_apply_moves(&mut board, "e4, e5", 200).unwrap();
-    let key = codb_api::chess_util::compute_key(&board);
+    opening_explorer_api::chess_util::parse_and_apply_moves(&mut board, "e4, e5", 200).unwrap();
+    let key = opening_explorer_api::chess_util::compute_key(&board);
 
     let direct_stats = reader
         .query_position(key)
@@ -1393,7 +1397,7 @@ async fn test_internal_error_sanitization() {
 
     // 1. Storage error with simulated filesystem path and engine internals
     let storage_err = ApiError::Storage(
-        "/var/run/codb/storage/shard_0001.cgb3: checksum mismatch at block offset 0xdeadbeef"
+        "/var/run/opening-explorer/storage/shard_0001.cgb3: checksum mismatch at block offset 0xdeadbeef"
             .to_string(),
     );
     assert_eq!(storage_err.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
@@ -1621,4 +1625,325 @@ fn test_reader_pool_timeout_validation() {
         .validate()
         .unwrap_err()
         .contains("Request timeout must be between 1 and 300 seconds"));
+}
+
+/// Sends one request through the router and returns the status, headers, and body text.
+async fn send(
+    app: &axum::Router,
+    method: Method,
+    uri: &str,
+    headers: &[(&str, &str)],
+) -> (StatusCode, axum::http::HeaderMap, String) {
+    let mut builder = Request::builder().method(method).uri(uri);
+    for (name, value) in headers {
+        builder = builder.header(*name, *value);
+    }
+    let response = app
+        .clone()
+        .oneshot(builder.body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let response_headers = response.headers().clone();
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    (
+        status,
+        response_headers,
+        String::from_utf8_lossy(&body).into_owned(),
+    )
+}
+
+/// Parses a JSON error envelope and checks the code and status it carries.
+fn assert_envelope(
+    status: StatusCode,
+    body: &str,
+    expected_status: StatusCode,
+    expected_code: &str,
+) {
+    assert_eq!(status, expected_status, "body: {}", body);
+    let envelope: ErrorEnvelope = serde_json::from_str(body)
+        .unwrap_or_else(|e| panic!("expected an error envelope ({}): {}", e, body));
+    assert_eq!(envelope.error.code, expected_code);
+    assert!(!envelope.error.message.is_empty());
+}
+
+#[tokio::test]
+async fn test_admin_reload_is_exempt_from_request_timeout() {
+    let tmp = tempdir().unwrap();
+    let masters_dir = tmp.path().join("masters");
+    setup_test_dataset(&masters_dir, Collection::MastersOtb, 4);
+
+    let config = ServerConfig {
+        masters_dataset: Some(masters_dir),
+        admin_token: Some("reload-token".to_string()),
+        ..Default::default()
+    };
+    let state = AppState::new(config).unwrap();
+    // A zero request timeout would cut off any read that waits on blocking work. The reload
+    // must still complete, because it is not subject to the request timeout.
+    let app = create_router_with_request_timeout(state, Duration::ZERO);
+
+    let (status, _, body) = send(
+        &app,
+        Method::POST,
+        "/v1/admin/reload",
+        &[("authorization", "Bearer reload-token")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {}", body);
+    let reload: AdminReloadResponse = serde_json::from_str(&body).unwrap();
+    assert_eq!(reload.status, "ok");
+    assert_eq!(reload.reloaded_collections.len(), 1);
+    assert!(reload.reloaded_collections[0].starts_with("masters-otb (version: "));
+}
+
+#[tokio::test]
+async fn test_position_response_reports_index_depth() {
+    let tmp = tempdir().unwrap();
+    let masters_dir = tmp.path().join("masters");
+    setup_test_dataset(&masters_dir, Collection::MastersOtb, 6);
+    let state = AppState::new(ServerConfig {
+        masters_dataset: Some(masters_dir),
+        ..Default::default()
+    })
+    .unwrap();
+    let app = create_router(state);
+
+    let (status, _, body) = send(
+        &app,
+        Method::GET,
+        "/v1/explorer/position?collection=masters-otb&moves=e4",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {}", body);
+    let position: PositionResponse = serde_json::from_str(&body).unwrap();
+    // setup_test_dataset builds a depth-40 index; the response must say so.
+    assert_eq!(position.cpi_depth_plies, 40);
+    let raw: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(raw["cpi_depth_plies"], 40);
+}
+
+#[tokio::test]
+async fn test_framework_rejections_use_error_envelope() {
+    let tmp = tempdir().unwrap();
+    let masters_dir = tmp.path().join("masters");
+    setup_test_dataset(&masters_dir, Collection::MastersOtb, 4);
+    let state = AppState::new(ServerConfig {
+        masters_dataset: Some(masters_dir.clone()),
+        ..Default::default()
+    })
+    .unwrap();
+    let app = create_router(state);
+
+    // Repeated query parameter: the query decoder rejects it (400).
+    let (status, headers, body) = send(
+        &app,
+        Method::GET,
+        "/v1/explorer/position?collection=masters-otb&moves=e4&moves=d4",
+        &[],
+    )
+    .await;
+    assert_envelope(status, &body, StatusCode::BAD_REQUEST, "invalid_query");
+    assert_eq!(headers[header::CONTENT_TYPE], "application/json");
+    assert!(body.contains("duplicate field"));
+
+    // Unknown path (404).
+    let (status, _, body) = send(&app, Method::GET, "/v1/no-such-route", &[]).await;
+    assert_envelope(status, &body, StatusCode::NOT_FOUND, "not_found");
+
+    // Wrong method (405), with the Allow header kept.
+    let (status, headers, body) = send(
+        &app,
+        Method::POST,
+        "/v1/explorer/position?collection=masters-otb&moves=e4",
+        &[],
+    )
+    .await;
+    assert_envelope(
+        status,
+        &body,
+        StatusCode::METHOD_NOT_ALLOWED,
+        "method_not_allowed",
+    );
+    assert!(headers.get(header::ALLOW).is_some());
+
+    // Game route while retrieval is disabled: an unknown path, so the same envelope.
+    let disabled = create_router(
+        AppState::new(ServerConfig {
+            masters_dataset: Some(masters_dir),
+            enable_game_retrieval: false,
+            ..Default::default()
+        })
+        .unwrap(),
+    );
+    let (status, _, body) = send(
+        &disabled,
+        Method::GET,
+        "/v1/collections/masters-otb/games/1",
+        &[],
+    )
+    .await;
+    assert_envelope(status, &body, StatusCode::NOT_FOUND, "not_found");
+
+    // Application errors keep their own codes.
+    let (status, _, body) = send(
+        &app,
+        Method::GET,
+        "/v1/explorer/position?collection=masters-otb",
+        &[],
+    )
+    .await;
+    assert_envelope(status, &body, StatusCode::BAD_REQUEST, "missing_position");
+}
+
+#[tokio::test]
+async fn test_unavailable_collection_message_is_not_replaced() {
+    let tmp = tempdir().unwrap();
+    let masters_dir = tmp.path().join("masters");
+    setup_test_dataset(&masters_dir, Collection::MastersOtb, 4);
+    let app = create_router(
+        AppState::new(ServerConfig {
+            masters_dataset: Some(masters_dir),
+            ..Default::default()
+        })
+        .unwrap(),
+    );
+
+    // A 503 describes the client-visible condition and is returned as written.
+    let (status, _, body) = send(
+        &app,
+        Method::GET,
+        "/v1/explorer/position?collection=elite-online&moves=e4",
+        &[],
+    )
+    .await;
+    assert_envelope(
+        status,
+        &body,
+        StatusCode::SERVICE_UNAVAILABLE,
+        "collection_unavailable",
+    );
+    let envelope: ErrorEnvelope = serde_json::from_str(&body).unwrap();
+    assert_eq!(
+        envelope.error.message,
+        "Collection 'elite-online' is not configured or loaded on this server."
+    );
+}
+
+#[tokio::test]
+async fn test_illegal_and_invalid_move_messages_name_token_and_ply() {
+    let tmp = tempdir().unwrap();
+    let masters_dir = tmp.path().join("masters");
+    setup_test_dataset(&masters_dir, Collection::MastersOtb, 4);
+    let app = create_router(
+        AppState::new(ServerConfig {
+            masters_dataset: Some(masters_dir),
+            ..Default::default()
+        })
+        .unwrap(),
+    );
+
+    let cases = [
+        // SAN that is legal notation but not legal here (black to move).
+        ("e4,e4", "Illegal move 'e4' at ply 2."),
+        // A white knight cannot reach f3 once it is already there.
+        ("e4,e5,Nf3,Nf3", "Illegal move 'Nf3' at ply 4."),
+        // UCI that is legal notation but not legal here.
+        ("e2e4,e2e4", "Illegal move 'e2e4' at ply 2."),
+        // Text that is neither SAN nor UCI.
+        (
+            "e4,e9",
+            "Invalid move token 'e9' at ply 2: expected SAN or UCI notation.",
+        ),
+    ];
+    for (moves, expected) in cases {
+        let uri = format!(
+            "/v1/explorer/position?collection=masters-otb&moves={}",
+            urlencode(moves)
+        );
+        let (status, _, body) = send(&app, Method::GET, &uri, &[]).await;
+        assert_envelope(status, &body, StatusCode::BAD_REQUEST, "invalid_moves");
+        let envelope: ErrorEnvelope = serde_json::from_str(&body).unwrap();
+        assert_eq!(
+            envelope.error.message,
+            format!("Invalid or illegal move sequence: {}", expected),
+            "moves={}",
+            moves
+        );
+    }
+
+    // Legal notation in both SAN and UCI is still accepted.
+    let (status, _, body) = send(
+        &app,
+        Method::GET,
+        "/v1/explorer/position?collection=masters-otb&moves=e4,e2e4",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "body: {}", body);
+}
+
+#[tokio::test]
+async fn test_missing_collection_message_is_clear() {
+    let tmp = tempdir().unwrap();
+    let masters_dir = tmp.path().join("masters");
+    setup_test_dataset(&masters_dir, Collection::MastersOtb, 4);
+    let app = create_router(
+        AppState::new(ServerConfig {
+            masters_dataset: Some(masters_dir),
+            ..Default::default()
+        })
+        .unwrap(),
+    );
+
+    let (status, _, body) = send(&app, Method::GET, "/v1/explorer/position?moves=e4", &[]).await;
+    assert_envelope(status, &body, StatusCode::BAD_REQUEST, "invalid_collection");
+    let envelope: ErrorEnvelope = serde_json::from_str(&body).unwrap();
+    assert_eq!(
+        envelope.error.message,
+        "Missing required query parameter 'collection'. Expected 'masters-otb' or 'elite-online'."
+    );
+}
+
+#[tokio::test]
+async fn test_game_not_found_message_names_collection_not_snapshot_path() {
+    let tmp = tempdir().unwrap();
+    let masters_dir = tmp.path().join("masters");
+    setup_test_dataset(&masters_dir, Collection::MastersOtb, 4);
+    let state = AppState::new(ServerConfig {
+        masters_dataset: Some(masters_dir.clone()),
+        ..Default::default()
+    })
+    .unwrap();
+
+    // The route checks the lookup index before reading, so this error path is reached
+    // through the reader pool directly.
+    let snapshot = state.get_snapshot(Collection::MastersOtb).unwrap();
+    let err = snapshot
+        .reader_pool
+        .get_game_pgn(999_999, Duration::from_secs(5))
+        .await
+        .unwrap_err();
+    match err {
+        ApiError::GameNotFound(id, collection) => {
+            assert_eq!(id, 999_999);
+            assert_eq!(collection, "masters-otb");
+        }
+        other => panic!("expected GameNotFound, got {:?}", other),
+    }
+    let message = ApiError::GameNotFound(999_999, "masters-otb".to_string()).to_string();
+    assert!(!message.contains(&masters_dir.display().to_string()));
+}
+
+/// Percent-encodes characters that are significant in a query string.
+fn urlencode(value: &str) -> String {
+    value
+        .chars()
+        .map(|c| match c {
+            ',' => "%2C".to_string(),
+            ' ' => "%20".to_string(),
+            other => other.to_string(),
+        })
+        .collect()
 }

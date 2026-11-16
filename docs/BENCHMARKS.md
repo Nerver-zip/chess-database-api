@@ -8,7 +8,7 @@ status: current
 
 ## 1. Benchmark Architecture & Taxonomy
 
-The benchmark ecosystem in `chess-openings-db` is partitioned into the following domains:
+The benchmark ecosystem in `opening-explorer-api` is partitioned into the following domains:
 
 ```
 benchmarks/

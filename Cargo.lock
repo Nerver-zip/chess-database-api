@@ -250,133 +250,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c133bc6a41be0d194c306b5506d15e6feeea7b1d6604bd3f8310dfb2ca96486"
 
 [[package]]
-name = "codb-api"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "codb-core",
- "codb-index",
- "codb-storage",
- "http-body-util",
- "parking_lot",
- "reqwest",
- "serde",
- "serde_json",
- "sha2",
- "shakmaty",
- "tempfile",
- "thiserror",
- "tokio",
- "tower",
- "tower-http",
- "tracing",
-]
-
-[[package]]
-name = "codb-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "codb-api",
- "codb-core",
- "codb-curate",
- "codb-index",
- "codb-ingest",
- "codb-storage",
- "pgn-reader",
- "rusqlite",
- "serde",
- "serde_json",
- "shakmaty",
- "tempfile",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "zstd",
-]
-
-[[package]]
-name = "codb-core"
-version = "0.1.0"
-dependencies = [
- "byteorder",
- "serde",
- "serde_json",
- "shakmaty",
- "thiserror",
-]
-
-[[package]]
-name = "codb-curate"
-version = "0.1.0"
-dependencies = [
- "codb-core",
- "rusqlite",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "tracing",
-]
-
-[[package]]
-name = "codb-index"
-version = "0.1.0"
-dependencies = [
- "byteorder",
- "codb-core",
- "memmap2",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "shakmaty",
- "tempfile",
- "thiserror",
- "tracing",
- "zstd",
-]
-
-[[package]]
-name = "codb-ingest"
-version = "0.1.0"
-dependencies = [
- "codb-core",
- "codb-curate",
- "pgn-reader",
- "serde",
- "serde_json",
- "shakmaty",
- "tempfile",
- "thiserror",
- "tracing",
- "zstd",
-]
-
-[[package]]
-name = "codb-storage"
-version = "0.1.0"
-dependencies = [
- "byteorder",
- "codb-core",
- "codb-index",
- "libc",
- "memmap2",
- "rand",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "shakmaty",
- "tempfile",
- "thiserror",
- "tracing",
- "zstd",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1096,6 +969,133 @@ name = "once_cell_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
+
+[[package]]
+name = "opening-explorer-api"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "http-body-util",
+ "opening-explorer-core",
+ "opening-explorer-index",
+ "opening-explorer-storage",
+ "parking_lot",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "shakmaty",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tower",
+ "tower-http",
+ "tracing",
+]
+
+[[package]]
+name = "opening-explorer-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "opening-explorer-api",
+ "opening-explorer-core",
+ "opening-explorer-curate",
+ "opening-explorer-index",
+ "opening-explorer-ingest",
+ "opening-explorer-storage",
+ "pgn-reader",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "shakmaty",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "zstd",
+]
+
+[[package]]
+name = "opening-explorer-core"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "serde",
+ "serde_json",
+ "shakmaty",
+ "thiserror",
+]
+
+[[package]]
+name = "opening-explorer-curate"
+version = "0.1.0"
+dependencies = [
+ "opening-explorer-core",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "opening-explorer-index"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "memmap2",
+ "opening-explorer-core",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "shakmaty",
+ "tempfile",
+ "thiserror",
+ "tracing",
+ "zstd",
+]
+
+[[package]]
+name = "opening-explorer-ingest"
+version = "0.1.0"
+dependencies = [
+ "opening-explorer-core",
+ "opening-explorer-curate",
+ "pgn-reader",
+ "serde",
+ "serde_json",
+ "shakmaty",
+ "tempfile",
+ "thiserror",
+ "tracing",
+ "zstd",
+]
+
+[[package]]
+name = "opening-explorer-storage"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "libc",
+ "memmap2",
+ "opening-explorer-core",
+ "opening-explorer-index",
+ "rand",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "shakmaty",
+ "tempfile",
+ "thiserror",
+ "tracing",
+ "zstd",
+]
 
 [[package]]
 name = "openssl"

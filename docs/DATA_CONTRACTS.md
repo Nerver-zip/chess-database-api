@@ -6,7 +6,7 @@ status: current
 
 # Data Contracts Specification
 
-## 1. Domain Models (`codb-core`)
+## 1. Domain Models (`opening-explorer-core`)
 
 All core domain models are defined in [`crates/core/src/models.rs`](../crates/core/src/models.rs).
 
@@ -209,7 +209,7 @@ The referenced UTF-8 JSONL file contains one line per retained game, in ascendin
 
 ## 5. CLI JSON Contracts
 
-### 5.1 `codb query --json`
+### 5.1 `opening-explorer query --json`
 ```json
 {
   "position_key": "463b96181691fc9c0000000000000000",
@@ -230,9 +230,9 @@ The referenced UTF-8 JSONL file contains one line per retained game, in ascendin
 }
 ```
 
-### 5.1.1 `codb build --report-json <path>` and `codb report`
+### 5.1.1 `opening-explorer build --report-json <path>` and `opening-explorer report`
 
-`codb build --report-json` writes the build accounting after finalization:
+`opening-explorer build --report-json` writes the build accounting after finalization:
 ```json
 {
   "collection": "masters-otb",
@@ -252,11 +252,11 @@ The referenced UTF-8 JSONL file contains one line per retained game, in ascendin
 
 `quarantine_reasons` breaks down `accounting.quarantined`. The opt-in Gigabase source policy records stable game ID conflicts as `stable_game_id_collision`; other collections retain their existing fatal collision behavior.
 
-`codb report --dataset <dir> [--output <json>]` iterates every stored game and emits `results`, `unknown_result_games`, `years`, `months`, `min_player_rating_bins` (100-point bins of the lower rating; FIDE Elo for `masters-otb`, Glicko-2 for `elite-online`, never pooled), `plies_bins`, `speed_classes` (`elite-online` only), `time_control_raw_top20` (`masters-otb` only), `distinct_players_hash_estimate`, `distinct_events_hash_estimate`, and `missing_metadata` counts. Neither command changes any persisted binary format.
+`opening-explorer report --dataset <dir> [--output <json>]` iterates every stored game and emits `results`, `unknown_result_games`, `years`, `months`, `min_player_rating_bins` (100-point bins of the lower rating; FIDE Elo for `masters-otb`, Glicko-2 for `elite-online`, never pooled), `plies_bins`, `speed_classes` (`elite-online` only), `time_control_raw_top20` (`masters-otb` only), `distinct_players_hash_estimate`, `distinct_events_hash_estimate`, and `missing_metadata` counts. Neither command changes any persisted binary format.
 
-`codb bench-lookup --dataset <dir> [--games N] [--output <json>]` replays stored games to sample positions and reports in-process `DiskPositionIndex::query` latency (`hit_first_pass`, `hit_warm_pass`, `miss_warm_pass`: `count`, `hits`, `p50_us`, `p95_us`, `p99_us`, `max_us`). It reads only and does not modify the dataset.
+`opening-explorer bench-lookup --dataset <dir> [--games N] [--output <json>]` replays stored games to sample positions and reports in-process `DiskPositionIndex::query` latency (`hit_first_pass`, `hit_warm_pass`, `miss_warm_pass`: `count`, `hits`, `p50_us`, `p95_us`, `p99_us`, `max_us`). It reads only and does not modify the dataset.
 
-### 5.2 `codb inspect --json`
+### 5.2 `opening-explorer inspect --json`
 ```json
 {
   "dataset_version": "v1",
@@ -285,200 +285,4 @@ The referenced UTF-8 JSONL file contains one line per retained game, in ascendin
 
 ## 6. Opening Explorer HTTP API Contract
 
-The Opening Explorer HTTP API (`codb-api`) exposes read-only access to persistent CGB3 game shards and CPI v2 position indexes.
-
-### 6.1 `GET /v1/explorer/position`
-Retrieves aggregated opening statistics and candidate legal follow-up moves for a target chess position.
-
-#### Query Parameters
-- `fen` (string, optional): Orthodox legal FEN string.
-- `moves` (string, optional): Comma- or whitespace-separated SAN or UCI move sequence from the standard initial chess position (e.g. `"e4,c5,Nf3"` or `"e2e4 c7c5 g1f3"`).
-- `collection` (string, optional, default: `"masters-otb"`): Target collection identifier (`"masters-otb"` or `"elite-online"`).
-- `since_year` / `min_rating` (unsupported): If provided, the request fails with HTTP 400 (`unsupported_parameter`) to prevent silent semantic misinterpretation.
-
-#### Validation Rules
-1. `fen` and `moves` are mutually exclusive. Providing both returns HTTP 400 (`ambiguous_position`).
-2. If neither `fen` nor `moves` is provided, the API returns HTTP 400 (`missing_position`).
-3. FEN inputs must be orthodox and legal (fails with HTTP 400 `invalid_fen`).
-4. Moves must be legal sequentially from the initial board state (fails with HTTP 400 `invalid_moves`).
-5. Move sequences exceeding `--max-move-plies` (default 200 plies) return HTTP 400 (`move_sequence_too_long`).
-6. Unsupported filter parameters (`since_year`, `min_rating`) return HTTP 400 (`unsupported_parameter`).
-
-#### Response Payload (`application/json`, HTTP 200)
-When the position is present in the CPI index:
-```json
-{
-  "collection": "masters-otb",
-  "dataset_version": "v1_build_20261106",
-  "dataset_freshness": "2026-11-06T12:00:00Z",
-  "position_key": "463b96181691fc9c0000000000000000",
-  "fen": "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
-  "total_games": 24510,
-  "white_wins": 9804,
-  "draws": 10294,
-  "black_wins": 4412,
-  "white_win_pct": 40.0,
-  "draw_pct": 42.0,
-  "black_win_pct": 18.0,
-  "moves": [
-    {
-      "uci": "a7a6",
-      "san": "a6",
-      "white_wins": 5420,
-      "draws": 5610,
-      "black_wins": 2170,
-      "total_games": 13200,
-      "white_win_pct": 41.1,
-      "draw_pct": 42.5,
-      "black_win_pct": 16.4
-    }
-  ]
-}
-```
-
-When the position is legal but does not exist in the indexed database:
-The API returns HTTP 200 with zeroed game counters and an empty candidate move array:
-```json
-{
-  "collection": "masters-otb",
-  "position_key": "c0e6488a0e28f7310000000000000000",
-  "fen": "rnbqkbnr/pppppppp/8/8/8/7N/PPPPPPPP/RNBQKB1R b KQkq - 1 1",
-  "total_games": 0,
-  "white_wins": 0,
-  "draws": 0,
-  "black_wins": 0,
-  "white_win_pct": 0.0,
-  "draw_pct": 0.0,
-  "black_win_pct": 0.0,
-  "moves": []
-}
-```
-
-### 6.2 `GET /v1/collections/{collection}/games/{id}`
-Retrieves the full reconstructed game in standard PGN format by collection and 64-bit stable game ID.
-
-This route is registered by default. Operators may set `CODB_ENABLE_GAME_RETRIEVAL=false` (or pass `--enable-game-retrieval false`) for datasets whose terms allow position statistics but do not allow delivery of raw PGN to users. When disabled, the route is absent and Axum returns its router-level HTTP 404 response (without the `game_not_found` error envelope); position queries and collection metadata remain available.
-
-#### Path Parameters
-- `collection` (string): `"masters-otb"` or `"elite-online"`.
-- `id` (integer): 64-bit unsigned integer stable game ID (`u64`).
-
-#### Response Headers & Body
-- **Content-Type:** `application/x-chess-pgn; charset=utf-8`
-- **Status:** HTTP 200 OK
-- **Body:** Canonical PGN text:
-```pgn
-[Event "FIDE World Championship 2018"]
-[Site "London ENG"]
-[Date "2018.11.09"]
-[Round "1"]
-[White "Caruana, Fabiano"]
-[Black "Carlsen, Magnus"]
-[Result "1/2-1/2"]
-[WhiteElo "2832"]
-[BlackElo "2835"]
-[ECO "B31"]
-
-1. e4 c5 2. Nf3 Nc6 3. Bb5 g6 4. Bxc6 dxc6 1/2-1/2
-```
-
-If the collection is valid but the game ID does not exist in the index, returns HTTP 404 (`game_not_found`).
-
-### 6.2.1 Server option: stored game retrieval
-
-`CODB_ENABLE_GAME_RETRIEVAL` / `--enable-game-retrieval` is a boolean option, defaulting to `true` for compatibility. Set it to `false` to omit the stored-game route from the HTTP router. Disabling the route does not alter CGB3 storage or local `codb get-game` access.
-
-### 6.3 `GET /v1/collections`
-Returns summary status and metadata for all datasets loaded in the active server snapshot.
-
-#### Response Payload (`application/json`, HTTP 200)
-```json
-{
-  "collections": [
-    {
-      "collection": "masters-otb",
-      "version": "v1_build_20261106",
-      "snapshot_path": "/var/data/masters-otb/versions/v1",
-      "total_games": 100000,
-      "cpi_indexed": true,
-      "cpi_depth_plies": 40
-    }
-  ]
-}
-```
-
-### 6.4 Operational Probes & Administrative Reload
-
-#### `GET /health`
-Liveness probe. Returns HTTP 200 `{"status": "ok"}` when the HTTP listener is operational.
-
-#### `GET /ready`
-Readiness probe. Returns HTTP 200 `{"status": "ready", "collections": [...]}` when at least one collection dataset is successfully loaded and ready for queries. If no datasets are loaded, returns HTTP 503 Service Unavailable.
-
-#### `POST /v1/admin/reload`
-Triggers an authenticated, fail-closed zero-downtime reload of active dataset snapshots from disk.
-
-- **Access Control:** Requires administrative authorization via `Authorization: Bearer <token>` or `X-Admin-Token: <token>` matching `--admin-token` or `CODB_ADMIN_TOKEN`. If no admin token is configured, the endpoint is disabled and returns `HTTP 403 Forbidden` (`admin_disabled`). If the token is missing or invalid, returns `HTTP 401 Unauthorized` (`unauthorized`).
-- **Cross-Origin Protection:** Cross-origin triggers (requests containing an `Origin` header) are strictly rejected with `HTTP 401 Unauthorized` to prevent cross-site request forgery.
-- **Fail-Closed Validation:** Candidate snapshots are deeply verified before activation (`verify_dataset` integrity check + CPI index verification). If verification fails, the replacement is aborted, returning `HTTP 500 Internal Server Error` (`reload_failed`), and existing active snapshots remain untouched and operational.
-- **Concurrent Request Coordination:** Reload operations are serialized using an asynchronous mutex to prevent overlapping reload thrashing.
-- **Response Payload (`application/json`, HTTP 200):**
-```json
-{
-  "status": "reloaded",
-  "reloaded_collections": ["masters-otb", "elite-online"],
-  "duration_ms": 3.29
-}
-```
-
-#### Native Unix Signal Reload (`SIGHUP`)
-For local deployments without exposing HTTP administrative credentials, sending `SIGHUP` (`kill -HUP <pid>`) triggers the same atomic verification and reload process asynchronously without requiring network credentials.
-
-### 6.5 Error Response Envelope
-All error responses adhere to a consistent JSON error schema:
-```json
-{
-  "error": {
-    "code": "invalid_moves",
-    "message": "Illegal move 'e5' at ply 1 for current position"
-  }
-}
-```
-
-#### Standard Error Codes
-| Code | HTTP Status | Description |
-| :--- | :--- | :--- |
-| `invalid_collection` | 400 Bad Request | Collection parameter was not `masters-otb` or `elite-online`. |
-| `missing_position` | 400 Bad Request | Neither `fen` nor `moves` parameter was supplied. |
-| `ambiguous_position` | 400 Bad Request | Mutually exclusive parameters (`fen` and `moves`) were both supplied. |
-| `invalid_fen` | 400 Bad Request | FEN string could not be parsed or violates chess rules. |
-| `invalid_moves` | 400 Bad Request | Move sequence contains illegal moves or invalid notation. |
-| `move_sequence_too_long`| 400 Bad Request | Move sequence exceeds configured maximum plies. |
-| `unsupported_parameter`| 400 Bad Request | Query requested unsupported filter parameter (`since_year` or `min_rating`). |
-| `invalid_game_id` | 400 Bad Request | Game ID parameter was not a valid 64-bit unsigned integer. |
-| `unauthorized` | 401 Unauthorized | Missing or invalid admin authorization token, or rejected cross-origin admin request. |
-| `admin_disabled` | 403 Forbidden | Administrative reload endpoint is disabled (no `--admin-token` configured). |
-| `game_not_found` | 404 Not Found | 64-bit game ID does not exist in the collection index. |
-| `collection_unavailable`| 503 Service Unavailable | Target collection was not mounted at server startup. |
-| `index_unavailable` | 503 Service Unavailable | Snapshot exists but CPI v2 position index is missing. |
-| `pool_timeout` | 503 Service Unavailable | Bounded reader pool acquisition timed out under extreme concurrency. |
-| `reload_failed` | 500 Internal Server Error | Candidate dataset snapshot failed pre-activation verification. |
-| `storage_error` | 500 Internal Server Error | Storage engine I/O or decoding failure. |
-| `internal_error` | 500 Internal Server Error | Unexpected internal server or worker thread failure. |
-
-*Note on Error Sanitization:* All HTTP 500 responses (`reload_failed`, `storage_error`, `internal_error`) return sanitized generic messages to external clients, ensuring filesystem paths and engine internals are never leaked. Full diagnostic details are preserved in structured server-side logs.
-
----
-
-## 6.6 HTTP Caching & Conditional Requests
-
-The API implements RFC 7232 HTTP conditional validation:
-- **Existence Verification Prior to Evaluation:** Conforming strictly to RFC 7232 Section 3.2, resource existence is verified before conditional headers are evaluated. If a game ID does not exist in `games.idx`, the server immediately returns `HTTP 404 Not Found` rather than evaluating `If-None-Match` or returning `HTTP 304 Not Modified`.
-- **`ETag` Generation:** Derived deterministically from dataset version build ID, collection, and request representation:
-  - Position queries: `"{collection}-{dataset_build_id}-{position_key_hex}-{fen_hash}"` (incorporates the full FEN string to differentiate positions with varying halfmove/fullmove clocks)
-  - Game queries: `"{collection}-{dataset_build_id}-{game_id}"`
-- **Conditional Requests (`If-None-Match`):** Evaluates strong ETags, weak ETags (`W/"..."`), wildcards (`*`), and comma-separated lists. If any tag matches the current resource ETag, returns `HTTP 304 Not Modified` with an empty body.
-- **Cache-Control Headers:**
-  - Position and Collections endpoints: `Cache-Control: public, max-age=60`
-  - Game retrieval endpoint: `Cache-Control: public, max-age=3600`
-- **CORS Headers:** Restrictive default: empty (`allowed_origins = []`), allowing same-origin requests only. Configurable via `--allowed-origins <origin>`. When configured, `ETag`, `Content-Type`, and `Cache-Control` are exposed via `Access-Control-Expose-Headers`.
+The HTTP contract (routes, parameters, response fields, error envelope, caching, CORS, and configuration) is specified in [API_REFERENCE.md](API_REFERENCE.md). That document is normative; it is not repeated here so the two cannot diverge. Behavior is exercised by the API crate's integration tests and by `scripts/test_docs_examples.py` against recorded responses in `fixtures/api/`.

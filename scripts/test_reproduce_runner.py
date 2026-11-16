@@ -38,7 +38,7 @@ class TestReproduceRunner(unittest.TestCase):
 
     def test_all_mode_fails_closed_when_data_missing(self):
         """Condition 2: --all fails closed (exit 1) when empirical datasets are missing."""
-        env = {**os.environ, "CODB_DATA_DIR": "/tmp/nonexistent_data_dir_pr01_test"}
+        env = {**os.environ, "OPENING_EXPLORER_DATA_DIR": "/tmp/nonexistent_data_dir_pr01_test"}
         res = subprocess.run(
             [RUNNER_PATH, "--all"],
             cwd=ROOT_DIR,
@@ -67,7 +67,7 @@ class TestReproduceRunner(unittest.TestCase):
             with open(os.path.join(tmpdir, "masters_combined.pgn.zst"), "wb") as f:
                 f.write(b"CORRUPT_INVALID_BYTES_1234567890")
 
-            env = {**os.environ, "CODB_DATA_DIR": tmpdir}
+            env = {**os.environ, "OPENING_EXPLORER_DATA_DIR": tmpdir}
             res = subprocess.run(
                 [RUNNER_PATH, "--all"],
                 cwd=ROOT_DIR,

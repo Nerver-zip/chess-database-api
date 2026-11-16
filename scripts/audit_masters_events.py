@@ -67,7 +67,7 @@ def fetch_event(api_url: str) -> dict:
         api_url,
         headers={
             "Accept": "application/json",
-            "User-Agent": "chess-openings-db-masters-event-audit/1.0",
+            "User-Agent": "opening-explorer-api-masters-event-audit/1.0",
         },
     )
     for attempt in range(3):
@@ -155,7 +155,7 @@ def linked_page_evidence(url: str, event_names: list[str], tour_name: str,
         return {"url": url, "verified": False,
                 "error": "host is invalid, unresolved, or not a public HTTP destination"}
 
-    request = Request(url, headers={"User-Agent": "chess-openings-db-masters-event-audit/1.0"})
+    request = Request(url, headers={"User-Agent": "opening-explorer-api-masters-event-audit/1.0"})
     opener = build_opener(PublicRedirectHandler())
     try:
         with opener.open(request, timeout=1.5) as response:

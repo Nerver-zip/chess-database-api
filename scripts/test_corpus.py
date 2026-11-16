@@ -3,7 +3,7 @@
 
 No test touches the real network: archives are served from a local HTTP server
 with fault injection, and corpus-assembly tests build tiny synthetic fixtures
-(fixtures/corpus/*.pgn) through the real `codb` binary.
+(fixtures/corpus/*.pgn) through the real `opening-explorer` binary.
 
 Run:  python3 -m unittest scripts/test_corpus.py
 """
@@ -30,7 +30,7 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parent
 REPO = SCRIPTS.parent
 sys.path.insert(0, str(SCRIPTS))
-os.environ["CODB_CORPUS_ALLOW_HTTP"] = "1"  # local test server only
+os.environ["OPENING_EXPLORER_CORPUS_ALLOW_HTTP"] = "1"  # local test server only
 
 import corpus  # noqa: E402
 
@@ -268,12 +268,12 @@ class CatalogTests(unittest.TestCase):
             corpus.validate_catalog(cat)
 
     def test_https_required_without_test_override(self):
-        old = os.environ.pop("CODB_CORPUS_ALLOW_HTTP")
+        old = os.environ.pop("OPENING_EXPLORER_CORPUS_ALLOW_HTTP")
         try:
             with self.assertRaisesRegex(corpus.CorpusError, "HTTPS"):
                 corpus.validate_catalog(make_catalog([self.entry()]))
         finally:
-            os.environ["CODB_CORPUS_ALLOW_HTTP"] = old
+            os.environ["OPENING_EXPLORER_CORPUS_ALLOW_HTTP"] = old
 
     def test_url_basename_must_match_filename(self):
         with self.assertRaisesRegex(corpus.CorpusError, "basename"):
@@ -720,22 +720,22 @@ class FetchTests(unittest.TestCase):
 # --------------------------------------------------------------------------- #
 # Corpus assembly, publication, packaging, serving
 # --------------------------------------------------------------------------- #
-def ensure_codb() -> Path:
+def ensure_opening_explorer() -> Path:
     try:
-        return corpus.find_codb(None)
+        return corpus.find_opening_explorer(None)
     except corpus.CorpusError:
         env = dict(os.environ)
         cargo_bin = Path.home() / ".cargo" / "bin"
         if cargo_bin.is_dir():
             env["PATH"] = f"{cargo_bin}:{env['PATH']}"
-        subprocess.run(["cargo", "build", "-q", "-p", "codb-cli"], cwd=REPO, env=env, check=True)
-        return corpus.find_codb(None)
+        subprocess.run(["cargo", "build", "-q", "-p", "opening-explorer-cli"], cwd=REPO, env=env, check=True)
+        return corpus.find_opening_explorer(None)
 
 
 class AssemblyBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.codb = ensure_codb()
+        cls.opening_explorer = ensure_opening_explorer()
         cls.masters_pgn = (FIXTURES / "broadcast_sample.pgn").read_bytes()
         cls.elite_pgn = (FIXTURES / "standard_sample.pgn").read_bytes()
 
@@ -757,20 +757,20 @@ class AssemblyBase(unittest.TestCase):
         p.write_text(json.dumps(cat))
         return p
 
-    def run_cli(self, catalog: Path, *args: str, codb: Path | None = None) -> int:
+    def run_cli(self, catalog: Path, *args: str, opening_explorer: Path | None = None) -> int:
         return corpus.main(["--catalog", str(catalog), "--data-dir", str(self.data_dir),
-                            "--codb", str(codb or self.codb), *args])
+                            "--opening-explorer", str(opening_explorer or self.opening_explorer), *args])
 
-    def fetch_and_build(self, catalog: Path, collection: str, codb: Path | None = None) -> int:
+    def fetch_and_build(self, catalog: Path, collection: str, opening_explorer: Path | None = None) -> int:
         rc = self.run_cli(catalog, "fetch", "--collection", collection, "--min-free-bytes", "0", "--backoff", "0")
         self.assertEqual(rc, 0)
-        return self.run_cli(catalog, "build", "--collection", collection, codb=codb)
+        return self.run_cli(catalog, "build", "--collection", collection, opening_explorer=opening_explorer)
 
     def release(self, collection: str) -> dict:
         return json.loads((corpus.current_version_dir(self.data_dir / "releases" / collection) / "RELEASE" / "RELEASE.json").read_text())
 
     def export(self, collection: str) -> str:
-        r = subprocess.run([str(self.codb), "export", "--dataset", str(self.data_dir / "releases" / collection)],
+        r = subprocess.run([str(self.opening_explorer), "export", "--dataset", str(self.data_dir / "releases" / collection)],
                            capture_output=True, text=True, check=True)
         return r.stdout
 
@@ -918,16 +918,16 @@ class PublicationTests(AssemblyBase):
         self.assertEqual(self.fetch_and_build(self.cat, "masters-otb"), 0)
         self.root_dir = self.data_dir / "releases" / "masters-otb"
 
-    def fake_codb(self, fail_step: str) -> Path:
+    def fake_opening_explorer(self, fail_step: str) -> Path:
         # /tmp may be mounted noexec; keep the helper under the git-ignored target/ directory.
         exec_dir = REPO / "target" / "test-helpers"
         exec_dir.mkdir(parents=True, exist_ok=True)
-        script = exec_dir / f"fake_codb_{fail_step}_{os.getpid()}.sh"
+        script = exec_dir / f"fake_opening_explorer_{fail_step}_{os.getpid()}.sh"
         self.addCleanup(lambda: script.unlink(missing_ok=True))
         script.write_text(
             "#!/usr/bin/env bash\n"
             f'if [ "$1" = "{fail_step}" ]; then echo "injected failure" >&2; exit 1; fi\n'
-            f'exec "{self.codb}" "$@"\n'
+            f'exec "{self.opening_explorer}" "$@"\n'
         )
         script.chmod(0o755)
         return script
@@ -935,20 +935,20 @@ class PublicationTests(AssemblyBase):
     def test_failed_build_does_not_overwrite_active_release(self):
         before = self.release("masters-otb")["dataset_version"]
         self.assertEqual(self.run_cli(self.cat, "build", "--collection", "masters-otb",
-                                      codb=self.fake_codb("build")), 2)
+                                      opening_explorer=self.fake_opening_explorer("build")), 2)
         self.assertEqual(self.release("masters-otb")["dataset_version"], before)
         self.assertEqual(self.run_cli(self.cat, "verify", "--collection", "masters-otb"), 0)
 
     def test_failed_index_step_does_not_publish(self):
         before = self.release("masters-otb")["dataset_version"]
         self.assertEqual(self.run_cli(self.cat, "build", "--collection", "masters-otb",
-                                      codb=self.fake_codb("build-index")), 2)
+                                      opening_explorer=self.fake_opening_explorer("build-index")), 2)
         self.assertEqual(self.release("masters-otb")["dataset_version"], before)
 
     def test_failed_verification_prevents_publication(self):
         before = self.release("masters-otb")["dataset_version"]
         self.assertEqual(self.run_cli(self.cat, "build", "--collection", "masters-otb",
-                                      codb=self.fake_codb("verify")), 2)
+                                      opening_explorer=self.fake_opening_explorer("verify")), 2)
         self.assertEqual(self.release("masters-otb")["dataset_version"], before)
         leftovers = list((self.data_dir / "work").glob("*"))
         self.assertTrue(leftovers, "failed workspace is kept for diagnosis")
@@ -961,7 +961,7 @@ class PublicationTests(AssemblyBase):
         old_snapshot = self.root_dir / "versions" / old_version
         self.assertTrue(old_snapshot.is_dir(), "old immutable version preserved")
         self.assertEqual(self.run_cli(self.cat, "verify", "--collection", "masters-otb"), 0)
-        r = subprocess.run([str(self.codb), "verify", "--dataset", str(old_snapshot), "--deep"],
+        r = subprocess.run([str(self.opening_explorer), "verify", "--dataset", str(old_snapshot), "--deep"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
@@ -1029,7 +1029,7 @@ class ServingTests(AssemblyBase):
 
         provisioned = self.root / "provisioned-data"
         rc = corpus.main([
-            "--catalog", str(self.cat), "--data-dir", str(provisioned), "--codb", str(self.codb),
+            "--catalog", str(self.cat), "--data-dir", str(provisioned), "--opening-explorer", str(self.opening_explorer),
             "bootstrap", "--masters-package", str(archives["masters-otb"]),
             "--elite-package", str(archives["elite-online"]),
         ])
@@ -1038,7 +1038,7 @@ class ServingTests(AssemblyBase):
             root = provisioned / "releases" / collection
             self.assertTrue(corpus.current_version_dir(root).is_dir())
             self.assertIsNone(corpus.verify_release_files(root))
-            report = subprocess.run([str(self.codb), "verify", "--dataset", str(root), "--deep"],
+            report = subprocess.run([str(self.opening_explorer), "verify", "--dataset", str(root), "--deep"],
                                     capture_output=True, text=True)
             self.assertEqual(report.returncode, 0, report.stdout + report.stderr)
 
@@ -1083,7 +1083,7 @@ class ServingTests(AssemblyBase):
         def invoke(masters: Path, elite: Path, name: str) -> int:
             return corpus.main([
                 "--catalog", str(self.cat), "--data-dir", str(self.root / name),
-                "--codb", str(self.codb), "bootstrap", "--masters-package", str(masters),
+                "--opening-explorer", str(self.opening_explorer), "bootstrap", "--masters-package", str(masters),
                 "--elite-package", str(elite),
             ])
 
@@ -1120,7 +1120,7 @@ class ServingTests(AssemblyBase):
         incompatible_data = self.root / "incompatible-policy"
         incompatible_rc = corpus.main([
             "--catalog", str(incompatible_catalog), "--data-dir", str(incompatible_data),
-            "--codb", str(self.codb), "bootstrap",
+            "--opening-explorer", str(self.opening_explorer), "bootstrap",
             "--masters-package", str(archives["masters-otb"]),
             "--elite-package", str(archives["elite-online"]),
         ])
@@ -1130,7 +1130,7 @@ class ServingTests(AssemblyBase):
     def test_http_semantic_checks_against_generated_releases(self):
         roots = {c: self.data_dir / "releases" / c for c in corpus.COLLECTIONS}
         depth = {"masters-otb": 40, "elite-online": 30}
-        rep = corpus.run_http_checks(self.codb, roots, "127.0.0.1", corpus.free_port(),
+        rep = corpus.run_http_checks(self.opening_explorer, roots, "127.0.0.1", corpus.free_port(),
                                      self.root / "serve.log", depth, requests_per_col=60, sample_games=100)
         self.assertTrue(rep["passed"], json.dumps(rep["failed"], indent=2))
         self.assertGreater(rep["checks_total"], 60)
@@ -1142,7 +1142,7 @@ class ServingTests(AssemblyBase):
         import http.client
         roots = {c: self.data_dir / "releases" / c for c in corpus.COLLECTIONS}
         port = corpus.free_port()
-        cmd = corpus.serve_command(self.codb, roots["masters-otb"], roots["elite-online"], "127.0.0.1", port,
+        cmd = corpus.serve_command(self.opening_explorer, roots["masters-otb"], roots["elite-online"], "127.0.0.1", port,
                                    "", ["--admin-token", "test-token"])
         with open(self.root / "serve.log", "wb") as lf:
             proc = subprocess.Popen(cmd, stdout=lf, stderr=subprocess.STDOUT)

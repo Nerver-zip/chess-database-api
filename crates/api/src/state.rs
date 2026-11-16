@@ -3,9 +3,9 @@
 use crate::config::ServerConfig;
 use crate::error::ApiError;
 use crate::models::CollectionMetadataResponse;
-use codb_core::Collection;
-use codb_index::position::DiskPositionIndex;
-use codb_storage::{
+use opening_explorer_core::Collection;
+use opening_explorer_index::position::DiskPositionIndex;
+use opening_explorer_storage::{
     resolve_dataset_snapshot, DatasetManifest, DatasetReader, GameLookupReader, StorageError,
 };
 use parking_lot::{Mutex, RwLock};
@@ -22,6 +22,7 @@ use tracing::info;
 /// preventing resource exhaustion under arbitrary client concurrency.
 pub struct DatasetReaderPool {
     snapshot_dir: PathBuf,
+    collection: Collection,
     idle_readers: Mutex<Vec<DatasetReader>>,
     semaphore: Arc<Semaphore>,
     capacity: usize,
@@ -31,12 +32,17 @@ pub struct DatasetReaderPool {
 
 impl DatasetReaderPool {
     /// Creates a new reader pool pinned to `snapshot_dir` with a strict `capacity` ceiling.
-    pub fn new(snapshot_dir: PathBuf, capacity: usize) -> Result<Self, StorageError> {
+    pub fn new(
+        snapshot_dir: PathBuf,
+        capacity: usize,
+        collection: Collection,
+    ) -> Result<Self, StorageError> {
         let capacity = capacity.max(1);
         // Eagerly validate that we can construct a reader instance
         let initial_reader = DatasetReader::open(&snapshot_dir)?;
         Ok(Self {
             snapshot_dir,
+            collection,
             idle_readers: Mutex::new(vec![initial_reader]),
             semaphore: Arc::new(Semaphore::new(capacity)),
             capacity,
@@ -134,10 +140,10 @@ impl DatasetReaderPool {
                 .unwrap()
                 .get_game_pgn(game_id)
                 .map_err(|e| match e {
-                    StorageError::GameNotFound(_) => ApiError::GameNotFound(
-                        game_id,
-                        guard.pool.snapshot_dir.display().to_string(),
-                    ),
+                    // Name the collection, not the server's snapshot path.
+                    StorageError::GameNotFound(_) => {
+                        ApiError::GameNotFound(game_id, guard.pool.collection.as_str().to_string())
+                    }
                     other => ApiError::Storage(format!("Game retrieval failed: {}", other)),
                 })
         })
@@ -185,7 +191,7 @@ impl DatasetSnapshot {
 
         // 1. Verify dataset integrity before opening structures!
         // This validates sha256 checksums of games.idx, shard_XXXX.cgb3, and positions.cpi!
-        let _report = codb_storage::verify_dataset(&snapshot_dir, deep_validate)?;
+        let _report = opening_explorer_storage::verify_dataset(&snapshot_dir, deep_validate)?;
 
         let manifest_bytes = std::fs::read(&manifest_path)?;
         let manifest: DatasetManifest = serde_json::from_slice(&manifest_bytes)
@@ -233,7 +239,11 @@ impl DatasetSnapshot {
             None
         };
 
-        let reader_pool = Arc::new(DatasetReaderPool::new(snapshot_dir.clone(), pool_size)?);
+        let reader_pool = Arc::new(DatasetReaderPool::new(
+            snapshot_dir.clone(),
+            pool_size,
+            expected_collection,
+        )?);
 
         Ok(Self {
             collection: expected_collection,

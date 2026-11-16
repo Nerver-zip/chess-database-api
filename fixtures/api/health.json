@@ -1,0 +1,11 @@
+{
+  "name": "health",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "status": "ok",
+    "version": "0.1.0"
+  }
+}

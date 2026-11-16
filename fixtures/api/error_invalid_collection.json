@@ -1,0 +1,13 @@
+{
+  "name": "error_invalid_collection",
+  "status": 400,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "json": {
+    "error": {
+      "code": "invalid_collection",
+      "message": "Invalid collection identifier 'bogus'. Expected 'masters-otb' or 'elite-online'."
+    }
+  }
+}

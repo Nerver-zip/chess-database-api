@@ -1,9 +1,11 @@
-use codb_core::{Collection, GameSourceAttribution, IngestionStats, ParsedGame, PositionKey};
-use codb_index::external::{
+use opening_explorer_core::{
+    Collection, GameSourceAttribution, IngestionStats, ParsedGame, PositionKey,
+};
+use opening_explorer_index::external::{
     ExternalIndexConfig, ExternalIndexFaultPoint, ExternalIndexStats, ExternalPositionIndexer,
     DEFAULT_CPI_ZSTD_LEVEL, DEFAULT_MAX_MERGE_FAN_IN, DEFAULT_MEMORY_LIMIT_BYTES,
 };
-use codb_index::position::{
+use opening_explorer_index::position::{
     DiskPositionIndex, PositionStats, CPI_VERSION, DEFAULT_POSITIONS_PER_BLOCK,
 };
 use serde::{Deserialize, Serialize};
@@ -88,7 +90,7 @@ pub mod fault {
                 format!("Injected publication fault at {:?}", point),
             )));
         }
-        if let Ok(val) = std::env::var("CODB_CRASH_AT") {
+        if let Ok(val) = std::env::var("OPENING_EXPLORER_CRASH_AT") {
             let match_str = match point {
                 FaultPoint::BeforeStagingVerify => "BeforeStagingVerify",
                 FaultPoint::AfterStagingVerifyBeforeVersionMove => {
@@ -139,6 +141,13 @@ pub mod fault {
 pub const DEFAULT_BLOCK_CAPACITY: usize = 512;
 pub const DEFAULT_MAX_GAMES_PER_SHARD: usize = 500_000;
 pub const DEFAULT_ZSTD_LEVEL: i32 = 3;
+
+/// Prefix of every generated dataset build identifier and published version name.
+///
+/// This is the immutable legacy `codb` identifier prefix. Existing snapshots, release
+/// manifests and benchmark evidence reference identifiers with this prefix, so new
+/// builds keep it. See `docs/MIGRATION_FROM_CODB.md`.
+pub const BUILD_ID_PREFIX: &str = "codb-";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SourceArchiveMetadata {
@@ -810,7 +819,7 @@ impl DatasetWriter {
         let manifest = DatasetManifest {
             manifest_version: 1,
             dataset_build_id: format!(
-                "codb-{}-{}-{}-{:016x}",
+                "{BUILD_ID_PREFIX}{}-{}-{}-{:016x}",
                 self.config.collection,
                 now_nanos,
                 std::process::id(),
@@ -1134,7 +1143,7 @@ impl DatasetReader {
     pub fn query_position(&self, key: PositionKey) -> Result<Option<PositionStats>, StorageError> {
         let idx = self.open_position_index()?.ok_or_else(|| {
             StorageError::Decoding(format!(
-                "Dataset at '{}' does not contain a published position index (positions.cpi); run 'codb build-index' first",
+                "Dataset at '{}' does not contain a published position index (positions.cpi); run 'opening-explorer build-index' first",
                 self.dataset_dir.display()
             ))
         })?;
@@ -2020,7 +2029,7 @@ pub fn publish_prebuilt_dataset(
             .unwrap_or(false)
     {
         return Err(StorageError::Integrity(
-            "Target contains a legacy flat dataset; migrate it with codb recover before publication"
+            "Target contains a legacy flat dataset; migrate it with opening-explorer recover before publication"
                 .into(),
         ));
     }
@@ -3627,7 +3636,7 @@ pub fn build_dataset_position_index(
         return Err(StorageError::Encoding("depth_plies must be >= 1".into()));
     }
 
-    // Map storage-level fault points or CODB_CRASH_AT env var to ExternalPositionIndexer fault hooks
+    // Map storage-level fault points or OPENING_EXPLORER_CRASH_AT env var to ExternalPositionIndexer fault hooks
     let ext_fault = if fault::is_fault_active(fault::FaultPoint::IndexDuringRunGeneration) {
         Some(ExternalIndexFaultPoint::DuringRunGeneration)
     } else if fault::is_fault_active(fault::FaultPoint::IndexDuringExternalMerge) {
@@ -3783,7 +3792,7 @@ pub fn build_dataset_position_index(
 
     let new_build_id = config.build_id_override.clone().unwrap_or_else(|| {
         format!(
-            "codb-{}-{}-{}-{:016x}-cpi-d{}",
+            "{BUILD_ID_PREFIX}{}-{}-{}-{:016x}-cpi-d{}",
             src_manifest.collection, now_nanos, pid, nonce, depth_plies
         )
     });
