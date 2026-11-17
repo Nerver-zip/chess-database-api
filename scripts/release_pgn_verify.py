@@ -5,13 +5,12 @@ This checker shares no code with the Rust exporter or the Rust dataset reader. I
 
 * decodes the CGB3 shards directly from the on-disk format (shard footer and block
   directory, zstd block payloads, string dictionaries, fixed-width game records);
-* reads source-attribution.jsonl itself and applies the published tag rules
-  (distinct non-empty Source values joined by "; "; titles, FIDE IDs, and Mode are
-  written only when every attribution agrees);
+* reads source-attribution.jsonl when the snapshot has it (Masters OTB) and applies the
+  published tag rules; Elite Online has no attribution sidecar and must not invent one;
 * checks EVERY PGN game at the header level (no board replay): the PGN-visible metadata
-  against the canonical record, the sidecar-derived tags, the Result token, PlyCount,
-  SetUp/FEN consistency, duplicate tags, and the number of SAN tokens against the
-  canonical ply count;
+  against the canonical record, applicable sidecar-derived tags, the Result token,
+  PlyCount, SetUp/FEN consistency, duplicate tags, and the number of SAN tokens against
+  the canonical ply count;
 * checks a deterministic SAMPLE of games (every Nth game, default 1 = all) with
   python-chess: legality of every mainline move, mainline result, and the complete
   mainline (packed as CompactMove words) compared byte-for-byte with CGB3;
@@ -20,8 +19,9 @@ This checker shares no code with the Rust exporter or the Rust dataset reader. I
   and compares next-move and win/draw/loss counts with `opening-explorer query --json`.
 
 Full python-chess replay of every game is CPU-bound (about 3 to 5 hours of CPU for the
-3,284,429-game Masters release on a two-core host), so the default run is the header
-check for all games plus a sampled legality check. The sample is reported as such.
+3,284,429-game Masters release on a two-core host). The default `--sample-every 1` checks
+every game; set a larger interval for a faster sampled run. Elite Online's 429,150-game
+baseline is suitable for a full streaming verification pass.
 
 Use the scratch environment (python-chess and zstandard are not repository dependencies):
 
@@ -40,8 +40,10 @@ import multiprocessing
 import os
 import platform
 import re
+import sqlite3
 import struct
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any, Iterable, Iterator
@@ -76,6 +78,12 @@ BATCH_GAMES = 400
 TAG_LINE = re.compile(r'^\[([A-Za-z0-9_]+) "((?:[^"\\]|\\.)*)"\]$')
 TAG_ESCAPE = re.compile(r"\\(.)")
 ATTRIBUTION_TAGS = ("Source", "WhiteTitle", "BlackTitle", "WhiteFideId", "BlackFideId", "Mode")
+SNAPSHOT_BASELINES = {
+    "masters-otb": {"games": 3_284_429, "depth_plies": 40, "unique_positions": 51_909_604,
+                    "has_source_attribution": True},
+    "elite-online": {"games": 429_150, "depth_plies": 30, "unique_positions": 6_136_307,
+                     "has_source_attribution": False},
+}
 
 
 class VerificationError(RuntimeError):
@@ -91,6 +99,14 @@ def require_runtime(full: bool) -> None:
 
 def blake(data: bytes) -> bytes:
     return hashlib.blake2b(data, digest_size=16).digest()
+
+
+def sha256_path(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(READ_CHUNK), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 # --------------------------------------------------------------------------- #
@@ -236,7 +252,9 @@ def expected_core(record: dict[str, Any]) -> tuple[str, bytes]:
 
 
 def canonical_digests(snapshot: Path, manifest: dict[str, Any],
-                      sidecar: dict[int, bytes]) -> Iterator[tuple[bytes, bytes, bytes, int]]:
+                      sidecar: dict[int, bytes] | None,
+                      id_registry: sqlite3.Connection | None = None
+                      ) -> Iterator[tuple[bytes, bytes | None, bytes, int]]:
     """Yield (header digest, sidecar digest, full digest, game ID) in physical order."""
     shards = sorted(manifest["shards"], key=lambda item: item["shard_id"])
     seen = 0
@@ -246,9 +264,17 @@ def canonical_digests(snapshot: Path, manifest: dict[str, Any],
             raise VerificationError(f"shard {shard['filename']} SHA-256 differs from the manifest")
         for raw in iter_shard_blocks(shard["filename"], data, shard["block_count"], shard["game_count"]):
             for record in parse_cgb3(raw):
+                if id_registry is not None:
+                    try:
+                        id_registry.execute("INSERT INTO canonical_game_ids (game_id) VALUES (?)",
+                                            (str(record["id"]),))
+                    except sqlite3.IntegrityError as error:
+                        raise VerificationError(
+                            f"canonical snapshot repeats game ID {record['id']}"
+                        ) from error
                 text, moves = expected_core(record)
-                side = sidecar.get(record["id"])
-                if side is None:
+                side = sidecar.get(record["id"]) if sidecar is not None else None
+                if sidecar is not None and side is None:
                     raise VerificationError("canonical game has no sidecar entry")
                 plies = len(moves) // 2
                 header = blake(f"{text}\x1e{plies}".encode("utf-8"))
@@ -257,6 +283,27 @@ def canonical_digests(snapshot: Path, manifest: dict[str, Any],
                 seen += 1
     if seen != manifest["total_games"]:
         raise VerificationError(f"decoded {seen} canonical games, manifest declares {manifest['total_games']}")
+
+
+def validate_snapshot_baseline(manifest: dict[str, Any]) -> dict[str, Any]:
+    collection = manifest.get("collection")
+    baseline = SNAPSHOT_BASELINES.get(collection)
+    if baseline is None:
+        raise VerificationError(f"unsupported collection in snapshot manifest: {collection!r}")
+    if manifest.get("total_games") != baseline["games"]:
+        raise VerificationError(
+            f"{collection} snapshot has {manifest.get('total_games')} games, expected {baseline['games']}"
+        )
+    position_index = manifest.get("position_index")
+    if (not isinstance(position_index, dict)
+            or position_index.get("indexed_depth_plies") != baseline["depth_plies"]
+            or position_index.get("unique_positions") != baseline["unique_positions"]):
+        raise VerificationError(f"{collection} snapshot CPI facts differ from the release baseline")
+    has_sidecar = manifest.get("source_attribution") is not None
+    if has_sidecar != baseline["has_source_attribution"]:
+        expectation = "requires" if baseline["has_source_attribution"] else "does not use"
+        raise VerificationError(f"{collection} snapshot {expectation} a source-attribution sidecar")
+    return baseline
 
 
 # --------------------------------------------------------------------------- #
@@ -309,7 +356,7 @@ def side_text(tags: dict[str, str]) -> str:
     return "\x1f".join(tags.get(name, "") for name in ATTRIBUTION_TAGS)
 
 
-def parse_headers(text: str) -> dict[str, Any]:
+def parse_headers(text: str, expect_sidecar: bool = True) -> dict[str, Any]:
     """Header-level check for one game: metadata, sidecar tags, and SAN token count (no board)."""
     tags, problems, tokens = split_pgn_text(text)
     san_tokens = [token for token in tokens if not MOVE_NUMBER.match(token) and token not in RESULT_TOKENS]
@@ -318,16 +365,23 @@ def parse_headers(text: str) -> dict[str, Any]:
     if ("FEN" in tags) != (tags.get("SetUp") == "1"):
         problems.append("SetUp and FEN tags are inconsistent")
     plies = len(san_tokens)
+    has_sidecar_tags = any(name in tags for name in ATTRIBUTION_TAGS)
+    if not expect_sidecar:
+        if has_sidecar_tags:
+            problems.append("unexpected source-attribution tags without a canonical sidecar")
+        side_digest = None
+    else:
+        side_digest = blake(side_text(tags).encode("utf-8"))
     return {
         "problems": problems,
         "header_digest": blake(f"{core_text(tags)}\x1e{plies}".encode("utf-8")),
-        "side_digest": blake(side_text(tags).encode("utf-8")),
+        "side_digest": side_digest,
         "tags": tags,
         "plies": plies,
     }
 
 
-def parse_pgn_game(text: str) -> dict[str, Any]:
+def parse_pgn_game(text: str, expect_sidecar: bool = True) -> dict[str, Any]:
     """Full check for one game: python-chess legality, mainline, and move-word digest."""
     tags, problems, _tokens = split_pgn_text(text)
     game = chess.pgn.read_game(io.StringIO(text))
@@ -345,11 +399,14 @@ def parse_pgn_game(text: str) -> dict[str, Any]:
         packed.append(move.from_square | (move.to_square << 6) | (promotion << 12))
     move_bytes = struct.pack(f">{len(packed)}H", *packed)
     core = core_text(tags)
+    has_sidecar_tags = any(name in tags for name in ATTRIBUTION_TAGS)
+    if not expect_sidecar and has_sidecar_tags:
+        problems.append("unexpected source-attribution tags without a canonical sidecar")
     return {
         "problems": problems,
         "header_digest": blake(f"{core}\x1e{len(moves)}".encode("utf-8")),
         "full_digest": blake(core.encode("utf-8") + b"\x1e" + move_bytes),
-        "side_digest": blake(side_text(tags).encode("utf-8")),
+        "side_digest": blake(side_text(tags).encode("utf-8")) if expect_sidecar else None,
         "board_moves": moves,
         "result": tags.get("Result", ""),
         "start_fen": tags.get("FEN"),
@@ -366,10 +423,16 @@ _FULL_CHECK = False
 _SAMPLE_EVERY = 1
 
 
-def _worker_init(probe_specs: list[tuple[str, str]], full_check: bool, sample_every: int) -> None:
-    global _FULL_CHECK, _SAMPLE_EVERY
+_EXPECT_SIDECAR = True
+
+
+def _worker_init(
+    probe_specs: list[tuple[str, str]], full_check: bool, sample_every: int, expect_sidecar: bool
+) -> None:
+    global _FULL_CHECK, _SAMPLE_EVERY, _EXPECT_SIDECAR
     _FULL_CHECK = full_check
     _SAMPLE_EVERY = sample_every
+    _EXPECT_SIDECAR = expect_sidecar
     _PROBES.clear()
     if chess is None:
         return
@@ -388,13 +451,13 @@ def process_batch(items: list[tuple[int, str]]) -> dict[str, Any]:
     for global_index, text in items:
         sampled = _FULL_CHECK and global_index % _SAMPLE_EVERY == 0
         if not sampled:
-            header = parse_headers(text)
+            header = parse_headers(text, expect_sidecar=_EXPECT_SIDECAR)
             if header["problems"]:
                 problems.append({"game_index": global_index, "problems": header["problems"]})
             results.append((header["header_digest"] if not header["problems"] else b"",
                             header["side_digest"], None))
             continue
-        parsed = parse_pgn_game(text)
+        parsed = parse_pgn_game(text, expect_sidecar=_EXPECT_SIDECAR)
         if parsed["problems"] or "full_digest" not in parsed:
             problems.append({"game_index": global_index, "problems": parsed["problems"]})
             results.append((b"", b"", None))
@@ -527,14 +590,24 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     started = time.time()
     snapshot = Path(args.snapshot).resolve()
     manifest = json.loads((snapshot / "manifest.json").read_text(encoding="utf-8"))
-    expected_games = manifest["total_games"]
+    baseline = validate_snapshot_baseline(manifest)
+    expected_games = baseline["games"]
     meta = manifest.get("source_attribution")
-    if not meta:
-        raise VerificationError("manifest has no source-attribution sidecar")
-    sidecar_path = snapshot / meta["filename"]
-    if hashlib.sha256(sidecar_path.read_bytes()).hexdigest() != meta["sha256"]:
-        raise VerificationError("sidecar SHA-256 differs from the manifest")
-    sidecar = load_sidecar(sidecar_path, meta["entry_count"])
+    sidecar = None
+    sidecar_meta = None
+    if meta is not None:
+        if not isinstance(meta, dict):
+            raise VerificationError("manifest source-attribution metadata is malformed")
+        sidecar_path = snapshot / meta["filename"]
+        sidecar_hasher = hashlib.sha256()
+        with sidecar_path.open("rb") as sidecar_stream:
+            for chunk in iter(lambda: sidecar_stream.read(READ_CHUNK), b""):
+                sidecar_hasher.update(chunk)
+        sidecar_sha = sidecar_hasher.hexdigest()
+        if sidecar_sha != meta["sha256"]:
+            raise VerificationError("sidecar SHA-256 differs from the manifest")
+        sidecar = load_sidecar(sidecar_path, meta["entry_count"])
+        sidecar_meta = {"sha256": sidecar_sha, "entry_count": meta["entry_count"]}
     sidecar_seconds = time.time() - started
 
     # Probes only make sense over every game, because CODB counts all games.
@@ -544,8 +617,14 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
 
     pgn_path = Path(args.pgn).resolve()
     plain_hasher = hashlib.sha256()
-    compressed_sha = hashlib.sha256(pgn_path.read_bytes()).hexdigest()
-    canonical = canonical_digests(snapshot, manifest, sidecar)
+    compressed_sha = sha256_path(pgn_path)
+    id_registry_handle = tempfile.NamedTemporaryFile(prefix="opening-explorer-pgn-ids-", suffix=".sqlite",
+                                                     delete=False)
+    id_registry_path = Path(id_registry_handle.name)
+    id_registry_handle.close()
+    id_registry = sqlite3.connect(id_registry_path)
+    id_registry.execute("CREATE TABLE canonical_game_ids (game_id TEXT PRIMARY KEY)")
+    canonical = canonical_digests(snapshot, manifest, sidecar, id_registry)
 
     counters = {
         "pgn_games": 0,
@@ -562,54 +641,62 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     probe_moves: dict[str, dict[str, list[int]]] = {}
     mismatch_examples: list[dict[str, Any]] = []
 
-    games = iter_pgn_games(pgn_path, plain_hasher)
-    context = multiprocessing.get_context("fork")
-    with context.Pool(processes=max(1, os.cpu_count() or 1), initializer=_worker_init,
-                      initargs=(probe_specs, full_check, args.sample_every)) as pool:
-        for batch_result in pool.imap(process_batch, batched(games, BATCH_GAMES)):
-            for header_digest, side_digest, full_digest in batch_result["results"]:
-                index = counters["pgn_games"]
-                counters["pgn_games"] += 1
-                try:
-                    canon_header, canon_side, canon_full, _canon_id = next(canonical)
-                except StopIteration:
-                    raise VerificationError("PGN contains more games than the canonical snapshot")
-                counters["canonical_games"] += 1
-                if not header_digest:
-                    counters["parse_problem_games"] += 1
-                    continue
-                counters["header_checked"] += 1
-                if header_digest != canon_header:
-                    counters["header_mismatch"] += 1
-                    if len(mismatch_examples) < 20:
-                        mismatch_examples.append({"pgn_game_index": index, "kind": "header"})
-                if side_digest != canon_side:
-                    counters["sidecar_mismatch"] += 1
-                    if len(mismatch_examples) < 20:
-                        mismatch_examples.append({"pgn_game_index": index, "kind": "sidecar"})
-                if full_digest is not None:
-                    counters["full_checked"] += 1
-                    if full_digest != canon_full:
-                        counters["full_mismatch"] += 1
+    try:
+        games = iter_pgn_games(pgn_path, plain_hasher)
+        context = multiprocessing.get_context("fork")
+        with context.Pool(processes=max(1, os.cpu_count() or 1), initializer=_worker_init,
+                          initargs=(probe_specs, full_check, args.sample_every, sidecar is not None)) as pool:
+            for batch_result in pool.imap(process_batch, batched(games, BATCH_GAMES)):
+                for header_digest, side_digest, full_digest in batch_result["results"]:
+                    index = counters["pgn_games"]
+                    counters["pgn_games"] += 1
+                    try:
+                        canon_header, canon_side, canon_full, _canon_id = next(canonical)
+                    except StopIteration:
+                        raise VerificationError("PGN contains more games than the canonical snapshot")
+                    counters["canonical_games"] += 1
+                    if not header_digest:
+                        counters["parse_problem_games"] += 1
+                        continue
+                    counters["header_checked"] += 1
+                    if header_digest != canon_header:
+                        counters["header_mismatch"] += 1
                         if len(mismatch_examples) < 20:
-                            mismatch_examples.append({"pgn_game_index": index, "kind": "moves"})
-            for problem in batch_result["problems"]:
-                if len(problem_examples) < 20:
-                    problem_examples.append(problem)
-            for probe_id, totals in batch_result["probe_totals"].items():
-                merged = probe_totals.setdefault(probe_id, [0, 0, 0, 0])
-                for i, value in enumerate(totals):
-                    merged[i] += value
-            for probe_id, by_move in batch_result["probe_moves"].items():
-                merged_moves = probe_moves.setdefault(probe_id, {})
-                for uci, values in by_move.items():
-                    target = merged_moves.setdefault(uci, [0, 0, 0, 0])
-                    for i, value in enumerate(values):
-                        target[i] += value
-    if next(canonical, None) is not None:
-        raise VerificationError("canonical snapshot contains more games than the PGN")
-    if counters["pgn_games"] != expected_games:
-        raise VerificationError(f"PGN contains {counters['pgn_games']} games, expected {expected_games}")
+                            mismatch_examples.append({"pgn_game_index": index, "kind": "header"})
+                    if sidecar is not None and side_digest != canon_side:
+                        counters["sidecar_mismatch"] += 1
+                        if len(mismatch_examples) < 20:
+                            mismatch_examples.append({"pgn_game_index": index, "kind": "sidecar"})
+                    if full_digest is not None:
+                        counters["full_checked"] += 1
+                        if full_digest != canon_full:
+                            counters["full_mismatch"] += 1
+                            if len(mismatch_examples) < 20:
+                                mismatch_examples.append({"pgn_game_index": index, "kind": "moves"})
+                for problem in batch_result["problems"]:
+                    if len(problem_examples) < 20:
+                        problem_examples.append(problem)
+                for probe_id, totals in batch_result["probe_totals"].items():
+                    merged = probe_totals.setdefault(probe_id, [0, 0, 0, 0])
+                    for i, value in enumerate(totals):
+                        merged[i] += value
+                for probe_id, by_move in batch_result["probe_moves"].items():
+                    merged_moves = probe_moves.setdefault(probe_id, {})
+                    for uci, values in by_move.items():
+                        target = merged_moves.setdefault(uci, [0, 0, 0, 0])
+                        for i, value in enumerate(values):
+                            target[i] += value
+        if next(canonical, None) is not None:
+            raise VerificationError("canonical snapshot contains more games than the PGN")
+        if counters["pgn_games"] != expected_games:
+            raise VerificationError(f"PGN contains {counters['pgn_games']} games, expected {expected_games}")
+        id_registry.commit()
+        unique_game_ids = id_registry.execute("SELECT COUNT(*) FROM canonical_game_ids").fetchone()[0]
+        if unique_game_ids != expected_games:
+            raise VerificationError(f"canonical snapshot has {unique_game_ids} unique game IDs, expected {expected_games}")
+    finally:
+        id_registry.close()
+        id_registry_path.unlink(missing_ok=True)
 
     probe_results = []
     probe_failures = 0
@@ -639,8 +726,8 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         "schema_version": 2,
         "verifier": "scripts/release_pgn_verify.py",
         "independence": (
-            "CGB3 and sidecar decoded here from the on-disk format; PGN parsed here with "
-            "python-chess for the sampled full check; no Rust export or DatasetReader code is used"
+            "CGB3 and any source-attribution sidecar decoded here from the on-disk format; PGN parsed "
+            "here with python-chess for the sampled full check; no Rust export or DatasetReader code is used"
         ),
         "result": "FAIL" if failed_checks else "PASS",
         "failed_checks": failed_checks,
@@ -662,8 +749,9 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
             "dataset_build_id": manifest["dataset_build_id"],
             "shards": len(manifest["shards"]),
             "games": counters["canonical_games"],
-            "sidecar_entries": meta["entry_count"],
-            "sidecar_sha256": meta["sha256"],
+            "unique_game_ids": unique_game_ids,
+            "sidecar_entries": sidecar_meta["entry_count"] if sidecar_meta else 0,
+            "sidecar_sha256": sidecar_meta["sha256"] if sidecar_meta else None,
         },
         "checks": {
             "games_header_checked": counters["header_checked"],
@@ -672,8 +760,14 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
             "games_header_mismatch": counters["header_mismatch"],
             "games_sidecar_tag_mismatch": counters["sidecar_mismatch"],
             "games_move_mismatch_in_full_sample": counters["full_mismatch"],
+            "canonical_game_ids_unique": unique_game_ids == expected_games,
+            "every_pgn_game_matches_canonical_order": (
+                counters["pgn_games"] == expected_games
+                and counters["header_mismatch"] == 0
+                and counters["full_mismatch"] == 0
+            ),
             "header_check_scope": (
-                "every game: all PGN-visible metadata, sidecar tags, Result token, PlyCount, and SAN "
+                "every game: all PGN-visible metadata, any collection sidecar tags, Result token, PlyCount, and SAN "
                 "token count against the canonical ply count"
             ),
             "full_check_scope": (

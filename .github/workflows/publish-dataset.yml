@@ -5,12 +5,13 @@
 # `scripts/release_assets.py upload --execute`, and then runs this workflow. The
 # workflow publishes the draft only after it proves that:
 #   * the tag exists and points at a commit reachable from main;
-#   * the committed manifest is valid and the distribution clearance gate is cleared;
+#   * the committed manifest is valid and its collection-specific license gate passes;
 #   * the draft release is a draft and its asset names and sizes match the manifest;
 #   * the downloaded bytes match every part and whole-product SHA-256 in the manifest,
 #     and the uploaded manifest asset equals the committed manifest.
 #
-# Tags for dataset releases are dataset-<release_id> (for example dataset-masters-otb-r3).
+# Tags for dataset releases are dataset-<release_id> (for example dataset-masters-otb-r3 or
+# dataset-elite-online-r1).
 # They are immutable by convention: create them only on a reviewed commit, protect them
 # with a repository tag ruleset, and never move them. Dataset tags are independent of
 # software version tags.
@@ -21,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       release_id:
-        description: "Dataset release identifier, for example masters-otb-r3"
+        description: "Dataset release identifier, for example masters-otb-r3 or elite-online-r1"
         required: true
         type: string
       confirm_tag:
@@ -58,7 +59,7 @@ jobs:
             exit 1
           fi
           case "$RELEASE_ID" in
-            masters-otb-r[0-9]*) ;;
+            masters-otb-r3|elite-online-r1) ;;
             *) echo "unexpected release id: $RELEASE_ID" >&2; exit 1 ;;
           esac
 
@@ -79,11 +80,11 @@ jobs:
           fi
           echo "tag $TAG -> $commit (reachable from main)"
 
-      - name: Validate the committed manifest and the distribution gate
+      - name: Validate the committed manifest and collection license gate
         run: |
           set -euo pipefail
           python3 scripts/release_assets.py check-manifest \
-            --manifest "releases/${RELEASE_ID}.json" --require-clearance
+            --manifest "releases/${RELEASE_ID}.json" --require-policy
 
       - name: Compare the draft release with the manifest
         run: |

@@ -1,0 +1,632 @@
+{
+  "api_smoke": {
+    "active_collections": [
+      "elite-online"
+    ],
+    "api_vs_cli_query_match": true,
+    "clean_shutdown": true,
+    "command": "data/work/elite-online-r1/opening-explorer serve --elite-dataset data/releases/elite-online --host 127.0.0.1 --port 18765 --deep-validate-on-startup --enable-game-retrieval true",
+    "response_checks": {
+      "/health": {
+        "content_type": "application/json",
+        "json": {
+          "status": "ok",
+          "version": "0.1.0"
+        },
+        "status": 200
+      },
+      "/ready": {
+        "content_type": "application/json",
+        "json": {
+          "collections_loaded": [
+            "elite-online"
+          ],
+          "status": "ready"
+        },
+        "status": 200
+      },
+      "/v1/collections": {
+        "content_type": "application/json",
+        "json": {
+          "collections": [
+            {
+              "build_timestamp": "2026-11-17T03:47:30Z",
+              "collection": "elite-online",
+              "cpi_available": true,
+              "cpi_depth_plies": 30,
+              "cpi_total_positions": 6136307,
+              "dataset_version": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+              "format_version": "CGB3/v1",
+              "total_games": 429150
+            }
+          ]
+        },
+        "status": 200
+      },
+      "game_retrieval": {
+        "bytes": 908,
+        "content_type": "application/x-chess-pgn; charset=utf-8",
+        "id": "27289182012770",
+        "sha256": "4582b200b09fb9380284f0eaadf8fd74ec59842cb3c7a49d6ffd39cd332311b6",
+        "starts_with_pgn_header": true,
+        "status": 200
+      },
+      "invalid_moves": {
+        "error": {
+          "error": {
+            "code": "invalid_moves",
+            "message": "Invalid or illegal move sequence: Invalid move token 'notamove' at ply 2: expected SAN or UCI notation."
+          }
+        },
+        "status": 400
+      },
+      "position_query": {
+        "cli_comparison": {
+          "black_wins": 13661,
+          "cli_moves_match": true,
+          "dataset_version": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+          "draws": 2404,
+          "matched": true,
+          "moves": 17,
+          "position_key": "3e88f9327e6dd0a7d3207fec0612d89d",
+          "total_games": 30390,
+          "white_wins": 14325
+        },
+        "dataset_version": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+        "move_count": 17,
+        "status": 200,
+        "total_games": 30390
+      }
+    }
+  },
+  "build_host": {
+    "cargo": "cargo 1.100.0 (3acc79c0c 2026-11-05)",
+    "cli": "opening-explorer 0.1.0",
+    "container": "opening-explorer-elite-rebuild",
+    "image": "rust:1.100.0-bookworm",
+    "os": "Debian GNU/Linux 12 (bookworm)",
+    "rustc": "rustc 1.100.0 (0ef1bc386 2026-11-09)"
+  },
+  "distribution": {
+    "manifest_policy_check": "PASS: CC0 license and source provenance validated; no clearance file required",
+    "package_reconstruction": {
+      "command": "python3 scripts/release_assets.py reconstruct --manifest data/releases-dist/elite-online-r1/elite-online-r1-RELEASE_MANIFEST.json --dist-dir data/releases-dist/elite-online-r1 --output-dir data/work/elite-online-r1/reconstructed",
+      "filtered_pgn_sha256": "4498e4d8ee2b0fe9a5e813a94dd7a14d340beae027fc2f951f5ef483e4adefc5",
+      "indexed_tar_sha256": "9aada688d146ac00eb91b741e200051124afb6945479e37b41d70a32a70cf76e",
+      "result": "PASS"
+    },
+    "pgn_export": {
+      "compressed_bytes": 69584283,
+      "compressed_sha256": "4498e4d8ee2b0fe9a5e813a94dd7a14d340beae027fc2f951f5ef483e4adefc5",
+      "direct_and_prepared_byte_identical": true,
+      "direct_report": {
+        "collection": "elite-online",
+        "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+        "expected_games": 429150,
+        "games_written": 429150,
+        "missing_source_tag": 0,
+        "omitted_conflicting_tags": {},
+        "output_file": "elite-online-r1-filtered.pgn.zst",
+        "plain_bytes": 329763971,
+        "schema_version": 1,
+        "setup_games": 0,
+        "zstd_level": 19
+      },
+      "games_written": 429150,
+      "plain_bytes": 329763971,
+      "plain_sha256": "8c35ca0bf91153cc29b135937b298a9c0129198a9847cce6ee297323117bce0b",
+      "prepared_report": {
+        "collection": "elite-online",
+        "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+        "expected_games": 429150,
+        "games_written": 429150,
+        "missing_source_tag": 0,
+        "omitted_conflicting_tags": {},
+        "output_file": "elite-online-r1-filtered.pgn.zst",
+        "plain_bytes": 329763971,
+        "schema_version": 1,
+        "setup_games": 0,
+        "zstd_level": 19
+      },
+      "tool": "opening-explorer export-pgn",
+      "zstd_level": 19
+    },
+    "prepare_command": "python3 scripts/release_assets.py prepare --release-id elite-online-r1 --live-root data/releases/elite-online --dist-dir data/releases-dist/elite-online-r1 --work-dir data/work/elite-online-r1/prepare --codb data/work/elite-online-r1/opening-explorer",
+    "product_count": 2,
+    "products": [
+      {
+        "kind": "indexed-package",
+        "name": "elite-online-r1-indexed.tar",
+        "part_count": 1,
+        "parts": [
+          {
+            "name": "elite-online-r1-indexed.tar",
+            "sha256": "9aada688d146ac00eb91b741e200051124afb6945479e37b41d70a32a70cf76e",
+            "size_bytes": 210370560
+          }
+        ],
+        "sha256": "9aada688d146ac00eb91b741e200051124afb6945479e37b41d70a32a70cf76e",
+        "size_bytes": 210370560
+      },
+      {
+        "kind": "filtered-pgn",
+        "name": "elite-online-r1-filtered.pgn.zst",
+        "part_count": 1,
+        "parts": [
+          {
+            "name": "elite-online-r1-filtered.pgn.zst",
+            "sha256": "4498e4d8ee2b0fe9a5e813a94dd7a14d340beae027fc2f951f5ef483e4adefc5",
+            "size_bytes": 69584283
+          }
+        ],
+        "sha256": "4498e4d8ee2b0fe9a5e813a94dd7a14d340beae027fc2f951f5ef483e4adefc5",
+        "size_bytes": 69584283
+      }
+    ],
+    "release_assets_verify_command": "python3 scripts/release_assets.py verify --manifest releases/elite-online-r1.json --dist-dir data/releases-dist/elite-online-r1",
+    "release_assets_verify_result": "PASS: all product parts and whole-product SHA-256 values match the manifest",
+    "release_id": "elite-online-r1",
+    "release_manifest_path": "releases/elite-online-r1.json",
+    "release_manifest_sha256": "b4fccf0cd951411b1c02075865bcadee2d06a1a3f8016f3431da29f0eb18b9ca"
+  },
+  "evidence_kind": "elite-online-r1-corpus-rebuild-and-release-verification",
+  "generated_at_utc": "2026-11-17T04:44:16Z",
+  "independent_pgn_verification": {
+    "command": "data/work/elite-online-r1/verify-venv/bin/python -I scripts/release_pgn_verify.py --pgn data/releases-dist/elite-online-r1/elite-online-r1-filtered.pgn.zst --snapshot data/releases/elite-online/versions/codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30 --sample-every 1 --probes data/work/elite-online-r1/verification-probes.json --codb data/work/elite-online-r1/opening-explorer --installed-root data/releases/elite-online --output data/work/elite-online-r1/independent-verification.json",
+    "report_path": "data/work/elite-online-r1/independent-verification.json",
+    "report_sha256": "d77eab5b442eaa5cc7709b69aed2200b47129560cd66c44b2e989a760e51a9a3",
+    "result": {
+      "canonical": {
+        "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+        "games": 429150,
+        "shards": 1,
+        "sidecar_entries": 0,
+        "sidecar_sha256": null,
+        "unique_game_ids": 429150
+      },
+      "checks": {
+        "canonical_game_ids_unique": true,
+        "every_pgn_game_matches_canonical_order": true,
+        "full_check_scope": "sampled games (every Nth): python-chess legality of each mainline move, python-chess error count, and the packed CompactMove mainline compared byte-for-byte with CGB3",
+        "games_full_checked": 429150,
+        "games_header_checked": 429150,
+        "games_header_mismatch": 0,
+        "games_move_mismatch_in_full_sample": 0,
+        "games_sidecar_tag_mismatch": 0,
+        "games_with_parse_or_tag_problems": 0,
+        "header_check_scope": "every game: all PGN-visible metadata, any collection sidecar tags, Result token, PlyCount, and SAN token count against the canonical ply count",
+        "mismatch_examples": [],
+        "problem_examples": []
+      },
+      "coverage": {
+        "full_checked_games": 429150,
+        "full_legality_sample_every": 1,
+        "headers_all_games": true,
+        "probes_full_replay": true
+      },
+      "environment": {
+        "cpu_count": 4,
+        "python": "3.13.5",
+        "python_chess": "1.11.2",
+        "zstandard": "0.25.0"
+      },
+      "failed_checks": [],
+      "independence": "CGB3 and any source-attribution sidecar decoded here from the on-disk format; PGN parsed here with python-chess for the sampled full check; no Rust export or DatasetReader code is used",
+      "pgn": {
+        "compressed_bytes": 69584283,
+        "compressed_sha256": "4498e4d8ee2b0fe9a5e813a94dd7a14d340beae027fc2f951f5ef483e4adefc5",
+        "expected_games": 429150,
+        "file_name": "elite-online-r1-filtered.pgn.zst",
+        "games": 429150,
+        "plain_sha256": "8c35ca0bf91153cc29b135937b298a9c0129198a9847cce6ee297323117bce0b"
+      },
+      "probes": {
+        "count": 5,
+        "mismatches": 0,
+        "results": [
+          {
+            "codb": {
+              "black_wins": 189856,
+              "draws": 32976,
+              "total_games": 429150,
+              "white_wins": 206318
+            },
+            "differences": [],
+            "id": "initial-position",
+            "match": true,
+            "moves": "",
+            "python": {
+              "black_wins": 189856,
+              "draws": 32976,
+              "total_games": 429150,
+              "white_wins": 206318
+            }
+          },
+          {
+            "codb": {
+              "black_wins": 91973,
+              "draws": 15251,
+              "total_games": 205115,
+              "white_wins": 97891
+            },
+            "differences": [],
+            "id": "e4",
+            "match": true,
+            "moves": "e2e4",
+            "python": {
+              "black_wins": 91973,
+              "draws": 15251,
+              "total_games": 205115,
+              "white_wins": 97891
+            }
+          },
+          {
+            "codb": {
+              "black_wins": 5047,
+              "draws": 932,
+              "total_games": 11381,
+              "white_wins": 5402
+            },
+            "differences": [],
+            "id": "ruy-lopez",
+            "match": true,
+            "moves": "e2e4 e7e5 g1f3 b8c6 f1b5",
+            "python": {
+              "black_wins": 5047,
+              "draws": 932,
+              "total_games": 11381,
+              "white_wins": 5402
+            }
+          },
+          {
+            "codb": {
+              "black_wins": 8569,
+              "draws": 1645,
+              "total_games": 19980,
+              "white_wins": 9766
+            },
+            "differences": [],
+            "id": "queen-gambit",
+            "match": true,
+            "moves": "d2d4 d7d5 c2c4",
+            "python": {
+              "black_wins": 8569,
+              "draws": 1645,
+              "total_games": 19980,
+              "white_wins": 9766
+            }
+          },
+          {
+            "codb": {
+              "black_wins": 3646,
+              "draws": 497,
+              "total_games": 8103,
+              "white_wins": 3960
+            },
+            "differences": [],
+            "id": "sicilian-najdorf",
+            "match": true,
+            "moves": "e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6",
+            "python": {
+              "black_wins": 3646,
+              "draws": 497,
+              "total_games": 8103,
+              "white_wins": 3960
+            }
+          }
+        ]
+      },
+      "result": "PASS",
+      "schema_version": 2,
+      "timing_seconds": {
+        "sidecar_load": 0.0,
+        "total": 2353.5
+      },
+      "verifier": "scripts/release_pgn_verify.py"
+    }
+  },
+  "reconstruction": {
+    "accounting": {
+      "accepted_unique": 429150,
+      "completion_status": "CompleteEof",
+      "confirmed_duplicates": 45,
+      "policy_rejection_reasons": {
+        "aborted_or_infraction": 228742,
+        "below_rating_threshold": 32542858,
+        "bullet_or_ultrabullet": 13334669,
+        "missing_rating": 20,
+        "too_few_plies": 1262
+      },
+      "quarantined": 0,
+      "reconciled": true,
+      "rejected_by_policy": 46107551,
+      "rejected_illegal": 0,
+      "rejected_malformed": 0,
+      "rejected_variant": 0,
+      "retained_matches_accepted": true,
+      "superseded_prior": 16,
+      "total_encountered": 46536762
+    },
+    "build_command": "./scripts/corpus.sh build --collection elite-online --profile baseline",
+    "build_configuration": {
+      "block_capacity": 512,
+      "dedupe_mode": "disk",
+      "index_depth_plies": 30,
+      "memory_limit_mib": 128,
+      "profile": "baseline",
+      "source_order": [
+        "lichess-standard-2015-09",
+        "lichess-standard-2015-12",
+        "lichess-standard-2016-03",
+        "lichess-standard-2016-06",
+        "lichess-standard-2016-09",
+        "lichess-standard-2016-12",
+        "lichess-standard-2017-03"
+      ],
+      "zstd_level": 3
+    },
+    "build_timestamp": "2026-11-17T03:47:30Z",
+    "collection": "elite-online",
+    "copied_snapshot_host_verification": {
+      "command": "python3 scripts/corpus.py --data-dir data --opening-explorer data/work/elite-online-r1/opening-explorer verify --collection elite-online --profile baseline",
+      "result": "PASS: opening-explorer verify --deep and release artifacts"
+    },
+    "curation_policy": {
+      "extra_criteria": "Exclude Bullet and UltraBullet (<180s), casual games, and explicit aborted or rules-infraction Termination values",
+      "min_plies": 6,
+      "min_rating_both": 2200,
+      "min_rating_one": 2400,
+      "min_rating_other": 2000
+    },
+    "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+    "deduplication_policy_version": "v2-verified-prefix",
+    "deep_verify": {
+      "accounting_invariants": true,
+      "artifact_hashes_valid": true,
+      "command": "opening-explorer verify --dataset <snapshot> --deep",
+      "deep_game_verification": true,
+      "elapsed_seconds": 2.21,
+      "lookup_entries_verified": 429150,
+      "output": "Verifying dataset at /data/work/elite-online-baseline-20261117T033616Z/dataset (deep: true)...\n=== Verification Results ===\nStatus:                   PASS\nCollection:               elite-online\nTotal Games:              429150\nShards Verified:          1\nLookup Entries Verified:  429150\nArtifact Hashes Valid:    true\nAccounting Invariants:    true\nDeep Game Verification:   true\nPosition Index Present:   true\nPosition Index Verified:  true\nElapsed Time:             2.21s\nResult: SUCCESS [PASS]\n",
+      "position_index_present": true,
+      "position_index_verified": true,
+      "result": "PASS",
+      "shards_verified": 1,
+      "total_games": 429150
+    },
+    "position_index": {
+      "cpi_block_count": 95880,
+      "custom_fen_games": 0,
+      "depth_plies": 30,
+      "duration_ms": 18309,
+      "excluded_unknown_result_games": 0,
+      "file_size_bytes": 132054643,
+      "games_indexed": 429150,
+      "games_processed": 429150,
+      "merge_passes": 1,
+      "peak_temp_bytes": 223794178,
+      "raw_observations_extracted": 12760622,
+      "repeated_positions_skipped": 1847,
+      "runs_generated": 4,
+      "sha256": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
+      "unique_position_move_pairs": 6739644,
+      "unique_positions": 6136307
+    },
+    "process_metrics": {
+      "sampling_interval_seconds": 0.005,
+      "sampling_note": "VmHWM is the kernel high-water mark of total process RSS. Anonymous, file-backed, and shared values are 5 ms procfs samples and may understate their true peaks.",
+      "steps": {
+        "build": {
+          "command": "/workspace/target/release/opening-explorer build --manifest /data/work/elite-online-baseline-20261117T033616Z/sources.manifest.json --collection elite-online --output /data/work/elite-online-baseline-20261117T033616Z/dataset --report-json /data/work/elite-online-baseline-20261117T033616Z/build_report.json",
+          "log": "/data/work/elite-online-baseline-20261117T033616Z/logs/build.log",
+          "peak_rss_anon_bytes": 15609856,
+          "peak_rss_bytes": 30744576,
+          "peak_rss_file_bytes": 15134720,
+          "peak_rss_shmem_bytes": 0,
+          "peak_workspace_disk_bytes": 251387904,
+          "returncode": 0,
+          "rss_component_sample_count": 118738,
+          "rss_component_sample_interval_seconds": 0.005,
+          "rss_sampling_note": "VmHWM is the kernel high-water mark of total process RSS. Anonymous, file-backed, and shared values are 5 ms procfs samples and may understate their true peaks.",
+          "wall_seconds": 657.297
+        },
+        "build-index": {
+          "command": "/workspace/target/release/opening-explorer build-index --dataset /data/work/elite-online-baseline-20261117T033616Z/dataset --collection elite-online --depth-plies 30 --memory-limit-mib 128 --json",
+          "log": "/data/work/elite-online-baseline-20261117T033616Z/logs/build-index.log",
+          "peak_rss_anon_bytes": 120315904,
+          "peak_rss_bytes": 151445504,
+          "peak_rss_file_bytes": 145231872,
+          "peak_rss_shmem_bytes": 0,
+          "peak_workspace_disk_bytes": 426577920,
+          "returncode": 0,
+          "rss_component_sample_count": 3334,
+          "rss_component_sample_interval_seconds": 0.005,
+          "rss_sampling_note": "VmHWM is the kernel high-water mark of total process RSS. Anonymous, file-backed, and shared values are 5 ms procfs samples and may understate their true peaks.",
+          "wall_seconds": 18.312
+        },
+        "report": {
+          "command": "/workspace/target/release/opening-explorer report --dataset /data/work/elite-online-baseline-20261117T033616Z/dataset --output /data/work/elite-online-baseline-20261117T033616Z/quality_report.json",
+          "log": "/data/work/elite-online-baseline-20261117T033616Z/logs/report.log",
+          "peak_rss_anon_bytes": 3506176,
+          "peak_rss_bytes": 15790080,
+          "peak_rss_file_bytes": 12283904,
+          "peak_rss_shmem_bytes": 0,
+          "peak_workspace_disk_bytes": 211398656,
+          "returncode": 0,
+          "rss_component_sample_count": 170,
+          "rss_component_sample_interval_seconds": 0.005,
+          "rss_sampling_note": "VmHWM is the kernel high-water mark of total process RSS. Anonymous, file-backed, and shared values are 5 ms procfs samples and may understate their true peaks.",
+          "wall_seconds": 0.94
+        },
+        "verify": {
+          "command": "/workspace/target/release/opening-explorer verify --dataset /data/work/elite-online-baseline-20261117T033616Z/dataset --deep",
+          "log": "/data/work/elite-online-baseline-20261117T033616Z/logs/verify.log",
+          "peak_rss_anon_bytes": 1982464,
+          "peak_rss_bytes": 137949184,
+          "peak_rss_file_bytes": 136835072,
+          "peak_rss_shmem_bytes": 0,
+          "peak_workspace_disk_bytes": 211390464,
+          "returncode": 0,
+          "rss_component_sample_count": 405,
+          "rss_component_sample_interval_seconds": 0.005,
+          "rss_sampling_note": "VmHWM is the kernel high-water mark of total process RSS. Anonymous, file-backed, and shared values are 5 ms procfs samples and may understate their true peaks.",
+          "wall_seconds": 2.213
+        }
+      },
+      "total_wall_seconds": 678.764
+    },
+    "profile": "baseline",
+    "snapshot_path": "data/releases/elite-online/versions/codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+    "source_archive_total_bytes": 8522353902,
+    "source_archives": [
+      {
+        "checksum_verified": true,
+        "filename": "lichess_db_standard_rated_2015-09.pgn.zst",
+        "id": "lichess-standard-2015-09",
+        "license": "CC0-1.0",
+        "period": "2015-09",
+        "publisher_sha256": "c3f9b718b2dd80545ac00d0ee8122f863353a7b901fea6ba0be06bff5675bfa7",
+        "size_bytes": 547459020,
+        "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2015-09.pgn.zst"
+      },
+      {
+        "checksum_verified": true,
+        "filename": "lichess_db_standard_rated_2015-12.pgn.zst",
+        "id": "lichess-standard-2015-12",
+        "license": "CC0-1.0",
+        "period": "2015-12",
+        "publisher_sha256": "83c6a8583e618d1321cb655e579010ccb1531593fbcf44622da5e8a5d2e99c4f",
+        "size_bytes": 757824089,
+        "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2015-12.pgn.zst"
+      },
+      {
+        "checksum_verified": true,
+        "filename": "lichess_db_standard_rated_2016-03.pgn.zst",
+        "id": "lichess-standard-2016-03",
+        "license": "CC0-1.0",
+        "period": "2016-03",
+        "publisher_sha256": "11e8667a82a02199855f3aca83d6d4091d194dc4becf6d02a8001f0d9623b5c6",
+        "size_bytes": 1042258644,
+        "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-03.pgn.zst"
+      },
+      {
+        "checksum_verified": true,
+        "filename": "lichess_db_standard_rated_2016-06.pgn.zst",
+        "id": "lichess-standard-2016-06",
+        "license": "CC0-1.0",
+        "period": "2016-06",
+        "publisher_sha256": "97ccde214a81d5e58867bedbeb510dfdd99418d9fb31b0995f5320a74b7d4502",
+        "size_bytes": 1093562696,
+        "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-06.pgn.zst"
+      },
+      {
+        "checksum_verified": true,
+        "filename": "lichess_db_standard_rated_2016-09.pgn.zst",
+        "id": "lichess-standard-2016-09",
+        "license": "CC0-1.0",
+        "period": "2016-09",
+        "publisher_sha256": "3a4d18db787db558083aacb7c27ab3588f0745c1baaca37846b3f0d8b9677db3",
+        "size_bytes": 1213809361,
+        "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-09.pgn.zst"
+      },
+      {
+        "checksum_verified": true,
+        "filename": "lichess_db_standard_rated_2016-12.pgn.zst",
+        "id": "lichess-standard-2016-12",
+        "license": "CC0-1.0",
+        "period": "2016-12",
+        "publisher_sha256": "285d09bcb7f47af2d58594ecee7da8c18f9e800fd7df2e0158b4fb5429f9a904",
+        "size_bytes": 1698298025,
+        "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-12.pgn.zst"
+      },
+      {
+        "checksum_verified": true,
+        "filename": "lichess_db_standard_rated_2017-03.pgn.zst",
+        "id": "lichess-standard-2017-03",
+        "license": "CC0-1.0",
+        "period": "2017-03",
+        "publisher_sha256": "b319297e9270285635d615cbcd19a9b0d44747be3ff91d5b3eac41175b794320",
+        "size_bytes": 2169142067,
+        "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2017-03.pgn.zst"
+      }
+    ],
+    "source_verification_command": "./scripts/corpus.sh verify-sources --collection elite-online --profile baseline",
+    "source_verification_result": "PASS: all seven archives rehashed against publisher checksums",
+    "total_games": 429150,
+    "total_physical_bytes": 210281567
+  },
+  "reproducibility": {
+    "core_artifacts": [
+      {
+        "byte_identical": true,
+        "path": "games.idx",
+        "previous_sha256": "83125009540b3887c3b1ebd75e2435207aeb0e6a8e1e797a0b2d7d7eec309558",
+        "previous_size_bytes": 6866464,
+        "rebuilt_sha256": "83125009540b3887c3b1ebd75e2435207aeb0e6a8e1e797a0b2d7d7eec309558",
+        "rebuilt_size_bytes": 6866464
+      },
+      {
+        "byte_identical": true,
+        "path": "positions.cpi",
+        "previous_sha256": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
+        "previous_size_bytes": 132054643,
+        "rebuilt_sha256": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
+        "rebuilt_size_bytes": 132054643
+      },
+      {
+        "byte_identical": true,
+        "path": "shards/shard_0000.cgb3",
+        "previous_sha256": "5ecd991fc9b8df1798d05e3969f0b9e826da7bd8be4efb7f442a981b1daf3cbd",
+        "previous_size_bytes": 71360460,
+        "rebuilt_sha256": "5ecd991fc9b8df1798d05e3969f0b9e826da7bd8be4efb7f442a981b1daf3cbd",
+        "rebuilt_size_bytes": 71360460
+      }
+    ],
+    "manifest_diff_expected": "The immutable manifest embeds the unique dataset build ID and build timestamp; core content artifacts are byte-identical.",
+    "manifest_sha256_previous": "0e5dd9b86710423f1aa246a8a54b0f5a08e334f5814a5cd6348dafcaacd2fbb4",
+    "manifest_sha256_rebuilt": "24effdfbc7bc85d038520fba7bcddeadfe36a879d60d3175bf8f2939ecbdb574",
+    "previous_dataset_build_id": "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30",
+    "rebuilt_dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30"
+  },
+  "schema_version": 1,
+  "scratch_install_verification": {
+    "failed_package_retention": {
+      "bad_package_sha256": "5ce82cc6b95e8bdc7093d52a4a2d454d734910bec1fb1976d773c4512507b72f",
+      "current_after": "versions/codb-elite-online-1794888260479810243-12722-6adf5067a0d460ce-cpi-d30",
+      "current_before": "versions/codb-elite-online-1794888260479810243-12722-6adf5067a0d460ce-cpi-d30",
+      "error": "indexed package SHA-256 differs from the manifest",
+      "exit_code": 2,
+      "expected_package_sha256": "9aada688d146ac00eb91b741e200051124afb6945479e37b41d70a32a70cf76e",
+      "mutation": "flipped one byte at offset 128 in the indexed tar",
+      "pointer_unchanged": true,
+      "rejected": true
+    },
+    "rollback": {
+      "command": "opening-explorer publish --candidate data/work/elite-online-r1/seed-rollback-candidate/codb-elite-online-1794888260479810243-12722-6adf5067a0d460ce-cpi-d30 --target data/work/elite-online-r1/install-root --collection elite-online",
+      "current": "versions/codb-elite-online-1794888260479810243-12722-6adf5067a0d460ce-cpi-d30",
+      "deep_verified": true,
+      "installed_release_version_retained": true,
+      "result": "PASS",
+      "total_games": 1
+    },
+    "scratch_root": "data/work/elite-online-r1/install-root",
+    "seed": {
+      "accepted_games": 1,
+      "accounting_reconciled": true,
+      "deep_verified": true,
+      "plies": 52,
+      "published_build_id": "codb-elite-online-1794888260479810243-12722-6adf5067a0d460ce-cpi-d30",
+      "source": "first canonical game from the exported PGN",
+      "time_control": "180+0",
+      "total_encountered": 1
+    },
+    "valid_install": {
+      "command": "python3 scripts/release_assets.py install --manifest data/releases-dist/elite-online-r1/elite-online-r1-RELEASE_MANIFEST.json --package data/work/elite-online-r1/reconstructed/elite-online-r1-indexed.tar --target data/work/elite-online-r1/install-root --codb data/work/elite-online-r1/opening-explorer",
+      "current": "versions/codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+      "deep_verified": true,
+      "result": "PASS",
+      "seed_version_retained": true,
+      "total_games": 429150
+    }
+  }
+}

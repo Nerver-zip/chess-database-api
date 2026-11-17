@@ -1,0 +1,228 @@
+{
+  "accounting": {
+    "accepted_unique": 429150,
+    "completion_status": "CompleteEof",
+    "confirmed_duplicates": 45,
+    "quarantined": 0,
+    "rejected_by_policy": 46107551,
+    "rejected_illegal": 0,
+    "rejected_malformed": 0,
+    "rejected_variant": 0,
+    "superseded_prior": 16,
+    "total_encountered": 46536762
+  },
+  "assets": [
+    {
+      "kind": "indexed-package",
+      "name": "elite-online-r1-indexed.tar",
+      "parts": [
+        {
+          "name": "elite-online-r1-indexed.tar",
+          "sha256": "9aada688d146ac00eb91b741e200051124afb6945479e37b41d70a32a70cf76e",
+          "size_bytes": 210370560
+        }
+      ],
+      "sha256": "9aada688d146ac00eb91b741e200051124afb6945479e37b41d70a32a70cf76e",
+      "size_bytes": 210370560
+    },
+    {
+      "kind": "filtered-pgn",
+      "name": "elite-online-r1-filtered.pgn.zst",
+      "parts": [
+        {
+          "name": "elite-online-r1-filtered.pgn.zst",
+          "sha256": "4498e4d8ee2b0fe9a5e813a94dd7a14d340beae027fc2f951f5ef483e4adefc5",
+          "size_bytes": 69584283
+        }
+      ],
+      "sha256": "4498e4d8ee2b0fe9a5e813a94dd7a14d340beae027fc2f951f5ef483e4adefc5",
+      "size_bytes": 69584283
+    }
+  ],
+  "build": {
+    "block_capacity": 512,
+    "dedupe_mode": "disk",
+    "index_depth_plies": 30,
+    "memory_limit_mib": 128,
+    "profile": "baseline",
+    "source_order": [
+      "lichess-standard-2015-09",
+      "lichess-standard-2015-12",
+      "lichess-standard-2016-03",
+      "lichess-standard-2016-06",
+      "lichess-standard-2016-09",
+      "lichess-standard-2016-12",
+      "lichess-standard-2017-03"
+    ],
+    "zstd_level": 3
+  },
+  "built_at": "2026-11-17T03:47:35Z",
+  "collection": "elite-online",
+  "dataset_version": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+  "distribution": {
+    "basis": "CC0-1.0",
+    "part_size_limit_bytes": 1992294400
+  },
+  "export": {
+    "report": {
+      "collection": "elite-online",
+      "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+      "expected_games": 429150,
+      "games_written": 429150,
+      "missing_source_tag": 0,
+      "omitted_conflicting_tags": {},
+      "output_file": "elite-online-r1-filtered.pgn.zst",
+      "plain_bytes": 329763971,
+      "schema_version": 1,
+      "setup_games": 0,
+      "zstd_level": 19
+    },
+    "tool": "opening-explorer export-pgn"
+  },
+  "formats": {
+    "game_lookup": "games.idx",
+    "pgn": "PGN, one game per canonical game, Zstandard-compressed in the .zst product",
+    "position_index": "CPI/v2",
+    "shard": "CGB3/v1"
+  },
+  "game_count": 429150,
+  "index": {
+    "depth_plies": 30,
+    "format": "CPI/v2",
+    "unique_position_move_pairs": 6739644,
+    "unique_positions": 6136307
+  },
+  "license": {
+    "dataset": "Creative Commons CC0 1.0 Universal",
+    "id": "CC0-1.0",
+    "name": "Creative Commons CC0 1.0 Universal",
+    "notice": "elite-online-r1-NOTICE.md",
+    "publisher": "Lichess.org",
+    "software": "MIT OR Apache-2.0 (software only; does not apply to dataset contents)",
+    "url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  "metadata_assets": [
+    "elite-online-r1-RELEASE_MANIFEST.json",
+    "elite-online-r1-SHA256SUMS.txt"
+  ],
+  "policies": {
+    "curation_policy": {
+      "extra_criteria": "Exclude Bullet and UltraBullet (<180s), casual games, and explicit aborted or rules-infraction Termination values",
+      "min_plies": 6,
+      "min_rating_both": 2200,
+      "min_rating_one": 2400,
+      "min_rating_other": 2000
+    },
+    "curation_policy_version": "elite-online/2026.11-r2 (both>=2200 or 2400+2000, no bullet/ultrabullet, no casual, standard variant, min 6 plies, excludes explicit aborted or rules-infraction terminations)",
+    "deduplication_policy_version": "v2-verified-prefix"
+  },
+  "reconstruction": {
+    "shell": "cat <name>.part-* > <name>  (order: part-001, part-002, ...)",
+    "tool": "python3 scripts/release_assets.py reconstruct"
+  },
+  "release_id": "elite-online-r1",
+  "schema_version": 1,
+  "sources": {
+    "archive_index_url": "https://database.lichess.org/standard/",
+    "archives": [
+      {
+        "filename": "lichess_db_standard_rated_2015-09.pgn.zst",
+        "id": "lichess-standard-2015-09",
+        "license": "CC0-1.0",
+        "period": "2015-09",
+        "provenance_confidence": "high",
+        "publisher_checksum_url": "https://database.lichess.org/standard/sha256sums.txt",
+        "publisher_sha256": "c3f9b718b2dd80545ac00d0ee8122f863353a7b901fea6ba0be06bff5675bfa7",
+        "size_bytes": 547459020,
+        "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2015-09.pgn.zst"
+      },
+      {
+        "filename": "lichess_db_standard_rated_2015-12.pgn.zst",
+        "id": "lichess-standard-2015-12",
+        "license": "CC0-1.0",
+        "period": "2015-12",
+        "provenance_confidence": "high",
+        "publisher_checksum_url": "https://database.lichess.org/standard/sha256sums.txt",
+        "publisher_sha256": "83c6a8583e618d1321cb655e579010ccb1531593fbcf44622da5e8a5d2e99c4f",
+        "size_bytes": 757824089,
+        "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2015-12.pgn.zst"
+      },
+      {
+        "filename": "lichess_db_standard_rated_2016-03.pgn.zst",
+        "id": "lichess-standard-2016-03",
+        "license": "CC0-1.0",
+        "period": "2016-03",
+        "provenance_confidence": "high",
+        "publisher_checksum_url": "https://database.lichess.org/standard/sha256sums.txt",
+        "publisher_sha256": "11e8667a82a02199855f3aca83d6d4091d194dc4becf6d02a8001f0d9623b5c6",
+        "size_bytes": 1042258644,
+        "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-03.pgn.zst"
+      },
+      {
+        "filename": "lichess_db_standard_rated_2016-06.pgn.zst",
+        "id": "lichess-standard-2016-06",
+        "license": "CC0-1.0",
+        "period": "2016-06",
+        "provenance_confidence": "high",
+        "publisher_checksum_url": "https://database.lichess.org/standard/sha256sums.txt",
+        "publisher_sha256": "97ccde214a81d5e58867bedbeb510dfdd99418d9fb31b0995f5320a74b7d4502",
+        "size_bytes": 1093562696,
+        "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-06.pgn.zst"
+      },
+      {
+        "filename": "lichess_db_standard_rated_2016-09.pgn.zst",
+        "id": "lichess-standard-2016-09",
+        "license": "CC0-1.0",
+        "period": "2016-09",
+        "provenance_confidence": "high",
+        "publisher_checksum_url": "https://database.lichess.org/standard/sha256sums.txt",
+        "publisher_sha256": "3a4d18db787db558083aacb7c27ab3588f0745c1baaca37846b3f0d8b9677db3",
+        "size_bytes": 1213809361,
+        "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-09.pgn.zst"
+      },
+      {
+        "filename": "lichess_db_standard_rated_2016-12.pgn.zst",
+        "id": "lichess-standard-2016-12",
+        "license": "CC0-1.0",
+        "period": "2016-12",
+        "provenance_confidence": "high",
+        "publisher_checksum_url": "https://database.lichess.org/standard/sha256sums.txt",
+        "publisher_sha256": "285d09bcb7f47af2d58594ecee7da8c18f9e800fd7df2e0158b4fb5429f9a904",
+        "size_bytes": 1698298025,
+        "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2016-12.pgn.zst"
+      },
+      {
+        "filename": "lichess_db_standard_rated_2017-03.pgn.zst",
+        "id": "lichess-standard-2017-03",
+        "license": "CC0-1.0",
+        "period": "2017-03",
+        "provenance_confidence": "high",
+        "publisher_checksum_url": "https://database.lichess.org/standard/sha256sums.txt",
+        "publisher_sha256": "b319297e9270285635d615cbcd19a9b0d44747be3ff91d5b3eac41175b794320",
+        "size_bytes": 2169142067,
+        "url": "https://database.lichess.org/standard/lichess_db_standard_rated_2017-03.pgn.zst"
+      }
+    ],
+    "periods": [
+      "2015-09",
+      "2015-12",
+      "2016-03",
+      "2016-06",
+      "2016-09",
+      "2016-12",
+      "2017-03"
+    ],
+    "profile": "baseline",
+    "publisher": "Lichess.org",
+    "source_catalog": {
+      "catalog_content_sha256": "c65531fd3b205d8a4a04e5002ae0c82ba76b5c9b05ec61fe0ecabb69e6b95b7d",
+      "catalog_id": "codb-corpus-catalog-2026.11-r3"
+    }
+  },
+  "tag": "dataset-elite-online-r1",
+  "tool": {
+    "codb_version": "opening-explorer 0.1.0",
+    "git_commit": "unknown",
+    "git_tree_dirty": false
+  }
+}

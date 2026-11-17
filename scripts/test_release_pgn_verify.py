@@ -173,6 +173,35 @@ class SidecarLoadTests(unittest.TestCase):
             self.assertEqual(set(digests), {1, 2})
 
 
+class SnapshotBaselineTests(unittest.TestCase):
+    def _manifest(self, collection: str) -> dict:
+        baseline = rpv.SNAPSHOT_BASELINES[collection]
+        return {
+            "collection": collection,
+            "total_games": baseline["games"],
+            "position_index": {
+                "indexed_depth_plies": baseline["depth_plies"],
+                "unique_positions": baseline["unique_positions"],
+            },
+            "source_attribution": {"filename": "source-attribution.jsonl"}
+            if baseline["has_source_attribution"] else None,
+        }
+
+    def test_masters_and_elite_release_facts_are_enforced(self) -> None:
+        self.assertEqual(rpv.validate_snapshot_baseline(self._manifest("masters-otb"))["games"], 3_284_429)
+        self.assertEqual(rpv.validate_snapshot_baseline(self._manifest("elite-online"))["games"], 429_150)
+        manifest = self._manifest("elite-online")
+        manifest["position_index"]["unique_positions"] -= 1
+        with self.assertRaisesRegex(rpv.VerificationError, "CPI facts"):
+            rpv.validate_snapshot_baseline(manifest)
+
+    def test_elite_snapshot_must_not_claim_a_source_attribution_sidecar(self) -> None:
+        manifest = self._manifest("elite-online")
+        manifest["source_attribution"] = {"filename": "fabricated.jsonl"}
+        with self.assertRaisesRegex(rpv.VerificationError, "does not use a source-attribution"):
+            rpv.validate_snapshot_baseline(manifest)
+
+
 class ShardLayoutTests(unittest.TestCase):
     """Shard footer and block directory parsing, with zstd only when available."""
 
@@ -285,6 +314,28 @@ class PgnGameParsingTests(unittest.TestCase):
         self.assertTrue(any("PlyCount" in item for item in rpv.parse_headers(wrong)["problems"]))
         mismatched_result = text.replace('[Result "1-0"]', '[Result "0-1"]')
         self.assertTrue(any("Result" in item for item in rpv.parse_headers(mismatched_result)["problems"]))
+
+    def test_header_check_supports_elite_without_attribution_tags(self) -> None:
+        text = (
+            '[Event "E"]\n[Site "?"]\n[Date "2016.01.01"]\n[Round "?"]\n'
+            '[White "A"]\n[Black "B"]\n[Result "*"]\n[PlyCount "2"]\n\n1. e4 e5 *\n'
+        )
+        parsed = rpv.parse_headers(text, expect_sidecar=False)
+        self.assertEqual(parsed["problems"], [])
+        self.assertIsNone(parsed["side_digest"])
+        with_source = text.replace('[Result "*"]', '[Result "*"]\n[Source "Lichess"]')
+        self.assertTrue(any("unexpected source-attribution" in item
+                            for item in rpv.parse_headers(with_source, expect_sidecar=False)["problems"]))
+
+    @unittest.skipUnless(HAVE_CHESS, "python-chess is not installed")
+    def test_full_game_check_supports_elite_without_attribution_tags(self) -> None:
+        text = (
+            '[Event "E"]\n[Site "?"]\n[Date "2016.01.01"]\n[Round "?"]\n'
+            '[White "A"]\n[Black "B"]\n[Result "*"]\n[PlyCount "2"]\n\n1. e4 e5 *\n'
+        )
+        parsed = rpv.parse_pgn_game(text, expect_sidecar=False)
+        self.assertEqual(parsed["problems"], [])
+        self.assertIsNone(parsed["side_digest"])
 
     def test_header_digest_is_sensitive_to_ply_count_and_metadata(self) -> None:
         base = ('[Event "E"]\n[Site "?"]\n[Date "2024.01.01"]\n[Round "?"]\n[White "A"]\n[Black "B"]\n'

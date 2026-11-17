@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tarfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -33,6 +34,8 @@ import release_assets as ra  # noqa: E402
 MIB = 1024 * 1024
 RELEASE_ID = "masters-otb-r3"
 BUILD_ID = "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40"
+ELITE_RELEASE_ID = "elite-online-r1"
+ELITE_BUILD_ID = "codb-elite-online-1794670050929819232-27177-f042ce0f4dfe2697-cpi-d30"
 
 
 def sha(data: bytes) -> str:
@@ -208,6 +211,12 @@ class ManifestValidationTests(unittest.TestCase):
             "dataset_version": BUILD_ID,
             "collection": "masters-otb",
             "game_count": 3_284_429,
+            "accounting": {
+                "accepted_unique": 3_284_429, "confirmed_duplicates": 4_018,
+                "superseded_prior": 506, "rejected_by_policy": 10_153_901,
+                "rejected_variant": 0, "rejected_illegal": 0, "rejected_malformed": 0,
+                "quarantined": 7_842, "total_encountered": 13_450_696,
+            },
             "index": {"depth_plies": 40, "unique_positions": 51_909_604, "unique_position_move_pairs": 55_864_091},
             "assets": [
                 {"kind": "indexed-package", "name": f"{RELEASE_ID}-indexed.tar", "size_bytes": 20, "sha256": "b" * 64,
@@ -219,8 +228,172 @@ class ManifestValidationTests(unittest.TestCase):
             "distribution": {"clearance_file": "releases/distribution_clearance.json"},
         }
 
+    def _valid_elite(self) -> dict:
+        manifest = self._valid()
+        catalog = ra.corpus.load_catalog(ra.corpus.DEFAULT_CATALOG)
+        manifest.update({
+            "release_id": ELITE_RELEASE_ID,
+            "tag": f"dataset-{ELITE_RELEASE_ID}",
+            "dataset_version": ELITE_BUILD_ID,
+            "collection": "elite-online",
+            "game_count": 429_150,
+            "accounting": {
+                "accepted_unique": 429_150, "confirmed_duplicates": 0,
+                "superseded_prior": 0, "rejected_by_policy": 0,
+                "rejected_variant": 0, "rejected_illegal": 0, "rejected_malformed": 0,
+                "quarantined": 0, "total_encountered": 429_150,
+            },
+            "index": {
+                "format": "CPI/v2", "depth_plies": 30, "unique_positions": 6_136_307,
+                "unique_position_move_pairs": 7_000_000,
+            },
+            "license": {
+                "dataset": "Creative Commons CC0 1.0 Universal",
+                "id": "CC0-1.0",
+                "name": "Creative Commons CC0 1.0 Universal",
+                "url": "https://creativecommons.org/publicdomain/zero/1.0/",
+                "publisher": "Lichess.org",
+                "software": "MIT OR Apache-2.0 (software only; does not apply to dataset contents)",
+                "notice": f"{ELITE_RELEASE_ID}-NOTICE.md",
+            },
+            "distribution": {"basis": "CC0-1.0"},
+            "sources": {
+                "publisher": "Lichess.org",
+                "profile": "baseline",
+                "archive_index_url": "https://database.lichess.org/standard/",
+                "periods": ["2015-09", "2015-12", "2016-03", "2016-06",
+                            "2016-09", "2016-12", "2017-03"],
+                "source_catalog": ra.elite_catalog_identity(),
+                "archives": ra.elite_source_archives(),
+            },
+            "build": {
+                "profile": "baseline", "index_depth_plies": 30, "memory_limit_mib": 128,
+                "dedupe_mode": "disk", "block_capacity": 512, "zstd_level": 3,
+                "source_order": [source["id"] for source in ra.elite_source_archives()],
+            },
+            "policies": {
+                "curation_policy_version": catalog["collections"]["elite-online"]["curation_policy_version"],
+                "curation_policy": {"minimum_plies": 6},
+                "deduplication_policy_version": "elite-online/deduplication-v1",
+            },
+            "tool": {"codb_version": "opening-explorer 0.1.0"},
+            "formats": {
+                "shard": "CGB3/v1", "position_index": "CPI/v2", "game_lookup": "games.idx",
+            },
+            "export": {
+                "tool": "opening-explorer export-pgn",
+                "report": {
+                    "schema_version": 1, "dataset_build_id": ELITE_BUILD_ID,
+                    "collection": "elite-online", "expected_games": 429_150,
+                    "output_file": f"{ELITE_RELEASE_ID}-filtered.pgn.zst", "zstd_level": 19,
+                    "games_written": 429_150, "plain_bytes": 1, "setup_games": 0,
+                    "missing_source_tag": 0, "omitted_conflicting_tags": {},
+                },
+            },
+        })
+        manifest["assets"] = [
+            {"kind": "indexed-package", "name": f"{ELITE_RELEASE_ID}-indexed.tar",
+             "size_bytes": 20, "sha256": "b" * 64,
+             "parts": [
+                 {"name": f"{ELITE_RELEASE_ID}-indexed.tar.part-001", "size_bytes": 10, "sha256": "a" * 64},
+                 {"name": f"{ELITE_RELEASE_ID}-indexed.tar.part-002", "size_bytes": 10, "sha256": "a" * 64},
+             ]},
+            {"kind": "filtered-pgn", "name": f"{ELITE_RELEASE_ID}-filtered.pgn.zst",
+             "size_bytes": 10, "sha256": "c" * 64,
+             "parts": [{"name": f"{ELITE_RELEASE_ID}-filtered.pgn.zst", "size_bytes": 10, "sha256": "a" * 64}]},
+        ]
+        return manifest
+
     def test_valid_manifest_passes(self) -> None:
         ra.validate_manifest(self._valid())
+
+    def test_elite_cc0_manifest_passes_without_masters_clearance(self) -> None:
+        manifest = self._valid_elite()
+        ra.validate_manifest(manifest)
+        with tempfile.TemporaryDirectory() as tmp:
+            missing_clearance = Path(tmp) / "no-clearance.json"
+            self.assertEqual(ra.distribution_blockers(manifest, missing_clearance), [])
+
+    def test_elite_manifest_rejects_masters_clearance_requirement(self) -> None:
+        manifest = self._valid_elite()
+        manifest["distribution"]["clearance_file"] = "releases/distribution_clearance.json"
+        with self.assertRaisesRegex(ra.ReleaseError, "must not require the Masters clearance"):
+            ra.validate_manifest(manifest)
+
+    def test_elite_manifest_requires_cc0_and_pinned_source_archives(self) -> None:
+        manifest = self._valid_elite()
+        manifest["license"]["id"] = "CC-BY-NC-4.0"
+        with self.assertRaisesRegex(ra.ReleaseError, "CC0 1.0"):
+            ra.validate_manifest(manifest)
+        manifest = self._valid_elite()
+        manifest["sources"]["archives"][0]["publisher_sha256"] = "0" * 64
+        with self.assertRaisesRegex(ra.ReleaseError, "pinned baseline catalog"):
+            ra.validate_manifest(manifest)
+
+    def test_elite_manifest_rejects_wrong_counts_and_build_depth(self) -> None:
+        manifest = self._valid_elite()
+        manifest["game_count"] -= 1
+        with self.assertRaisesRegex(ra.ReleaseError, "game count"):
+            ra.validate_manifest(manifest)
+        manifest = self._valid_elite()
+        manifest["dataset_version"] = ELITE_BUILD_ID.replace("cpi-d30", "cpi-d40")
+        with self.assertRaisesRegex(ra.ReleaseError, "elite-online build identifier"):
+            ra.validate_manifest(manifest)
+
+    def test_elite_manifest_requires_policy_build_and_export_evidence(self) -> None:
+        manifest = self._valid_elite()
+        manifest["policies"]["deduplication_policy_version"] = ""
+        with self.assertRaisesRegex(ra.ReleaseError, "curation or deduplication"):
+            ra.validate_manifest(manifest)
+        manifest = self._valid_elite()
+        manifest["export"]["report"]["games_written"] -= 1
+        with self.assertRaisesRegex(ra.ReleaseError, "PGN export report"):
+            ra.validate_manifest(manifest)
+        manifest = self._valid_elite()
+        manifest["export"]["report"]["zstd_level"] = manifest["build"]["zstd_level"]
+        with self.assertRaisesRegex(ra.ReleaseError, "PGN export report"):
+            ra.validate_manifest(manifest)
+        manifest = self._valid_elite()
+        manifest["formats"]["position_index"] = "CPI/v1"
+        with self.assertRaisesRegex(ra.ReleaseError, "CGB3, CPI v2"):
+            ra.validate_manifest(manifest)
+
+    def test_manifest_builder_preserves_current_elite_release_and_export_records(self) -> None:
+        valid = self._valid_elite()
+        archives = ra.elite_source_archives()
+        release = {
+            "dataset_version": ELITE_BUILD_ID,
+            "built_at": "2026-11-16T00:00:00Z",
+            "accepted_games": 429_150,
+            "accounting": valid["accounting"],
+            "index": {
+                "depth_plies": 30, "unique_positions": 6_136_307,
+                "total_move_records": 7_000_000,
+            },
+            "build_configuration": valid["build"],
+            "source_catalog": ra.elite_catalog_identity(),
+            "inputs": [
+                {"id": source["id"], "filename": source["filename"], "period": source["period"],
+                 "url": source["url"], "sha256": source["publisher_sha256"],
+                 "size_bytes": source["size_bytes"], "license": source["license"]}
+                for source in archives
+            ],
+            "curation_policy": {
+                "version": valid["policies"]["curation_policy_version"],
+                "metadata": valid["policies"]["curation_policy"],
+                "deduplication_policy_version": valid["policies"]["deduplication_policy_version"],
+            },
+            "tool": valid["tool"],
+        }
+        manifest = ra.build_manifest(ELITE_RELEASE_ID, valid["assets"], release,
+                                     valid["export"]["report"])
+        ra.validate_manifest(manifest)
+        self.assertEqual(manifest["index"]["format"], "CPI/v2")
+        self.assertEqual(manifest["formats"]["shard"], "CGB3/v1")
+        self.assertEqual(manifest["index"]["unique_position_move_pairs"], 7_000_000)
+        self.assertEqual(manifest["policies"]["deduplication_policy_version"],
+                         valid["policies"]["deduplication_policy_version"])
+        self.assertEqual(manifest["export"]["report"]["games_written"], 429_150)
 
     def test_wrong_game_count_is_rejected(self) -> None:
         manifest = self._valid()
@@ -289,6 +462,20 @@ class DistributionGateTests(unittest.TestCase):
         cleared["clearance_reference"] = "written permission on file"
         self.assertEqual(ra.clearance_blockers(cleared, RELEASE_ID), [])
         self.assertTrue(ra.clearance_blockers(cleared, "other-release"))
+
+    def test_masters_distribution_policy_still_reads_the_clearance_file(self) -> None:
+        manifest = ManifestValidationTests()._valid()
+        with tempfile.TemporaryDirectory() as tmp:
+            clearance_path = Path(tmp) / "clearance.json"
+            clearance_path.write_text(json.dumps({
+                "schema_version": 1,
+                "release_id": RELEASE_ID,
+                "status": "not_cleared",
+                "clearance_reference": None,
+            }))
+            blockers = ra.distribution_blockers(manifest, clearance_path)
+        self.assertTrue(blockers)
+        self.assertTrue(any("not cleared" in item for item in blockers))
 
 
 class UploadTests(unittest.TestCase):
@@ -529,6 +716,40 @@ class IndexedPackageTests(unittest.TestCase):
         self.assertEqual((version / "RELEASE" / "NOTICE.md").read_text(), "notice text\n")
         self.assertEqual((version / "RELEASE" / "DATASET_LICENSE.txt").read_text(), "license record\n")
 
+    def test_elite_package_uses_its_collection_root(self) -> None:
+        elite_live = self.root / "elite-online"
+        elite_version = elite_live / "versions" / ELITE_BUILD_ID
+        (elite_version / "RELEASE").mkdir(parents=True)
+        (elite_version / "shards").mkdir()
+        payloads = {
+            "manifest.json": json.dumps({
+                "collection": "elite-online", "dataset_build_id": ELITE_BUILD_ID,
+                "is_complete": True, "total_games": 429_150,
+            }).encode(),
+            "games.idx": b"elite-index",
+            "positions.cpi": b"elite-cpi",
+            "shards/shard_0000.cgb3": b"elite-shard",
+        }
+        for relative, data in payloads.items():
+            (elite_version / relative).write_bytes(data)
+        release = {
+            "release_schema_version": 1,
+            "collection": "elite-online",
+            "dataset_version": ELITE_BUILD_ID,
+            "artifacts": {name: {"sha256": sha(data), "size_bytes": len(data)}
+                          for name, data in payloads.items()},
+        }
+        (elite_version / "RELEASE" / "RELEASE.json").write_text(json.dumps(release))
+        os.symlink(f"versions/{ELITE_BUILD_ID}", elite_live / "current")
+        os.symlink("current/games.idx", elite_live / "games.idx")
+        os.symlink("current/shards", elite_live / "shards")
+        archive = self.root / "elite.tar"
+        ra.build_indexed_tar(elite_live, archive, None)
+        with tarfile.open(archive) as tar:
+            names = tar.getnames()
+        self.assertIn(f"elite-online/versions/{ELITE_BUILD_ID}/manifest.json", names)
+        self.assertIn("elite-online/current", names)
+
     def test_notice_template_placeholders_must_all_resolve(self) -> None:
         with self.assertRaisesRegex(ra.ReleaseError, "unresolved"):
             ra.render_notice("a {{KNOWN}} b {{MISSING}}", {"KNOWN": "x"})
@@ -556,6 +777,24 @@ class CommittedRecordTests(unittest.TestCase):
             self.assertTrue(clearance["recorded_conflicts"])
         else:
             self.assertIsNone(clearance["clearance_reference"])
+
+    def test_elite_notice_uses_cc0_provenance_and_no_masters_restrictions(self) -> None:
+        notice = ra.build_elite_notice(ELITE_RELEASE_ID, {
+            "accepted_games": 429_150,
+            "dataset_version": ELITE_BUILD_ID,
+            "curation_policy": {
+                "version": "elite-online/test-policy",
+                "deduplication_policy_version": "test-dedupe-v1",
+            },
+            "index": {"depth_plies": 30, "unique_positions": 6_136_307},
+        })
+        self.assertIn("CC0 1.0 Universal", notice)
+        self.assertIn("https://database.lichess.org/standard/", notice)
+        self.assertIn("2015-09", notice)
+        self.assertIn("2017-03", notice)
+        self.assertIn("MIT OR Apache-2.0", notice)
+        self.assertNotIn("CC BY-NC 4.0", notice)
+        self.assertNotIn("distribution_clearance.json", notice)
 
 
 if __name__ == "__main__":

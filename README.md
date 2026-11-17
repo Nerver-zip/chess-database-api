@@ -4,7 +4,7 @@ A self-hosted, read-only HTTP API for chess opening statistics. Give it a positi
 
 Opening Explorer API curates and deduplicates large game collections, stores them compactly, indexes every position, and serves the statistics from a small Rust service. It is written independently and shares no code with the AGPL-licensed Lichess opening explorer.
 
-> **Availability.** There is no hosted public instance. You run the service yourself. The Masters OTB dataset is published as a [GitHub release](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3) for non-commercial use ([Dataset releases](docs/DATASET_RELEASES.md)).
+> **Availability.** There is no hosted public instance. You run the service yourself. The Masters OTB R3 dataset is published as a [GitHub release](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3). Elite Online R1 is being prepared for a separate release from the pinned Lichess archive selection. Both releases contain an indexed dataset and a filtered PGN; their licenses and download status differ ([Dataset releases](docs/DATASET_RELEASES.md)).
 
 ## Who it is for
 
@@ -24,6 +24,8 @@ Two collections are kept strictly apart. Their ratings and statistics are never 
 | Selection | Standard legal chess, at least four plies, rating thresholds | Both players 2200+, or one 2400+ and the other 2000+; no bullet; at least six plies |
 | Indexed depth | 40 plies | 30 plies |
 | Dataset license | CC BY-NC 4.0 (publisher claim); non-commercial, attribution required | CC0 1.0 |
+
+Elite Online covers seven selected monthly archives from September 2015 through March 2017. It is historical data, not a feed of contemporary games. Its player ratings are Lichess Glicko-2 ratings and are not comparable to the Masters collection's FIDE-style Elo values.
 
 Do not compare an OTB Elo with an online rating as if they were one scale. Details: [API reference, interpreting statistics](docs/API_REFERENCE.md).
 
@@ -78,14 +80,14 @@ See [Deployment](docs/DOCKER_DEPLOYMENT.md) for read-only mounts, resource bound
 
 ## Get the datasets
 
-Two products are prepared, both containing the same 3,284,429 curated Masters OTB games:
+Both collection releases use two products, and the indexed and PGN products for one collection contain the same canonical games. Masters OTB R3 is published; Elite Online R1 is being prepared for a separate release.
 
-| Product | What you get |
-| :--- | :--- |
-| **Indexed dataset** | Ready-to-serve game storage, position index, metadata, notice, checksums |
-| **Filtered PGN** | One PGN per canonical game, Zstandard-compressed |
+| Collection | Indexed dataset | Filtered PGN | Coverage and license |
+| :--- | :--- | :--- | :--- |
+| Masters OTB R3 | [Published release](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3), 3,284,429 games, CPI depth 40 | Zstandard-compressed PGN in the same release | CC BY-NC 4.0 publisher claim; non-commercial use with attribution. See the [current policy](docs/LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). |
+| Elite Online R1 | Prepared for a separate release; publication is pending review and merge | One complete canonical game per PGN record, Zstandard-compressed | 429,150 games from selected Lichess rated archives in 2015–2017; CC0 1.0. Commercial redistribution is permitted under CC0. |
 
-Both are published in the [`dataset-masters-otb-r3` release](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3) (about 3.2 GB; the indexed package is split into two numbered parts, with SHA-256 checksums and a machine-readable manifest). The data is for **non-commercial use with attribution** (CC BY-NC 4.0, per the publisher's claim); read the release notes and [licensing](docs/LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment) first. Download, reconstruction, verification, and installation steps are in [docs/DATASET_RELEASES.md](docs/DATASET_RELEASES.md#4-download-verify-reconstruct-install). Elite Online can be rebuilt from pinned Lichess sources ([Corpus build](docs/CORPUS_BUILD.md)).
+The indexed package contains the immutable snapshot, position index, release metadata, and checksums. The filtered PGN preserves supported stored metadata and full legal mainlines. Masters R3's indexed package is split into two numbered assets; the Elite package is split only if it exceeds the per-asset limit. See [Dataset releases](docs/DATASET_RELEASES.md) for download links, checksum verification, reconstruction, installation, PGN extraction, and versioning. To reproduce Elite Online from the pinned sources, follow [Corpus build](docs/CORPUS_BUILD.md).
 
 ## Use cases
 
@@ -135,6 +137,6 @@ Contribution rules are in [CONTRIBUTING.md](CONTRIBUTING.md); agent workflow not
 
 - **Software:** [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option. These licenses do not apply to the datasets.
 - **Masters OTB data:** games from [Lumbra's Gigabase](https://lumbrasgigabase.com/), which the publisher offers under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). This project filtered, deduplicated, normalized, and indexed them; it claims no authorship of any game and is not endorsed by the publisher. **Non-commercial use only, with attribution.** Public, non-commercial deployment of the API (position statistics and single-game PGN retrieval) is supported under the maintainer's recorded decisions; commercial use is not covered. The terms for your application, the required acknowledgment, and the open questions are in [docs/LICENSING.md](docs/LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment).
-- **Elite Online data:** CC0 1.0 (Lichess rated games).
+- **Elite Online data:** selected standard rated archives from [Lichess](https://database.lichess.org/standard/), licensed under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/). Opening Explorer filters, deduplicates, normalizes, and indexes these historical games; the data license is separate from the software license. See [LICENSING.md](docs/LICENSING.md) for source periods and details.
 
 Attribution text, changes made, and the open upstream-rights questions: [docs/LICENSING.md](docs/LICENSING.md).

@@ -16,7 +16,7 @@ Start with the [project README](../README.md). Always read the source code when 
 
 ## 2. Datasets and licensing
 
-- [Dataset Releases](DATASET_RELEASES.md): the Masters OTB indexed dataset and filtered PGN, asset naming, verification, installation, versioning, and the maintainer publication procedure.
+- [Dataset Releases](DATASET_RELEASES.md): the separate Masters OTB and Elite Online indexed datasets and filtered PGNs, asset naming, checksum verification, installation, versioning, collection-specific licenses, and the manual publication procedure.
 - [Licensing and Attribution](LICENSING.md): software licenses, dataset licenses, the current policy for public non-commercial use, the terms for applications, required acknowledgments, modifications made, and open rights questions.
 - [Corpus and Deduplication Policy](CORPUS_AND_DEDUPLICATION.md): collection segregation, rating isolation, selection policies, deduplication, and accounting invariants.
 
