@@ -51,4 +51,34 @@ Independent verification with `scripts/release_pgn_verify.py --sample-every 1` p
 
 Full build, source, index, export, package, install/rollback, and API evidence is in [`benchmarks/elite-online/REBUILD_VERIFICATION_R1.json`](benchmarks/elite-online/REBUILD_VERIFICATION_R1.json). It records actual per-process HWM and disk/wall metrics: ingestion 30,744,576 B HWM; index 151,445,504 B HWM, 18.312 s, with a 128 MiB configured index buffer and 223,794,178 B peak temporary spill; deep verify 137,949,184 B HWM. The release documentation and `MANIFEST.sha256` have been refreshed for these measurements.
 
-`./scripts/validate.sh` passed all eight gates twice in the Rust 1.100.0 container after installing its missing Clippy component: formatting, Clippy, Rust workspace tests, Python tests, CPI and corpus evidence, historical benchmarks, documentation links, and `MANIFEST.sha256`. Commit `59b2ab5` is pushed on `work/elite-online-r1-release`; [Draft PR #10](https://github.com/Nerver-zip/opening-explorer-api/pull/10) is open against `main`. No dataset tag or GitHub release has been created. Next: await review; create the official tag and publish the verified assets only after approval and merge.
+`./scripts/validate.sh` passed all eight gates twice in the Rust 1.100.0 container after installing its missing Clippy component: formatting, Clippy, Rust workspace tests, Python tests, CPI and corpus evidence, historical benchmarks, documentation links, and `MANIFEST.sha256`. [Draft PR #10](https://github.com/Nerver-zip/opening-explorer-api/pull/10) is open against `main`. Its GitHub check is skipped while the PR is draft; local validation passed. The local package and PGN pass `release_assets.py verify`; GitHub has no `dataset-elite-online-r1` release and no dataset tag has been created. Masters R3 remains unchanged.
+
+Next: when the branch is ready for review, mark PR #10 ready so the required GitHub CI runs; wait for review and merge through the normal process. Only after merge, publish Elite R1 with:
+
+```bash
+git fetch origin main
+git switch main
+git pull --ff-only origin main
+python3 scripts/release_assets.py check-manifest \
+  --manifest releases/elite-online-r1.json --require-policy
+python3 scripts/release_assets.py verify \
+  --manifest releases/elite-online-r1.json \
+  --dist-dir data/releases-dist/elite-online-r1 --committed
+git tag -a dataset-elite-online-r1 "$(git rev-parse HEAD)" \
+  -m "Elite Online R1 dataset release"
+git push origin refs/tags/dataset-elite-online-r1
+python3 scripts/release_assets.py upload \
+  --manifest releases/elite-online-r1.json \
+  --dist-dir data/releases-dist/elite-online-r1 \
+  --tag dataset-elite-online-r1
+python3 scripts/release_assets.py upload \
+  --manifest releases/elite-online-r1.json \
+  --dist-dir data/releases-dist/elite-online-r1 \
+  --tag dataset-elite-online-r1 --execute
+gh workflow run publish-dataset.yml --ref main \
+  -f release_id=elite-online-r1 \
+  -f confirm_tag=dataset-elite-online-r1
+gh run list --workflow publish-dataset.yml --limit 1
+```
+
+After the publishing workflow succeeds, confirm the release metadata, download its assets, and run `release_assets.py verify --manifest releases/elite-online-r1.json --dist-dir <download-directory> --committed` to verify the public bytes.
