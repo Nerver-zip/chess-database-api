@@ -1,12 +1,12 @@
 ---
-summary: "Software dual-licensing policy, source data inventory, legal classification, and attribution rules."
+summary: "Software dual licensing and the separate source licenses, provenance, and distribution terms for each dataset collection."
 read_when: "Assessing legal permissions, redistribution rights, third-party dataset compliance, or dual-license terms."
 status: current
 ---
 
 # Licensing and Data Provenance
 
-> **Current policy in one line:** the Masters OTB dataset and the API may be used publicly for **non-commercial** purposes, with attribution. Commercial use is not covered. The authoritative statement, the terms for applications, and the remaining open questions are in [section 6](#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). Earlier sections record sources and history.
+> **Current policy in one line:** Masters OTB R3 is distributed for non-commercial use with attribution under the maintainer's recorded decision; Elite Online is a separate Lichess-derived dataset under CC0 1.0, including commercial use. Dataset licenses do not change the software's MIT OR Apache-2.0 terms. The Masters decision and its remaining open questions are in [section 6](#6-current-policy-for-the-masters-otb-dataset-and-public-deployment).
 
 ## 1. Four-Layer Legal Architecture
 
@@ -21,12 +21,12 @@ flowchart TD
     subgraph Layer2["Layer 2: Upstream Source Datasets"]
         LICHESS_RATED["Lichess Standard Rated Games<br/>(CC0 1.0 Universal)"]
         LICHESS_BCAST["Lichess Official Broadcasts<br/>(CC BY-SA 4.0)"]
-        HIST_OTB["Pre-1928 Master Tournaments<br/>(Public Domain)"]
+        GIGABASE["Lumbra's Gigabase OTB Complete<br/>(publisher claim: CC BY-NC 4.0)"]
     end
 
     subgraph Layer3["Layer 3: Transformed Binary Artifacts"]
         CGB3_ELITE["Elite Online Shards & Index<br/>(CC0 1.0 Universal)"]
-        CGB3_MASTERS["Masters OTB Shards & Index<br/>(CC BY-SA 4.0)"]
+        CGB3_MASTERS["Masters OTB R3 Shards, Index & PGN<br/>(publisher claim: CC BY-NC 4.0)"]
     end
 
     subgraph Layer4["Layer 4: Provenance Manifest"]
@@ -70,14 +70,18 @@ The reference Opening Explorer developed by Lichess (`lila-openingexplorer`) is 
 | **FIDE Official PGN Relays** | FIDE | Proprietary / Terms vary | Requires event-by-event permission | Varies | FIDE Elo | **Requires Explicit Permission** |
 | **Lumbra's Gigabase OTB Complete** | Lumbra's Gigabase | Publisher claims CC BY-NC 4.0; heterogeneous upstream records | Publisher-stated CC BY-NC 4.0: non-commercial sharing with attribution and indicated changes; source-level rights for every upstream record are not independently cleared; see section 4.4 | >13 million (publisher claim) | Publisher-supplied Elo | **Active Masters release (R3); non-commercial use with attribution; see section 6** |
 
+The Elite Online R1 selection contains 429,150 canonical games from the seven periods listed in section 4.1. This release covers selected months from 2015–2017; it does not represent current Lichess play.
+
 ---
 
 ## 4. Dataset Licensing Framework & Redistribution Obligations
 
 ### 4.1 Elite Online Artifacts (`CC0 1.0 Universal`)
-- **Upstream License:** Creative Commons CC0 1.0 Universal Public Domain Dedication.
-- **Redistribution Rights:** Unrestricted worldwide public domain dedication. No attribution, copyleft, or royalty obligations apply to downstream users.
-- **Derivative Works:** Curated `elite-online` shards and CPI indexes generated from Lichess rated archives are distributed under CC0 1.0.
+- **Source:** Lichess standard rated game archives, listed in the [official archive catalog](https://database.lichess.org/standard/). The pinned source periods for Elite Online R1 are **2015-09, 2015-12, 2016-03, 2016-06, 2016-09, 2016-12, and 2017-03**. Each archive and its publisher-provided SHA-256 are recorded in [`corpus/catalog.json`](../corpus/catalog.json).
+- **License:** Lichess states that its database exports are released under the [Creative Commons CC0 1.0 Universal Public Domain Dedication](https://creativecommons.org/publicdomain/zero/1.0/). The catalog records that statement and license URL.
+- **Redistribution:** The curated Elite Online R1 dataset and its filtered PGN are distributed under CC0 1.0. CC0 carries no attribution, non-commercial, or share-alike condition, so redistribution, including commercial redistribution, is permitted under that dedication.
+- **Curation:** Opening Explorer applies the pinned Elite policy to standard rated games: each player has a Lichess Glicko-2 rating of at least 2200, or one has at least 2400 and the opponent at least 2000; bullet and ultrabullet, casual games, non-standard variants, games shorter than six plies, and explicitly disqualifying termination records are excluded. Duplicate games are identified and deduplicated, including prefix supersession. Accepted games are stored as legal canonical mainlines with supported metadata and indexed to 30 plies. The source archives themselves are not redistributed.
+- **Software separation:** The Opening Explorer API software remains separately licensed under MIT OR Apache-2.0. Neither software license applies to the dataset, and CC0 does not relicense the software.
 
 ### 4.2 Historical Lichess Masters Artifacts (`CC BY-SA 4.0`)
 - **Upstream License:** Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0).
@@ -94,7 +98,7 @@ Every release produced by `scripts/corpus.sh build` carries its own legal notice
 
 Release archives produced by `corpus.sh package` include these files unchanged. The license statements for the two Lichess sources are taken from [database.lichess.org](https://database.lichess.org/) and recorded in `corpus/catalog.json` (`licenses.*.statement_source`). The catalog refuses to fetch or build from any source whose license is not marked `approved` or is not in the collection's `allowed_licenses`. **This is an engineering control, not legal advice**: whether statistical aggregates (the CPI index) count as an adaptation for ShareAlike purposes should be confirmed by the distributing party. The conservative position, adopted by the release notice, is to treat the Masters CPI as covered.
 
-Containerization does not change source terms, and a deployment is not itself a dataset release. Preserve each version's `RELEASE/` notices and provenance. CC BY-SA attribution requirements apply to the retained historical Lichess Masters version, while Gigabase R3 carries the publisher's CC BY-NC 4.0 terms and unresolved upstream rights; the project's current policy for R3 is in [section 6](#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). See [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) for the operator workflow.
+Containerization does not change source terms, and a deployment is not itself a dataset release. Preserve each version's `RELEASE/` notices and provenance. The historical Lichess Masters version carries CC BY-SA 4.0 attribution requirements; Gigabase R3 carries the publisher's CC BY-NC 4.0 terms and unresolved upstream rights, with current policy in [section 6](#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). Elite Online R1 remains separately governed by CC0 1.0. See [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) for the operator workflow.
 
 ### 4.4 Lumbra's Gigabase Masters dataset
 
@@ -141,7 +145,7 @@ Both rest on the same basis: the publisher's publicly stated CC BY-NC 4.0 licens
 | Bulk export of games through the API | Not provided. No bulk-download endpoint exists, and none is part of this decision |
 | Commercial use of the dataset or of a service or product built on it | **Not covered.** It needs separate rights from the publisher and the upstream holders |
 
-Elite Online is a separate CC0 1.0 dataset with no attribution or non-commercial condition.
+Elite Online is separately released under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/), with no attribution or non-commercial condition. Its provenance and 2015–2017 source periods are documented in section 4.1.
 
 ### 6.3 Terms for applications and operators
 

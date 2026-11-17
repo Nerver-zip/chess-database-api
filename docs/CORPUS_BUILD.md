@@ -263,7 +263,7 @@ data/releases/masters-otb/
 ./scripts/corpus.sh verify-package --archive data/packages/masters-otb-<version>.tar
 ```
 
-The `.tar` contains the current version directory (including `positions.cpi`, shards, `games.idx`, `manifest.json`), the root symlinks, and `RELEASE/` (license notice included); it excludes lock files, the superseded pre-index version, and temporary files. The archive is written deterministically (sorted names, zero mtimes and owners), so the same release yields the same bytes. `package` emits `<archive>.sha256`, then extracts into a fresh directory, re-hashes every artifact, runs `opening-explorer verify --deep`, and executes a query before reporting success. **A package on local disk is not a public download**: nothing in this repository uploads datasets anywhere.
+The `.tar` contains the current version directory (including `positions.cpi`, shards, `games.idx`, `manifest.json`), the root symlinks, and `RELEASE/` (license notice included); it excludes lock files, the superseded pre-index version, and temporary files. The archive is written deterministically (sorted names, zero mtimes and owners), so the same release yields the same bytes. `package` emits `<archive>.sha256`, then extracts into a fresh directory, re-hashes every artifact, runs `opening-explorer verify --deep`, and executes a query before reporting success. This corpus package is a verified local build artifact. Public release products are prepared from an existing verified snapshot by [`scripts/release_assets.py`](../scripts/release_assets.py) and published only through the reviewed manual workflow described in [Dataset Releases](DATASET_RELEASES.md).
 
 ### 8.2 Serve
 
@@ -344,7 +344,7 @@ This section describes the historical Lichess baseline, retained as a rollback v
 | Unknown-result games (excluded from W/D/L) | 252 | 0 |
 | Distinct players / events (exact-name hash estimates) | 6,487 / 17,954 | 17,573 / 4,004 |
 | Time control missing | 11,351 | 712 |
-| Deployed version directory bytes | 29,892,368 | 210,308,033 |
+| Deployed version directory bytes | 29,892,368 | 210,310,337 |
 
 Accounting reconciles exactly (`is_reconciled` and `retained_matches_accepted` are true):
 
@@ -357,7 +357,7 @@ Masters PGN `Site` values often identify a broadcast rather than a physical venu
 
 ### 9.2 Build performance and memory (Linux, 4 cores)
 
-RSS for the final Masters release is measured per executed Opening Explorer process. The runner reads that process's `/proc` `VmHWM` while it is alive and falls back to `wait4` child resource usage if a short command exits before sampling; neither measurement includes the Python orchestrator. The Elite release predates that measurement correction; its stored `metrics.json` RSS values are retained as historical build records and are not directly comparable. Ingestion remains streaming and RSS is measured per build host; there is no fixed 30 MB release cutoff.
+RSS for each release is measured per executed Opening Explorer process. The runner reads that process's `/proc` `VmHWM` while it is alive and falls back to `wait4` child resource usage if a short command exits before sampling; neither measurement includes the Python orchestrator. The Elite Online R1 reconstruction on 2026-11-17 used the corrected per-process measurement. Ingestion remains streaming and RSS is measured per build host; there is no fixed 30 MB release cutoff.
 
 | Collection | Step | Wall time | Peak RSS | Peak workspace disk |
 | :--- | :--- | ---: | ---: | ---: |
@@ -365,12 +365,12 @@ RSS for the final Masters release is measured per executed Opening Explorer proc
 | Masters | build-index | 1.840 s | 47,996,928 bytes | 42,479,616 bytes |
 | Masters | verify | 0.219 s | 21,082,112 bytes | 26,013,696 bytes |
 | Masters | report | 0.081 s | 9,195,520 bytes | 26,021,888 bytes |
-| Elite | build | 528.811 s | 30,224,384 bytes recorded by the earlier measurement method | 164,081,664 bytes |
-| Elite | build-index | 18.239 s | 152,408,064 bytes recorded in its release | 435,736,576 bytes |
-| Elite | verify | 2.182 s | 137,420,800 bytes recorded in its release | 215,597,056 bytes |
-| Elite | report | 0.883 s | 30,224,384 bytes recorded by the earlier measurement method | 215,605,248 bytes |
+| Elite Online R1 | build | 657.297 s | 30,744,576 bytes | 251,387,904 bytes |
+| Elite Online R1 | build-index | 18.312 s | 151,445,504 bytes | 426,577,920 bytes |
+| Elite Online R1 | verify | 2.213 s | 137,949,184 bytes | 211,390,464 bytes |
+| Elite Online R1 | report | 0.940 s | 15,790,080 bytes | 211,398,656 bytes |
 
-The Elite artifacts were not rebuilt for this follow-up. The values above are the release's archived measurements; process RSS varies by OS, allocator, and runtime. `--memory-limit-mib 128` bounds the indexer's configured observation buffer, not total RSS including runtime and mapped files.
+The Elite Online R1 measurements come from `benchmarks/elite-online/REBUILD_VERIFICATION_R1.json`; the build sampled RSS components every 5 ms. Process RSS varies by OS, allocator, and runtime. `--memory-limit-mib 128` bounds the indexer's configured observation buffer, not total RSS including runtime and mapped files. This run generated four external-sort runs, completed one merge pass, and used 223,794,178 bytes of peak temporary space.
 
 ### 9.3 Query and API performance
 
@@ -399,11 +399,13 @@ The real HTTP/CLI run passed **414/414 checks** with **262 stratified position c
 
 The final Masters and Elite package SHA-256 values are recorded in [`package_checksums.json`](../benchmarks/corpus/package_checksums.json). A fresh Path A bootstrap verified both sidecars, extracted both immutable release trees, and passed `opening-explorer verify --deep` for each collection. Path B remains an explicit source rebuild; it downloads the pinned 8.66 GB archive set only when `bootstrap --rebuild` is run.
 
+Elite Online R1 was separately installed from its prepared 210,370,560-byte indexed package into a scratch collection root. A one-bit-corrupted package was rejected by its SHA-256 check while the previous `current` pointer still selected a synthetic one-game Elite seed; the valid package then installed and passed deep verification at 429,150 games. The seed version remained available and was atomically restored and deep-verified as the rollback target. An API instance started with only `--elite-dataset` passed health, readiness, collection listing, a position query matching CLI results (30,390 games for `e4 e5 Nf3`), canonical PGN retrieval, and invalid-move rejection, then shut down cleanly. Details are in [`REBUILD_VERIFICATION_R1.json`](../benchmarks/elite-online/REBUILD_VERIFICATION_R1.json).
+
 The real Compose smoke used an independent digest-pinned curl client on a shared Docker network and reached `http://opening-explorer:8080`. The image was 98,871,472 bytes; the service ran as UID 10001 with a read-only root filesystem and both data volumes read-only, published no host ports, reached healthy/readiness, and served both real releases. It returned 3,902 Masters and 30,390 Elite games for the opening baseline, retrieved a stored PGN from each, rejected invalid requests with HTTP 400 and an unknown game with 404, and returned 403 for administrative reload while auth was disabled. **96/96** concurrent requests passed; restart preserved results and deep verification; SIGTERM shutdown completed gracefully. The sampled real-container peak was 163,045,376 bytes (159,224 KiB), below the configured 512 MiB container cap. The smoke used read-only named-volume copies because the Docker-in-Docker daemon could not access the workspace bind paths; normal Compose deployment uses read-only host bind mounts. Evidence is in [`docker_real_check.json`](../benchmarks/corpus/docker_real_check.json).
 
 ### 9.5 Reproducibility measured on the real corpus
 
-An independent second Masters build and CPI indexing pass from the pinned archives produced byte-identical `games.idx`, `positions.cpi`, and `shard_0000.cgb3` files. The unchanged Elite artifacts match two previously verified independent builds byte-for-byte. Both collections reconcile accounting and pass `opening-explorer verify --deep`; release IDs, exact hashes, and elapsed times are in [`reproducibility_check.json`](../benchmarks/corpus/reproducibility_check.json). Build IDs, timestamps, release manifests, and catalog metadata differ as expected; complete-directory bitwise identity is not claimed.
+An independent second Masters build and CPI indexing pass from the pinned archives produced byte-identical `games.idx`, `positions.cpi`, and `shard_0000.cgb3` files. The 2026-11-17 Elite Online R1 reconstruction also matches the previously verified Elite baseline byte-for-byte for those three core artifacts. Both collections reconcile accounting and pass `opening-explorer verify --deep`; the Elite build ID, source checksums, accounting, RSS, deep-verification result, and exact artifact hashes are in [`REBUILD_VERIFICATION_R1.json`](../benchmarks/elite-online/REBUILD_VERIFICATION_R1.json). Build IDs, timestamps, release manifests, and catalog metadata differ as expected; complete-directory bitwise identity is not claimed.
 
 ## 9.6 Storage and Scale
 
@@ -448,6 +450,6 @@ Container-to-container requests do not use browser CORS. A browser needs a reach
 * This does not qualify the future 15-million-game goal ([ROADMAP.md](ROADMAP.md)).
 * Elite coverage consists of seven complete monthly archives from 2015-09 to 2017-03. It spans multiple years but reflects old Lichess play and rating levels; recent games are absent and no per-period balancing is applied.
 * `ProvisionalRating` cannot be filtered from the standard PGN export because it contains no provisional-rating marker. Explicit aborted, abandoned, no-contest, unplayed, unterminated, and rules-infraction `Termination` values are rejected; unknown termination values remain eligible.
-* Build RSS is recorded per executed process and host. The final Masters run measured 23,015,424 bytes; the unchanged Elite release retains earlier RSS measurements that are not directly comparable because the prior orchestration included Python parent memory.
+* Build RSS is recorded per executed process and host. The final Masters run measured 23,015,424 bytes. The 2026-11-17 Elite R1 run measured 30,744,576 bytes for ingestion and 151,445,504 bytes for indexing; these are host-specific process peaks, including runtime and mapped files.
 * The 128 MiB index setting bounds the configured observation buffer; total process RSS is higher due to runtime and mapped data. HTTP concurrency measurements share the same 4-core host as the client.
 * The Gigabase R3 products are published as the `dataset-masters-otb-r3` release for non-commercial use. Public non-commercial deployment is covered by the maintainer's decisions ([LICENSING.md](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment)); source-level rights remain unverified, and commercial use is not covered. Retain the release notices and provenance metadata.

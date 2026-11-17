@@ -5,26 +5,28 @@
 //! Its output is a pure function of the snapshot and of this format, so two runs
 //! over the same snapshot produce byte-identical PGN.
 //!
-//! Each game is rebuilt from two stored sources:
+//! Each game is rebuilt from stored fields:
 //!
 //! * the CGB3 block: player names, Elo, date, event, site, round, result, ECO, time
 //!   control, `GameURL` (source ID), `BroadcastURL`, the FEN of a non-standard start,
 //!   and the complete mainline;
-//! * the attribution sidecar named by the manifest (`source-attribution.jsonl`),
-//!   joined by stable game ID to add `Source`, `WhiteTitle`/`BlackTitle`,
-//!   `WhiteFideId`/`BlackFideId`, and `Mode`.
+//! * when present, the attribution sidecar named by the manifest
+//!   (`source-attribution.jsonl`), joined by stable game ID to add `Source`,
+//!   `WhiteTitle`/`BlackTitle`, `WhiteFideId`/`BlackFideId`, and `Mode`.
 //!
 //! Stored data cannot reproduce comments, NAGs, variations, clock annotations,
 //! `Termination`, identity-evidence labels, or source-quality labels, so none are
 //! written. A sidecar value that disagrees across the source attributions merged into
 //! one game is omitted and counted in the report instead of being guessed. The sidecar
 //! is project curation metadata, not a copy of each source record, so the `Source`
-//! tag lists every publisher tag attributed to the game.
+//! tag lists every publisher tag attributed to the game. Collections without a
+//! sidecar export only persisted metadata and do not receive fabricated attribution tags.
 //!
-//! Fail-closed rules: an illegal stored move, a FEN that does not describe a legal
-//! standard position, a control character in a tag value, a missing or duplicate
-//! sidecar entry, or a game count that differs from the manifest aborts the export
-//! and leaves no output file behind.
+//! Fail-closed rules: a Masters snapshot without its required sidecar, an illegal
+//! stored move, a FEN that does not describe a legal standard position, a control
+//! character in a tag value, a missing or duplicate sidecar entry when a sidecar is
+//! present, or a game count that differs from the manifest aborts the export and leaves
+//! no output file behind.
 
 use std::collections::BTreeSet;
 use std::fs::{self, File};
@@ -33,7 +35,7 @@ use std::os::unix::fs::FileExt;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context, Result};
-use opening_explorer_core::{CompactMove, ParsedGame};
+use opening_explorer_core::{Collection, CompactMove, ParsedGame};
 use opening_explorer_storage::{compute_file_sha256, DatasetReader};
 use serde::{Deserialize, Serialize};
 use shakmaty::fen::Fen;
@@ -205,33 +207,38 @@ pub fn run_export_pgn(options: &ExportOptions) -> Result<ExportStats> {
     let reader = DatasetReader::open(&options.dataset)
         .with_context(|| format!("failed to open dataset {}", options.dataset.display()))?;
     let manifest = reader.manifest().clone();
-    let sidecar_meta = manifest.source_attribution.clone().ok_or_else(|| {
-        anyhow!("dataset manifest has no source-attribution sidecar; export-pgn requires one")
-    })?;
-    let sidecar = reader.snapshot_dir().join(&sidecar_meta.filename);
-    let size = fs::metadata(&sidecar)
-        .with_context(|| format!("missing source-attribution sidecar {}", sidecar.display()))?
-        .len();
-    if size != sidecar_meta.file_size_bytes {
-        bail!("source-attribution sidecar size differs from the manifest");
+    let sidecar_meta = manifest.source_attribution.clone();
+    if manifest.collection == Collection::MastersOtb && sidecar_meta.is_none() {
+        bail!("Masters dataset manifest has no required source-attribution sidecar");
     }
-    if compute_file_sha256(&sidecar)? != sidecar_meta.sha256 {
-        bail!("source-attribution sidecar SHA-256 differs from the manifest");
-    }
-    let mut index = AttributionIndex::open(&sidecar, manifest.total_games)?;
+    let mut index = if let Some(meta) = &sidecar_meta {
+        let sidecar = reader.snapshot_dir().join(&meta.filename);
+        let size = fs::metadata(&sidecar)
+            .with_context(|| format!("missing source-attribution sidecar {}", sidecar.display()))?
+            .len();
+        if size != meta.file_size_bytes {
+            bail!("source-attribution sidecar size differs from the manifest");
+        }
+        if compute_file_sha256(&sidecar)? != meta.sha256 {
+            bail!("source-attribution sidecar SHA-256 differs from the manifest");
+        }
+        Some(AttributionIndex::open(&sidecar, manifest.total_games)?)
+    } else {
+        None
+    };
 
     let stats = match &options.output {
         None => {
             let stdout = std::io::stdout();
             let mut writer = BufWriter::with_capacity(1 << 20, stdout.lock());
-            let stats = export_games(&reader, &mut index, &mut writer)?;
+            let stats = export_games(&reader, index.as_mut(), &mut writer)?;
             writer.flush()?;
             stats
         }
         Some(path) => {
             ensure_absent(path)?;
             write_atomic(path, options.zstd_level, |sink| {
-                export_games(&reader, &mut index, sink)
+                export_games(&reader, index.as_mut(), sink)
             })?
         }
     };
@@ -243,11 +250,13 @@ pub fn run_export_pgn(options: &ExportOptions) -> Result<ExportStats> {
             manifest.total_games
         );
     }
-    if index.unconsumed() != 0 {
-        bail!(
-            "{} source-attribution entries were not consumed",
-            index.unconsumed()
-        );
+    if let Some(index) = &index {
+        if index.unconsumed() != 0 {
+            bail!(
+                "{} source-attribution entries were not consumed",
+                index.unconsumed()
+            );
+        }
     }
 
     if let Some(report_path) = &options.report {
@@ -267,11 +276,11 @@ pub fn run_export_pgn(options: &ExportOptions) -> Result<ExportStats> {
                 .as_deref()
                 .filter(|path| is_zst(path))
                 .map(|_| options.zstd_level),
-            source_attribution: AttributionReport {
-                filename: sidecar_meta.filename.clone(),
-                sha256: sidecar_meta.sha256.clone(),
-                entries: manifest.total_games,
-            },
+            source_attribution: sidecar_meta.as_ref().map(|meta| AttributionReport {
+                filename: meta.filename.clone(),
+                sha256: meta.sha256.clone(),
+                entries: meta.entry_count,
+            }),
             stats: &stats,
         };
         let mut json = serde_json::to_string_pretty(&report)?;
@@ -291,7 +300,8 @@ struct ExportReport<'a> {
     expected_games: u64,
     output_file: String,
     zstd_level: Option<i32>,
-    source_attribution: AttributionReport,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_attribution: Option<AttributionReport>,
     #[serde(flatten)]
     stats: &'a ExportStats,
 }
@@ -305,19 +315,23 @@ struct AttributionReport {
 
 fn export_games(
     reader: &DatasetReader,
-    index: &mut AttributionIndex,
+    index: Option<&mut AttributionIndex>,
     sink: &mut dyn Write,
 ) -> Result<ExportStats> {
     let mut stats = ExportStats::default();
     let mut text = String::with_capacity(4096);
+    let mut index = index;
     for game in reader
         .iter_games()
         .context("opening canonical game iterator")?
     {
         let game = game.context("reading canonical game")?;
-        let attributions = index.take(game.metadata.id)?;
+        let attributions = index
+            .as_deref_mut()
+            .map(|index| index.take(game.metadata.id))
+            .transpose()?;
         text.clear();
-        render_game(&game, &attributions, &mut stats, &mut text)?;
+        render_game(&game, attributions.as_ref(), &mut stats, &mut text)?;
         sink.write_all(text.as_bytes())?;
         stats.plain_bytes += text.len() as u64;
         stats.games_written += 1;
@@ -392,7 +406,7 @@ fn write_atomic<T>(
 /// Renders one game (tag section, blank line, movetext, blank line) into `out`.
 fn render_game(
     game: &ParsedGame,
-    attributions: &AttributionLine,
+    attributions: Option<&AttributionLine>,
     stats: &mut ExportStats,
     out: &mut String,
 ) -> Result<()> {
@@ -428,11 +442,11 @@ fn start_position(game: &ParsedGame) -> Result<Chess> {
 
 fn build_tags(
     game: &ParsedGame,
-    attributions: &AttributionLine,
+    attributions: Option<&AttributionLine>,
     stats: &mut ExportStats,
 ) -> Result<Vec<(&'static str, String)>> {
     let meta = &game.metadata;
-    let records = &attributions.source_attributions;
+    let records = attributions.map(|attributions| &attributions.source_attributions);
     let mut tags: Vec<(&'static str, String)> = Vec::with_capacity(24);
 
     tags.push(("Event", or_unknown(meta.event.as_deref())));
@@ -448,36 +462,40 @@ fn build_tags(
     tags.push(("Black", or_unknown(Some(meta.black.as_str()))));
     tags.push(("Result", meta.result.to_str().to_string()));
 
-    attribute_single(
-        &mut tags,
-        stats,
-        "WhiteTitle",
-        distinct(records.iter().map(|r| r.white_title.as_deref())),
-    );
-    attribute_single(
-        &mut tags,
-        stats,
-        "BlackTitle",
-        distinct(records.iter().map(|r| r.black_title.as_deref())),
-    );
+    if let Some(records) = records {
+        attribute_single(
+            &mut tags,
+            stats,
+            "WhiteTitle",
+            distinct(records.iter().map(|r| r.white_title.as_deref())),
+        );
+        attribute_single(
+            &mut tags,
+            stats,
+            "BlackTitle",
+            distinct(records.iter().map(|r| r.black_title.as_deref())),
+        );
+    }
     if let Some(elo) = meta.white_elo {
         tags.push(("WhiteElo", elo.to_string()));
     }
     if let Some(elo) = meta.black_elo {
         tags.push(("BlackElo", elo.to_string()));
     }
-    attribute_single(
-        &mut tags,
-        stats,
-        "WhiteFideId",
-        distinct(records.iter().map(|r| r.white_fide_id.as_deref())),
-    );
-    attribute_single(
-        &mut tags,
-        stats,
-        "BlackFideId",
-        distinct(records.iter().map(|r| r.black_fide_id.as_deref())),
-    );
+    if let Some(records) = records {
+        attribute_single(
+            &mut tags,
+            stats,
+            "WhiteFideId",
+            distinct(records.iter().map(|r| r.white_fide_id.as_deref())),
+        );
+        attribute_single(
+            &mut tags,
+            stats,
+            "BlackFideId",
+            distinct(records.iter().map(|r| r.black_fide_id.as_deref())),
+        );
+    }
     if let Some(eco) = meta.eco.as_deref().filter(|v| !v.is_empty()) {
         tags.push(("ECO", eco.to_string()));
     }
@@ -486,20 +504,22 @@ fn build_tags(
     }
     tags.push(("PlyCount", game.moves.len().to_string()));
 
-    let sources: Vec<&str> = distinct(records.iter().map(|r| r.source_tag.as_deref()))
-        .into_iter()
-        .collect();
-    if sources.is_empty() {
-        stats.missing_source_tag += 1;
-    } else {
-        tags.push(("Source", sources.join("; ")));
+    if let Some(records) = records {
+        let sources: Vec<&str> = distinct(records.iter().map(|r| r.source_tag.as_deref()))
+            .into_iter()
+            .collect();
+        if sources.is_empty() {
+            stats.missing_source_tag += 1;
+        } else {
+            tags.push(("Source", sources.join("; ")));
+        }
+        attribute_single(
+            &mut tags,
+            stats,
+            "Mode",
+            distinct(records.iter().map(|r| r.mode.as_deref())),
+        );
     }
-    attribute_single(
-        &mut tags,
-        stats,
-        "Mode",
-        distinct(records.iter().map(|r| r.mode.as_deref())),
-    );
 
     if let Some(source_id) = meta.source_id.as_deref().filter(|v| !v.is_empty()) {
         tags.push(("GameURL", source_id.to_string()));
@@ -619,9 +639,18 @@ impl MovetextWrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use opening_explorer_core::{Collection, GameMetadata, GameResult};
+    use opening_explorer_core::{GameMetadata, GameResult};
 
     fn game_with(
+        moves: Vec<CompactMove>,
+        fen_start: Option<&str>,
+        result: GameResult,
+    ) -> ParsedGame {
+        game_with_collection(Collection::MastersOtb, moves, fen_start, result)
+    }
+
+    fn game_with_collection(
+        collection: Collection,
         moves: Vec<CompactMove>,
         fen_start: Option<&str>,
         result: GameResult,
@@ -629,7 +658,7 @@ mod tests {
         ParsedGame {
             metadata: GameMetadata {
                 id: 42,
-                collection: Collection::MastersOtb,
+                collection,
                 white: "Carlsen, Magnus".into(),
                 black: "Nakamura, Hikaru".into(),
                 white_elo: Some(2850),
@@ -672,7 +701,7 @@ mod tests {
     fn render(game: &ParsedGame, attributions: &AttributionLine) -> Result<(String, ExportStats)> {
         let mut stats = ExportStats::default();
         let mut out = String::new();
-        render_game(game, attributions, &mut stats, &mut out)?;
+        render_game(game, Some(attributions), &mut stats, &mut out)?;
         Ok((out, stats))
     }
 
@@ -872,9 +901,27 @@ mod tests {
         fen_start: Option<&str>,
         result: GameResult,
     ) -> ParsedGame {
+        fixture_game_for(
+            Collection::MastersOtb,
+            seed,
+            white,
+            moves,
+            fen_start,
+            result,
+        )
+    }
+
+    fn fixture_game_for(
+        collection: Collection,
+        seed: &str,
+        white: &str,
+        moves: Vec<CompactMove>,
+        fen_start: Option<&str>,
+        result: GameResult,
+    ) -> ParsedGame {
         use opening_explorer_core::compute_stable_game_id;
         let id = compute_stable_game_id(
-            Collection::MastersOtb,
+            collection,
             Some(seed),
             white,
             "Opponent",
@@ -882,7 +929,7 @@ mod tests {
             Some("1"),
             &moves,
         );
-        let mut game = game_with(moves, fen_start, result);
+        let mut game = game_with_collection(collection, moves, fen_start, result);
         game.metadata.id = id;
         game.metadata.white = white.into();
         game.metadata.black = "Opponent".into();
@@ -1028,6 +1075,108 @@ mod tests {
             .file_name()
             .to_string_lossy()
             .contains("partial")));
+    }
+
+    #[test]
+    fn elite_export_without_sidecar_uses_only_persisted_metadata() {
+        use opening_explorer_core::{IngestionCompletionStatus, IngestionStats};
+        use opening_explorer_storage::{
+            CurationPolicyMetadata, DatasetWriter, DatasetWriterConfig,
+        };
+
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("elite-online");
+        let config = DatasetWriterConfig {
+            collection: Collection::EliteOnline,
+            block_capacity: 2,
+            max_games_per_shard: 3,
+            zstd_level: 3,
+            curation_policy: CurationPolicyMetadata {
+                min_rating_both: 2200,
+                min_rating_one: 2400,
+                min_rating_other: 2000,
+                min_plies: 6,
+                extra_criteria: "export-pgn no-sidecar test".into(),
+            },
+            deduplication_policy_version: "test".into(),
+        };
+        let mut writer = DatasetWriter::new(target.clone(), config).unwrap();
+        let fen_after_e4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
+        let mut game = fixture_game_for(
+            Collection::EliteOnline,
+            "https://lichess.org/game/elite-test",
+            "Elite Player",
+            vec![
+                CompactMove::new(52, 36, None), // e7e5
+                CompactMove::new(6, 21, None),  // g1f3
+                CompactMove::new(57, 42, None), // b8c6
+                CompactMove::new(5, 33, None),  // f1b5
+                CompactMove::new(48, 40, None), // a7a6
+                CompactMove::new(33, 24, None), // b5a4
+            ],
+            Some(fen_after_e4),
+            GameResult::WhiteWins,
+        );
+        game.metadata.white_elo = Some(2300);
+        game.metadata.black_elo = Some(2250);
+        game.metadata.date = Some("2016.06.14".into());
+        game.metadata.event = Some("Rated Blitz game".into());
+        game.metadata.time_control = Some("180+0".into());
+        game.metadata.source_id = None;
+        game.metadata.broadcast_url = None;
+        writer.push_game(game).unwrap();
+        writer
+            .finalize(
+                IngestionStats {
+                    total_encountered: 1,
+                    accepted_unique: 1,
+                    confirmed_duplicates: 0,
+                    superseded_prior: 0,
+                    rejected_by_policy: 0,
+                    rejected_variant: 0,
+                    rejected_illegal: 0,
+                    rejected_malformed: 0,
+                    quarantined: 0,
+                    completion_status: IngestionCompletionStatus::CompleteEof,
+                },
+                Vec::new(),
+            )
+            .unwrap();
+
+        let output = dir.path().join("elite.pgn");
+        let report = dir.path().join("elite-report.json");
+        let stats = run_export_pgn(&ExportOptions {
+            dataset: target,
+            output: Some(output.clone()),
+            zstd_level: 3,
+            report: Some(report.clone()),
+        })
+        .unwrap();
+
+        let pgn = fs::read_to_string(output).unwrap();
+        assert_eq!(stats.games_written, 1);
+        assert_eq!(stats.missing_source_tag, 0);
+        assert!(pgn.contains("[Date \"2016.06.14\"]"));
+        assert!(pgn.contains("[WhiteElo \"2300\"]"));
+        assert!(pgn.contains("[BlackElo \"2250\"]"));
+        assert!(pgn.contains(&format!("[SetUp \"1\"]\n[FEN \"{fen_after_e4}\"]")));
+        assert!(pgn.contains("1... e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 1-0"));
+        for tag in [
+            "Source",
+            "WhiteTitle",
+            "BlackTitle",
+            "WhiteFideId",
+            "BlackFideId",
+            "Mode",
+        ] {
+            assert!(
+                !pgn.contains(&format!("[{tag} ")),
+                "unexpected {tag} tag in {pgn}"
+            );
+        }
+        let report_json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(report).unwrap()).unwrap();
+        assert!(report_json.get("source_attribution").is_none());
     }
 
     #[test]

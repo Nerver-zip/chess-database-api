@@ -4,8 +4,9 @@
 Two products are distributed for one curated corpus (see docs/DATASET_RELEASES.md):
 
 * ``<release>-indexed.tar``: the indexed dataset package (CGB3 shards, game lookup,
-  CPI v2 position index, source-attribution sidecar, release metadata). Its member
-  layout is the corpus release-package layout verified by ``scripts/corpus.py``.
+  CPI v2 position index, collection-specific metadata, and a source-attribution sidecar
+  only when the snapshot contains one). Its member layout is the corpus release-package
+  layout verified by ``scripts/corpus.py``.
 * ``<release>-filtered.pgn.zst``: the same canonical games as Zstandard-compressed PGN,
   written by ``opening-explorer export-pgn``.
 
@@ -16,18 +17,18 @@ Commands:
   reconstruct  concatenate parts into whole products, verifying before and after
   install      extract an indexed package, deep-verify it, and atomically publish it
                with ``opening-explorer publish`` into a non-live dataset root
-  check-manifest  validate the committed manifest and distribution clearance
+  check-manifest  validate the committed manifest and collection-specific license gate
   verify-remote   compare a draft GitHub Release's asset list with the manifest
   upload       print (default) or, with --execute, create a DRAFT GitHub Release
 
 Fail-closed rules: incomplete or extra files, size or SHA-256 mismatches, a manifest
 that disagrees with the expected dataset facts, a tag that is not reachable from main,
-or a distribution gate that is not cleared all stop the command with a nonzero exit.
+or a collection-specific distribution policy failure all stop the command with a nonzero exit.
 Upload is dry-run unless ``--execute`` is given, and it never runs from CI.
 
 The package builder deliberately reuses ``corpus.py``'s verification and safe-extraction
-functions. It does not use ``corpus.py``'s Lichess catalog compatibility check, because
-the Gigabase release is not a catalog source by design and must not be forced into it.
+functions. The Elite release is checked against its pinned Lichess catalog sources;
+Masters OTB remains independently validated because its Gigabase source is not a catalog source.
 """
 
 from __future__ import annotations
@@ -55,33 +56,77 @@ import corpus  # noqa: E402  (reuses verified release-file and safe-extraction l
 
 MANIFEST_SCHEMA_VERSION = 1
 CLEARANCE_SCHEMA_VERSION = 1
-COLLECTION = "masters-otb"
 CHUNK = 8 * 1024 * 1024
 # GitHub rejects release assets of 2 GiB or more; parts stay well below that bound.
 PART_LIMIT_BYTES = 1900 * 1024 * 1024
 GITHUB_ASSET_LIMIT_BYTES = 2 * 1024 * 1024 * 1024 - 1
+# `export-pgn`'s default zstd level is independent of the CGB3 shard level in build configuration.
+ELITE_PGN_ZSTD_LEVEL = 19
 DIST_DIR = REPO_ROOT / "data" / "releases-dist"
 RELEASES_DIR = REPO_ROOT / "releases"
 CLEARANCE_PATH = RELEASES_DIR / "distribution_clearance.json"
 NOTICE_TEMPLATE = REPO_ROOT / "dataset" / "ATTRIBUTION.md"
-LIVE_ROOT = (REPO_ROOT / "data" / "releases" / COLLECTION).resolve()
+LIVE_ROOT = (REPO_ROOT / "data" / "releases" / "masters-otb").resolve()
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
-RELEASE_ID_RE = re.compile(r"^masters-otb-r[0-9]+$")
-BUILD_ID_RE = re.compile(r"^codb-masters-otb-[0-9]+-[0-9]+-[0-9a-f]{16}-cpi-d[0-9]+$")
 
-# Facts the Masters OTB r3 release must carry. prepare refuses any other snapshot.
+# Collection policy is deliberately declarative: release identifiers, dataset facts,
+# licensing, notice sources, and publication gates live together. Masters R3 remains
+# pinned to its existing facts and clearance record.
+COLLECTION_POLICIES: dict[str, dict[str, Any]] = {
+    "masters-otb": {
+        "depth_plies": 40,
+        "build_id_re": re.compile(
+            r"^codb-masters-otb-[0-9]+-[0-9]+-[0-9a-f]{16}-cpi-d40$"
+        ),
+        "distribution_gate": "clearance",
+        "license_id": None,
+    },
+    "elite-online": {
+        "depth_plies": 30,
+        "build_id_re": re.compile(
+            r"^codb-elite-online-[0-9]+-[0-9]+-[0-9a-f]{16}-cpi-d30$"
+        ),
+        "distribution_gate": "license",
+        "license_id": "CC0-1.0",
+        "license_name": "Creative Commons CC0 1.0 Universal",
+        "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "publisher": "Lichess.org",
+        "source_url": "https://database.lichess.org/standard/",
+        "source_periods": ["2015-09", "2015-12", "2016-03", "2016-06",
+                            "2016-09", "2016-12", "2017-03"],
+    },
+}
+
 EXPECTED_RELEASES: dict[str, dict[str, Any]] = {
     "masters-otb-r3": {
-        "collection": COLLECTION,
+        "collection": "masters-otb",
         "game_count": 3_284_429,
         "depth_plies": 40,
         "unique_positions": 51_909_604,
         "unique_position_move_pairs": 55_864_091,
         "accepted_unique": 3_284_429,
         "total_encountered": 13_450_696,
-    }
+    },
+    "elite-online-r1": {
+        "collection": "elite-online",
+        "game_count": 429_150,
+        "depth_plies": 30,
+        "unique_positions": 6_136_307,
+        "accepted_unique": 429_150,
+    },
 }
 PRODUCT_KINDS = {"indexed-package": "indexed", "filtered-pgn": "filtered"}
+
+
+def policy_for_release(release_id: str) -> dict[str, Any]:
+    expected = EXPECTED_RELEASES.get(release_id)
+    if expected is None:
+        raise ReleaseError(f"unknown release id {release_id!r}")
+    return COLLECTION_POLICIES[expected["collection"]]
+
+
+def live_root_for(collection: str) -> Path:
+    return (REPO_ROOT / "data" / "releases" / collection).resolve()
 
 
 class ReleaseError(RuntimeError):
@@ -283,7 +328,9 @@ def write_sha_sidecar(archive: Path) -> None:
 # --------------------------------------------------------------------------- #
 # Indexed package (deterministic tar with corpus.py member rules)
 # --------------------------------------------------------------------------- #
-def build_indexed_tar(live_root: Path, archive: Path, notice: Path | None) -> None:
+def build_indexed_tar(
+    live_root: Path, archive: Path, notice: Path | None, collection: str | None = None
+) -> None:
     """Write the release package for the active version of ``live_root``.
 
     Member rules match ``corpus.py cmd_package``: the immutable version directory
@@ -292,20 +339,23 @@ def build_indexed_tar(live_root: Path, archive: Path, notice: Path | None) -> No
     fields are normalized so the same snapshot yields the same bytes. ``notice`` is
     added under the version's RELEASE directory when given.
     """
+    collection = collection or live_root.name
+    if collection not in COLLECTION_POLICIES:
+        raise ReleaseError(f"unsupported dataset collection: {collection}")
     version_dir = corpus.current_version_dir(live_root)
     members: list[tuple[Path, str]] = []
     for path in sorted(version_dir.rglob("*")):
         if path.name.startswith(".") or path.name.endswith(".lock"):
             continue
-        members.append((path, f"{COLLECTION}/versions/{version_dir.name}/{path.relative_to(version_dir)}"))
+        members.append((path, f"{collection}/versions/{version_dir.name}/{path.relative_to(version_dir)}"))
     for path in sorted((version_dir / "RELEASE").rglob("*")):
-        members.append((path, f"{COLLECTION}/RELEASE/{path.relative_to(version_dir / 'RELEASE')}"))
+        members.append((path, f"{collection}/RELEASE/{path.relative_to(version_dir / 'RELEASE')}"))
     for link in ("current", "games.idx", "manifest.json", "positions.cpi", "shards"):
         path = live_root / link
         if path.is_symlink():
-            members.append((path, f"{COLLECTION}/{link}"))
+            members.append((path, f"{collection}/{link}"))
     if notice is not None:
-        members.append((notice, f"{COLLECTION}/versions/{version_dir.name}/RELEASE/NOTICE.md"))
+        members.append((notice, f"{collection}/versions/{version_dir.name}/RELEASE/NOTICE.md"))
 
     partial = archive.with_name(archive.name + ".partial")
     with tarfile.open(partial, "w", format=tarfile.PAX_FORMAT) as tf:
@@ -356,19 +406,23 @@ def check_release_identity(release: dict[str, Any], expected: dict[str, Any]) ->
         "accepted_games": (release.get("accepted_games"), expected["game_count"]),
         "index depth": (index.get("depth_plies"), expected["depth_plies"]),
         "unique positions": (index.get("unique_positions"), expected["unique_positions"]),
-        "position/move pairs": (
-            index.get("unique_position_move_pairs"),
-            expected["unique_position_move_pairs"],
-        ),
         "accepted_unique": (accounting.get("accepted_unique"), expected["accepted_unique"]),
-        "total_encountered": (accounting.get("total_encountered"), expected["total_encountered"]),
     }
+    for optional_key in ("unique_position_move_pairs", "total_encountered"):
+        if optional_key in expected:
+            source = index if optional_key == "unique_position_move_pairs" else accounting
+            label = "position/move pairs" if optional_key == "unique_position_move_pairs" else optional_key
+            actual = source.get(optional_key)
+            if optional_key == "unique_position_move_pairs" and actual is None:
+                actual = index.get("total_move_records")
+            checks[label] = (actual, expected[optional_key])
     for label, (actual, wanted) in checks.items():
         if actual != wanted:
             raise ReleaseError(f"release {label} is {actual!r}, expected {wanted!r}")
     build_id = release.get("dataset_version")
-    if not isinstance(build_id, str) or not BUILD_ID_RE.match(build_id):
-        raise ReleaseError("release dataset_version is not a CODB build identifier")
+    policy = COLLECTION_POLICIES[expected["collection"]]
+    if not isinstance(build_id, str) or not policy["build_id_re"].fullmatch(build_id):
+        raise ReleaseError(f"release dataset_version is not a {expected['collection']} build identifier")
 
 
 # --------------------------------------------------------------------------- #
@@ -395,6 +449,119 @@ def clearance_blockers(clearance: dict[str, Any], release_id: str) -> list[str]:
     return blockers
 
 
+def distribution_blockers(manifest: dict[str, Any], clearance_path: Path = CLEARANCE_PATH) -> list[str]:
+    """Return blockers required by this collection's recorded licensing policy."""
+    policy = policy_for_release(manifest["release_id"])
+    if policy["distribution_gate"] == "clearance":
+        return clearance_blockers(load_clearance(clearance_path), manifest["release_id"])
+    if policy["distribution_gate"] == "license":
+        return []
+    raise ReleaseError(f"unknown distribution gate for {manifest['release_id']}")
+
+
+def elite_source_archives() -> list[dict[str, Any]]:
+    """Return the exact pinned Elite baseline archives recorded in the source catalog."""
+    policy = COLLECTION_POLICIES["elite-online"]
+    catalog = corpus.load_catalog(corpus.DEFAULT_CATALOG)
+    sources = corpus.select_sources(catalog, "elite-online", "baseline")
+    periods = [source["period"] for source in sources]
+    if periods != policy["source_periods"]:
+        raise ReleaseError(f"Elite baseline periods differ from release policy: {periods}")
+    return [
+        {
+            "id": source["id"],
+            "filename": source["filename"],
+            "period": source["period"],
+            "url": source["url"],
+            "license": source["license"],
+            "size_bytes": source["expected_size_bytes"],
+            "publisher_sha256": source["publisher_sha256"],
+            "publisher_checksum_url": source["publisher_checksum_url"],
+            "provenance_confidence": source["provenance_confidence"],
+        }
+        for source in sources
+    ]
+
+
+def elite_catalog_identity() -> dict[str, str]:
+    catalog = corpus.load_catalog(corpus.DEFAULT_CATALOG)
+    catalog_bytes = json.dumps(catalog, sort_keys=True).encode()
+    return {
+        "catalog_id": catalog["catalog_id"],
+        "catalog_content_sha256": hashlib.sha256(catalog_bytes).hexdigest(),
+    }
+
+
+def validate_elite_sources(sources: Any) -> None:
+    if not isinstance(sources, dict):
+        raise ReleaseError("Elite source provenance must be an object")
+    policy = COLLECTION_POLICIES["elite-online"]
+    expected_archives = elite_source_archives()
+    expected_catalog = elite_catalog_identity()
+    if (sources.get("publisher") != policy["publisher"]
+            or sources.get("profile") != "baseline"
+            or sources.get("archive_index_url") != policy["source_url"]
+            or sources.get("periods") != policy["source_periods"]
+            or sources.get("source_catalog") != expected_catalog
+            or sources.get("archives") != expected_archives):
+        raise ReleaseError("Elite source archives or provenance differ from the pinned baseline catalog")
+
+
+def validate_elite_build_metadata(manifest: dict[str, Any]) -> None:
+    """Validate build, curation, format, and export provenance for Elite R1."""
+    policy = COLLECTION_POLICIES["elite-online"]
+    sources = manifest["sources"]
+    archives = sources["archives"]
+    build = manifest.get("build")
+    if not isinstance(build, dict):
+        raise ReleaseError("Elite manifest must record build configuration")
+    if (build.get("profile") != "baseline"
+            or build.get("index_depth_plies") != policy["depth_plies"]
+            or type(build.get("memory_limit_mib")) is not int or build["memory_limit_mib"] < 1
+            or build.get("dedupe_mode") != "disk"
+            or type(build.get("block_capacity")) is not int or build["block_capacity"] < 1
+            or type(build.get("zstd_level")) is not int
+            or build.get("source_order") != [archive["id"] for archive in archives]):
+        raise ReleaseError("Elite build configuration does not match the pinned baseline")
+    curation = manifest.get("policies")
+    catalog = corpus.load_catalog(corpus.DEFAULT_CATALOG)
+    expected_policy = catalog["collections"]["elite-online"]["curation_policy_version"]
+    if (not isinstance(curation, dict)
+            or curation.get("curation_policy_version") != expected_policy
+            or not isinstance(curation.get("curation_policy"), dict)
+            or not isinstance(curation.get("deduplication_policy_version"), str)
+            or not curation["deduplication_policy_version"].strip()):
+        raise ReleaseError("Elite curation or deduplication policy provenance is missing or inconsistent")
+    tool = manifest.get("tool")
+    if (not isinstance(tool, dict) or not isinstance(tool.get("codb_version"), str)
+            or not tool["codb_version"].strip()):
+        raise ReleaseError("Elite manifest must record the build tool version")
+    formats = manifest.get("formats")
+    if (not isinstance(formats, dict) or formats.get("shard") != "CGB3/v1"
+            or formats.get("position_index") != "CPI/v2"
+            or formats.get("game_lookup") != "games.idx"
+            or manifest["index"].get("format") != "CPI/v2"):
+        raise ReleaseError("Elite manifest must record CGB3, CPI v2, and games.idx formats")
+    export = manifest.get("export")
+    report = export.get("report") if isinstance(export, dict) else None
+    if not isinstance(report, dict) or export.get("tool") != "opening-explorer export-pgn":
+        raise ReleaseError("Elite manifest must include the opening-explorer export-pgn report")
+    if (report.get("schema_version") != 1
+            or report.get("dataset_build_id") != manifest["dataset_version"]
+            or report.get("collection") != "elite-online"
+            or report.get("expected_games") != manifest["game_count"]
+            or report.get("games_written") != manifest["game_count"]
+            or report.get("output_file") != asset_names(manifest["release_id"])["filtered"]
+            or type(report.get("zstd_level")) is not int
+            or report["zstd_level"] != ELITE_PGN_ZSTD_LEVEL
+            or type(report.get("plain_bytes")) is not int or report["plain_bytes"] <= 0
+            or type(report.get("setup_games")) is not int or not 0 <= report["setup_games"] <= manifest["game_count"]
+            or type(report.get("missing_source_tag")) is not int or report["missing_source_tag"] != 0
+            or not isinstance(report.get("omitted_conflicting_tags"), dict)
+            or "source_attribution" in report):
+        raise ReleaseError("Elite PGN export report does not match the dataset or filtered PGN product")
+
+
 def validate_manifest(manifest: Any) -> dict[str, Any]:
     if not isinstance(manifest, dict):
         raise ReleaseError("release manifest must be a JSON object")
@@ -404,33 +571,58 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
     if not isinstance(release_id, str) or release_id not in EXPECTED_RELEASES:
         raise ReleaseError(f"unknown release id: {release_id!r}")
     expected = EXPECTED_RELEASES[release_id]
+    policy = COLLECTION_POLICIES[expected["collection"]]
     if manifest.get("tag") != tag_for(release_id):
         raise ReleaseError("manifest tag does not match its release id")
     if manifest.get("collection") != expected["collection"]:
-        raise ReleaseError("manifest collection is not masters-otb")
+        raise ReleaseError("manifest collection does not match its release id")
     if manifest.get("game_count") != expected["game_count"]:
         raise ReleaseError("manifest game count does not match the expected release")
-    index = manifest.get("index", {})
+    index = manifest.get("index")
+    if not isinstance(index, dict):
+        raise ReleaseError("manifest index metadata must be an object")
     if (index.get("depth_plies") != expected["depth_plies"]
-            or index.get("unique_positions") != expected["unique_positions"]
-            or index.get("unique_position_move_pairs") != expected["unique_position_move_pairs"]):
+            or index.get("unique_positions") != expected["unique_positions"]):
         raise ReleaseError("manifest index facts do not match the expected release")
+    pairs = index.get("unique_position_move_pairs")
+    if "unique_position_move_pairs" in expected:
+        if pairs != expected["unique_position_move_pairs"]:
+            raise ReleaseError("manifest index facts do not match the expected release")
+    elif not isinstance(pairs, int) or pairs <= 0:
+        raise ReleaseError("manifest must record a positive unique position/move pair count")
     build_id = manifest.get("dataset_version")
-    if not isinstance(build_id, str) or not BUILD_ID_RE.match(build_id):
-        raise ReleaseError("manifest dataset_version is not a CODB build identifier")
+    if not isinstance(build_id, str) or not policy["build_id_re"].fullmatch(build_id):
+        raise ReleaseError(f"manifest dataset_version is not a {expected['collection']} build identifier")
+    accounting = manifest.get("accounting")
+    counter_names = (
+        "accepted_unique", "confirmed_duplicates", "superseded_prior", "rejected_by_policy",
+        "rejected_variant", "rejected_illegal", "rejected_malformed", "quarantined",
+    )
+    if (not isinstance(accounting, dict)
+            or any(type(accounting.get(name)) is not int or accounting[name] < 0 for name in counter_names)
+            or type(accounting.get("total_encountered")) is not int
+            or accounting.get("total_encountered", -1) < 0
+            or accounting.get("accepted_unique") != expected["accepted_unique"]
+            or accounting.get("accepted_unique") != expected["game_count"]
+            or accounting.get("total_encountered") != sum(accounting[name] for name in counter_names)):
+        raise ReleaseError("manifest accounting is missing, inconsistent, or does not reconcile")
+    if "total_encountered" in expected and accounting["total_encountered"] != expected["total_encountered"]:
+        raise ReleaseError("manifest total encountered does not match the expected release")
     assets = manifest.get("assets")
     if not isinstance(assets, list) or len(assets) != 2:
         raise ReleaseError("manifest must list exactly the two distributed products")
     names = asset_names(release_id)
     seen_kinds: set[str] = set()
     for asset in assets:
+        if not isinstance(asset, dict):
+            raise ReleaseError("manifest assets must be objects")
         kind = PRODUCT_KINDS.get(asset.get("kind"))
         if kind is None or kind in seen_kinds:
             raise ReleaseError(f"unknown or duplicate asset kind: {asset.get('kind')!r}")
         seen_kinds.add(kind)
         if asset.get("name") != names[kind]:
             raise ReleaseError(f"asset name {asset.get('name')!r} does not follow the naming rule")
-        if not isinstance(asset.get("size_bytes"), int) or asset["size_bytes"] <= 0:
+        if type(asset.get("size_bytes")) is not int or asset["size_bytes"] <= 0:
             raise ReleaseError(f"asset {asset['name']} has an invalid size")
         if not SHA256_RE.fullmatch(str(asset.get("sha256", ""))):
             raise ReleaseError(f"asset {asset['name']} has a malformed SHA-256")
@@ -439,8 +631,9 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
             raise ReleaseError(f"asset {asset['name']} lists no parts")
         total = 0
         for index_number, part in enumerate(parts, start=1):
-            if not isinstance(part.get("size_bytes"), int) or part["size_bytes"] <= 0:
-                raise ReleaseError(f"part {part.get('name')} has an invalid size")
+            if (not isinstance(part, dict) or type(part.get("size_bytes")) is not int
+                    or part["size_bytes"] <= 0):
+                raise ReleaseError("manifest contains a part with an invalid size")
             if part["size_bytes"] > GITHUB_ASSET_LIMIT_BYTES:
                 raise ReleaseError(f"part {part['name']} exceeds the GitHub asset limit")
             if not SHA256_RE.fullmatch(str(part.get("sha256", ""))):
@@ -452,11 +645,32 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
             total += part["size_bytes"]
         if total != asset["size_bytes"]:
             raise ReleaseError(f"parts of {asset['name']} do not sum to its size")
-    license_block = manifest.get("license", {})
+    license_block = manifest.get("license")
+    if not isinstance(license_block, dict):
+        raise ReleaseError("manifest license metadata must be an object")
     if license_block.get("notice") != notice_name(release_id):
         raise ReleaseError("manifest does not name the dataset notice")
-    if manifest.get("distribution", {}).get("clearance_file") != "releases/distribution_clearance.json":
-        raise ReleaseError("manifest does not reference the distribution clearance file")
+    distribution = manifest.get("distribution")
+    if not isinstance(distribution, dict):
+        raise ReleaseError("manifest distribution metadata must be an object")
+    if policy["distribution_gate"] == "clearance":
+        if distribution.get("clearance_file") != "releases/distribution_clearance.json":
+            raise ReleaseError("Masters manifest does not reference the distribution clearance file")
+    else:
+        if distribution.get("clearance_file") is not None:
+            raise ReleaseError("Elite CC0 manifest must not require the Masters clearance file")
+        if distribution.get("basis") != policy["license_id"]:
+            raise ReleaseError("Elite distribution basis must be CC0-1.0")
+        if (license_block.get("id") != policy["license_id"]
+                or license_block.get("name") != policy["license_name"]
+                or license_block.get("url") != policy["license_url"]
+                or license_block.get("dataset") != policy["license_name"]
+                or license_block.get("publisher") != policy["publisher"]
+                or license_block.get("software") !=
+                "MIT OR Apache-2.0 (software only; does not apply to dataset contents)"):
+            raise ReleaseError("Elite dataset license must be CC0 1.0 Universal")
+        validate_elite_sources(manifest.get("sources"))
+        validate_elite_build_metadata(manifest)
     return manifest
 
 
@@ -474,32 +688,24 @@ def build_manifest(
     release_id: str,
     assets: list[dict[str, Any]],
     release: dict[str, Any],
+    export_report: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     expected = EXPECTED_RELEASES[release_id]
+    policy = COLLECTION_POLICIES[expected["collection"]]
+    format_versions = release.get("format_versions", {})
     source = release.get("source", {})
     qualification = release.get("qualification", {})
-    return {
-        "schema_version": MANIFEST_SCHEMA_VERSION,
-        "release_id": release_id,
-        "tag": tag_for(release_id),
-        "dataset_version": release["dataset_version"],
-        "collection": COLLECTION,
-        "built_at": release.get("built_at"),
-        "game_count": release["accepted_games"],
-        "accounting": release["accounting"],
-        "index": {
-            "format": release["format_versions"]["position_index"],
-            "depth_plies": release["index"]["depth_plies"],
-            "unique_positions": release["index"]["unique_positions"],
-            "unique_position_move_pairs": release["index"]["unique_position_move_pairs"],
-        },
-        "formats": {
-            "shard": release["format_versions"]["shard"],
-            "game_lookup": "games.idx",
-            "source_attribution": "source-attribution.jsonl",
-            "pgn": "PGN, one game per canonical game, Zstandard-compressed in the .zst product",
-        },
-        "sources": {
+    formats = {
+        "shard": format_versions.get("shard", "CGB3/v1"),
+        "game_lookup": "games.idx",
+        "pgn": "PGN, one game per canonical game, Zstandard-compressed in the .zst product",
+    }
+    curation = release.get("curation_policy", {})
+    build = release.get("build_configuration", {})
+    tool = release.get("tool", {})
+    if expected["collection"] == "masters-otb":
+        formats["source_attribution"] = "source-attribution.jsonl"
+        sources = {
             "publisher": source.get("publisher"),
             "product": source.get("product"),
             "publisher_version": source.get("publisher_version"),
@@ -509,8 +715,8 @@ def build_manifest(
             "source_tag_counts": qualification.get("source_tag_counts", {}),
             "mode_provenance_counts": qualification.get("mode_provenance_counts", {}),
             "otb_provenance_tier": qualification.get("otb_provenance_tier"),
-        },
-        "license": {
+        }
+        license_record = {
             "dataset": (
                 "Lumbra's Gigabase OTB Complete, publisher claim CC BY-NC 4.0; "
                 "upstream rights unresolved"
@@ -520,11 +726,66 @@ def build_manifest(
             "software": "MIT OR Apache-2.0 (software only; does not apply to dataset contents)",
             "notice": notice_name(release_id),
             "elite_online": "separate collection under CC0 1.0; not part of this release",
-        },
-        "distribution": {
+        }
+        distribution = {
             "clearance_file": "releases/distribution_clearance.json",
             "part_size_limit_bytes": PART_LIMIT_BYTES,
+        }
+    else:
+        catalog_archives = elite_source_archives()
+        catalog_identity = elite_catalog_identity()
+        inputs_by_id = {item.get("id"): item for item in release.get("inputs", [])}
+        if set(inputs_by_id) != {item["id"] for item in catalog_archives}:
+            raise ReleaseError("Elite release inputs do not match the seven pinned baseline archives")
+        for archive in catalog_archives:
+            item = inputs_by_id[archive["id"]]
+            if any((item.get("filename") != archive["filename"],
+                    item.get("period") != archive["period"],
+                    item.get("url") != archive["url"],
+                    item.get("license") != archive["license"],
+                    item.get("sha256") != archive["publisher_sha256"],
+                    item.get("size_bytes") != archive["size_bytes"])):
+                raise ReleaseError(f"Elite source input {archive['id']} differs from the pinned catalog")
+        sources = {
+            "publisher": policy["publisher"],
+            "profile": "baseline",
+            "archive_index_url": policy["source_url"],
+            "periods": policy["source_periods"],
+            "source_catalog": release.get("source_catalog", catalog_identity),
+            "archives": catalog_archives,
+        }
+        license_record = {
+            "dataset": policy["license_name"],
+            "id": policy["license_id"],
+            "name": policy["license_name"],
+            "url": policy["license_url"],
+            "publisher": policy["publisher"],
+            "software": "MIT OR Apache-2.0 (software only; does not apply to dataset contents)",
+            "notice": notice_name(release_id),
+        }
+        distribution = {"basis": policy["license_id"], "part_size_limit_bytes": PART_LIMIT_BYTES}
+        formats["position_index"] = format_versions.get("position_index", "CPI/v2")
+    manifest = {
+        "schema_version": MANIFEST_SCHEMA_VERSION,
+        "release_id": release_id,
+        "tag": tag_for(release_id),
+        "dataset_version": release["dataset_version"],
+        "collection": expected["collection"],
+        "built_at": release.get("built_at"),
+        "game_count": release["accepted_games"],
+        "accounting": release["accounting"],
+        "index": {
+            "format": format_versions.get("position_index", "CPI/v2"),
+            "depth_plies": release["index"]["depth_plies"],
+            "unique_positions": release["index"]["unique_positions"],
+            "unique_position_move_pairs": release["index"].get(
+                "unique_position_move_pairs", release["index"].get("total_move_records")
+            ),
         },
+        "formats": formats,
+        "sources": sources,
+        "license": license_record,
+        "distribution": distribution,
         "assets": assets,
         "metadata_assets": [manifest_name(release_id), sums_name(release_id)],
         "reconstruction": {
@@ -532,6 +793,54 @@ def build_manifest(
             "tool": "python3 scripts/release_assets.py reconstruct",
         },
     }
+    if expected["collection"] == "elite-online":
+        manifest["build"] = build
+        manifest["policies"] = {
+            "curation_policy_version": curation.get("version"),
+            "curation_policy": curation.get("metadata"),
+            "deduplication_policy_version": curation.get("deduplication_policy_version"),
+        }
+        manifest["tool"] = tool
+        manifest["export"] = {
+            "tool": "opening-explorer export-pgn",
+            "report": export_report,
+        }
+    return manifest
+
+
+def build_elite_notice(release_id: str, release: dict[str, Any]) -> str:
+    policy = COLLECTION_POLICIES["elite-online"]
+    periods = ", ".join(policy["source_periods"])
+    curating = release.get("curation_policy", {})
+    curation_version = curating.get("version", "elite-online baseline")
+    dedupe_version = curating.get("deduplication_policy_version", "the release-recorded policy")
+    index = release["index"]
+    return f"""# Dataset notice: {release_id}
+
+## Dataset and license
+
+Elite Online R1 contains {release['accepted_games']:,} canonical games curated from Lichess standard rated archives. The archives are offered under [CC0 1.0 Universal]({policy['license_url']}); the curated dataset may be redistributed, including commercially, under CC0. The Opening Explorer API software is separately licensed under MIT OR Apache-2.0; those software licenses do not apply to the dataset.
+
+Source: [Lichess database exports]({policy['source_url']}). This project is not endorsed by Lichess.
+
+## Coverage and curation
+
+This release covers selected monthly archives from 2015 through 2017: {periods}. It is historical coverage, not contemporary Elite Online play.
+
+The source records were filtered under `{curation_version}` and deduplicated under `{dedupe_version}`. The resulting games were normalized into the Opening Explorer storage format and indexed to {index['depth_plies']} plies ({index['unique_positions']:,} positions). The filtered PGN re-serializes the canonical stored games in legal SAN; it is not a byte copy of the source PGN.
+
+Each PGN preserves available names, ratings, date, event, site, round, result, ECO, time control, source URL, and a nonstandard starting FEN where present. Original comments, annotations, variations, clock data, and other source PGN annotations are unavailable after ingestion.
+
+## Release identity
+
+- Release: `{release_id}`
+- Dataset build: `{release['dataset_version']}`
+- Canonical games: {release['accepted_games']:,}
+- CPI depth: {index['depth_plies']} plies
+- Unique positions: {index['unique_positions']:,}
+
+The archive checksums and pinned publisher checksums for all seven source archives are listed in the release manifest.
+"""
 
 
 def render_sums(manifest: dict[str, Any]) -> str:
@@ -575,7 +884,9 @@ def cmd_prepare(args: argparse.Namespace) -> int:
     if release_id not in EXPECTED_RELEASES:
         raise ReleaseError(f"unknown release id {release_id!r}")
     expected = EXPECTED_RELEASES[release_id]
-    live_root = Path(args.live_root).resolve()
+    collection = expected["collection"]
+    policy = COLLECTION_POLICIES[collection]
+    live_root = Path(args.live_root).resolve() if args.live_root else live_root_for(collection)
     codb = resolve_codb(args.codb)
     problem = corpus.verify_release_files(live_root)
     if problem:
@@ -584,7 +895,7 @@ def cmd_prepare(args: argparse.Namespace) -> int:
     release = load_json(version_dir / "RELEASE" / "RELEASE.json")
     check_release_identity(release, expected)
 
-    dist = Path(args.dist_dir).resolve()
+    dist = Path(args.dist_dir).resolve() if args.dist_dir else (DIST_DIR / release_id).resolve()
     default_work = REPO_ROOT / "data" / "work" / "release-dist" / release_id
     work = Path(args.work_dir).resolve() if args.work_dir else default_work
     dist.mkdir(parents=True, exist_ok=True)
@@ -592,32 +903,34 @@ def cmd_prepare(args: argparse.Namespace) -> int:
     work.mkdir(parents=True, exist_ok=True)
     names = asset_names(release_id)
 
-    clearance = load_clearance()
     version_manifest = load_json(version_dir / "manifest.json")
-    notice_values = {
-        "RELEASE_ID": release_id,
-        "POLICY_ID": str(release.get("qualification", {}).get("policy_id")),
-        "DEDUP_POLICY": str(version_manifest.get("deduplication_policy_version")),
-        "TOTAL_ENCOUNTERED": f"{release['accounting']['total_encountered']:,}",
-        "TAG": tag_for(release_id),
-        "DATASET_VERSION": release["dataset_version"],
-        "GAME_COUNT": f"{release['accepted_games']:,}",
-        "DEPTH": str(release["index"]["depth_plies"]),
-        "POSITIONS": f"{release['index']['unique_positions']:,}",
-        "POSITION_MOVE_PAIRS": f"{release['index']['unique_position_move_pairs']:,}",
-        "PUBLISHER_VERSION": str(release.get("source", {}).get("publisher_version")),
-        "BUILT_AT": str(release.get("built_at")),
-        "DISTRIBUTION_STATUS": str(clearance.get("status")),
-        "SOURCE_TAG_TABLE": source_tag_table(release),
-    }
-    template = NOTICE_TEMPLATE.read_text(encoding="utf-8")
-    notice_text = render_notice(template, notice_values)
+    if policy["distribution_gate"] == "clearance":
+        clearance = load_clearance()
+        notice_values = {
+            "RELEASE_ID": release_id,
+            "POLICY_ID": str(release.get("qualification", {}).get("policy_id")),
+            "DEDUP_POLICY": str(version_manifest.get("deduplication_policy_version")),
+            "TOTAL_ENCOUNTERED": f"{release['accounting']['total_encountered']:,}",
+            "TAG": tag_for(release_id),
+            "DATASET_VERSION": release["dataset_version"],
+            "GAME_COUNT": f"{release['accepted_games']:,}",
+            "DEPTH": str(release["index"]["depth_plies"]),
+            "POSITIONS": f"{release['index']['unique_positions']:,}",
+            "POSITION_MOVE_PAIRS": f"{release['index'].get('unique_position_move_pairs', release['index'].get('total_move_records')):,}",
+            "PUBLISHER_VERSION": str(release.get("source", {}).get("publisher_version")),
+            "BUILT_AT": str(release.get("built_at")),
+            "DISTRIBUTION_STATUS": str(clearance.get("status")),
+            "SOURCE_TAG_TABLE": source_tag_table(release),
+        }
+        notice_text = render_notice(NOTICE_TEMPLATE.read_text(encoding="utf-8"), notice_values)
+    else:
+        notice_text = build_elite_notice(release_id, release)
     notice_work = work / notice_name(release_id)
     write_text_atomic(notice_work, notice_text)
 
     log("[prepare] building indexed package (deterministic tar)")
     tar_work = work / names["indexed"]
-    build_indexed_tar(live_root, tar_work, notice_work)
+    build_indexed_tar(live_root, tar_work, notice_work, collection)
     write_sha_sidecar(tar_work)
     if not args.skip_package_verify:
         verify_indexed_package(tar_work, codb, expected)
@@ -633,6 +946,7 @@ def cmd_prepare(args: argparse.Namespace) -> int:
          "--output", str(pgn_work), "--report", str(report_work)],
         check=True,
     )
+    export_report = load_json(report_work)
 
     log("[prepare] splitting products into release parts")
     assets = []
@@ -644,7 +958,7 @@ def cmd_prepare(args: argparse.Namespace) -> int:
 
     notice_dest = dist / notice_name(release_id)
     shutil.copyfile(notice_work, notice_dest)
-    manifest = build_manifest(release_id, assets, release)
+    manifest = build_manifest(release_id, assets, release, export_report)
     validate_manifest(manifest)
     manifest_text = json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
     write_text_atomic(dist / manifest_name(release_id), manifest_text)
@@ -666,21 +980,23 @@ def source_tag_table(release: dict[str, Any]) -> str:
 def cmd_check_manifest(args: argparse.Namespace) -> int:
     manifest_path = Path(args.manifest)
     manifest = validate_manifest(load_json(manifest_path))
-    clearance = load_clearance(Path(args.clearance))
-    blockers = clearance_blockers(clearance, manifest["release_id"])
+    blockers = distribution_blockers(manifest, Path(args.clearance))
     log(f"[check-manifest] {manifest['tag']}: schema, facts, and asset naming valid")
     if blockers:
         for blocker in blockers:
             log(f"[check-manifest] BLOCKED: {blocker}")
-        return 3 if args.require_clearance else 0
-    log("[check-manifest] distribution gate cleared")
+        return 3 if args.require_clearance or args.require_policy else 0
+    if policy_for_release(manifest["release_id"])["distribution_gate"] == "clearance":
+        log("[check-manifest] Masters distribution clearance gate cleared")
+    else:
+        log("[check-manifest] CC0 license and source provenance validated; no clearance file required")
     return 0
 
 
 def cmd_verify(args: argparse.Namespace) -> int:
     manifest_path = Path(args.manifest)
     manifest = validate_manifest(load_json(manifest_path))
-    dist = Path(args.dist_dir)
+    dist = Path(args.dist_dir) if args.dist_dir else DIST_DIR / manifest["release_id"]
     verify_dist(manifest, dist)
     uploaded = (dist / manifest_name(manifest["release_id"])).read_bytes()
     if uploaded != manifest_path.read_bytes():
@@ -696,16 +1012,21 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
 def cmd_reconstruct(args: argparse.Namespace) -> int:
     manifest = validate_manifest(load_json(Path(args.manifest)))
-    reconstruct(manifest, Path(args.dist_dir), Path(args.output_dir))
+    dist = Path(args.dist_dir) if args.dist_dir else DIST_DIR / manifest["release_id"]
+    reconstruct(manifest, dist, Path(args.output_dir))
     return 0
 
 
 def cmd_install(args: argparse.Namespace) -> int:
     target = Path(args.target).resolve()
-    if target == LIVE_ROOT or target.is_relative_to(LIVE_ROOT):
-        raise ReleaseError("refusing to install into the live Masters root; choose a scratch root")
-    codb = resolve_codb(args.codb)
+    for live_collection in COLLECTION_POLICIES:
+        live_root = live_root_for(live_collection)
+        if target == live_root or target.is_relative_to(live_root):
+            live_label = "Masters" if live_collection == "masters-otb" else "Elite Online"
+            raise ReleaseError(f"refusing to install into the live {live_label} root; choose a scratch root")
     manifest = validate_manifest(load_json(Path(args.manifest)))
+    collection = manifest["collection"]
+    codb = resolve_codb(args.codb)
     package = Path(args.package).resolve()
     indexed = next(asset for asset in manifest["assets"] if asset["kind"] == "indexed-package")
     if package.name != indexed["name"]:
@@ -733,7 +1054,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         run_codb_verify(codb, version_dir)
         publish = subprocess.run(
             [str(codb), "publish", "--candidate", str(version_dir),
-             "--target", str(target), "--collection", COLLECTION],
+             "--target", str(target), "--collection", collection],
             capture_output=True, text=True,
         )
         if publish.returncode != 0:
@@ -755,9 +1076,9 @@ def cmd_upload(args: argparse.Namespace) -> int:
     tag = manifest["tag"]
     if args.tag and args.tag != tag:
         raise ReleaseError(f"--tag {args.tag} does not match the manifest tag {tag}")
-    dist = Path(args.dist_dir)
+    dist = Path(args.dist_dir) if args.dist_dir else DIST_DIR / release_id
     verify_dist(manifest, dist)
-    blockers = clearance_blockers(load_clearance(), release_id)
+    blockers = distribution_blockers(manifest)
 
     commit = git_output(["rev-parse", "--verify", "--quiet", f"refs/tags/{tag}^{{commit}}"], check=False)
     if not commit:
@@ -782,7 +1103,7 @@ def cmd_upload(args: argparse.Namespace) -> int:
     files = [dist / name for name in sorted(product_part_names_all(manifest))]
     files += [dist / notice_name(release_id), dist / manifest_name(release_id), dist / sums_name(release_id)]
     command = ["gh", "release", "create", tag, "--draft", "--verify-tag",
-               "--title", f"Masters OTB dataset {release_id}",
+               "--title", release_title(manifest),
                "--notes-file", str(dist / notice_name(release_id)),
                *[str(path) for path in files]]
     log(f"[upload] {len(files)} files, {sum(p.stat().st_size for p in files)} bytes")
@@ -806,6 +1127,14 @@ def product_part_names_all(manifest: dict[str, Any]) -> list[str]:
     for asset in manifest["assets"]:
         names.extend(product_part_names(asset))
     return names
+
+
+def release_title(manifest: dict[str, Any]) -> str:
+    if manifest["collection"] == "masters-otb":
+        return f"Masters OTB dataset {manifest['release_id']}"
+    if manifest["collection"] == "elite-online":
+        return "Elite Online R1 — Curated Lichess Games"
+    raise ReleaseError(f"unsupported collection {manifest['collection']}")
 
 
 def git_output(arguments: list[str], check: bool = True) -> str | None:
@@ -861,29 +1190,31 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("prepare", help="build both products from the active snapshot")
     sp.add_argument("--release-id", default="masters-otb-r3")
-    sp.add_argument("--live-root", default=str(LIVE_ROOT))
-    sp.add_argument("--dist-dir", default=str(DIST_DIR / "masters-otb-r3"))
+    sp.add_argument("--live-root", default=None)
+    sp.add_argument("--dist-dir", default=None)
     sp.add_argument("--work-dir", default=None)
     sp.add_argument("--codb", type=Path, default=None)
     sp.add_argument("--part-limit", type=int, default=PART_LIMIT_BYTES)
     sp.add_argument("--skip-package-verify", action="store_true")
     sp.set_defaults(fn=cmd_prepare)
 
-    sp = sub.add_parser("check-manifest", help="validate the committed manifest and clearance gate")
+    sp = sub.add_parser("check-manifest", help="validate the committed manifest and collection license gate")
     sp.add_argument("--manifest", required=True)
     sp.add_argument("--clearance", default=str(CLEARANCE_PATH))
     sp.add_argument("--require-clearance", action="store_true")
+    sp.add_argument("--require-policy", action="store_true",
+                    help="require the configured collection-specific distribution policy to pass")
     sp.set_defaults(fn=cmd_check_manifest)
 
     sp = sub.add_parser("verify", help="verify a dist directory against a manifest")
     sp.add_argument("--manifest", required=True)
-    sp.add_argument("--dist-dir", default=str(DIST_DIR / "masters-otb-r3"))
+    sp.add_argument("--dist-dir", default=None)
     sp.add_argument("--committed", action="store_true", help="also require equality with releases/")
     sp.set_defaults(fn=cmd_verify)
 
     sp = sub.add_parser("reconstruct", help="rebuild whole products from parts")
     sp.add_argument("--manifest", required=True)
-    sp.add_argument("--dist-dir", default=str(DIST_DIR / "masters-otb-r3"))
+    sp.add_argument("--dist-dir", default=None)
     sp.add_argument("--output-dir", required=True)
     sp.set_defaults(fn=cmd_reconstruct)
 
@@ -896,7 +1227,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("upload", help="dry-run by default; --execute creates a DRAFT release")
     sp.add_argument("--manifest", required=True)
-    sp.add_argument("--dist-dir", default=str(DIST_DIR / "masters-otb-r3"))
+    sp.add_argument("--dist-dir", default=None)
     sp.add_argument("--tag", default=None)
     sp.add_argument("--execute", action="store_true")
     sp.set_defaults(fn=cmd_upload)

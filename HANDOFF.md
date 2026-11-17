@@ -38,3 +38,17 @@ Disclosed and unresolved (section 6.5): the publisher's B2B page prohibits end-u
 ## Verification
 
 Final CI on the PR head passed (pull_request and manual dispatch); `./scripts/validate.sh` passed all eight gates in the Rust 1.100.0 container. Not verified: host bind mounts, a live redeploy under the new names, browser CORS.
+
+## Elite Online R1 release preparation (2026-11-17)
+
+The `elite-online` R1 baseline has been reconstructed from all seven pinned Lichess CC0 archives (8,522,353,902 bytes total) on branch `work/elite-online-r1-release`. The source recovery, immutable snapshot, PGN, package, and scratch install outputs are under git-ignored `data/`. Masters was not rebuilt or modified.
+
+The published Elite snapshot is `codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30`: 429,150 accepted games from 46,536,762 encountered; accounting reconciles (45 duplicates, 16 superseded, 46,107,551 policy rejections, no other rejections). The CPI v2 index is depth 30 with 6,136,307 positions and 6,739,644 position/move pairs. `opening-explorer verify --deep`, source rehash, copied-host verification, release asset verification, and the CC0 manifest policy check all pass. The rebuilt `games.idx`, `positions.cpi`, and `shard_0000.cgb3` match the prior Elite baseline byte-for-byte.
+
+The canonical filtered PGN contains 429,150 games (329,763,971 plain bytes), compressed to 69,584,283 bytes at Zstandard level 19 (SHA-256 `4498e4d8ee2b0fe9a5e813a94dd7a14d340beae027fc2f951f5ef483e4adefc5`). The indexed package is 210,370,560 bytes (SHA-256 `9aada688d146ac00eb91b741e200051124afb6945479e37b41d70a32a70cf76e`). Both products are recorded in `releases/elite-online-r1.json` and `data/releases-dist/elite-online-r1/`.
+
+Independent verification with `scripts/release_pgn_verify.py --sample-every 1` passed for every game: 429,150 header checks and full python-chess replays, no parse/tag/header/sidecar/move mismatches, 429,150 unique IDs, and five opening probes matched CLI counts. The indexed package passed clean installation and deep verification; a bit-corrupted package was rejected while the scratch `current` pointer stayed on its seed, the valid package installed, and publication rolled back to the retained seed. Elite-only API smoke checks passed for health/readiness/collection metadata, position stats matching `opening-explorer query --json`, game retrieval, and invalid-move handling; the server shut down cleanly.
+
+Full build, source, index, export, package, install/rollback, and API evidence is in [`benchmarks/elite-online/REBUILD_VERIFICATION_R1.json`](benchmarks/elite-online/REBUILD_VERIFICATION_R1.json). It records actual per-process HWM and disk/wall metrics: ingestion 30,744,576 B HWM; index 151,445,504 B HWM, 18.312 s, with a 128 MiB configured index buffer and 223,794,178 B peak temporary spill; deep verify 137,949,184 B HWM. The release documentation and `MANIFEST.sha256` have been refreshed for these measurements.
+
+`./scripts/validate.sh` passed all eight gates in the Rust 1.100.0 container after installing its missing Clippy component: formatting, Clippy, Rust workspace tests, Python tests, CPI and corpus evidence, historical benchmarks, documentation links, and `MANIFEST.sha256`. Next: commit the reviewed changes, push `work/elite-online-r1-release`, and open one focused Draft PR against `main`. Do not create the official tag, upload assets to a GitHub release, publish, or merge before review.
