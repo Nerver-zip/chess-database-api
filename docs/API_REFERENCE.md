@@ -301,7 +301,7 @@ A missing or wrong token returns `401` with `unauthorized`.
 
 **Failure.** `500` with `reload_failed`. The message is generic; the detail is in the server log. The previous snapshots stay active.
 
-**Duration.** The reload is not subject to the request timeout that applies to read endpoints. Verifying a large snapshot can take a long time, and the response arrives when the reload finishes. The reload runs in its own task, so it completes and swaps atomically even if the caller stops waiting. Concurrent reloads are serialized. Set your HTTP client's timeout to suit the snapshot size. In one measurement on the verification host, with production-size snapshots (about 2.9 GB for both collections), the reload returned `200` after about 20 seconds.
+**Duration.** The read request timeout excludes administrative reload. The response arrives after verification finishes. The reload runs in its own task and swaps snapshots atomically on success even if the caller stops waiting. Concurrent reloads are serialized. Set your HTTP client's timeout to suit the snapshot size and serving environment. See the [two-collection reload measurements](research/search-index-experiments.md#two-enriched-collections-under-emulation).
 
 Signals remain available. `SERVER_PID` is the process ID of the running `chess-database serve`:
 

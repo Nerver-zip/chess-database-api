@@ -295,6 +295,8 @@ sample_cgroup "$container" > data/acceptance/cgroup-after-reload.txt
 "${reload_compose[@]}" down
 ```
 
+If the reload client reaches its deadline, capture the service logs and collection versions before ending the trial. The server continues verification after the client disconnects. Use the reload log and the version reported by `/v1/collections` to establish the outcome.
+
 ## Safe Dataset Updates
 
 Build or bootstrap a new release through the repository workflow. It fully constructs and verifies an immutable version, then atomically replaces the collection's relative current symlink under the stable release root. Existing version directories remain present, so mounted roots and readers pinned to an older snapshot stay valid.

@@ -492,6 +492,24 @@
     },
     "notes": "Two four-user workloads with 30 rounds per user and 125 ms think time. The schedules partially overlapped. The first Elite setup date-sorted seed request returned search_busy while Masters was active. The repeat no longer seeded the unrelated pagination case."
   },
+  "reload_client_deadline": {
+    "client_elapsed_seconds": 900.000331,
+    "client_exit_code": 28,
+    "container_health": "healthy",
+    "cpu_usage_usec": 2079103155,
+    "http_response_received": false,
+    "memory_events": {
+      "high": 0,
+      "low": 0,
+      "max": 103066,
+      "oom": 0,
+      "oom_group_kill": 0,
+      "oom_kill": 0
+    },
+    "memory_peak_bytes": 536887296,
+    "reload_completion_logged_by_sample": false,
+    "sampled_at_utc": "2026-11-25T22:58:33Z"
+  },
   "reload_window": {
     "acceptance_window_seconds": 600,
     "completion": "verification in progress at sample",
