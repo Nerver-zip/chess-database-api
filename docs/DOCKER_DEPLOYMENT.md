@@ -238,11 +238,13 @@ compose=(docker compose -p chess-db-acceptance -f compose.yaml -f compose.debug.
 git rev-parse HEAD > data/acceptance/revision.txt
 "${compose[@]}" config > data/acceptance/compose.resolved.yaml
 "${compose[@]}" build
-time "${compose[@]}" up -d --no-build --wait --wait-timeout 600
+{ time "${compose[@]}" up -d --no-build --wait --wait-timeout 600; } \
+  > data/acceptance/startup.log 2>&1
 curl --fail-with-body http://127.0.0.1:8081/ready > data/acceptance/ready.json
 container=$("${compose[@]}" ps -q opening-explorer)
-docker inspect --format '{{.Image}} {{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.State.OOMKilled}} {{.RestartCount}}' "$container"
-docker exec "$container" sha256sum /usr/local/bin/chess-database
+docker inspect --format '{{.Image}} {{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.State.OOMKilled}} {{.RestartCount}}' "$container" \
+  > data/acceptance/container-limits.txt
+docker exec "$container" sha256sum /usr/local/bin/chess-database > data/acceptance/binary-sha256.txt
 
 sample_cgroup() {
   docker exec "$1" cat /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.peak \
@@ -252,6 +254,8 @@ sample_cgroup "$container" > data/acceptance/cgroup-after-start.txt
 for collection in masters-otb elite-online; do
   python3 scripts/verify_search_api.py --url http://127.0.0.1:8081 \
     --collection "$collection" > "data/acceptance/$collection-flow.json"
+done
+for collection in masters-otb elite-online; do
   python3 scripts/bench_search_interactive.py --url http://127.0.0.1:8081 \
     --collection "$collection" --users 4 --rounds 60 \
     --output "data/acceptance/$collection-interactive.json" &
@@ -263,7 +267,7 @@ sample_cgroup "$container" > data/acceptance/cgroup-after-traffic.txt
 docker logs "$container" > data/acceptance/server.log 2>&1
 ```
 
-Compare the server log's collection load times with the Compose readiness time. Compare cgroup CPU counters before and after traffic, and inspect peak memory, OOM counters, restarts and per-route HTTP status counts. The two simultaneous workloads exercise both collections; the individual reports include successful latency and count responses such as 408, 422 and 429 separately.
+If Compose exits before readiness, retain `startup.log` and run `"${compose[@]}" ps -a` and `"${compose[@]}" logs --no-color opening-explorer` before stopping the trial. For a successful start, compare the server log's collection load times with the Compose readiness time. Compare cgroup CPU counters before and after traffic, and inspect peak memory, OOM counters, restarts and per-route HTTP status counts. Complete both discovery checks before launching the mixed workloads so that a smoke check does not compete for the shared aggregation slot. The two simultaneous workloads exercise both collections. The reports include latency for successful requests and counts for responses such as 408, 422 and 429.
 
 For reload, set `ALTERNATE_ELITE_SNAPSHOT` to a verified immutable Elite version directory. A retained CPI-only version exercises rolling back search. Stage a copy outside the mounted collection root on the same filesystem, then publish the alternate and check the swap under traffic.
 
@@ -285,13 +289,16 @@ cp -a "$ALTERNATE_ELITE_SNAPSHOT" "$CANDIDATE"
 python3 scripts/bench_search_interactive.py --url http://127.0.0.1:8081 \
   --collection masters-otb --users 4 --rounds 30 --output data/acceptance/reload-interactive.json &
 workload=$!
-curl --fail-with-body --max-time 600 --write-out '\nReload seconds: %{time_total}\n' \
+curl --fail-with-body --max-time 600 --write-out '%{http_code} %{time_total}\n' \
+  --output data/acceptance/reload-response.json \
   --header "Authorization: Bearer $CHESS_DATABASE_ADMIN_TOKEN" \
-  --request POST http://127.0.0.1:8081/v1/admin/reload
+  --request POST http://127.0.0.1:8081/v1/admin/reload \
+  > data/acceptance/reload-timing.txt 2> data/acceptance/reload-client.log
 wait "$workload"
-curl --fail-with-body http://127.0.0.1:8081/v1/collections
+curl --fail-with-body http://127.0.0.1:8081/v1/collections > data/acceptance/collections-after-reload.json
 container=$("${reload_compose[@]}" ps -q opening-explorer)
 sample_cgroup "$container" > data/acceptance/cgroup-after-reload.txt
+docker logs "$container" > data/acceptance/server-after-reload.log 2>&1
 "${reload_compose[@]}" down
 ```
 

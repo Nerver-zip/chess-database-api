@@ -21,6 +21,8 @@ Serving checks digests, headers, accounting and the full CPI structure at startu
 
 Both enriched snapshots reached readiness in the pinned runtime with the native release binary under QEMU after 1,006 seconds at 512 MiB and two CPUs. This missed the 600-second window. The service cgroup reported zero OOM events. All 480 legacy probes in the two emulated interactive runs passed, and all 240 passed during reload verification. The reload client timed out at 900 seconds. After a guest pause for native benchmarking, the server logged successful completion for both versions. The separate repository Dockerfile build remains in progress. Local diagnostics are in `data/hardening/`. The host's cgroup filesystem is read-only, and the fallback guest has no KVM acceleration. Run the [isolated two-collection Docker acceptance](docs/DOCKER_DEPLOYMENT.md#two-collection-acceptance-on-a-local-docker-host) on the owner host.
 
+The local observer in `data/hardening/observe-repository-image.sh` waits for the repository image labeled `5b94bbe311cff5dca1681886e5cdec4d18e5127b`. It then checks the installed binary and CLI alias and measures both snapshots in a separate guest Compose project with default serving settings. The build and observer logs are under `data/hardening/`.
+
 ## Open owner actions
 
 Review the eviction-advised timing results and complete native Docker acceptance before rollout. Leave Masters discovery and search metadata disabled until the owner reviews public enumeration and attribution. Legacy PGN retrieval is separately configurable. Masters R3 and Elite R1 stay the canonical releases. See [dataset releases](docs/DATASET_RELEASES.md) and [licensing](docs/LICENSING.md).
