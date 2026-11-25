@@ -4,11 +4,11 @@ read_when: "Understanding system design, data flow, concurrency guarantees, and 
 status: current
 ---
 
-# System Architecture (`opening-explorer-api`)
+# Chess Database API Architecture
 
 ## 1. Executive Overview
 
-`opening-explorer-api` is a modular, high-performance chess database and position indexing engine written in Rust. It ingests large, heterogeneous PGN corpora, enforces strict legal move validation, canonicalizes headers, eliminates duplicates with prefix-supersession, stores compressed games in persistent sharded CGB3 containers, and builds immutable Compact Position Indexes (CPI v2) using bounded-memory external sorting.
+Chess Database API is a modular chess database and position indexing engine written in Rust. It ingests large, heterogeneous PGN corpora, enforces strict legal move validation, canonicalizes headers, eliminates duplicates with prefix-supersession, stores compressed games in persistent sharded CGB3 containers, and builds immutable Compact Position Indexes (CPI v2) using bounded-memory external sorting.
 
 The architecture is designed around explicit resource bounds:
 - **Streaming Ingestion Memory:** ingestion is streaming with O(1) memory scaling relative to input size. Record executed-process VmHWM for each build host; no fixed 30 MB release cutoff applies.
@@ -130,7 +130,8 @@ sequenceDiagram
     participant Curate as opening-explorer-curate (Policy & Deduplication)
     participant Storage as opening-explorer-storage (CGB3 Shards & games.idx)
     participant Index as opening-explorer-index (External Sort & CPI v2)
-    participant Consumer as Opening Explorer / API Consumer
+    participant Search as Derived Metadata and Position Postings
+    participant Consumer as Chess Database API Consumer
 
     Source->>Ingest: Stream PGN tokens
     Ingest->>Ingest: Validate legal moves (shakmaty)
@@ -147,6 +148,9 @@ sequenceDiagram
     Index->>Index: Deterministic K-way merge into positions.cpi
     Consumer->>Index: Query FEN or Move sequence
     Index->>Consumer: PositionStats (W/D/L counters, next move candidates)
+    Storage->>Search: Stream canonical games and source attribution
+    Search->>Search: Build metadata catalog and merge sorted position occurrences
+    Search->>Consumer: Paginated games, player and event discovery, filtered statistics
 ```
 
 ---
@@ -165,7 +169,8 @@ dataset_dir/
     │   ├── games.idx       # Sorted 16-byte fixed-record memory-mapped global index
     │   ├── shard_0000.cgb3 # First compressed persistent game shard (CGCS header)
     │   ├── shard_0001.cgb3 # Additional shard if corpus exceeds shard split threshold
-    │   └── positions.cpi   # Production Compact Position Index (CPI v2)
+    │   ├── positions.cpi   # Production Compact Position Index (CPI v2)
+    │   └── search/         # Optional metadata.sqlite and positions.postings
     └── .staging_XXXX/      # Isolated build directory for in-flight publications
 ```
 
@@ -246,9 +251,10 @@ The multi-stage image contains the opening-explorer executable and runtime libra
 graph LR
     subgraph Engine["opening-explorer-api (Core Storage & Indexing Engine)"]
         direction TB
-        DB_STORE["Persistent CGB3 Archive<br/>(15M games < 3 GB)"]
-        DB_INDEX["Production CPI v2 Index<br/>(D40/D30 < 5 GB)"]
-        DB_API["Read-Only HTTP Service<br/>(Axum opening-explorer serve)"]
+        DB_STORE["Persistent CGB3 Archive"]
+        DB_INDEX["Production CPI v2 Index"]
+        DB_SEARCH["Optional metadata and position postings"]
+        DB_API["Read-Only HTTP Service<br/>(Axum chess-database serve)"]
     end
 
     subgraph Client["Client Application"]
@@ -260,9 +266,15 @@ graph LR
 
     CLIENT_WEB -->|HTTP GET /v1/explorer/position| DB_API
     CLIENT_WEB -.->|optional HTTP GET /v1/collections/.../games/...| DB_API
+    CLIENT_WEB -.->|optional search| DB_API
+    DB_API --> DB_SEARCH
     DB_API --> DB_INDEX
     DB_API --> DB_STORE
 ```
 
 - **Domain Decoupling:** `opening-explorer-api` has zero dependency on UI frameworks, Stockfish engine binaries, or account synchronization.
 - **Local-First Independence:** Client applications function 100% locally in guest mode without requiring a running `opening-explorer-api` service. When configured, client applications query the Opening Explorer HTTP API to annotate games with opening tree statistics and win/draw/loss frequencies.
+
+## 9. Derived search
+
+The [search index](SEARCH_INDEX.md) projects canonical metadata into a bounded-cache SQLite catalog and maps position keys to sorted game occurrences. Search requests use a dedicated concurrency budget and cooperative deadlines for SQLite and postings. A request pins the metadata catalog and postings from the same snapshot. Unfiltered Explorer requests continue to query CPI v2.

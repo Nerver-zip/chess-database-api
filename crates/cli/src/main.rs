@@ -4,11 +4,13 @@ use std::io::{BufReader, BufWriter, Cursor, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+#[path = "export_pgn.rs"]
 mod export_pgn;
+#[path = "inventory.rs"]
 mod inventory;
 
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Args, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use opening_explorer_core::{
     Collection, GameSourceAttribution, IngestionCompletionStatus, IngestionStats, ParsedGame,
     PositionKey,
@@ -40,9 +42,9 @@ use tempfile::NamedTempFile;
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "opening-explorer",
+    name = "chess-database",
     version = "0.1.0",
-    about = "Build, verify, query and serve chess opening statistics datasets"
+    about = "Build, verify, query and serve curated chess databases"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -76,6 +78,32 @@ enum FormatArg {
 enum DedupeModeArg {
     Memory,
     Disk,
+}
+
+#[derive(Args, Debug)]
+struct ServeSearchArgs {
+    #[arg(long, env = "CHESS_DATABASE_MASTERS_DISCOVERY", default_value_t = false, action = clap::ArgAction::Set)]
+    masters_discovery: bool,
+    #[arg(long, env = "CHESS_DATABASE_ELITE_DISCOVERY", default_value_t = true, action = clap::ArgAction::Set)]
+    elite_discovery: bool,
+    #[arg(long, env = "CHESS_DATABASE_MASTERS_GAME_METADATA", default_value_t = false, action = clap::ArgAction::Set)]
+    masters_game_metadata: bool,
+    #[arg(long, env = "CHESS_DATABASE_ELITE_GAME_METADATA", default_value_t = true, action = clap::ArgAction::Set)]
+    elite_game_metadata: bool,
+    #[arg(
+        long,
+        env = "CHESS_DATABASE_SEARCH_MAX_PAGE_SIZE",
+        default_value_t = 100
+    )]
+    search_max_page_size: usize,
+    #[arg(long, env = "CHESS_DATABASE_SEARCH_CONCURRENCY", default_value_t = 1)]
+    search_concurrency: usize,
+    #[arg(
+        long,
+        env = "CHESS_DATABASE_SEARCH_DEADLINE_MS",
+        default_value_t = 2000
+    )]
+    search_deadline_ms: u64,
 }
 
 #[derive(Subcommand, Debug)]
@@ -282,6 +310,58 @@ enum Commands {
         json: bool,
     },
 
+    /// Build search indexes from the active canonical dataset snapshot
+    #[cfg(unix)]
+    BuildSearchIndex {
+        /// Versioned dataset root
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// Include positions through this ply, including the starting board at ply zero
+        #[arg(long, conflicts_with = "full")]
+        depth_plies: Option<u16>,
+
+        /// Include the complete canonical mainline and final board
+        #[arg(long)]
+        full: bool,
+
+        /// Sort-record buffer size in MiB, separate from database cache and total RSS
+        #[arg(long, default_value_t = 128)]
+        memory_limit_mib: usize,
+
+        /// Existing temporary directory outside the snapshot versions
+        #[arg(long)]
+        temp_dir: Option<PathBuf>,
+    },
+
+    /// Copy verified search artifacts into a local companion bundle
+    #[cfg(unix)]
+    PackSearchIndex {
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// New directory for the companion bundle
+        #[arg(short, long)]
+        output: PathBuf,
+    },
+
+    /// Verify and install a local search bundle on the matching canonical corpus
+    #[cfg(unix)]
+    InstallSearchIndex {
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// Unpacked directory produced by pack-search-index
+        #[arg(long)]
+        bundle: PathBuf,
+    },
+
+    /// Deeply verify the search indexes on a published snapshot
+    VerifySearchIndex {
+        #[arg(short, long)]
+        dataset: PathBuf,
+    },
+
     /// Query the Opening Explorer index for a position by FEN or move sequence
     Query {
         /// Dataset directory path containing manifest.json and positions.cpi
@@ -437,6 +517,9 @@ enum Commands {
         /// Optional secret token required for administrative operations (POST /v1/admin/reload)
         #[arg(long, env = "OPENING_EXPLORER_ADMIN_TOKEN")]
         admin_token: Option<String>,
+
+        #[command(flatten)]
+        search: ServeSearchArgs,
     },
 }
 
@@ -785,22 +868,36 @@ fn legacy_env_promotions(
 /// Promotes deprecated `CODB_*` values into their replacement names before clap parses them.
 /// Must run before any worker threads start.
 fn apply_legacy_env_aliases() {
+    for &(opening_explorer, _) in LEGACY_ENV_ALIASES {
+        let suffix = opening_explorer
+            .strip_prefix("OPENING_EXPLORER_")
+            .expect("configuration alias prefix");
+        let current = format!("CHESS_DATABASE_{suffix}");
+        if let Some(value) = std::env::var_os(&current) {
+            if std::env::var_os(opening_explorer).is_some_and(|old| old != value) {
+                eprintln!("warning: {current} overrides {opening_explorer}");
+            }
+            std::env::set_var(opening_explorer, value);
+        }
+    }
     for (current, legacy, value) in legacy_env_promotions(|name| std::env::var_os(name)) {
         eprintln!("warning: {legacy} is deprecated; set {current} instead");
         std::env::set_var(current, value);
     }
 }
 
-fn main() -> Result<()> {
+pub fn run(program: &'static str) -> Result<()> {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
     let _ = tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_ansi(false)
+        .with_writer(std::io::stderr)
         .try_init();
 
     apply_legacy_env_aliases();
-    let cli = Cli::parse();
+    let matches = Cli::command().name(program).bin_name(program).get_matches();
+    let cli = Cli::from_arg_matches(&matches)?;
 
     match cli.command {
         Commands::Build {
@@ -986,6 +1083,62 @@ fn main() -> Result<()> {
             })?;
         }
 
+        #[cfg(unix)]
+        Commands::BuildSearchIndex {
+            dataset,
+            depth_plies,
+            full,
+            memory_limit_mib,
+            temp_dir,
+        } => {
+            use opening_explorer_storage::search::{
+                build_search_index, BuildSearchConfig, SearchCoverage,
+            };
+
+            let coverage = if full {
+                Some(SearchCoverage::Full)
+            } else {
+                depth_plies.map(|max_ply| SearchCoverage::Bounded { max_ply })
+            };
+            let memory_limit_bytes = memory_limit_mib
+                .checked_mul(1024 * 1024)
+                .context("Search memory limit exceeds the address space")?;
+            if let Some(directory) = &temp_dir {
+                // The builder runs synchronously in a CLI process of its own.
+                std::env::set_var("SQLITE_TMPDIR", std::fs::canonicalize(directory)?);
+            }
+            let report = build_search_index(
+                &dataset,
+                BuildSearchConfig {
+                    coverage,
+                    memory_limit_bytes,
+                    temp_directory: temp_dir,
+                },
+            )?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+
+        #[cfg(unix)]
+        Commands::PackSearchIndex { dataset, output } => {
+            opening_explorer_storage::search::bundle::pack_search_index(&dataset, &output)?;
+        }
+
+        #[cfg(unix)]
+        Commands::InstallSearchIndex { dataset, bundle } => {
+            let version =
+                opening_explorer_storage::search::bundle::install_search_index(&dataset, &bundle)?;
+            println!("{version}");
+        }
+
+        Commands::VerifySearchIndex { dataset } => {
+            let snapshot = DatasetReader::open(&dataset)?;
+            anyhow::ensure!(
+                snapshot.manifest().search_index.is_some(),
+                "Dataset has no search index"
+            );
+            run_verify(snapshot.snapshot_dir(), true)?;
+        }
+
         Commands::Query {
             dataset,
             index,
@@ -1062,6 +1215,7 @@ fn main() -> Result<()> {
             deep_validate_on_startup,
             admin_token,
             enable_game_retrieval,
+            search,
         } => {
             let origins = allowed_origins
                 .split(',')
@@ -1089,7 +1243,19 @@ fn main() -> Result<()> {
                 .build()
                 .context("Failed to build Tokio runtime")?;
 
-            rt.block_on(opening_explorer_api::run_server(config))?;
+            let search_options = opening_explorer_api::SearchOptions {
+                masters_discovery: search.masters_discovery,
+                elite_discovery: search.elite_discovery,
+                masters_game_metadata: search.masters_game_metadata,
+                elite_game_metadata: search.elite_game_metadata,
+                max_page_size: search.search_max_page_size,
+                concurrency: search.search_concurrency,
+                deadline: std::time::Duration::from_millis(search.search_deadline_ms),
+            };
+            rt.block_on(opening_explorer_api::run_server_with_search(
+                config,
+                search_options,
+            ))?;
         }
     }
 

@@ -8,6 +8,8 @@ status: current
 
 The Docker image contains only the opening-explorer API executable and runtime libraries. Masters OTB and Elite Online stay outside the image and are mounted read-only from their stable release roots. The container does not fetch, build, or modify datasets at startup.
 
+The default local image is `chess-database-api:local`. Compose retains the existing service, volumes and aliases, and also builds the legacy image tag. See [Naming migration](NAMING_MIGRATION.md).
+
 ## Prerequisites
 
 - Docker Engine and Docker Compose v2.
@@ -201,6 +203,12 @@ docker exec opening-explorer-gigabase-r3-publisher opening-explorer publish \
 ~~~
 
 Restart the API if it has not hot-reloaded the symlink, then verify the previous ID and 29,640-game count through `/ready`, `/v1/collections`, and a position query. To reactivate R3, stage a copy of the pinned R3 snapshot into `/storage/.promotion-stage/<R3-build-id>` and invoke `opening-explorer publish` with that candidate. Confirm the R3 ID and count return, and recheck the disabled retrieval route. Keep `current` publication inside `opening-explorer publish`; never replace the symlink directly.
+
+## Enriched snapshots
+
+Build search indexes outside the serving container and publish them to the mounted dataset root. The server reads the new snapshot after reload. Masters discovery and individual metadata default to disabled. Elite discovery and metadata default to enabled when an enriched snapshot is present. Set the corresponding `CHESS_DATABASE_MASTERS_DISCOVERY`, `CHESS_DATABASE_MASTERS_GAME_METADATA`, `CHESS_DATABASE_ELITE_DISCOVERY`, and `CHESS_DATABASE_ELITE_GAME_METADATA` values to control exposure. The existing PGN retrieval switch applies independently.
+
+Search admits one worker at a time by default and uses a two-second cooperative deadline. Keep these settings and the two-CPU, 512 MiB Compose limits as the initial configuration for a small server. The reverse proxy should enforce per-client request rates and avoid exposing Masters discovery endpoints before a separate review of enumeration and attribution. See [Search API](SEARCH_API.md) and [Licensing](LICENSING.md).
 
 ## Safe Dataset Updates
 

@@ -1,10 +1,16 @@
 # Changelog
 
-All notable changes to `opening-explorer-api` are documented in this file. The project adheres to [Semantic Versioning](https://semver.org/).
+This file records notable changes to Chess Database API. The project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
 ## [Unreleased]
+
+### Chess Database API
+
+- Added game, position, player and event discovery, individual search metadata, capabilities, and exact filtered Opening Explorer statistics.
+- Added derived search indexes, deep verification, local companion bundles and snapshot-bound keyset pagination. Existing canonical games, lookup files and CPI v2 remain reusable.
+- Added the `chess-database` CLI and the `chess-database-api:local` image tag. Existing CLI, image, network and configuration aliases remain available. [Naming migration](docs/NAMING_MIGRATION.md).
 
 ### Changed
 - **Licensing and deployment policy reconciliation:** `docs/LICENSING.md` section 6 is now the single authoritative statement of current policy, with a new decision record `releases/public_deployment_decision.json` for public, non-commercial API deployment (position statistics and single-game PGN retrieval). The existing distribution clearance is unchanged. Earlier private-evaluation and retrieval-disabled guidance is described as historical; the example environment file keeps retrieval enabled; Docker guidance adds a public-instance checklist. Commercial use and bulk export remain outside the decisions, and the publisher's B2B terms, unverified upstream rights, and missing checksum stay disclosed. Immutable R3 artifacts and `benchmarks/gigabase/` evidence are unchanged.

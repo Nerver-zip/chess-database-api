@@ -1,5 +1,22 @@
 # Agent Handoff (opening-explorer-api)
 
+
+## Chess Database API work in progress (2026-11-25)
+
+The active goal is the single draft Chess Database API PR against main. Work is on `feat/chess-database-api` from `575d988dad9e69468e637dee05090008d364bccb`. PR #10 is merged and both Elite Online R1 and Masters OTB R3 are published. The original release files and canonical artifacts are unchanged.
+
+- Both indexed release packages were downloaded into ignored `data/baseline/`, reconstructed where required, checked against the committed release SHA-256 values and installed with deep verification. No PGN ingestion was run. The unchanged main binary is `data/baseline/opening-explorer-main` (SHA-256 `56b690fdcc42507d49883a57a16f3cdcaf83d4e17d250b63efa424ed4ed0a8b2`).
+- `benchmarks/search/LEGACY_MAIN.json` has three warm and three eviction-advised native repetitions against both released datasets. Zero unexpected HTTP responses. `benchmarks/search/LAYOUT_PROBES.json` has 25,000-game grouped/fixed/SQLite position layout measurements at current, expanded and full depths. Reproduction commands are in `docs/research/search-index-experiments.md`.
+- Implemented additive SQLite search metadata and catalogs, external sort and position postings, immutable build and verification, game and catalog discovery, version-bound cursors, filtered Explorer, capability discovery, a bounded worker budget and CLI/image aliases. The legacy CPI handler still reads CPI v2 directly. Search routes and behavior are in `docs/SEARCH_API.md`; build, format and operations are in `docs/SEARCH_INDEX.md`.
+- The first Elite production build caught a catalog ID allocation vs verifier error and left `current` on the baseline. The corrected builder published Elite R1 depth 30 with 429,150 games, 6,558,404 distinct keys and 13,191,619 occurrences. The initial format encoder wrote a redundant anchor checkpoint for every key. The reader accepts those draft artifacts. The final writer omits the redundant anchor and the seek implementation retains the first occurrence when a repeated game crosses a checkpoint.
+- The independent Elite audit replayed 3,940 occurrences across 128 strided games and reconciled 414 keys against CPI, including the initial position. Outputs and time metrics are under `data/search-validation/`. The production builder binary used for the running comparisons is `data/search-validation/chess-database-builder`, pinned separately from `target/release/chess-database`.
+- Native Masters R3 depth 40 and Elite R1 full coverage are running in exec sessions `86965` and `96577`. The latter uses a separate version root. The interrupted early Masters stage is retained under ignored data for recovery validation. Revalidate live sessions before retrying.
+- Host Docker could start a daemon but constrained containers failed on the read-only cgroup mount. A local QEMU VM in `data/docker-validation/` (exec session `54336`) successfully ran Docker hello-world with a 512 MiB memory limit and two-CPU quota. Baseline image build and dataset copy are in sessions `83185` and `43934`; the guest has a loopback-only forwarded SSH port 2228. No staging or production systems were touched.
+- Relevant Rust/API tests and strict Clippy passed before the latest edits. Re-run the unified gate after bundle code and formatting land. The validation suite can rewrite the tracked historical Stage A output during its tests. Restore that test-generated file after the run and keep historical evidence unchanged.
+
+Next actions are to verify the final compact artifacts on both corpora, run paired legacy and new HTTP workloads, finish the constrained Docker tests, validate the companion bundle, run `./scripts/validate.sh`, and submit the single draft PR. The goal remains active.
+
+
 ## Current state
 
 PR #7 and PR #8 are merged. `opening-explorer-api` is the project identity and the GitHub repository name. The Masters OTB dataset is published as the GitHub release `dataset-masters-otb-r3` (2026-11-16, https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3): indexed package (2 parts), filtered PGN, notice, manifest, `SHA256SUMS`. GitHub's reported asset digests equal `releases/masters-otb-r3.json`. `GOAL.md` stays untracked.

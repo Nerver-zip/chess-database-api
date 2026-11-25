@@ -37,7 +37,7 @@ class DockerDeploymentTests(unittest.TestCase):
         self.assertIn("create_host_path: false", compose)
         self.assertIn("restart: unless-stopped", compose)
         self.assertIn("cap_drop:", compose)
-        self.assertIn("external: ${OPENING_EXPLORER_NETWORK_EXTERNAL:-${CODB_NETWORK_EXTERNAL:-false}}", compose)
+        self.assertIn("external: ${CHESS_DATABASE_NETWORK_EXTERNAL:-${OPENING_EXPLORER_NETWORK_EXTERNAL:-${CODB_NETWORK_EXTERNAL:-false}}}", compose)
         self.assertIn("--deep-validate-on-startup", compose)
         self.assertIn("OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL", compose)
         self.assertIn("--enable-game-retrieval", compose)

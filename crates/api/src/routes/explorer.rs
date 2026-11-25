@@ -16,7 +16,7 @@ use shakmaty::Chess;
 use std::sync::Arc;
 
 #[inline]
-fn calc_pct(part: u64, total: u64) -> f64 {
+pub(super) fn calc_pct(part: u64, total: u64) -> f64 {
     if total > 0 {
         ((part as f64 * 1000.0 / total as f64).round()) / 10.0
     } else {

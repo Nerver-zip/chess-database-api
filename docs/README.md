@@ -1,5 +1,5 @@
 ---
-summary: "Navigable index of Opening Explorer API documentation, grouped by reader need."
+summary: "Navigable index of Chess Database API documentation, grouped by reader need."
 read_when: "Starting work, looking for a specification, or deciding which document answers a question."
 status: current
 ---
@@ -12,6 +12,7 @@ Start with the [project README](../README.md). Always read the source code when 
 
 - [Getting Started](GETTING_STARTED.md): build the CLI, create a sample dataset, serve it, and make a first query.
 - [API Reference](API_REFERENCE.md): endpoints, parameters, response fields, errors, HTTP semantics, configuration, and how to interpret statistics.
+- [Search API](SEARCH_API.md): game, position, player and event discovery, filtered statistics and Evalis integration.
 - [Use Cases](USE_CASES.md): integration patterns for apps, collection comparison, analysis pipelines, and research downloads. Runnable code is in [`examples/`](../examples/).
 
 ## 2. Datasets and licensing
@@ -23,11 +24,13 @@ Start with the [project README](../README.md). Always read the source code when 
 ## 3. Deploy
 
 - [Docker Deployment](DOCKER_DEPLOYMENT.md): provision releases, run the API with read-only mounts, resource bounds, rollback, and running a public non-commercial instance.
+- [Naming migration](NAMING_MIGRATION.md): Chess Database API defaults and the retained CLI, image and configuration aliases.
 - [Migration from CODB](MIGRATION_FROM_CODB.md): legacy-to-current names for the binary, environment variables, compose files, and image.
 
 ## 4. Build and develop
 
 - [Corpus Build and Release Procedure](CORPUS_BUILD.md): reproducible acquisition, curation, indexing, verification, packaging, and promotion.
+- [Search Indexes](SEARCH_INDEX.md): build, verify and operate derived search indexes on canonical snapshots.
 - [QA Strategy](QA_STRATEGY.md): integrity testing, crash recovery, snapshot isolation, and verification gates.
 - [Contributing](../CONTRIBUTING.md), [Agent Development Guide](../AGENTS.md), [Changelog](../CHANGELOG.md).
 

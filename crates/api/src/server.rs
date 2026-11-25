@@ -3,22 +3,27 @@
 use crate::config::ServerConfig;
 use crate::routes::create_router;
 use crate::state::AppState;
+use crate::SearchOptions;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tracing::{info, warn};
 
-/// Starts and runs the HTTP Opening Explorer server until shutdown signal is received.
+/// Starts and runs the Chess Database API server until shutdown signal is received.
 pub async fn run_server(config: ServerConfig) -> Result<(), anyhow::Error> {
-    let state = AppState::new(config)?;
+    run_server_with_search(config, SearchOptions::default()).await
+}
+
+pub async fn run_server_with_search(
+    config: ServerConfig,
+    search: SearchOptions,
+) -> Result<(), anyhow::Error> {
+    let state = AppState::new_with_search(config, search)?;
     let addr = format!("{}:{}", state.config.host, state.config.port);
     let listener = TcpListener::bind(&addr).await?;
 
     let actual_addr = listener.local_addr()?;
     info!("========================================================================");
-    info!(
-        "  Opening Explorer HTTP API listening on http://{}",
-        actual_addr
-    );
+    info!("  Chess Database API listening on http://{}", actual_addr);
     info!("  Active collections: {:?}", state.ready_collections());
     info!("========================================================================");
 

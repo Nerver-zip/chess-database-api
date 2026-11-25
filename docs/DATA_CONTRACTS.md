@@ -207,6 +207,8 @@ The referenced UTF-8 JSONL file contains one line per retained game, in ascendin
 
 ---
 
+The optional `search_index` entry describes a derived metadata catalog and positional occurrence index. Its artifact sizes contribute to `total_physical_bytes` on enriched snapshots. The [search index format and verification rules](SEARCH_INDEX.md) define coverage, identity binding and compatibility. Existing manifests without this entry continue to load.
+
 ## 5. CLI JSON Contracts
 
 ### 5.1 `opening-explorer query --json`

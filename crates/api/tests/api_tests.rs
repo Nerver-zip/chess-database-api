@@ -1947,3 +1947,172 @@ fn urlencode(value: &str) -> String {
         })
         .collect()
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn search_rolls_forward_and_back_with_snapshot_bound_cursors() {
+    use opening_explorer_storage::search::{build_search_index, BuildSearchConfig};
+    use serde_json::Value;
+    use std::os::unix::fs::symlink;
+
+    async fn get(app: &axum::Router, uri: &str, status: StatusCode) -> Value {
+        let response = app
+            .clone()
+            .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        let actual = response.status();
+        let body: Value = response_json(response).await;
+        assert_eq!(actual, status, "{uri}: {body}");
+        body
+    }
+
+    let tmp = tempdir().unwrap();
+    let dataset = tmp.path().join("elite");
+    setup_test_dataset(&dataset, Collection::EliteOnline, 12);
+    let legacy = std::fs::read_link(dataset.join("current")).unwrap();
+    let state = AppState::new(ServerConfig {
+        elite_dataset: Some(dataset.clone()),
+        ..Default::default()
+    })
+    .unwrap();
+    let router = create_router(state.clone());
+    let games = "/v1/collections/elite-online/games";
+    let explorer = "/v1/explorer/position?collection=elite-online&moves=e4";
+    let unavailable = get(&router, games, StatusCode::SERVICE_UNAVAILABLE).await;
+    assert_eq!(unavailable["error"]["code"], "search_unavailable");
+    let legacy_answer = get(&router, explorer, StatusCode::OK).await;
+
+    let indexed = build_search_index(
+        &dataset,
+        BuildSearchConfig {
+            memory_limit_bytes: 48,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(indexed.index.game_count, 12);
+    assert!(!indexed.index.canonical_sha256.is_empty());
+    let current = std::fs::read_link(dataset.join("current")).unwrap();
+    for file in ["positions.cpi", "games.idx", "shards/shard_0000.cgb3"] {
+        assert_eq!(
+            std::fs::read(dataset.join(&legacy).join(file)).unwrap(),
+            std::fs::read(dataset.join(&current).join(file)).unwrap(),
+        );
+    }
+
+    state.reload().await.unwrap();
+    let caps = get(&router, "/v1/collections", StatusCode::OK).await;
+    assert_eq!(caps["collections"][0]["capabilities"]["game_search"], true);
+    assert_eq!(
+        caps["collections"][0]["capabilities"]["position_search_coverage"]["max_ply"],
+        40
+    );
+    let query = format!("{games}?moves=e4,e5&continuation=Nf3&min_both_ratings=2680&sort=date_desc&exact_count=true&limit=3");
+    let first = get(&router, &query, StatusCode::OK).await;
+    assert_eq!(first["total_games"], 8);
+    assert_eq!(first["games"].as_array().unwrap().len(), 3);
+    assert_eq!(first["games"][0]["position_match"]["ply"], 2);
+    assert_eq!(first["games"][0]["position_match"]["continuation"], "g1f3");
+    let token = first["next_cursor"].as_str().unwrap();
+    let second_uri = format!("{query}&cursor={token}");
+    let second = get(&router, &second_uri, StatusCode::OK).await;
+    let last = get(
+        &router,
+        &format!("{query}&cursor={}", second["next_cursor"].as_str().unwrap()),
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(last["has_more"], false);
+    assert_eq!(last["next_cursor"], Value::Null);
+    let ids: std::collections::HashSet<_> = [&first, &second, &last]
+        .into_iter()
+        .flat_map(|page| {
+            page["games"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|game| game["id"].as_str().unwrap())
+        })
+        .collect();
+    assert_eq!(ids.len(), 8);
+    let detail = format!(
+        "{games}/{}/metadata",
+        first["games"][0]["id"].as_str().unwrap()
+    );
+    let detail = get(&router, &detail, StatusCode::OK).await;
+    assert_eq!(detail["game"]["id"], first["games"][0]["id"]);
+    let invalid = get(
+        &router,
+        &format!("{games}?cursor={token}"),
+        StatusCode::BAD_REQUEST,
+    )
+    .await;
+    assert_eq!(invalid["error"]["code"], "invalid_cursor");
+    let invalid = get(
+        &router,
+        &format!("{games}?min_white_rating=2700&max_white_rating=2600"),
+        StatusCode::BAD_REQUEST,
+    )
+    .await;
+    assert_eq!(invalid["error"]["code"], "invalid_query");
+
+    let enriched_answer = get(&router, explorer, StatusCode::OK).await;
+    assert_eq!(legacy_answer["moves"], enriched_answer["moves"]);
+    assert_eq!(legacy_answer["total_games"], enriched_answer["total_games"]);
+    let all_stats = get(
+        &router,
+        "/v1/explorer/position/filtered?collection=elite-online&moves=e4&min_both_ratings=2600",
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(enriched_answer, all_stats);
+    let filtered = get(
+        &router,
+        "/v1/explorer/position/filtered?collection=elite-online&moves=e4&result=1-0",
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(filtered["total_games"], 6);
+    assert_eq!(filtered["white_wins"], 6);
+
+    let players = get(
+        &router,
+        "/v1/collections/elite-online/players?prefix=grandmaster&limit=2",
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(players["players"].as_array().unwrap().len(), 2);
+    let events = get(
+        &router,
+        "/v1/collections/elite-online/events?prefix=world&year=2025",
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(events["events"][0]["game_count"], 12);
+
+    build_search_index(&dataset, BuildSearchConfig::default()).unwrap();
+    state.reload().await.unwrap();
+    let stale = get(&router, &second_uri, StatusCode::CONFLICT).await;
+    assert_eq!(stale["error"]["code"], "stale_cursor");
+
+    let broken = dataset.join("current/search/positions.postings");
+    let mut file = std::fs::OpenOptions::new()
+        .append(true)
+        .open(broken)
+        .unwrap();
+    std::io::Write::write_all(&mut file, b"corrupt").unwrap();
+    drop(file);
+    assert!(state.reload().await.is_err());
+    // Roll back the disk pointer without changing the legacy files the service had pinned.
+    assert_eq!(
+        get(&router, explorer, StatusCode::OK).await["total_games"],
+        12
+    );
+    let staged_link = dataset.join("rollback");
+    symlink(legacy, &staged_link).unwrap();
+    std::fs::rename(staged_link, dataset.join("current")).unwrap();
+    state.reload().await.unwrap();
+    get(&router, games, StatusCode::SERVICE_UNAVAILABLE).await;
+    assert_eq!(get(&router, explorer, StatusCode::OK).await, legacy_answer);
+}

@@ -8,6 +8,7 @@ pub mod config;
 pub mod error;
 pub mod models;
 pub mod routes;
+mod search_runtime;
 pub mod server;
 pub mod state;
 
@@ -15,7 +16,8 @@ pub use config::ServerConfig;
 pub use error::{ApiError, ErrorDetails, ErrorEnvelope};
 pub use models::*;
 pub use routes::create_router;
-pub use server::run_server;
+pub use search_runtime::SearchOptions;
+pub use server::{run_server, run_server_with_search};
 pub use state::AppState;
 
 /// Returns the current crate package version.

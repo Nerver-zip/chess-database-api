@@ -1,10 +1,10 @@
-# Opening Explorer API
+# Chess Database API
 
-A self-hosted, read-only HTTP API for chess opening statistics. Give it a position (as a move sequence or a FEN) and it returns how many games reached it, the White / draw / Black results, and the moves that were played next, with their own results.
+Chess Database API is a self-hosted, read-only service for discovering curated games by player, event, rating, date and position. Opening Explorer serves precomputed position statistics, and optional search indexes add paginated game summaries and exact filtered opening statistics. Retrieve individual games as canonical PGN.
 
-Opening Explorer API curates and deduplicates large game collections, stores them compactly, indexes every position, and serves the statistics from a small Rust service. It is written independently and shares no code with the AGPL-licensed Lichess opening explorer.
+The Rust service uses immutable snapshots of separately curated and deduplicated collections.
 
-> **Availability.** There is no hosted public instance. You run the service yourself. The Masters OTB R3 dataset is published as a [GitHub release](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3). Elite Online R1 is being prepared for a separate release from the pinned Lichess archive selection. Both releases contain an indexed dataset and a filtered PGN; their licenses and download status differ ([Dataset releases](docs/DATASET_RELEASES.md)).
+> **Availability.** Run the service yourself using the [Masters OTB R3](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3) and [Elite Online R1](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-elite-online-r1) releases. Each release contains an indexed dataset and a filtered PGN. [Dataset releases](docs/DATASET_RELEASES.md) explains installation and licenses.
 
 ## Who it is for
 
@@ -34,27 +34,33 @@ Do not compare an OTB Elo with an online rating as if they were one scale. Detai
 | Endpoint | Purpose |
 | :--- | :--- |
 | `GET /v1/explorer/position` | Position statistics from `moves=` (SAN or UCI) or `fen=`: total games, W/D/L, next moves, each with W/D/L |
-| `GET /v1/collections` | Loaded collections and their dataset versions |
+| `GET /v1/collections` | Loaded collections, snapshot versions and capabilities |
+| `GET /v1/collections/{collection}/games` | Paginated game discovery by metadata, position or continuation |
+| `GET /v1/collections/{collection}/players` and `/events` | Player and event discovery |
+| `GET /v1/explorer/position/filtered` | Exact opening statistics for a subset of one collection |
 | `GET /v1/collections/{collection}/games/{id}` | Canonical PGN of one stored game (enabled by default) |
 | `GET /health`, `GET /ready` | Liveness and readiness |
 | `POST /v1/admin/reload` | Token-protected hot reload of a newly published dataset |
 
-Full contract, errors, caching, and configuration: [docs/API_REFERENCE.md](docs/API_REFERENCE.md).
+See the [API reference](docs/API_REFERENCE.md) and [search contract](docs/SEARCH_API.md).
 
 ## Quick start
 
-Build the CLI (`opening-explorer`), make a small sample dataset from the bundled synthetic fixture, serve it, and query it:
+Build the CLI (`chess-database`), make a small sample dataset from the bundled synthetic fixture, serve it, and query it:
 
 ```bash
 cargo build --locked --release --package opening-explorer-cli
 
-./target/release/opening-explorer build \
+./target/release/chess-database build \
   --input fixtures/stage_a_validation.pgn --collection elite-online \
   --output data/sample/elite-online
-./target/release/opening-explorer build-index \
+./target/release/chess-database build-index \
   --dataset data/sample/elite-online --collection elite-online
 
-./target/release/opening-explorer serve \
+./target/release/chess-database build-search-index \
+  --dataset data/sample/elite-online
+
+./target/release/chess-database serve \
   --elite-dataset data/sample/elite-online --host 127.0.0.1 --port 8080
 ```
 
@@ -80,12 +86,12 @@ See [Deployment](docs/DOCKER_DEPLOYMENT.md) for read-only mounts, resource bound
 
 ## Get the datasets
 
-Both collection releases use two products, and the indexed and PGN products for one collection contain the same canonical games. Masters OTB R3 is published; Elite Online R1 is being prepared for a separate release.
+Both collection releases use two products, and the indexed and PGN products for one collection contain the same canonical games. Both indexed releases can be enriched locally with [derived search indexes](docs/SEARCH_INDEX.md).
 
 | Collection | Indexed dataset | Filtered PGN | Coverage and license |
 | :--- | :--- | :--- | :--- |
 | Masters OTB R3 | [Published release](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3), 3,284,429 games, CPI depth 40 | Zstandard-compressed PGN in the same release | CC BY-NC 4.0 publisher claim; non-commercial use with attribution. See the [current policy](docs/LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). |
-| Elite Online R1 | Prepared for a separate release; publication is pending review and merge | One complete canonical game per PGN record, Zstandard-compressed | 429,150 games from selected Lichess rated archives in 2015–2017; CC0 1.0. Commercial redistribution is permitted under CC0. |
+| Elite Online R1 | [Published release](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-elite-online-r1), CPI depth 30 | One complete canonical game per PGN record, Zstandard-compressed | 429,150 games from selected Lichess rated archives in 2015–2017; CC0 1.0. Commercial redistribution is permitted under CC0. |
 
 The indexed package contains the immutable snapshot, position index, release metadata, and checksums. The filtered PGN preserves supported stored metadata and full legal mainlines. Masters R3's indexed package is split into two numbered assets; the Elite package is split only if it exceeds the per-asset limit. See [Dataset releases](docs/DATASET_RELEASES.md) for download links, checksum verification, reconstruction, installation, PGN extraction, and versioning. To reproduce Elite Online from the pinned sources, follow [Corpus build](docs/CORPUS_BUILD.md).
 
@@ -121,7 +127,7 @@ console.log(result.total_games, result.moves[0]);
 | Data and licensing | [Licensing and attribution](docs/LICENSING.md) |
 | Internals and formats | [Architecture](docs/ARCHITECTURE.md), [Data contracts](docs/DATA_CONTRACTS.md) |
 | Benchmarks and research | [Benchmarks](docs/BENCHMARKS.md), [research archive](docs/research/) |
-| Upgrading from the old `codb` names | [Migration](docs/MIGRATION_FROM_CODB.md) |
+| Upgrading CLI, image or configuration names | [Naming migration](docs/NAMING_MIGRATION.md) |
 
 The complete index is [docs/README.md](docs/README.md).
 

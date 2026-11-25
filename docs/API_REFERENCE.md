@@ -4,11 +4,13 @@ read_when: "Integrating a client with the Opening Explorer API, checking an endp
 status: current
 ---
 
-# Opening Explorer API Reference
+# Chess Database API Reference
 
 This document describes the HTTP API served by `opening-explorer serve`. It covers the behavior of the current implementation. Where the implementation has a known deviation or limitation, it is stated in [Known limitations](#known-limitations).
 
 For a first request, see [GETTING_STARTED.md](GETTING_STARTED.md). For end-to-end integration patterns, see [USE_CASES.md](USE_CASES.md). Runnable examples live in [`examples/`](../examples/).
+
+The [Search API](SEARCH_API.md) documents discovery, metadata and filtered statistics.
 
 ## Contents
 
@@ -111,6 +113,8 @@ Example (values are illustrative; the real output reflects the installed release
 | `cpi_depth_plies` | integer | Present only when `cpi_available` is true. Plies per game covered by the index (see [section 5.4](#54-depth-and-coverage)). |
 | `cpi_total_positions` | integer | Present only when `cpi_available` is true. Distinct positions in the index. |
 | `format_version` | string | Storage format of the snapshot (for example `CGB3/v1`). |
+
+The additive `capabilities` object describes which features are enabled for this snapshot and operator configuration. See [capability discovery](SEARCH_API.md).
 
 ### The two collections
 
@@ -335,6 +339,13 @@ Errors from the API handlers use this envelope:
 | `reload_failed` | 500 | The replacement snapshot failed verification. |
 | `storage_error` | 500 | A storage read or decode failed. |
 | `internal_error` | 500 | An unexpected server error. |
+| `invalid_cursor` | 400 | The cursor token is malformed or belongs to a different query. |
+| `search_disabled` | 403 | The requested search capability is disabled for the collection. |
+| `stale_cursor` | 409 | The search cursor or requested catalog version belongs to a previous snapshot. |
+| `search_timeout` | 408 | Search exceeded its execution budget. Narrow the query. |
+| `search_work_limit` | 422 | The request exceeds the search work limit. Narrow the query. |
+| `search_busy` | 429 | All search workers are occupied. |
+| `search_unavailable` | 503 | The loaded snapshot lacks the index or required coverage. |
 
 Every error response uses this envelope, including responses the router produces before a handler runs (unknown paths, wrong methods, undecodable query strings, and timeouts). Those keep their HTTP status codes.
 

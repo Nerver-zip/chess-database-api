@@ -1,0 +1,36 @@
+{
+  "source_snapshot": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+  "published_snapshot": "codb-elite-online-1795638306926448160-865a78390733cd33-search",
+  "collection": "elite-online",
+  "index": {
+    "format_version": 1,
+    "coverage": {
+      "mode": "full"
+    },
+    "game_count": 429150,
+    "position_count": 27748260,
+    "posting_count": 34630867,
+    "source_snapshot": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+    "canonical_sha256": "431595228cdcfed941c5d3542ba38c417014c0a2e76f333b912c149cf7d2fcac",
+    "sort_buffer_bytes": 134217720,
+    "artifacts": {
+      "metadata.sqlite": {
+        "file_size_bytes": 538869760,
+        "sha256": "0a56fb8f2b9f618d1d2a940eca5fbd5200d3ef8c2a245fb3bbc88099ef42bceb"
+      },
+      "positions.postings": {
+        "file_size_bytes": 1531117209,
+        "sha256": "2c312af191219a0e1238edd1af177009075046c5217d8e41a7366777ab303745"
+      }
+    }
+  },
+  "spill": {
+    "buffer_bytes": 134217720,
+    "initial_runs": 7,
+    "intermediate_merges": 0,
+    "peak_temp_bytes": 831141032
+  },
+  "postings_temporary_spool_bytes": 1531117145,
+  "build_seconds": 316.420307214,
+  "verification_seconds": 62.451517837
+}

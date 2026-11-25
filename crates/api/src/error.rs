@@ -75,6 +75,27 @@ pub enum ApiError {
     #[error("Administrative reload failed: {0}")]
     ReloadFailed(String),
 
+    #[error("Search is disabled for this capability on collection '{0}'.")]
+    SearchDisabled(String),
+
+    #[error("The requested search index is unavailable for collection '{0}'.")]
+    SearchUnavailable(String),
+
+    #[error("Search capacity is in use. Retry the request.")]
+    SearchBusy,
+
+    #[error("The search exceeded its execution deadline. Narrow the query and try again.")]
+    SearchDeadline,
+
+    #[error("The search exceeded its work limit. Narrow the query and try again.")]
+    SearchWorkLimit,
+
+    #[error("The cursor is invalid for this query. Start again without a cursor.")]
+    InvalidCursor,
+
+    #[error("The dataset changed. Start again without a cursor.")]
+    StaleCursor,
+
     #[error("Storage engine error: {0}")]
     Storage(String),
 
@@ -118,6 +139,13 @@ impl ApiError {
             Self::AdminDisabled => "admin_disabled",
             Self::PoolTimeout(_) => "reader_pool_timeout",
             Self::ReloadFailed(_) => "reload_failed",
+            Self::SearchDisabled(_) => "search_disabled",
+            Self::SearchUnavailable(_) => "search_unavailable",
+            Self::SearchBusy => "search_busy",
+            Self::SearchDeadline => "search_timeout",
+            Self::SearchWorkLimit => "search_work_limit",
+            Self::InvalidCursor => "invalid_cursor",
+            Self::StaleCursor => "stale_cursor",
             Self::Storage(_) => "storage_error",
             Self::Internal(_) => "internal_error",
         }
@@ -135,13 +163,18 @@ impl ApiError {
             | Self::MoveSequenceTooLong(_, _)
             | Self::UnsupportedParameter(_)
             | Self::InvalidQuery(_)
-            | Self::InvalidGameId(_) => StatusCode::BAD_REQUEST,
+            | Self::InvalidGameId(_)
+            | Self::InvalidCursor => StatusCode::BAD_REQUEST,
 
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
-            Self::AdminDisabled => StatusCode::FORBIDDEN,
+            Self::AdminDisabled | Self::SearchDisabled(_) => StatusCode::FORBIDDEN,
             Self::GameNotFound(_, _) | Self::NotFound => StatusCode::NOT_FOUND,
             Self::MethodNotAllowed => StatusCode::METHOD_NOT_ALLOWED,
-            Self::RequestTimeout => StatusCode::REQUEST_TIMEOUT,
+            Self::RequestTimeout | Self::SearchDeadline => StatusCode::REQUEST_TIMEOUT,
+            Self::SearchBusy => StatusCode::TOO_MANY_REQUESTS,
+            Self::SearchWorkLimit => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::StaleCursor => StatusCode::CONFLICT,
+            Self::SearchUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
 
             Self::CollectionUnavailable(_) | Self::IndexUnavailable(_) | Self::PoolTimeout(_) => {
                 StatusCode::SERVICE_UNAVAILABLE

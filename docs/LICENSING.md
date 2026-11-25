@@ -186,3 +186,9 @@ These are the facts that the adopted interpretation does not remove:
 | Before 2026-11-16 | R3 built and promoted as a private evaluation deployment with raw-PGN retrieval disabled. Evidence in `benchmarks/gigabase/`. |
 | 2026-11-16 | Maintainer records the distribution clearance; `dataset-masters-otb-r3` is published. |
 | 2026-11-16 | Maintainer records the public, non-commercial deployment decision (section 6.1). |
+
+## 7. Search capability exposure
+
+Game, position, player and event discovery can make the corpus enumerable. The current Masters OTB decisions describe position statistics and individual game retrieval. Masters discovery and individual search metadata are separately disabled by default. Review the intended audience, attribution, non-commercial conditions, and enumeration scope before enabling these endpoints beyond an isolated evaluation environment.
+
+The API supports capped pages, short search deadlines and a separate search concurrency budget. Configure request-rate limits at the application gateway for exposed search routes. These controls bound resource use and can reduce automated enumeration. A pageable catalog still permits a determined client to collect results over time.
