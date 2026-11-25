@@ -81,8 +81,28 @@ taskset -c 0,1 python3 scripts/bench_cpi_pair.py \
   --output data/cpi-search-pair.json
 ```
 
+The [final warm comparison](../../benchmarks/search/PAIRED_FINAL_WARM.json) alternated five baseline and candidate pairs with 500 request-corpus rounds per phase. The client used logical CPUs 0 and 1 and the server used 4 and 5, on the same two physical cores. The two remaining physical cores ran the isolated Docker guest and Masters builders. The median sequential HTTP p50/p95/p99 changed by −1.4%/−3.1%/−9.6%. Concurrent p50/p95/p99 changed by +1.5%/+2.4%/+3.8% and throughput changed by −3.5%. Bodies, ETags and canonical artifact inventories matched. All aggregate HTTP and CPI measures met the proposed tolerances. The report retains individual PGN timing samples and the median startup, server CPU and RSS measurements.
+
 ## Compact Elite production checks
 
 The [companion install](../../benchmarks/search/ELITE_R1_BUNDLE_INSTALL.json) reproduced both search artifact hashes against a separate installation of the published Elite snapshot. The installed version passed deep verification and retained the same canonical artifact inventory.
 
 The [native workflow](../../benchmarks/search/ELITE_R1_NATIVE_FLOW.json) verified the search-to-PGN flow, filtered counts and the legacy conditional request. In the [native workload](../../benchmarks/search/ELITE_R1_NATIVE_WORKLOAD.json), player prefix p95 was 12.3 ms and positional page p95 was below 2 ms for the sampled start, common and medium positions. The date-sorted common event name query took 849 ms at p95. The broad initial-position filtered aggregate returned the documented 422 work-limit response. All 300 legacy requests during four-client search overload returned 200. Search admission returned 429 when the single worker was occupied.
+
+## Constrained Docker
+
+The host's read-only cgroup mount blocked constrained containers. An isolated Ubuntu guest running Docker under QEMU TCG used local copies of the verified production Elite snapshots and a pinned Debian Bookworm runtime. The [first Docker run](../../benchmarks/search/ELITE_R1_DOCKER.json) exercised a legacy snapshot, atomic reload to the enriched snapshot and rollback. It used a 512 MiB limit, two-CPU quota, read-only dataset and root filesystem, and a nonroot UID. The legacy environment fallback, conditional requests, and discovery-to-PGN flow passed. All 120 legacy requests in the mixed run succeeded. Expensive filtered queries reached the deadline under emulation. Guest timings describe this validation environment. The first run's file cache included pages charged when the corpus was copied outside the container.
+
+Reproduce the request flows with the release binary in the standard runtime image and a local dataset mount. Start with a validated legacy snapshot and run `scripts/verify_search_api.py --mode legacy`. Switch the dataset's `current` symlink to the enriched version and reload as described in [Docker deployment](../DOCKER_DEPLOYMENT.md#safe-dataset-updates). Run the same probe without `--mode` and use `scripts/bench_search_api.py --workers 4` for concurrent traffic. After rollback, check legacy mode again. For a separate enriched start with discovery and search metadata disabled, use `--mode disabled`.
+
+## Masters R3 depth 40
+
+The [compact production build](../../benchmarks/search/MASTERS_R3_OPENING_BUILD.json) and the [first encoder run](../../benchmarks/search/MASTERS_R3_INITIAL_OPENING_BUILD.json) both passed deep verification. The compact build preserved the published canonical inventory and recorded 130,852,249 occurrences over 54,827,221 distinct keys and 3,284,429 games. The compact catalog and postings use 5.57 GB combined, down from 7.10 GB for the first layout. The compact builder used a 128 MiB sort buffer and peaked at 2,139,720 KiB process RSS, including touched mapped files. Peak sampled allocated staging and scratch blocks were 10.89 GB. Both wall times include pauses for other measurements. The compact builder used 1,191 seconds of total CPU time, and deep verification took 387 seconds of wall time after the benchmark pauses.
+
+The [Masters audit](../../benchmarks/search/MASTERS_R3_ORACLE.json) replayed 256 games at deterministic strides through canonical order. It checked 10,136 occurrences and matched all 741 distinct position probes to CPI first-visit, continuation and result counts. The probe set includes the initial position and cases at the CPI coverage boundary.
+
+```bash
+cargo build --locked --release -p opening-explorer-cli --example audit_search_index
+target/release/examples/audit_search_index \
+  --dataset data/search-validation/masters-otb-compact --sampled-games 256
+```

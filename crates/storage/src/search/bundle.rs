@@ -612,4 +612,25 @@ mod tests {
         let after = resolve_dataset_snapshot(&dataset).unwrap();
         assert_eq!(before, after);
     }
+
+    #[test]
+    fn recovery_removes_abandoned_search_stage_and_preserves_current() {
+        let temporary = tempfile::tempdir().unwrap();
+        let dataset = temporary.path().join("dataset");
+        build_search_dataset(&dataset);
+        let before = resolve_dataset_snapshot(&dataset).unwrap();
+        let stage = dataset.join("versions/.staging_search_interrupted");
+        fs::create_dir(&stage).unwrap();
+        fs::write(stage.join("partial.postings"), b"incomplete").unwrap();
+        let lock = StagingLock::acquire(&stage).unwrap();
+
+        crate::recover_dataset(&dataset).unwrap();
+        assert!(stage.exists());
+        drop(lock);
+
+        crate::recover_dataset(&dataset).unwrap();
+        assert!(!stage.exists());
+        assert_eq!(resolve_dataset_snapshot(&dataset).unwrap(), before);
+        verify_dataset(&dataset, true).unwrap();
+    }
 }

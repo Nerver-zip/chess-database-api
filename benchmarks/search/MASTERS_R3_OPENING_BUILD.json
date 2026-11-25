@@ -1,0 +1,58 @@
+{
+  "artifact_bytes": 5572790358,
+  "artifact_bytes_per_game": 1696.7303473450027,
+  "build": {
+    "build_seconds": 1665.7317647809998,
+    "collection": "masters-otb",
+    "index": {
+      "artifacts": {
+        "metadata.sqlite": {
+          "file_size_bytes": 3534753792,
+          "sha256": "2f41accb653eaea1672456094d93f81e6b34b62eadb288856da426a910d8a03d"
+        },
+        "positions.postings": {
+          "file_size_bytes": 2038036566,
+          "sha256": "41a9d5531b4f478b72a421631ba4dee89b705a54f02afb2b8575ef809e2ade28"
+        }
+      },
+      "canonical_sha256": "7e451a13737bad29a3d9ccab2eb30458a2be169468f827d0bc473181523b77e0",
+      "coverage": {
+        "max_ply": 40,
+        "mode": "bounded"
+      },
+      "format_version": 1,
+      "game_count": 3284429,
+      "position_count": 54827221,
+      "posting_count": 130852249,
+      "sort_buffer_bytes": 134217720,
+      "source_snapshot": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40"
+    },
+    "postings_temporary_spool_bytes": 2038036502,
+    "published_snapshot": "codb-masters-otb-1795640229266821029-29be58d4f83e0484-search",
+    "source_snapshot": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+    "spill": {
+      "buffer_bytes": 134217720,
+      "initial_runs": 24,
+      "intermediate_merges": 1,
+      "peak_temp_bytes": 4294967584
+    },
+    "verification_seconds": 386.789750359
+  },
+  "canonical_manifest_entries_match": [
+    "collection",
+    "total_games",
+    "source_attribution",
+    "shards",
+    "lookup_table",
+    "position_index"
+  ],
+  "disk_note": "Allocated blocks in the build stage, spill directory and unlinked scratch files. Shared legacy artifacts are excluded. Samples are taken every 250 ms.",
+  "peak_rss_kib": 2139720,
+  "peak_sampled_staging_allocated_bytes": 10890199040,
+  "postings_bytes_per_occurrence": 15.575097727208341,
+  "postings_bytes_per_position": 37.171983712251254,
+  "system_cpu_seconds": 516.189913,
+  "time_note": "Build and elapsed wall time include pauses for calibration and native benchmarks. CPU times exclude the pauses.",
+  "user_cpu_seconds": 674.845623,
+  "wall_seconds": 2052.7751274869997
+}
