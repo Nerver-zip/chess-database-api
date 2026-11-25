@@ -122,3 +122,66 @@ cargo build --locked --release -p opening-explorer-cli --example audit_search_in
 target/release/examples/audit_search_index \
   --dataset data/search-validation/masters-otb-compact --sampled-games 256
 ```
+
+## Final hardening on both production snapshots
+
+The [native before/after report](../../benchmarks/search/HARDENING_NATIVE.json) compares the pre-hardening PR (`6a29e6e929cac08a4ae27feac282a67e5201e1c5`) with the serving implementation at `3518a8e7f38b4497a5491dca926b54440da57848`. The candidate executable SHA-256 is `0436ed664d6305b0d3d01dc79bec92a48fb7833b1b190d2cdf832e1941c38c31`. Both binaries used the pinned enriched Masters R3 D40 and Elite R1 D30 versions named in the reports. The first candidate probe remains in the report as an earlier measurement.
+
+| Masters request | Pre-hardening serial | Hardened serial | Hardened p95 |
+| --- | --- | --- | ---: |
+| Initial position, both ratings at least 2200 | 5/5 HTTP 422 | 5/5 HTTP 200 | 1,195 ms |
+| Sicilian after `e4,c5`, both ratings at least 2400 | 5/5 HTTP 422 | 5/5 HTTP 200 | 230 ms |
+| 20-ply Ruy Lopez, `min_plies=0` | 5/5 HTTP 422 | 5/5 HTTP 200 | 34 ms |
+
+Previously these requests entered the SQL-backed aggregate planner and hit its work budget. The ordinal projection holds only dates, ratings and outcomes, at up to 16 bytes per game and four million games per collection. Common rating, date, year and result predicates can scan the compact posting group with a 20 MiB encoded bound and cooperative cancellation. Player, event and other complex predicates still use the bounded SQL planner with the existing 250,000-unit work limit. An effectively unrestricted query with `min_plies=0` uses CPI. See [filtered Explorer semantics](../SEARCH_API.md#6-filtered-opening-explorer-statistics).
+
+The [Masters canonical replay](../../benchmarks/search/HARDENING_MASTERS_ORACLE.json) processed all 3,284,429 games from CGB3 and checked each continuation's W/D/L counts against HTTP. It confirmed totals of 2,903,599 at the initial position with both ratings at least 2200, 183,790 at the Sicilian with both ratings at least 2400, and 486,306 at the Sicilian with either `from_year=2000` or `from_date=2000-01-01`. The Ruy Lopez no-op filter matched the legacy CPI response body.
+
+In the four-user run, each request class was attempted 40 times with 125 ms think time. Autocomplete, metadata, position search, latest-board navigation, legacy Explorer and PGN all succeeded 40/40 with two workers, compared with 39, 35, 37, 36, 40 and 40 successes respectively with one worker. Two-worker p95 on the four successful discovery classes ranged from 8.9 to 14.0 ms. Broad rating and date filters each succeeded 24/40, with the remainder returning 429 and accepted p95 of 776 and 169 ms. One worker accepted 36/40 and 33/40 respectively in its separate run. This limited comparison supports two workers as the initial setting for protecting fast discovery while a filtered aggregate is active. It does not establish a throughput advantage for broad aggregates. The client abandoned 40 superseded board requests. Cooperative server cancellation is verified separately by the search runtime tests. In the deliberate four-client mixed workload, all 300 legacy requests succeeded and the two broad rating requests each succeeded 8/20, with 12/20 returning 429.
+
+### Paired legacy HTTP and CPI
+
+Three alternating runs per binary used separate server and client physical cores and the same canonical data. The comparison against main revision `575d988dad9e69468e637dee05090008d364bccb` records identical canonical artifact inventories, response bodies and same-snapshot ETags. Its executable SHA-256 is `56b690fdcc42507d49883a57a16f3cdcaf83d4e17d250b63efa424ed4ed0a8b2`.
+
+| Regime | Sequential p50 | Sequential p95 | Concurrent p95 | Concurrent requests/sec | Timing gate |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Warm | +0.9% | +1.2% | +0.7% | +1.9% | Passed |
+| Eviction-advised | +7.9% | +1.4% | −3.8% | +2.9% | Sequential p50 exceeded the 5% tolerance |
+
+The eviction-advised sequential median increased from 1.305 to 1.408 ms. The other paired metrics met their thresholds, including warm-pass CPI hit p95 improvements of 9.1% to 18.8% across the two runs and collections. These are best-effort cache-eviction trials. The [warm results](../../benchmarks/search/HARDENING_PAIRED_WARM.json) and [eviction-advised results](../../benchmarks/search/HARDENING_PAIRED_EVICTION_ADVISED.json) retain the full samples and gate result. Earlier experiments remain above.
+
+### Reproduce the hardening measurements
+
+Use local immutable copies of the enriched snapshots. Enable Masters discovery and metadata only on the isolated loopback test server. Build each comparison binary from its named revision with locked Cargo dependencies and record its hash. For the search comparison, start each binary with the same two roots and run both workload shapes against it. The canonical replay helper can run against the same Masters root without starting a server.
+
+```bash
+mkdir -p data/hardening
+cargo build --locked --release -p chess-database-cli --example audit_filtered_explorer
+target/release/examples/audit_filtered_explorer --dataset "$MASTERS_ROOT" \
+  > data/hardening/masters-expected.json
+CHESS_DATABASE_MASTERS_DISCOVERY=true CHESS_DATABASE_MASTERS_GAME_METADATA=true \
+  "$CANDIDATE_BIN" serve --masters-dataset "$MASTERS_ROOT" --elite-dataset "$ELITE_ROOT" \
+  --host 127.0.0.1 --port 19192
+```
+
+```bash
+python3 scripts/bench_search_api.py --url http://127.0.0.1:19192 \
+  --collection masters-otb --workers 4 --repetitions 5 --output data/hardening/search.json
+python3 scripts/verify_search_api.py --url http://127.0.0.1:19192 \
+  --collection masters-otb --masters-oracle data/hardening/masters-expected.json
+python3 scripts/bench_search_interactive.py --url http://127.0.0.1:19192 \
+  --collection masters-otb --users 4 --rounds 10 --think-ms 125 \
+  --output data/hardening/interactive.json
+```
+
+Repeat the interactive probe with the candidate server started using `--search-concurrency 1` and a separate output filename.
+
+For the legacy pair, stop the search test server and choose separate physical CPUs for the server and client. Repeat with `--evict` and a separate output directory.
+
+```bash
+taskset -c "$CLIENT_CPUS" python3 scripts/bench_legacy_pair.py \
+  --baseline "$MAIN_BIN" --baseline-revision 575d988dad9e69468e637dee05090008d364bccb \
+  --candidate "$CANDIDATE_BIN" --candidate-revision 3518a8e7f38b4497a5491dca926b54440da57848 \
+  --masters "$MASTERS_ROOT" --elite "$ELITE_ROOT" --rounds 300 --pairs 3 \
+  --server-cpus "$SERVER_CPUS" --output-dir data/hardening/paired-warm
+```

@@ -1,5 +1,5 @@
 ---
-summary: "Quickstart for Chess Database API: build the CLI, create a small local sample dataset, start the HTTP server, and run a first position query."
+summary: "Build the CLI and sample indexes, start the service, and try position and game search."
 read_when: "Setting up Chess Database API for the first time, or needing a working local server to test a client against."
 status: current
 ---
@@ -12,7 +12,7 @@ The sample is synthetic test data. Its statistics are for trying the API only. F
 
 ## 1. Prerequisites
 
-- A Rust toolchain that can build the workspace (`rust-version` 1.80 or later, stable). Build with `--locked` so `Cargo.lock` is respected.
+- A current stable Rust toolchain. The release Dockerfile pins a toolchain for reproducible builds. Build with `--locked` so `Cargo.lock` is respected.
 - `curl` for the examples. `node` 18 or later or `python3` 3.9 or later is optional, for the client examples.
 - Disk space for the build: the sample needs a few megabytes.
 

@@ -3,13 +3,52 @@
 
 import argparse
 import json
+from pathlib import Path
 import time
 from urllib.parse import urlencode, urlparse
 
-from bench_legacy_api import request
+from bench_legacy_api import LONG_LINE, request
 from bench_search_api import ClosingConnection
 
 START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+
+def verify_masters_oracle(probe, snapshot, oracle):
+    if oracle["dataset_version"] != snapshot["dataset_version"]:
+        raise ValueError("The replay report and API must refer to the same Masters snapshot")
+    if oracle["games_replayed"] != snapshot["total_games"]:
+        raise ValueError("The replay report must cover every canonical game")
+
+    legacy = "/v1/explorer/position"
+    filtered = f"{legacy}/filtered"
+    params = {"collection": "masters-otb"}
+    probes = {
+        "initial_rating": ("initial_rating", {"fen": START, "min_both_ratings": 2200}),
+        "sicilian_rating": ("sicilian_rating", {"moves": "e4,c5", "min_both_ratings": 2400}),
+        "sicilian_year": ("sicilian_year", {"moves": "e4,c5", "from_year": 2000}),
+        # At a year boundary, a known PGN date overlaps the range exactly when its year is in range.
+        "sicilian_date": ("sicilian_year", {"moves": "e4,c5", "from_date": "2000-01-01"}),
+    }
+    outcome_keys = ("white_wins", "draws", "black_wins")
+    for label, (series, filters) in probes.items():
+        response = json.loads(probe(label, filtered, **params, **filters)[1])
+        counts = oracle["counts"][series]
+        actual = {move["uci"]: [move[key] for key in outcome_keys] for move in response["moves"]}
+        expected_totals = [sum(count[index] for count in counts.values()) for index in range(3)]
+        if (
+            response["dataset_version"] != snapshot["dataset_version"]
+            or len(response["moves"]) != len(counts)
+            or actual != counts
+            or [response[key] for key in outcome_keys] != expected_totals
+            or response["total_games"] != sum(expected_totals)
+        ):
+            raise RuntimeError(f"{label}: the HTTP statistics differ from canonical replay")
+
+    moves = ",".join(LONG_LINE[:20])
+    _, legacy_body = probe("ruy_lopez_legacy", legacy, **params, moves=moves)
+    _, filtered_body = probe("ruy_lopez_no_op", filtered, **params, moves=moves, min_plies=0)
+    if legacy_body != filtered_body:
+        raise RuntimeError("The no-op ply filter altered the legacy CPI response")
 
 
 def main():
@@ -17,7 +56,11 @@ def main():
     parser.add_argument("--url", default="http://127.0.0.1:8080")
     parser.add_argument("--collection", choices=("elite-online", "masters-otb"), required=True)
     parser.add_argument("--mode", choices=("enriched", "legacy", "disabled"), default="enriched")
+    parser.add_argument("--masters-oracle", type=Path,
+                        help="compare filtered HTTP results with audit_filtered_explorer JSON")
     args = parser.parse_args()
+    if args.masters_oracle and (args.collection != "masters-otb" or args.mode != "enriched"):
+        parser.error("--masters-oracle requires enriched Masters OTB")
     target = urlparse(args.url)
     if target.scheme != "http" or not target.hostname:
         parser.error("the URL must be an HTTP origin")
@@ -102,6 +145,8 @@ def main():
                 filtered = fetch("filtered_player", filtered_path, **filters)
                 assert filtered["total_games"] == filtered["white_wins"] + filtered["draws"] + filtered["black_wins"]
                 assert filtered["total_games"] == sum(move["total_games"] for move in filtered["moves"])
+            if args.masters_oracle:
+                verify_masters_oracle(probe, snapshot, json.loads(args.masters_oracle.read_text()))
 
     print(json.dumps({"collection": args.collection, "dataset_version": version,
                       "mode": args.mode, "seconds": time.perf_counter() - start,

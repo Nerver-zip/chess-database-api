@@ -13,6 +13,7 @@ This file records notable changes to Chess Database API. The project adheres to 
 - Adopted the `chess-database` CLI, `chess-database-*` Rust packages and `chess-database-api:local` image tag. Existing CLI, image, network and configuration aliases remain available. [Naming migration](docs/NAMING_MIGRATION.md).
 
 - Added bounded rating and date projections for filtered Explorer and a two-worker search default with one aggregation slot. Serving checks artifact digests at each startup and reload, with deep structural verification at publication.
+- Added a reproducible comparison between filtered HTTP statistics and canonical Masters replay. Lightweight benchmark validation keeps archived Stage A measurements intact.
 
 ### Earlier release milestones
 - **Licensing and deployment policy reconciliation:** `docs/LICENSING.md` section 6 is now the single authoritative statement of current policy, with a new decision record `releases/public_deployment_decision.json` for public, non-commercial API deployment (position statistics and single-game PGN retrieval). The existing distribution clearance is unchanged. Earlier private-evaluation and retrieval-disabled guidance is described as historical; the example environment file keeps retrieval enabled; Docker guidance adds a public-instance checklist. Commercial use and bulk export remain outside the decisions, and the publisher's B2B terms, unverified upstream rights, and missing checksum stay disclosed. Immutable R3 artifacts and `benchmarks/gigabase/` evidence are unchanged.

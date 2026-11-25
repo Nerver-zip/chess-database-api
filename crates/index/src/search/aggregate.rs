@@ -61,7 +61,7 @@ impl AggregateProjection {
         Ok(Some(Self { games }))
     }
 
-    /// Return None when this predicate or posting group needs the SQL-backed planner.
+    /// Return None when the predicate needs the SQL-backed planner.
     pub fn aggregate(
         &self,
         postings: &SearchPostingsReader,
@@ -760,7 +760,7 @@ mod tests {
         ).unwrap();
         let output = directory.path().join("positions.postings");
         let mut writer =
-            SearchPostingsWriter::create(&output, 4, &directory.path().join("spool")).unwrap();
+            SearchPostingsWriter::create(&output, 4, directory.path().join("spool")).unwrap();
         let key = PositionKey(1);
         for ordinal in 0..4 {
             writer
@@ -833,12 +833,9 @@ mod tests {
             .unwrap();
         let output = directory.path().join("positions.postings");
         let key = PositionKey(2);
-        let mut writer = SearchPostingsWriter::create(
-            &output,
-            u64::from(GAMES),
-            &directory.path().join("spool"),
-        )
-        .unwrap();
+        let mut writer =
+            SearchPostingsWriter::create(&output, u64::from(GAMES), directory.path().join("spool"))
+                .unwrap();
         for ordinal in 0..GAMES {
             writer
                 .push(SearchPosting {

@@ -156,7 +156,7 @@ The current real-corpus report is `benchmarks/corpus/docker_real_check.json`. It
 
 The [Gigabase R3 report](../benchmarks/gigabase/FINAL_REPORT.md) records the candidate build and audit evidence. R3 is the active Masters snapshot. It remains outside the approved source catalog, which is a build-tooling control. Its acceptance deployment, described below, was a private, retrieval-disabled environment. That was the evaluation posture before the maintainer's decisions of 2026-11-16; it is not a standing restriction, and public non-commercial deployment is now covered by [LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). The original isolated API smokes are historical evidence. The acceptance deployment uses the named-volume mode below because its Docker daemon cannot access checkout bind paths.
 
-The separate `scripts/local_gigabase_eval.py` workflow registered the supplied archive using local hashes, built it with the Gigabase-only qualification policy, and created the local-only R3 package. `scripts/promote_gigabase_r3.py` now verifies and publishes those existing artifacts through Opening Explorer's atomic storage publisher; it does not rebuild the source corpus or add Gigabase to the approved catalog. Release metadata preserves the publisher's CC BY-NC 4.0 claim, absent publisher checksum, and unresolved upstream rights. The publisher's B2B page describes internal development and a closed beta, while prohibiting direct raw-PGN downloads to end users; no written project-specific public-use permission is recorded. See [`PUBLISHER_TERMS_REVIEW.json`](../benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json). The acceptance deployment disabled raw-PGN retrieval. That reflects the posture at that time; the current policy, including the remaining open observations, is in [LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). Commercial deployment remains outside it.
+The separate `scripts/local_gigabase_eval.py` workflow registered the supplied archive using local hashes, built it with the Gigabase-only qualification policy, and created the local-only R3 package. `scripts/promote_gigabase_r3.py` verifies and publishes those existing artifacts through the atomic storage publisher. Gigabase remains outside the approved catalog. Release metadata preserves the publisher's CC BY-NC 4.0 claim, absent publisher checksum, and unresolved upstream rights. The publisher's B2B page describes internal development and a closed beta, while prohibiting direct raw-PGN downloads to end users; no written project-specific public-use permission is recorded. See [`PUBLISHER_TERMS_REVIEW.json`](../benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json). The acceptance deployment disabled raw-PGN retrieval. That reflects the posture at that time; the current policy, including the remaining open observations, is in [LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). Commercial deployment remains outside it.
 
 ### Historical host-bind probe
 
@@ -218,33 +218,76 @@ Use `CHESS_DATABASE_DEEP_VALIDATE_ON_STARTUP=true` to repeat deep semantic check
 
 ### Two-collection acceptance on a local Docker host
 
-Use separate dataset roots and a separate Compose project and network. The standard configuration keeps the service at 512 MiB and two CPUs. The debug override exposes the loopback port for the client probes. Build the search indexes outside the container if the two roots are still CPI-only.
+Use Bash on a dedicated local Docker host with cgroup v2. Use separate dataset roots and a separate Compose project and network. The standard configuration keeps the service at 512 MiB and two CPUs. The debug override exposes a loopback port for the client probes. Build the search indexes outside the container if the two roots are still CPI-only. Start with newly copied or uncached roots and record the cache preparation. Stop and capture logs if the container does not become healthy within the acceptance window.
 
-```sh
+```bash
+mkdir -p data/acceptance
 export CHESS_DATABASE_MASTERS_RELEASE_DIR="$PWD/data/acceptance/masters-otb"
 export CHESS_DATABASE_ELITE_RELEASE_DIR="$PWD/data/acceptance/elite-online"
 export CHESS_DATABASE_NETWORK_NAME=chess-db-acceptance
+export CHESS_DATABASE_IMAGE=chess-database-api:acceptance
+export CHESS_DATABASE_DEBUG_PORT=8081
+export CHESS_DATABASE_DEEP_VALIDATE_ON_STARTUP=false
+# Enable Masters search only for this isolated test.
 export CHESS_DATABASE_MASTERS_DISCOVERY=true
 export CHESS_DATABASE_MASTERS_GAME_METADATA=true
-COMPOSE="docker compose -p chess-db-acceptance -f compose.yaml -f compose.debug.yaml"
-$COMPOSE config
-$COMPOSE build
-time $COMPOSE up -d --wait --wait-timeout 600
-curl --fail-with-body http://127.0.0.1:8081/ready
-container=$($COMPOSE ps -q opening-explorer)
-docker inspect --format '{{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.State.OOMKilled}}' "$container"
-docker exec "$container" cat /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.peak /sys/fs/cgroup/memory.events /sys/fs/cgroup/cpu.stat
+compose=(docker compose -p chess-db-acceptance -f compose.yaml -f compose.debug.yaml)
+git rev-parse HEAD > data/acceptance/revision.txt
+"${compose[@]}" config > data/acceptance/compose.resolved.yaml
+"${compose[@]}" build
+time "${compose[@]}" up -d --no-build --wait --wait-timeout 600
+curl --fail-with-body http://127.0.0.1:8081/ready > data/acceptance/ready.json
+container=$("${compose[@]}" ps -q opening-explorer)
+docker inspect --format '{{.Image}} {{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.State.OOMKilled}} {{.RestartCount}}' "$container"
+docker exec "$container" sha256sum /usr/local/bin/chess-database
+
+sample_cgroup() {
+  docker exec "$1" cat /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.peak \
+    /sys/fs/cgroup/memory.events /sys/fs/cgroup/cpu.stat
+}
+sample_cgroup "$container" > data/acceptance/cgroup-after-start.txt
 for collection in masters-otb elite-online; do
-  python3 scripts/verify_search_api.py --url http://127.0.0.1:8081 --collection "$collection"
+  python3 scripts/verify_search_api.py --url http://127.0.0.1:8081 \
+    --collection "$collection" > "data/acceptance/$collection-flow.json"
   python3 scripts/bench_search_interactive.py --url http://127.0.0.1:8081 \
-    --collection "$collection" --users 4 --rounds 20 --output "data/acceptance/$collection-interactive.json"
+    --collection "$collection" --users 4 --rounds 60 \
+    --output "data/acceptance/$collection-interactive.json" &
+  if [[ $collection == masters-otb ]]; then masters_workload=$!; else elite_workload=$!; fi
 done
-docker logs "$container"
-docker exec "$container" cat /sys/fs/cgroup/memory.peak /sys/fs/cgroup/memory.events /sys/fs/cgroup/cpu.stat
-$COMPOSE down
+wait "$masters_workload"
+wait "$elite_workload"
+sample_cgroup "$container" > data/acceptance/cgroup-after-traffic.txt
+docker logs "$container" > data/acceptance/server.log 2>&1
 ```
 
-For cold startup, begin with uncached datasets on the isolated acceptance host or use newly copied roots before boot. Record the cache preparation. For live reload, add a local Compose override that injects the admin token, keep the workload running, publish a verified alternate snapshot to a mounted root and time the [authenticated reload](#safe-dataset-updates). Compare the active version and capture the resource counters again. These commands use the stable Compose service name.
+Compare the server log's collection load times with the Compose readiness time. Compare cgroup CPU counters before and after traffic, and inspect peak memory, OOM counters, restarts and per-route HTTP status counts. The two simultaneous workloads exercise both collections; the individual reports include successful latency and count responses such as 408, 422 and 429 separately.
+
+For reload, set `CANDIDATE` to a verified alternate Elite snapshot from an isolated release root. For example, use its retained CPI-only version to test rolling back search. Restart the acceptance project with a local admin-token override, then publish the alternate and check the swap under traffic:
+
+```bash
+export CHESS_DATABASE_ADMIN_TOKEN="$(openssl rand -hex 32)"
+cat > data/acceptance/compose.admin.yaml <<'YAML'
+services:
+  opening-explorer:
+    environment:
+      CHESS_DATABASE_ADMIN_TOKEN: ${CHESS_DATABASE_ADMIN_TOKEN:?set an acceptance token}
+YAML
+reload_compose=("${compose[@]}" -f data/acceptance/compose.admin.yaml)
+"${reload_compose[@]}" up -d --no-build --wait --wait-timeout 600
+./target/release/chess-database publish --candidate "$CANDIDATE" \
+  --target "$CHESS_DATABASE_ELITE_RELEASE_DIR" --collection elite-online
+python3 scripts/bench_search_interactive.py --url http://127.0.0.1:8081 \
+  --collection masters-otb --users 4 --rounds 30 --output data/acceptance/reload-interactive.json &
+workload=$!
+curl --fail-with-body --max-time 600 --write-out '\nReload seconds: %{time_total}\n' \
+  --header "Authorization: Bearer $CHESS_DATABASE_ADMIN_TOKEN" \
+  --request POST http://127.0.0.1:8081/v1/admin/reload
+wait "$workload"
+curl --fail-with-body http://127.0.0.1:8081/v1/collections
+container=$("${reload_compose[@]}" ps -q opening-explorer)
+sample_cgroup "$container" > data/acceptance/cgroup-after-reload.txt
+"${reload_compose[@]}" down
+```
 
 ## Safe Dataset Updates
 
@@ -261,7 +304,7 @@ docker compose -f compose.yaml restart opening-explorer
 docker compose -f compose.yaml ps
 ~~~
 
-A restart deeply validates the new snapshots before readiness. If it fails, republish the saved immutable version through the same Rust storage publication command used by normal releases:
+A restart verifies the new snapshots using the configured serving checks before readiness. If it fails, republish the saved immutable version through the same storage publication command used by normal releases:
 
 ~~~bash
 previous_id="$(basename "$previous_snapshot")"

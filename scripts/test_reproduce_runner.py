@@ -16,11 +16,14 @@ import unittest
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RUNNER_PATH = os.path.join(ROOT_DIR, "scripts", "reproduce_benchmarks.sh")
+ARCHIVED_STAGE_A = os.path.join(ROOT_DIR, "benchmarks", "results", "historical", "stage_a_validation.json")
 
 
 class TestReproduceRunner(unittest.TestCase):
     def test_ci_mode_succeeds_without_external_data(self):
         """Condition 1: --ci succeeds cleanly without external datasets."""
+        with open(ARCHIVED_STAGE_A, "rb") as artifact:
+            archived = artifact.read()
         res = subprocess.run(
             [RUNNER_PATH, "--ci"],
             cwd=ROOT_DIR,
@@ -35,6 +38,8 @@ class TestReproduceRunner(unittest.TestCase):
         )
         self.assertIn("CI Benchmark Validation Summary", res.stdout)
         self.assertIn("Overall Status:          SUCCESS", res.stdout)
+        with open(ARCHIVED_STAGE_A, "rb") as artifact:
+            self.assertEqual(artifact.read(), archived, "CI changed the archived Stage A measurements")
 
     def test_all_mode_fails_closed_when_data_missing(self):
         """Condition 2: --all fails closed (exit 1) when empirical datasets are missing."""

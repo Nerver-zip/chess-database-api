@@ -8,8 +8,8 @@ The Rust service uses immutable snapshots of separately curated and deduplicated
 
 ## Who it is for
 
-- Developers building an **opening explorer** or opening trainer into a chess app.
-- Analysts who want **opening statistics in a pipeline** (batch queries, CSV export).
+- Developers building **game search, player discovery, or an opening explorer** into a chess app.
+- Analysts who want **exact opening statistics** for a player, rating range, or period.
 - Researchers who want **curated, legal, deduplicated PGN** to work with.
 
 ## Collections

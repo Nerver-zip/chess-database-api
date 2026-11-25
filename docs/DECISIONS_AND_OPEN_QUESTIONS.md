@@ -48,7 +48,7 @@ Keep the read-only metadata catalog and position postings separate from canonica
 
 ### 1.9 Verification at promotion and serving boundaries
 
-Publish only deeply verified immutable snapshots. Verify manifest checksums, headers, accounting and collection identity on each startup and reload. Repeating a deep walk of all compressed games and search structures is an operational option for environments without a verified promotion step. Access to change both a manifest and its data files is within the operator trust boundary.
+Publish only deeply verified immutable snapshots. Verify manifest checksums, headers, accounting and collection identity on each startup and reload. Operators can repeat the deep walk of compressed games and search structures when they also need a serving-side audit. Access to change both a manifest and its data files is within the operator trust boundary.
 
 ## 2. Historical Research Classification
 

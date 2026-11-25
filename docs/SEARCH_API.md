@@ -245,6 +245,8 @@ This endpoint requires `collection` and one of `fen` or `moves`. It accepts the 
 
 The filtered counts preserve CPI v2 semantics: a game contributes at most once, using its first occurrence of the position with a recorded continuation before the CPI depth limit. Unknown results (`*`) and terminal positions do not contribute to W/D/L or candidate-move counts. Consequently, a game search for a position may return a game that does not contribute to filtered Explorer statistics: game search can include unknown results and terminal occurrences within its search coverage.
 
+Common rating, year and date filters use a compact scan on supported snapshots. Broad compound filters can still exceed the work limit, and an expensive query can occupy the single aggregation slot. An otherwise unrestricted request with `min_plies=0` has the same statistics as the legacy CPI query. See the [production measurements](research/search-index-experiments.md#final-hardening-on-both-production-snapshots).
+
 `filtered_explorer` is reported in collection capabilities only when its search coverage can support that collection's CPI depth. If it is false or the endpoint returns `search_unavailable`, use the unfiltered Explorer endpoint or a collection/snapshot that advertises this capability.
 
 ## 7. Capability discovery flow

@@ -1,5 +1,5 @@
 ---
-summary: "Canonical data contracts for binary formats (CGB3, CPI), domain models, CLI JSON, and Opening Explorer HTTP API."
+summary: "Persisted binary formats, domain models, CLI JSON and Chess Database API contracts."
 read_when: "Implementing or integrating storage formats, position index structures, domain models, or HTTP API endpoints."
 status: current
 ---

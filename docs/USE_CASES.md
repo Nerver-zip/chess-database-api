@@ -152,10 +152,10 @@ Discover players by prefix, then combine a returned player ID with a board posit
 
 ```sh
 API=http://127.0.0.1:8080
-COLLECTION=$API/v1/collections/elite-online
-curl --fail-with-body --get "$COLLECTION/players" --data-urlencode 'prefix=mag'
-# Copy the returned player_id and dataset_version.
-curl --fail-with-body --get "$COLLECTION/games" \
+COLLECTION=elite-online
+curl --fail-with-body --get "$API/v1/collections/$COLLECTION/players" --data-urlencode 'prefix=mag'
+# Copy the returned player id and dataset_version into PLAYER_ID and DATASET_VERSION.
+curl --fail-with-body --get "$API/v1/collections/$COLLECTION/games" \
   --data-urlencode "player_id=$PLAYER_ID" --data-urlencode "version=$DATASET_VERSION" \
   --data-urlencode 'moves=e4,c5' --data-urlencode 'min_both_ratings=2200'
 ```

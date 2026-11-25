@@ -91,7 +91,7 @@ zstd -dc \
 ## 4. Benchmark Reproduction Procedures
 
 ### 4.1 Lightweight CI Mode (`--ci`)
-Executes the deterministic 1,000-game Stage A validation fixture and asserts schema and consistency invariants without external downloads:
+Executes the deterministic 1,000-game Stage A validation fixture and asserts schema and consistency invariants without external downloads. The generated result is validated in temporary storage, so the archived Stage A measurements stay intact.
 ```bash
 ./scripts/reproduce_benchmarks.sh --ci
 ```
@@ -130,3 +130,5 @@ Storage feasibility is **conditional** upon enforcing Depth 30 slicing for Elite
 ## 6. Search and interactive serving
 
 The [search evidence and reproduction commands](research/search-index-experiments.md) record compact and full coverage, build resources, exact canonical and CPI reconciliation, companion verification, and paired legacy HTTP and CPI measurements. Use the same immutable datasets, affinity and request mix for before/after trials. Separate interactive users with think time and superseded navigation from deliberate overload. Record successful latency alongside 429, 408 and 422 counts. Include the tested source revision and release-binary SHA-256. Treat QEMU timing and container memory observations as separate from native serving measurements.
+
+The [hardening comparison](research/search-index-experiments.md#final-hardening-on-both-production-snapshots) records the three previously rejected Masters requests, full canonical replay for rating and year filters, the single- and two-worker workloads, and the warm and eviction-advised legacy pairs.

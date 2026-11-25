@@ -1,5 +1,5 @@
 ---
-summary: "Reference for the Opening Explorer HTTP API: endpoints, parameters, response fields, statistics semantics, errors, caching, CORS, admin reload, and server configuration."
+summary: "Chess Database API endpoints, statistics, errors, caching, reload and server configuration."
 read_when: "Integrating a client with the Chess Database API, checking an endpoint, parameter, field, or error code, or interpreting position statistics."
 status: current
 ---
@@ -347,7 +347,7 @@ Errors from the API handlers use this envelope:
 | `stale_cursor` | 409 | The search cursor or requested catalog version belongs to a previous snapshot. |
 | `search_timeout` | 408 | Search exceeded its execution budget. Narrow the query. |
 | `search_work_limit` | 422 | The request exceeds the search work limit. Narrow the query. |
-| `search_busy` | 429 | All search workers are occupied. |
+| `search_busy` | 429 | The bounded search or aggregate admission wait expired or its queue is full. |
 | `search_unavailable` | 503 | The loaded snapshot lacks the index or required coverage. |
 
 Every error response uses this envelope, including responses the router produces before a handler runs (unknown paths, wrong methods, undecodable query strings, and timeouts). Those keep their HTTP status codes.
@@ -388,22 +388,27 @@ Position queries do not use the reader pool. They read memory-mapped index pages
 
 ## 10. Server configuration
 
-Run `chess-database serve --help` for the flags. `CHESS_DATABASE_*` takes precedence over the listed `OPENING_EXPLORER_*` and applicable `CODB_*` compatibility names. See the [search settings](SEARCH_API.md) and [naming migration](NAMING_MIGRATION.md).
+Run `chess-database serve --help` for the flags. `CHESS_DATABASE_*` takes precedence over the matching `OPENING_EXPLORER_*` and applicable `CODB_*` compatibility names. See the [search settings](SEARCH_API.md) and [naming migration](NAMING_MIGRATION.md).
 
 | Flag | Environment variable | Default | Notes |
 | :--- | :--- | :--- | :--- |
-| `--masters-dataset <DIR>` | `OPENING_EXPLORER_MASTERS_DATASET` | none | Dataset root (contains `current/`). |
-| `--elite-dataset <DIR>` | `OPENING_EXPLORER_ELITE_DATASET` | none | Dataset root. At least one dataset is required. |
-| `--host <ADDR>` | `OPENING_EXPLORER_HOST` | `127.0.0.1` | Use `0.0.0.0` inside containers. |
-| `--port <PORT>` (`-p`) | `OPENING_EXPLORER_PORT` | `8080` | |
-| `--allowed-origins <LIST>` | `OPENING_EXPLORER_ALLOWED_ORIGINS` | empty | Comma-separated, or `*`. See [section 9](#cors). |
-| `--request-timeout-secs <N>` | `OPENING_EXPLORER_REQUEST_TIMEOUT_SECS` | `15` | 1 to 300. Read endpoints only. |
-| `--max-move-plies <N>` | `OPENING_EXPLORER_MAX_MOVE_PLIES` | `200` | 1 to 512. |
-| `--reader-pool-size <N>` | `OPENING_EXPLORER_READER_POOL_SIZE` | `16` | 1 to 64. |
-| `--reader-pool-timeout-secs <N>` | `OPENING_EXPLORER_READER_POOL_TIMEOUT_SECS` | `5` | 1 to 60. |
-| `--enable-game-retrieval <true\|false>` | `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL` | `true` | `false` removes the game route for both collections. |
-| `--admin-token <TOKEN>` | `OPENING_EXPLORER_ADMIN_TOKEN` | none | Enables `POST /v1/admin/reload`. Keep it secret. |
-| `--deep-validate-on-startup` | none (flag only) | off | Also decodes and checks every stored block before readiness. Startup always verifies the checksums of all artifacts. |
+| `--masters-dataset <DIR>` | `CHESS_DATABASE_MASTERS_DATASET` | none | Dataset root (contains `current/`). |
+| `--elite-dataset <DIR>` | `CHESS_DATABASE_ELITE_DATASET` | none | Dataset root. At least one dataset is required. |
+| `--host <ADDR>` | `CHESS_DATABASE_HOST` | `127.0.0.1` | Use `0.0.0.0` inside containers. |
+| `--port <PORT>` (`-p`) | `CHESS_DATABASE_PORT` | `8080` | |
+| `--allowed-origins <LIST>` | `CHESS_DATABASE_ALLOWED_ORIGINS` | empty | Comma-separated, or `*`. See [section 9](#cors). |
+| `--request-timeout-secs <N>` | `CHESS_DATABASE_REQUEST_TIMEOUT_SECS` | `15` | 1 to 300. Read endpoints only. |
+| `--max-move-plies <N>` | `CHESS_DATABASE_MAX_MOVE_PLIES` | `200` | 1 to 512. |
+| `--reader-pool-size <N>` | `CHESS_DATABASE_READER_POOL_SIZE` | `16` | 1 to 64. |
+| `--reader-pool-timeout-secs <N>` | `CHESS_DATABASE_READER_POOL_TIMEOUT_SECS` | `5` | 1 to 60. |
+| `--enable-game-retrieval <true\|false>` | `CHESS_DATABASE_ENABLE_GAME_RETRIEVAL` | `true` | `false` removes the game route for both collections. |
+| `--admin-token <TOKEN>` | `CHESS_DATABASE_ADMIN_TOKEN` | none | Enables `POST /v1/admin/reload`. Keep it secret. |
+| `--deep-validate-on-startup` | `CHESS_DATABASE_DEEP_VALIDATE_ON_STARTUP` | `false` | Repeat deep verification at startup and on reload. Digest checks always run. |
+| `--masters-discovery`, `--elite-discovery` | `CHESS_DATABASE_MASTERS_DISCOVERY`, `CHESS_DATABASE_ELITE_DISCOVERY` | `false`, `true` | Enable each collection’s discovery routes. |
+| `--masters-game-metadata`, `--elite-game-metadata` | `CHESS_DATABASE_MASTERS_GAME_METADATA`, `CHESS_DATABASE_ELITE_GAME_METADATA` | `false`, `true` | Enable individual search metadata. |
+| `--search-max-page-size` | `CHESS_DATABASE_SEARCH_MAX_PAGE_SIZE` | `100` | Maximum results per page. |
+| `--search-concurrency` | `CHESS_DATABASE_SEARCH_CONCURRENCY` | `2` | Blocking search workers. Only one filtered aggregate runs concurrently. |
+| `--search-deadline-ms` | `CHESS_DATABASE_SEARCH_DEADLINE_MS` | `2000` | Search execution deadline. |
 
 Log verbosity is controlled by `RUST_LOG` (for example `RUST_LOG=info`). `SIGHUP` triggers a reload, and `SIGINT` or `SIGTERM` stops the server gracefully.
 

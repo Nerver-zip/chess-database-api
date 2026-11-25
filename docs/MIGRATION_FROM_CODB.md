@@ -1,5 +1,5 @@
 ---
-summary: "Legacy-to-current name map for the CODB project: binary, crates, environment variables, Compose files, Docker image, and the identifiers that intentionally stay unchanged."
+summary: "Historical CODB migration and retained compatibility identifiers."
 read_when: "Upgrading scripts, deployments, or environments created before the opening-explorer-api rename, or deciding whether an old identifier is still valid."
 status: current
 ---
