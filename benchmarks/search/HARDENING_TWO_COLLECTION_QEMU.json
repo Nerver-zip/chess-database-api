@@ -492,6 +492,31 @@
     },
     "notes": "Two four-user workloads with 30 rounds per user and 125 ms think time. The schedules partially overlapped. The first Elite setup date-sorted seed request returned search_busy while Masters was active. The repeat no longer seeded the unrelated pagination case."
   },
+  "reload_window": {
+    "acceptance_window_seconds": 600,
+    "completion": "verification in progress at sample",
+    "container_health": "healthy",
+    "cpu_usage_usec": 1786355031,
+    "elapsed_at_sample_seconds": 605.74,
+    "memory_events": {
+      "high": 0,
+      "low": 0,
+      "max": 90544,
+      "oom": 0,
+      "oom_group_kill": 0,
+      "oom_kill": 0
+    },
+    "memory_peak_bytes": 536887296,
+    "ready_response": {
+      "collections_loaded": [
+        "masters-otb",
+        "elite-online"
+      ],
+      "status": "ready"
+    },
+    "remaining_runtime_state": "The reload and separate repository image build were still running.",
+    "sampled_at_utc": "2026-11-25T22:53:33Z"
+  },
   "runtime_binary_sha256": "0436ed664d6305b0d3d01dc79bec92a48fb7833b1b190d2cdf832e1941c38c31",
   "runtime_image_id": "sha256:25fc2d1d76828bc9af8ddc7c1157d069893d4a1d64dcb1f572e829f0e0a1edf9",
   "runtime_source_revision": "3518a8e7f38b4497a5491dca926b54440da57848",
