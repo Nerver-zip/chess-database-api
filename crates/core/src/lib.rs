@@ -1,4 +1,4 @@
-//! Core types and abstractions for the Opening Explorer API.
+//! Core types and persisted contracts for Chess Database API.
 
 pub mod models;
 

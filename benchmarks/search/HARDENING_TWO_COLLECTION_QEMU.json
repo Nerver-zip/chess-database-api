@@ -11,6 +11,25 @@
     "elite-online": "codb-elite-online-1795638650408508480-cfc2575f9f6971eb-search",
     "masters-otb": "codb-masters-otb-1795640229266821029-29be58d4f83e0484-search"
   },
+  "detached_reload_completion": {
+    "completed_collections": {
+      "elite-online": "codb-elite-online-1795638650408508480-cfc2575f9f6971eb-search",
+      "masters-otb": "codb-masters-otb-1795640229266821029-29be58d4f83e0484-search"
+    },
+    "completion_at_guest_clock_utc": "2026-11-25T23:01:23.705524Z",
+    "completion_log": "2026-11-25T23:01:23.705524Z  INFO chess_database_api::state: Reload completed successfully for: [\"masters-otb (version: codb-masters-otb-1795640229266821029-29be58d4f83e0484-search)\", \"elite-online (version: codb-elite-online-1795638650408508480-cfc2575f9f6971eb-search)\"]",
+    "http_collection_versions_after_reload": {
+      "elite-online": "codb-elite-online-1795638650408508480-cfc2575f9f6971eb-search",
+      "masters-otb": "codb-masters-otb-1795640229266821029-29be58d4f83e0484-search"
+    },
+    "memory_events": {
+      "oom": 0,
+      "oom_group_kill": 0,
+      "oom_kill": 0
+    },
+    "sampled_at_guest_clock_utc": "2026-11-25T23:01:36Z",
+    "timing_note": "The guest paused after the client deadline to isolate the native benchmark. The completion timestamp verifies the outcome and is not an uninterrupted reload duration."
+  },
   "during_reload": {
     "cpu_usage_usec": 1257204094,
     "interactive": {

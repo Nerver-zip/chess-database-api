@@ -1,7 +1,8 @@
-//! `chess-database-api`: Production Opening Explorer HTTP API service.
+//! Read-only HTTP service for Chess Database API.
 //!
-//! Provides high-throughput, low-latency, read-only HTTP endpoints exposing
-//! persistent CGB3 game archives and CPI v2 position opening indexes.
+//! Serves Opening Explorer statistics from CPI v2 and canonical PGNs from
+//! CGB3 archives. Enriched snapshots add game, player, and event discovery
+//! and filtered Opening Explorer statistics.
 
 pub mod chess_util;
 pub mod config;
