@@ -25,7 +25,7 @@ cargo build --locked --release --package chess-database-cli
 ./target/release/chess-database --help
 ```
 
-The binary provides the commands used below: `build`, `build-index`, `serve`, `query`, `export`, `verify`, and `inspect`. `chess-database serve --help` lists every server option.
+The quickstart uses `build`, `build-index`, `build-search-index`, `serve`, and `query`. Run `chess-database serve --help` for server options.
 
 ## 3. Create a local sample dataset
 

@@ -141,7 +141,7 @@ In the four-user run, each request class was attempted 40 times with 125 ms thin
 
 ### Paired legacy HTTP and CPI
 
-Three alternating runs per binary used separate server and client physical cores and the same canonical data. The comparison against main revision `575d988dad9e69468e637dee05090008d364bccb` records identical canonical artifact inventories, response bodies and same-snapshot ETags. Its executable SHA-256 is `56b690fdcc42507d49883a57a16f3cdcaf83d4e17d250b63efa424ed4ed0a8b2`.
+Three alternating runs per binary used separate server and client physical cores and the same CPI-only release snapshots. The comparison against main revision `575d988dad9e69468e637dee05090008d364bccb` records identical canonical artifact inventories, response bodies and same-snapshot ETags. Its executable SHA-256 is `56b690fdcc42507d49883a57a16f3cdcaf83d4e17d250b63efa424ed4ed0a8b2`.
 
 | Regime | Sequential p50 | Sequential p95 | Concurrent p95 | Concurrent requests/sec | Timing gate |
 | --- | ---: | ---: | ---: | ---: | --- |
@@ -176,12 +176,12 @@ python3 scripts/bench_search_interactive.py --url http://127.0.0.1:19192 \
 
 Repeat the interactive probe with the candidate server started using `--search-concurrency 1` and a separate output filename.
 
-For the legacy pair, stop the search test server and choose separate physical CPUs for the server and client. Repeat with `--evict` and a separate output directory.
+For the legacy pair, stop the search test server and choose separate physical CPUs for the server and client. Set `MASTERS_CPI_ROOT` and `ELITE_CPI_ROOT` to the unmodified Masters R3 and Elite R1 indexed release roots. The main baseline predates the enriched snapshot manifest. Repeat with `--evict` and a separate output directory.
 
 ```bash
 taskset -c "$CLIENT_CPUS" python3 scripts/bench_legacy_pair.py \
   --baseline "$MAIN_BIN" --baseline-revision 575d988dad9e69468e637dee05090008d364bccb \
   --candidate "$CANDIDATE_BIN" --candidate-revision 3518a8e7f38b4497a5491dca926b54440da57848 \
-  --masters "$MASTERS_ROOT" --elite "$ELITE_ROOT" --rounds 300 --pairs 3 \
+  --masters "$MASTERS_CPI_ROOT" --elite "$ELITE_CPI_ROOT" --rounds 300 --pairs 3 \
   --server-cpus "$SERVER_CPUS" --output-dir data/hardening/paired-warm
 ```

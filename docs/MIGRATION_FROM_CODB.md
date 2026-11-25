@@ -8,21 +8,21 @@ status: current
 
 The project was previously called **CODB** (repository `chess-openings-db`). The Nov. 2026 migration renamed it to **Opening Explorer API**. This guide records that historical transition. For the current Chess Database API names and upgrade procedure, see [Naming migration](NAMING_MIGRATION.md).
 
-| Scope | Name |
+| Scope | Name after the first migration |
 |---|---|
 | Repository and service | `opening-explorer-api` |
 | CLI binary and public command | `opening-explorer` |
 | Docker image | `opening-explorer-api:local` |
 
-The Rust CLI subcommands and arguments, HTTP routes, and error types are unchanged. Only names changed. Stored datasets, release manifests, and game and position identifiers are not rewritten by the rename.
+That migration preserved CLI commands and arguments, HTTP routes and error types. Stored datasets, release manifests, and game and position identifiers kept their existing contracts.
 
 ## Names
 
-| Area | Legacy name | Current name | Compatibility |
+| Area | CODB name | Name after the first migration | Compatibility at that transition |
 |---|---|---|---|
 | CLI binary | `codb` | `opening-explorer` | No second binary is shipped. Update scripts, PATH entries, and `docker exec` commands. |
-| Cargo packages | `codb-core`, `codb-ingest`, `codb-curate`, `codb-storage`, `codb-index`, `codb-api`, `codb-cli` | `opening-explorer-core`, `-ingest`, `-curate`, `-storage`, `-index`, `-api`, `-cli` | Build with `cargo build --locked --release --package chess-database-cli`. Rust paths follow the package names (`opening_explorer_core`, and so on). |
-| Repository | `Nerver-zip/chess-openings-db` | `Nerver-zip/opening-explorer-api` | GitHub redirects the old URL after the repository rename. The `repository` field already uses the new URL. |
+| Cargo packages | `codb-core`, `codb-ingest`, `codb-curate`, `codb-storage`, `codb-index`, `codb-api`, `codb-cli` | `opening-explorer-core`, `-ingest`, `-curate`, `-storage`, `-index`, `-api`, `-cli` | Rust import paths followed the package names, such as `opening_explorer_core`. |
+| Repository | `Nerver-zip/chess-openings-db` | `Nerver-zip/opening-explorer-api` | GitHub redirects the previous slug. |
 | Docker image | `codb-opening-explorer:local` | `opening-explorer-api:local` | Built by Compose from the same `Dockerfile`. Existing local images are not removed by the rename. |
 | Container user and binary path | user `codb`, `/usr/local/bin/codb` | user `opening-explorer`, `/usr/local/bin/opening-explorer` | UID and GID stay `10001`, so existing volume ownership still matches. |
 | Compose file | `compose.codb.yaml` | `compose.yaml` | Same services and overrides under the new names. |
@@ -36,9 +36,9 @@ The Rust CLI subcommands and arguments, HTTP routes, and error types are unchang
 
 ## Environment variables
 
-Every `CODB_*` setting became `OPENING_EXPLORER_*` with the same meaning. Where a legacy name is still read, the new name wins if both are set.
+The first migration introduced corresponding `OPENING_EXPLORER_*` names. The [current precedence and configuration](NAMING_MIGRATION.md) cover `CHESS_DATABASE_*` and the retained fallbacks.
 
-| Legacy variable | Current variable | Legacy read by |
+| CODB variable | Name introduced in the first migration | Compatibility at that transition |
 |---|---|---|
 | `CODB_MASTERS_DATASET`, `CODB_ELITE_DATASET`, `CODB_HOST`, `CODB_PORT`, `CODB_ALLOWED_ORIGINS`, `CODB_REQUEST_TIMEOUT_SECS`, `CODB_MAX_MOVE_PLIES`, `CODB_READER_POOL_SIZE`, `CODB_READER_POOL_TIMEOUT_SECS`, `CODB_ENABLE_GAME_RETRIEVAL`, `CODB_ADMIN_TOKEN` | `OPENING_EXPLORER_` + same suffix | `opening-explorer serve`. The CLI prints a deprecation warning to stderr when it promotes a legacy name. |
 | `CODB_DATA_DIR`, `CODB_MASTERS_RELEASE_DIR`, `CODB_ELITE_RELEASE_DIR`, `CODB_NETWORK_NAME`, `CODB_NETWORK_EXTERNAL`, `CODB_RUNTIME_VOLUME`, `CODB_READER_POOL_SIZE`, `CODB_READER_POOL_TIMEOUT_SECS`, `CODB_REQUEST_TIMEOUT_SECS`, `CODB_MAX_MOVE_PLIES`, `CODB_ENABLE_GAME_RETRIEVAL`, `CODB_ALLOWED_ORIGINS`, `CODB_MEMORY_LIMIT`, `CODB_CPU_LIMIT`, `CODB_LOG_LEVEL`, `CODB_DEBUG_PORT` | `OPENING_EXPLORER_` + same suffix | Compose files, read through nested interpolation. Existing `.env` files keep working. |
@@ -85,4 +85,4 @@ target/release/chess-database --help
 docker compose -f compose.yaml --env-file .env.example config --quiet
 ```
 
-A legacy setting is accepted when its new name is unset. To confirm the fallback, set `CODB_PORT=8081` and run `opening-explorer serve --help`. The CLI prints the deprecation warning and continues.
+To confirm the retained port fallback, leave `CHESS_DATABASE_PORT` and `OPENING_EXPLORER_PORT` unset, then run `CODB_PORT=8081 target/release/chess-database serve --help`.

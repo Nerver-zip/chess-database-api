@@ -103,7 +103,7 @@ class CurrentDocumentationTests(unittest.TestCase):
 
     def test_gigabase_env_template_keeps_game_retrieval_enabled(self):
         text = (ROOT / ".env.gigabase.example").read_text()
-        self.assertRegex(text, r"(?m)^OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=true$")
+        self.assertRegex(text, r"(?m)^CHESS_DATABASE_ENABLE_GAME_RETRIEVAL=true$")
 
     def test_canonical_policy_section_exists_and_names_both_records(self):
         text = (ROOT / "docs" / "LICENSING.md").read_text()

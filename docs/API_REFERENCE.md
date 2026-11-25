@@ -276,7 +276,7 @@ Example: [`examples/curl/game.sh`](../examples/curl/game.sh).
 
 Re-opens and re-verifies the configured dataset paths, then atomically swaps in the new snapshots. Requests in flight keep their pinned snapshot. If verification fails, the active snapshots remain in service.
 
-**Enabling.** The endpoint is available only when the server was started with an admin token (`--admin-token`, or `OPENING_EXPLORER_ADMIN_TOKEN`). Without a token it always returns `403` with `admin_disabled`.
+**Enabling.** The endpoint is available only when the server was started with an admin token (`--admin-token`, or `CHESS_DATABASE_ADMIN_TOKEN`). Without a token it always returns `403` with `admin_disabled`.
 
 **Authentication.** Send the token in either header:
 

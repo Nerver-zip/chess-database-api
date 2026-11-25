@@ -41,7 +41,7 @@ class DockerDeploymentTests(unittest.TestCase):
         self.assertIn("CHESS_DATABASE_DEEP_VALIDATE_ON_STARTUP: ${CHESS_DATABASE_DEEP_VALIDATE_ON_STARTUP:-false}", compose)
         self.assertIn("CHESS_DATABASE_ENABLE_GAME_RETRIEVAL", compose)
         self.assertIn("--enable-game-retrieval", compose)
-        self.assertIn("OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=true", (REPO / ".env.example").read_text())
+        self.assertIn("CHESS_DATABASE_ENABLE_GAME_RETRIEVAL=true", (REPO / ".env.example").read_text())
         self.assertNotIn("ports:", compose)
         self.assertIn(".env.*", (REPO / ".gitignore").read_text())
         self.assertIn("!.env.example", (REPO / ".gitignore").read_text())

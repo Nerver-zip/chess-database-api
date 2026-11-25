@@ -37,7 +37,7 @@ data/releases/<collection>/ { versions/<id>/, current, RELEASE/ }
 | Rust stable toolchain | `cargo build --release -p chess-database-cli` produces `target/release/chess-database`. |
 | Python 3.11+ | Standard library for the pinned catalog workflow. Install `scripts/requirements-corpus-archive.txt` only when using local `.7z` extraction. |
 | Network | HTTPS to `database.lichess.org`. Offline verification (`--offline`, `verify-sources`) needs none. |
-| Disk | See §3. The data directory defaults to `./data` (git-ignored); override with `--data-dir` or `OPENING_EXPLORER_DATA_DIR`. The tool refuses a data directory inside the repository unless it is under a git-ignored directory. |
+| Disk | See §3. The data directory defaults to `./data` (git-ignored); override with `--data-dir` or `CHESS_DATABASE_DATA_DIR`. The tool refuses a data directory inside the repository unless it is under a git-ignored directory. |
 | Memory | Indexing honors `--memory-limit-mib` (default 128). Measured peaks are in §9. |
 
 `/tmp` may be mounted `noexec` or be small (it is a 512 MiB tmpfs in some sandboxes). The build sets `TMPDIR` to its own workspace under the data directory so deduplication databases and spill files never depend on `/tmp`.
@@ -186,7 +186,7 @@ python3 scripts/local_gigabase_eval.py rollback \
   --opening-explorer target/release/chess-database
 ```
 
-To run a position-statistics-only service, set `OPENING_EXPLORER_MASTERS_RELEASE_DIR=data/work/gigabase-eval/deploy/masters-otb` and `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=false` before starting Compose; this removes only the game route. By default retrieval is enabled and is a supported public capability ([LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment)). The package is not an approved-catalog release. The publisher's CC BY-NC 4.0 statement is retained as a publisher claim, the publisher checksum is `null`, and unresolved upstream rights are recorded in `RELEASE/RELEASE.json` and `RELEASE/DATASET_LICENSE.txt`, which predate the maintainer's decisions and are preserved unmodified.
+To run a position-statistics-only service, set `CHESS_DATABASE_MASTERS_RELEASE_DIR=data/work/gigabase-eval/deploy/masters-otb` and `CHESS_DATABASE_ENABLE_GAME_RETRIEVAL=false` before starting Compose; this removes only the game route. By default retrieval is enabled and is a supported public capability ([LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment)). The package is not an approved-catalog release. The publisher's CC BY-NC 4.0 statement is retained as a publisher claim, the publisher checksum is `null`, and unresolved upstream rights are recorded in `RELEASE/RELEASE.json` and `RELEASE/DATASET_LICENSE.txt`, which predate the maintainer's decisions and are preserved unmodified.
 
 ### 4.4 Source qualification and its limits
 
