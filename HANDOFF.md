@@ -3,7 +3,7 @@
 
 ## Chess Database API work in progress (2026-11-25)
 
-The active goal is the single draft Chess Database API PR against main. Work is on `feat/chess-database-api` from `575d988dad9e69468e637dee05090008d364bccb`. PR #10 is merged and both Elite Online R1 and Masters OTB R3 are published. The original release files and canonical artifacts are unchanged.
+The active goal is the Chess Database API delivery in [draft PR #11](https://github.com/Nerver-zip/opening-explorer-api/pull/11) against main. Work is on `feat/chess-database-api` from `575d988dad9e69468e637dee05090008d364bccb`. PR #10 is merged and both Elite Online R1 and Masters OTB R3 are published. The original release files and canonical artifacts are unchanged.
 
 - Both indexed release packages were downloaded into ignored `data/baseline/`, reconstructed where required, checked against the committed release SHA-256 values and installed with deep verification. No PGN ingestion was run. The unchanged main binary is `data/baseline/opening-explorer-main` (SHA-256 `56b690fdcc42507d49883a57a16f3cdcaf83d4e17d250b63efa424ed4ed0a8b2`).
 - `benchmarks/search/LEGACY_MAIN.json` has three warm and three eviction-advised native repetitions against both released datasets. Zero unexpected HTTP responses. `benchmarks/search/LAYOUT_PROBES.json` has 25,000-game grouped/fixed/SQLite position layout measurements at current, expanded and full depths. Reproduction commands are in `docs/research/search-index-experiments.md`.
@@ -12,9 +12,13 @@ The active goal is the single draft Chess Database API PR against main. Work is 
 - The independent Elite audit replayed 3,940 occurrences across 128 strided games and reconciled 414 keys against CPI, including the initial position. Outputs and time metrics are under `data/search-validation/`. The production builder binary used for the running comparisons is `data/search-validation/chess-database-builder`, pinned separately from `target/release/chess-database`.
 - Native Masters R3 depth 40 and Elite R1 full coverage are running in exec sessions `86965` and `96577`. The latter uses a separate version root. The interrupted early Masters stage is retained under ignored data for recovery validation. Revalidate live sessions before retrying.
 - Host Docker could start a daemon but constrained containers failed on the read-only cgroup mount. A local QEMU VM in `data/docker-validation/` (exec session `54336`) successfully ran Docker hello-world with a 512 MiB memory limit and two-CPU quota. Baseline image build and dataset copy are in sessions `83185` and `43934`; the guest has a loopback-only forwarded SSH port 2228. No staging or production systems were touched.
-- Relevant Rust/API tests and strict Clippy passed before the latest edits. Re-run the unified gate after bundle code and formatting land. The validation suite can rewrite the tracked historical Stage A output during its tests. Restore that test-generated file after the run and keep historical evidence unchanged.
+- The unified validation gate passed before draft creation. Another run covers immutable SQLite open and the latest CLI and API contract fixes. The validation suite can rewrite the tracked historical Stage A output during its tests. Restore that test-generated file after the run and keep historical evidence unchanged.
 
-Next actions are to verify the final compact artifacts on both corpora, run paired legacy and new HTTP workloads, finish the constrained Docker tests, validate the companion bundle, run `./scripts/validate.sh`, and submit the single draft PR. The goal remains active.
+The compact Elite R1 build and stratified CPI and replay checks passed. The compact D30 files total 560,486,143 bytes and the measured build peaked at 284,968 KiB RSS with a 128 MiB sort-record buffer. Both Masters runs are paused by the separated-CPU paired benchmark wrapper (exec session `32693`), which resumes them on exit. The shared-CPU paired run matched bodies and ETags and passed in-process CPI tolerances. HTTP timing medians exceeded some limits. Raw evidence is under `data/search-validation/`.
+
+The Docker guest was rebooted with read-only 9P corpus mounts, now session `49980`. Its rendered Compose config verified the 512 MiB and two-CPU limits, retained aliases, and precedence of new mount variables. The pinned Debian runtime stages are building from host release binaries in sessions `34379` and `90639`. Test both snapshots, reload and rollback inside the constrained container after image construction.
+
+Remaining work is the compact Masters build and CPI audit, separated-CPU performance comparison, constrained Docker service and mixed load, bundle install verification on a published corpus, and the final evidence update to the draft PR. The goal remains active.
 
 
 ## Current state

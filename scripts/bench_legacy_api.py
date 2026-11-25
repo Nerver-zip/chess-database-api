@@ -145,6 +145,8 @@ def run_http(args, snapshots, cases, repetition):
     ]
     if args.deep:
         command.append("--deep-validate-on-startup")
+    if args.server_cpus:
+        command = ["taskset", "-c", args.server_cpus, *command]
     env = dict(os.environ, RUST_LOG="warn")
     with args.output.with_suffix(f".run-{repetition}.log").open("w") as log:
         start = time.perf_counter()
@@ -216,6 +218,7 @@ def main():
     parser.add_argument("--evict", action="store_true", help="Advise eviction before each server launch")
     parser.add_argument("--deep", action="store_true", help="Enable deep verification at server startup")
     parser.add_argument("--skip-reload", action="store_true", help="Skip reload during paired query measurements")
+    parser.add_argument("--server-cpus", help="Separate taskset CPU list for the HTTP server")
     args = parser.parse_args()
     if min(args.repetitions, args.rounds, args.workers, args.reader_pool) < 1:
         parser.error("repetitions, rounds, workers and reader pool must all be positive")
@@ -249,6 +252,7 @@ def main():
             "workers": args.workers, "rounds": args.rounds, "reader_pool": args.reader_pool,
             "eviction_advised_before_startup": args.evict, "deep_verify_at_startup": args.deep,
             "skip_reload": args.skip_reload,
+            "server_cpus": args.server_cpus,
         },
         "runs": [],
     }

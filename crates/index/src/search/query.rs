@@ -20,6 +20,7 @@ const MAX_POSITION_WORK: usize = 250_000;
 #[serde(rename_all = "snake_case")]
 pub enum GameSort {
     #[default]
+    #[serde(rename = "default")]
     Ordinal,
     DateAsc,
     DateDesc,

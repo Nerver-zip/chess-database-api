@@ -52,3 +52,18 @@ The updated [Elite R1 opening build](../../benchmarks/search/ELITE_R1_OPENING_BU
 The [initial full Elite build](../../benchmarks/search/ELITE_R1_INITIAL_FULL_BUILD.json) retained 34,630,867 occurrences over 27,748,260 distinct keys. It used the initial checkpoint and event layout. The counts measure the corpus coverage. Its file sizes describe that earlier layout.
 
 For additional comparisons, use `scripts/bench_search_build.py` to sample allocated scratch blocks, including open unlinked files, and `scripts/bench_search_api.py` for metadata, position, filtered and mixed HTTP workload timings. The [Evalis workflow smoke probe](../../scripts/verify_search_api.py) validates pagination, metadata, PGN and filtered counts against a running service.
+
+The [compact Elite audit](../../benchmarks/search/ELITE_R1_ORACLE.json) matched all 789 sampled CPI keys. It verified 7,832 occurrences with canonical replay across 256 strided games. The [full-depth Elite audit](../../benchmarks/search/ELITE_R1_FULL_ORACLE.json) matched the same CPI key set and verified 20,754 sampled occurrences over full mainlines.
+
+The [first alternating comparison](../../benchmarks/search/PAIRED_SHARED_CPU.json) matched legacy bodies, ETags and canonical artifact inventories. Its in-process CPI measures stayed within tolerance. Several HTTP timing medians exceeded the proposed limits with client and server sharing the same two CPUs. Run the benchmark with independent client and server affinity to examine this scheduling effect.
+
+```bash
+taskset -c 0,1 python3 scripts/bench_legacy_pair.py \
+  --baseline data/baseline/opening-explorer-main \
+  --baseline-revision 575d988dad9e69468e637dee05090008d364bccb \
+  --candidate target/release/chess-database --candidate-revision candidate \
+  --masters data/baseline/datasets/masters-otb \
+  --elite data/baseline/datasets/elite-online \
+  --server-cpus 6,7 --pairs 5 --rounds 300 \
+  --output-dir data/paired-legacy-search
+```

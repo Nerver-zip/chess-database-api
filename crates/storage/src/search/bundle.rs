@@ -414,7 +414,11 @@ fn openat_directory(parent: &File, name: &str) -> Result<File, StorageError> {
 }
 
 fn openat_regular(parent: &File, name: &str) -> Result<File, StorageError> {
-    openat(parent, name, libc::O_RDONLY | libc::O_NOFOLLOW)
+    openat(
+        parent,
+        name,
+        libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK,
+    )
 }
 
 fn openat(parent: &File, name: &str, flags: i32) -> Result<File, StorageError> {

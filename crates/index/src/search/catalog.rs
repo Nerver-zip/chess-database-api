@@ -6,6 +6,7 @@ use super::metadata::{
 };
 use opening_explorer_core::{Collection, GameSourceAttribution, ParsedGame};
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
+use std::fmt::Write;
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
@@ -333,9 +334,21 @@ pub struct SearchCatalog {
 
 impl SearchCatalog {
     pub fn open(path: &Path) -> Result<Self, CatalogError> {
+        let path = path.canonicalize()?;
+        let mut uri = String::from("file:");
+        for &byte in path.as_os_str().as_encoded_bytes() {
+            if byte.is_ascii_alphanumeric() || matches!(byte, b'/' | b'-' | b'_' | b'.') {
+                uri.push(char::from(byte));
+            } else {
+                write!(uri, "%{byte:02X}").expect("writing into a String cannot fail");
+            }
+        }
+        uri.push_str("?immutable=1");
         let connection = Connection::open_with_flags(
-            path,
-            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+            uri,
+            OpenFlags::SQLITE_OPEN_READ_ONLY
+                | OpenFlags::SQLITE_OPEN_NO_MUTEX
+                | OpenFlags::SQLITE_OPEN_URI,
         )?;
         let application_id: i32 =
             connection.query_row("PRAGMA application_id", [], |row| row.get(0))?;
@@ -704,7 +717,7 @@ mod tests {
     #[test]
     fn per_game_urls_do_not_create_separate_event_groups() {
         let tmp = tempfile::tempdir().unwrap();
-        let path = tmp.path().join("events.sqlite");
+        let path = tmp.path().join("events #? test.sqlite");
         let mut builder =
             SearchCatalogBuilder::create(&path, Collection::MastersOtb, 2, 4).unwrap();
         for id in [1, 2] {

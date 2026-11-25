@@ -1,0 +1,355 @@
+{
+  "canonical_artifacts_match": true,
+  "responses_match": true,
+  "same_snapshot_etags_match": true,
+  "samples": {
+    "baseline": {
+      "binary_sha256": "56b690fdcc42507d49883a57a16f3cdcaf83d4e17d250b63efa424ed4ed0a8b2",
+      "cpu_affinity": [
+        0,
+        1
+      ],
+      "http": [
+        {
+          "concurrent": {
+            "max_us": 28131.95,
+            "min_us": 195.35,
+            "p50_us": 2254.97,
+            "p95_us": 7754.92,
+            "p99_us": 12509.47,
+            "requests": 16000,
+            "requests_per_second": 1388.1938939540044,
+            "server_cpu_seconds": 13.3,
+            "unexpected_responses": 0,
+            "wall_seconds": 11.525767451999855
+          },
+          "sequential": {
+            "max_us": 17644.55,
+            "min_us": 166.82,
+            "p50_us": 1240.59,
+            "p95_us": 3208.95,
+            "p99_us": 4300.78,
+            "requests": 16000,
+            "requests_per_second": 670.5357895695688,
+            "server_cpu_seconds": 16.12,
+            "unexpected_responses": 0,
+            "wall_seconds": 23.86151529699964
+          }
+        },
+        {
+          "concurrent": {
+            "max_us": 18820.42,
+            "min_us": 187.49,
+            "p50_us": 1849.78,
+            "p95_us": 5790.08,
+            "p99_us": 8266.42,
+            "requests": 16000,
+            "requests_per_second": 1778.1609878692527,
+            "server_cpu_seconds": 11.080000000000002,
+            "unexpected_responses": 0,
+            "wall_seconds": 8.998060417000033
+          },
+          "sequential": {
+            "max_us": 10963.65,
+            "min_us": 154.09,
+            "p50_us": 1093.55,
+            "p95_us": 2843.93,
+            "p99_us": 3719.37,
+            "requests": 16000,
+            "requests_per_second": 791.178819046796,
+            "server_cpu_seconds": 14.170000000000002,
+            "unexpected_responses": 0,
+            "wall_seconds": 20.222988299000008
+          }
+        },
+        {
+          "concurrent": {
+            "max_us": 30663.37,
+            "min_us": 160.69,
+            "p50_us": 1981.02,
+            "p95_us": 6255.73,
+            "p99_us": 9095.93,
+            "requests": 16000,
+            "requests_per_second": 1663.7720141062266,
+            "server_cpu_seconds": 11.780000000000001,
+            "unexpected_responses": 0,
+            "wall_seconds": 9.61670220699989
+          },
+          "sequential": {
+            "max_us": 11186.48,
+            "min_us": 156.19,
+            "p50_us": 1109.05,
+            "p95_us": 2883.18,
+            "p99_us": 3626.27,
+            "requests": 16000,
+            "requests_per_second": 778.3664484525899,
+            "server_cpu_seconds": 14.4,
+            "unexpected_responses": 0,
+            "wall_seconds": 20.555870608000077
+          }
+        }
+      ],
+      "revision": "575d988dad9e69468e637dee05090008d364bccb",
+      "settings": {
+        "deep_verify_at_startup": false,
+        "eviction_advised_before_startup": false,
+        "reader_pool": 4,
+        "rounds": 500,
+        "skip_reload": true,
+        "workers": 4
+      }
+    },
+    "candidate": {
+      "binary_sha256": "2c041732179c1c6578248f60543ef25a0b15734738c78e998260180404e4328f",
+      "cpu_affinity": [
+        0,
+        1
+      ],
+      "http": [
+        {
+          "concurrent": {
+            "max_us": 18385.29,
+            "min_us": 181.52,
+            "p50_us": 2134.53,
+            "p95_us": 6372.69,
+            "p99_us": 8893.09,
+            "requests": 16000,
+            "requests_per_second": 1565.788929554569,
+            "server_cpu_seconds": 12.410000000000004,
+            "unexpected_responses": 0,
+            "wall_seconds": 10.218490945999747
+          },
+          "sequential": {
+            "max_us": 9825.09,
+            "min_us": 160.92,
+            "p50_us": 1172.72,
+            "p95_us": 3041.59,
+            "p99_us": 3769.97,
+            "requests": 16000,
+            "requests_per_second": 716.0892948900042,
+            "server_cpu_seconds": 15.58,
+            "unexpected_responses": 0,
+            "wall_seconds": 22.34358216800001
+          }
+        },
+        {
+          "concurrent": {
+            "max_us": 19100.0,
+            "min_us": 197.39,
+            "p50_us": 1941.47,
+            "p95_us": 6204.55,
+            "p99_us": 9083.32,
+            "requests": 16000,
+            "requests_per_second": 1681.1841311992198,
+            "server_cpu_seconds": 11.73,
+            "unexpected_responses": 0,
+            "wall_seconds": 9.517101489999732
+          },
+          "sequential": {
+            "max_us": 11419.31,
+            "min_us": 152.58,
+            "p50_us": 1236.95,
+            "p95_us": 3426.87,
+            "p99_us": 4530.59,
+            "requests": 16000,
+            "requests_per_second": 658.6722753045641,
+            "server_cpu_seconds": 16.59,
+            "unexpected_responses": 0,
+            "wall_seconds": 24.29129113199997
+          }
+        },
+        {
+          "concurrent": {
+            "max_us": 29104.34,
+            "min_us": 178.75,
+            "p50_us": 2287.04,
+            "p95_us": 6915.57,
+            "p99_us": 10090.76,
+            "requests": 16000,
+            "requests_per_second": 1446.2010109182843,
+            "server_cpu_seconds": 13.120000000000001,
+            "unexpected_responses": 0,
+            "wall_seconds": 11.063468964000094
+          },
+          "sequential": {
+            "max_us": 16795.65,
+            "min_us": 157.12,
+            "p50_us": 1198.31,
+            "p95_us": 3268.61,
+            "p99_us": 4398.08,
+            "requests": 16000,
+            "requests_per_second": 677.4736630547853,
+            "server_cpu_seconds": 16.06,
+            "unexpected_responses": 0,
+            "wall_seconds": 23.617154249000123
+          }
+        }
+      ],
+      "revision": "chess-database-compact",
+      "settings": {
+        "deep_verify_at_startup": false,
+        "eviction_advised_before_startup": false,
+        "reader_pool": 4,
+        "rounds": 500,
+        "skip_reload": true,
+        "workers": 4
+      }
+    }
+  },
+  "timings": [
+    {
+      "baseline_median": 1109.05,
+      "candidate_median": 1198.31,
+      "metric": "sequential p50_us",
+      "regression_tolerance": 0.05,
+      "relative_change": 0.08048329651503539,
+      "within_tolerance": false
+    },
+    {
+      "baseline_median": 2883.18,
+      "candidate_median": 3268.61,
+      "metric": "sequential p95_us",
+      "regression_tolerance": 0.05,
+      "relative_change": 0.1336822536227361,
+      "within_tolerance": false
+    },
+    {
+      "baseline_median": 3719.37,
+      "candidate_median": 4398.08,
+      "metric": "sequential p99_us",
+      "regression_tolerance": 0.1,
+      "relative_change": 0.1824798285731186,
+      "within_tolerance": false
+    },
+    {
+      "baseline_median": 1981.02,
+      "candidate_median": 2134.53,
+      "metric": "concurrent p50_us",
+      "regression_tolerance": 0.05,
+      "relative_change": 0.07749038374170893,
+      "within_tolerance": false
+    },
+    {
+      "baseline_median": 6255.73,
+      "candidate_median": 6372.69,
+      "metric": "concurrent p95_us",
+      "regression_tolerance": 0.05,
+      "relative_change": 0.018696459086309677,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 9095.93,
+      "candidate_median": 9083.32,
+      "metric": "concurrent p99_us",
+      "regression_tolerance": 0.1,
+      "relative_change": -0.0013863343275509576,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 1663.7720141062266,
+      "candidate_median": 1565.788929554569,
+      "metric": "concurrent requests_per_second",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.058892134091036406,
+      "within_tolerance": false
+    },
+    {
+      "baseline_median": 8.411,
+      "candidate_median": 8.1,
+      "metric": "elite-online CPI hit_warm_pass p50_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.0369753893710617,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 14.08,
+      "candidate_median": 14.03,
+      "metric": "elite-online CPI hit_warm_pass p95_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.0035511363636364143,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 21.32,
+      "candidate_median": 20.380000000000003,
+      "metric": "elite-online CPI hit_warm_pass p99_us",
+      "regression_tolerance": 0.1,
+      "relative_change": -0.04409005628517813,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 7.21,
+      "candidate_median": 7.5,
+      "metric": "elite-online CPI miss_warm_pass p50_us",
+      "regression_tolerance": 0.05,
+      "relative_change": 0.04022191400832178,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 10.431000000000001,
+      "candidate_median": 10.42,
+      "metric": "elite-online CPI miss_warm_pass p95_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.0010545489406577518,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 18.14,
+      "candidate_median": 17.15,
+      "metric": "elite-online CPI miss_warm_pass p99_us",
+      "regression_tolerance": 0.1,
+      "relative_change": -0.054575523704520505,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 9.28,
+      "candidate_median": 9.11,
+      "metric": "masters-otb CPI hit_warm_pass p50_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.018318965517241374,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 15.719999999999999,
+      "candidate_median": 15.769,
+      "metric": "masters-otb CPI hit_warm_pass p95_us",
+      "regression_tolerance": 0.05,
+      "relative_change": 0.0031170483460560604,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 26.9,
+      "candidate_median": 23.74,
+      "metric": "masters-otb CPI hit_warm_pass p99_us",
+      "regression_tolerance": 0.1,
+      "relative_change": -0.11747211895910782,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 8.328999999999999,
+      "candidate_median": 7.95,
+      "metric": "masters-otb CPI miss_warm_pass p50_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.04550366190419002,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 13.370000000000001,
+      "candidate_median": 12.71,
+      "metric": "masters-otb CPI miss_warm_pass p95_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.04936424831712791,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 23.810000000000002,
+      "candidate_median": 17.180000000000003,
+      "metric": "masters-otb CPI miss_warm_pass p99_us",
+      "regression_tolerance": 0.1,
+      "relative_change": -0.2784544309113817,
+      "within_tolerance": true
+    }
+  ],
+  "within_tolerance": false,
+  "workload_note": "Alternating baseline and candidate starts with shared two-CPU affinity for the load generator and server."
+}

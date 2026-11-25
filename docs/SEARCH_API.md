@@ -159,9 +159,9 @@ When a game-search request uses a player or event ID, include `version` with the
 
 ### Sort, count, and response
 
-Supported `sort` values are `ordinal` (default), `date_asc`, `date_desc`, `white_rating`, `black_rating`, `average_rating`, and `game_length`. Ties use ordinal as a stable secondary key in the same direction.
+Supported `sort` values are `default`, `date_asc`, `date_desc`, `white_rating`, `black_rating`, `average_rating`, and `game_length`. The default follows the snapshot's canonical game order. Rating and length sorts descend. Date sorts use the earliest possible date for partial dates. Missing values sort last. Ties use the canonical game order in the same direction.
 
-`limit` defaults to the smaller of 25 and the configured maximum. It must be between 1 and that maximum. `exact_count=true` requests an exact `total_games`; otherwise `total_games` is null. Exact counts for position searches can require additional work and may return a bounded-work or deadline error.
+`limit` defaults to the smaller of 25 and the configured maximum. It must be between 1 and that maximum. `exact_count=true` requests an exact `total_games`. Otherwise `total_games` is null. Exact counts for position searches can require additional work and may return a bounded-work or deadline error.
 
 A game-search response has this shape:
 
@@ -189,9 +189,9 @@ A game-search response has this shape:
 
 `position_coverage` is null when the request has no position filter. Game IDs are returned as decimal strings. Player and event IDs are decimal strings too, and are snapshot-local. Discovery pages return `players` or `events`, with `has_more` and `next_cursor`; they intentionally omit total counts.
 
-Each `games[]` row and the `game` object returned by game metadata contain `id`, `white`, `black`, `white_rating`, `black_rating`, `result`, `date`, `event`, `site`, `round`, `eco`, `time_control`, `time_control_category`, `plies`, `starting_fen`, `source_id`, `broadcast_url`, `white_player_id`, `black_player_id`, and `event_id`. Values that were not recorded can be null. Player and event IDs in these rows are snapshot-local. `position_match` is omitted when there was no position filter; when present, it contains `ply` and `continuation`, which is null for a terminal occurrence.
+Each `games[]` row and the `game` object returned by game metadata contain `id`, `white`, `black`, `white_rating`, `black_rating`, `result`, `date`, `event`, `site`, `round`, `eco`, `time_control`, `time_control_category`, `plies`, `starting_fen`, `source_id`, `broadcast_url`, `white_player_id`, `black_player_id`, `event_id`, `white_fide_id`, and `black_fide_id`. Values that were not recorded can be null. Player and event IDs in these rows are snapshot-local. `position_match` is omitted when there was no position filter; when present, it contains `ply` and `continuation`, which is null for a terminal occurrence.
 
-The game metadata response wraps the row as `{"collection":"...","dataset_version":"...","game":{...}}`. Player and event detail responses similarly use a `player` or `event` field. Position statistics use the response fields documented in the [API Reference](API_REFERENCE.md#51-get-v1explorerposition).
+The game metadata response includes `collection`, `dataset_version`, `game`, and `source_attributions`. The attribution array is empty when the source snapshot has no attribution for the game. When present, it can contain source tags, identity evidence, titles, or FIDE IDs as preserved by the sidecar. The per-side FIDE IDs in `game` are the conservative derived identities. Player and event detail responses similarly use a `player` or `event` field. Position statistics use the response fields documented in the [API Reference](API_REFERENCE.md#51-get-v1explorerposition).
 
 ## 4. Pagination
 

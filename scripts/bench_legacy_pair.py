@@ -19,11 +19,15 @@ def main():
     parser.add_argument("--elite", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--rounds", type=int, default=500)
+    parser.add_argument("--pairs", type=int, default=3)
+    parser.add_argument("--server-cpus")
     parser.add_argument("--evict", action="store_true")
     args = parser.parse_args()
+    if args.pairs < 3 or args.rounds < 1:
+        parser.error("require at least three pairs and positive rounds")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     combined = {}
-    for trial in range(1, 4):
+    for trial in range(1, args.pairs + 1):
         order = ("baseline", "candidate") if trial % 2 else ("candidate", "baseline")
         for variant in order:
             result = args.output_dir / f"{variant}-{trial}.json"
@@ -37,6 +41,8 @@ def main():
             ]
             if args.evict:
                 command.append("--evict")
+            if args.server_cpus:
+                command.extend(["--server-cpus", args.server_cpus])
             subprocess.run(command, check=True)
             report = json.loads(result.read_text())
             if variant in combined:
