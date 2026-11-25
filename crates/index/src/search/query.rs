@@ -261,7 +261,7 @@ pub struct SearchCondition {
 
 impl GameFilters {
     pub fn condition(&self) -> SearchCondition {
-        let predicates = self.predicates();
+        let predicates = self.predicates(GameSort::Ordinal);
         SearchCondition {
             sql: if predicates.sql.is_empty() {
                 "1".into()
@@ -272,7 +272,7 @@ impl GameFilters {
         }
     }
 
-    fn predicates(&self) -> Predicates {
+    fn predicates(&self, sort: GameSort) -> Predicates {
         let mut out = Predicates::default();
         if let Some(player) = &self.player {
             let match_side = |side, other| {
@@ -311,7 +311,20 @@ impl GameFilters {
         }
         self.average_rating
             .constrain(&mut out, "average_rating_sum", 2);
-        self.year.constrain(&mut out, "year", 1);
+        if self.year != Range::default() && matches!(sort, GameSort::DateAsc | GameSort::DateDesc) {
+            // The catalog derives year from date_lower. Bounds in the sort expression
+            // let SQLite seek the date-order index before reading the first page.
+            out.sql.push("date_lower IS NOT NULL".into());
+            let date_sort = sort.expression();
+            if let Some(min) = self.year.min {
+                out.add(format!("{date_sort} >= ?"), i64::from(min) * 10_000 + 101);
+            }
+            if let Some(max) = self.year.max {
+                out.add(format!("{date_sort} <= ?"), i64::from(max) * 10_000 + 1231);
+            }
+        } else {
+            self.year.constrain(&mut out, "year", 1);
+        }
         self.plies.constrain(&mut out, "plies", 1);
         if let Some(min) = self.date.min {
             out.add("date_upper >= ?", i64::from(min));
@@ -445,7 +458,7 @@ pub fn search_games(
     control: &SearchControl,
 ) -> Result<GamePage, QueryError> {
     control.interrupt_sqlite(connection);
-    let predicates = request.filters.predicates();
+    let predicates = request.filters.predicates(request.sort);
     let page = match request.position {
         Some(position) => {
             let Some(group) = postings.get(position.key)? else {

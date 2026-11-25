@@ -138,22 +138,25 @@ pub async fn players(
                         "SELECT p.player_id, p.display_name, p.fide_id, p.game_count,
                                 p.min_rating, p.max_rating, p.first_date, p.last_date
                          FROM players AS p
-                         WHERE EXISTS (
-                            SELECT 1 FROM player_names AS n
-                            WHERE n.player_id = p.player_id AND n.normalized_name = ?1
-                         ) AND p.player_id > ?2
-                         ORDER BY p.player_id LIMIT ?3",
+                         WHERE p.player_id IN (
+                            SELECT DISTINCT player_id
+                            FROM player_names INDEXED BY player_names_exact
+                            WHERE normalized_name = ?1 AND player_id > ?2
+                            ORDER BY player_id LIMIT ?3
+                         )
+                         ORDER BY p.player_id",
                     ),
                     "prefix" => connection.prepare(
                         "SELECT p.player_id, p.display_name, p.fide_id, p.game_count,
                                 p.min_rating, p.max_rating, p.first_date, p.last_date
                          FROM players AS p
-                         WHERE EXISTS (
-                            SELECT 1 FROM player_names AS n
-                            WHERE n.player_id = p.player_id
-                              AND n.normalized_name >= ?1 AND n.normalized_name < ?2
-                         ) AND p.player_id > ?3
-                         ORDER BY p.player_id LIMIT ?4",
+                         WHERE p.player_id IN (
+                            SELECT DISTINCT player_id
+                            FROM player_names INDEXED BY player_names_exact
+                            WHERE normalized_name >= ?1 AND normalized_name < ?2 AND player_id > ?3
+                            ORDER BY player_id LIMIT ?4
+                         )
+                         ORDER BY p.player_id",
                     ),
                     _ => connection.prepare(
                         "SELECT p.player_id, p.display_name, p.fide_id, p.game_count,

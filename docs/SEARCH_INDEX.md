@@ -8,6 +8,8 @@ status: current
 
 Search indexes derive from one immutable collection snapshot. CGB3 holds canonical games, `games.idx` resolves public game IDs, and CPI v2 serves unfiltered Opening Explorer statistics. Game search reads a SQLite metadata projection and a memory-mapped position-to-game occurrence index. The schema stores game summaries and source attribution, with no full PGNs or move sequences.
 
+Player name and prefix discovery select alias matches before fetching bounded player summaries. Date-sorted year ranges seek the expression index for the date sort. The year projection derives from the lower date bound, so partial dates and existing cursor ordering keep their documented semantics.
+
 ## Build and verify
 
 Install the indexed release package into an isolated, versioned dataset root using the [release installer](DATASET_RELEASES.md). Build the CLI and enrich the selected active version.

@@ -1,0 +1,8 @@
+{
+  "abandoned_stage": ".staging_search_x6cZWT",
+  "abandoned_stage_removed": true,
+  "active_after": "versions/codb-masters-otb-1795639762108697656-5e8e56f3fad5d618-search",
+  "active_before": "versions/codb-masters-otb-1795639762108697656-5e8e56f3fad5d618-search",
+  "collection": "masters-otb",
+  "recovery_entry_point": "opening_explorer_storage::recover_dataset"
+}

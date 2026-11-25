@@ -2042,6 +2042,21 @@ async fn search_rolls_forward_and_back_with_snapshot_bound_cursors() {
     );
     let detail = get(&router, &detail, StatusCode::OK).await;
     assert_eq!(detail["game"]["id"], first["games"][0]["id"]);
+    let calendar = get(
+        &router,
+        &format!("{games}?from_year=2025&sort=date_desc&exact_count=true&limit=2"),
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(calendar["total_games"], 12);
+    assert_eq!(calendar["games"].as_array().unwrap().len(), 2);
+    let absent_year = get(
+        &router,
+        &format!("{games}?through_year=2024&sort=date_asc&exact_count=true"),
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(absent_year["total_games"], 0);
     let invalid = get(
         &router,
         &format!("{games}?cursor={token}"),
@@ -2083,6 +2098,29 @@ async fn search_rolls_forward_and_back_with_snapshot_bound_cursors() {
     )
     .await;
     assert_eq!(players["players"].as_array().unwrap().len(), 2);
+    let more_players = get(
+        &router,
+        &format!(
+            "/v1/collections/elite-online/players?prefix=grandmaster&limit=2&cursor={}",
+            players["next_cursor"].as_str().unwrap()
+        ),
+        StatusCode::OK,
+    )
+    .await;
+    for player in more_players["players"].as_array().unwrap() {
+        assert!(!players["players"].as_array().unwrap().contains(player));
+    }
+    let exact_player = get(
+        &router,
+        "/v1/collections/elite-online/players?name=Grandmaster+White+1",
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(exact_player["players"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        exact_player["players"][0]["display_name"],
+        "Grandmaster White 1"
+    );
     let events = get(
         &router,
         "/v1/collections/elite-online/events?prefix=world&year=2025",
