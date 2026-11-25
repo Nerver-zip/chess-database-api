@@ -148,14 +148,44 @@ Three alternating runs per binary used separate server and client physical cores
 | Warm | +0.9% | +1.2% | +0.7% | +1.9% | Passed |
 | Eviction-advised | +7.9% | +1.4% | −3.8% | +2.9% | Sequential p50 exceeded the 5% tolerance |
 
-The eviction-advised sequential median increased from 1.305 to 1.408 ms. The other paired metrics met their thresholds, including warm-pass CPI hit p95 improvements of 9.1% to 18.8% across the two runs and collections. These are best-effort cache-eviction trials. The [warm results](../../benchmarks/search/HARDENING_PAIRED_WARM.json) and [eviction-advised results](../../benchmarks/search/HARDENING_PAIRED_EVICTION_ADVISED.json) retain the full samples and gate result. Earlier experiments remain above.
+The initial eviction-advised sequential median increased from 1.305 to 1.408 ms. The other metrics met their thresholds, including warm-pass CPI hit p95 improvements of 9.1% to 18.8% across the two runs and collections. The [warm run](../../benchmarks/search/HARDENING_PAIRED_WARM.json) and [initial eviction-advised run](../../benchmarks/search/HARDENING_PAIRED_EVICTION_ADVISED.json) retain the full samples and gate results.
+
+A [five-pair confirmation](../../benchmarks/search/HARDENING_PAIRED_EVICTION_CONFIRMATION.json) on the same CPI-only roots did not reproduce the p50 miss. Sequential p50 fell 0.9%, sequential p95 rose 6.7% and crossed its 5% threshold, concurrent p95 fell 1.8%, and throughput rose 3.4%. The sequential p95 change within each pair ranged from −20.3% to +10.5%, with a median of −1.1%. The comparator still reports failure because it compares the two variants' medians. Both runs matched canonical inventories, bodies and ETags. The isolated result leaves a timing discrepancy to review on the owner host. All measurements use best-effort file eviction and retain the original thresholds.
+
+### Two enriched collections under emulation
+
+The [startup report](../../benchmarks/search/HARDENING_TWO_COLLECTION_QEMU.json) used both enriched snapshots in a pinned Debian runtime with the hardened native executable. Compose retained read-only mounts, a 512 MiB memory cap and two CPUs. The guest restarted before the observation and ran under QEMU TCG. The service missed the 600-second acceptance window and bound its socket at 1,006 seconds. It advertised both collections on `/ready`. At the first ready sample the service cgroup recorded 1,023 CPU seconds, a memory peak of 536,875,008 bytes and zero OOM events. At the ten-minute startup sample, file-backed memory accounted for about 498 MiB and anonymous memory for about 1 MiB. The host backing cache was uncontrolled and a separate image build ran in the guest. These data characterize the emulated run. The [native Docker acceptance commands](../DOCKER_DEPLOYMENT.md#two-collection-acceptance-on-a-local-docker-host) cover representative readiness and serving under the deployment cap.
+
+Two partially overlapping four-user workloads each sent 120 requests per case. All 480 legacy Explorer and PGN requests succeeded, with successful p95 ranging from 58 to 79 ms. Masters autocomplete, metadata, position and latest-board requests each passed 120/120; the broad Masters rating query returned 22 deadlines and 98 busy responses. Elite's broad rating query served 36/120 and returned 84 busy responses. The Elite and serial Masters discovery-to-PGN probes passed. A further 240 legacy requests all passed while a same-snapshot reload was revalidating the data. The cgroup sample during the reload still recorded zero OOM events.
+
+On the [native host](../../benchmarks/search/HARDENING_NATIVE_RELOAD.json), revalidating both enriched snapshots during a four-user Masters workload took 14.84 seconds. The reload returned 200 and the collection identities and capabilities matched before and after. Both legacy classes and all four discovery classes passed 40/40. This run had no Docker memory cap, and its sampled process RSS includes file-backed mappings.
 
 ### Reproduce the hardening measurements
 
-Use local immutable copies of the enriched snapshots. Enable Masters discovery and metadata only on the isolated loopback test server. Build each comparison binary from its named revision with locked Cargo dependencies and record its hash. For the search comparison, start each binary with the same two roots and run both workload shapes against it. The canonical replay helper can run against the same Masters root without starting a server.
+Use local immutable copies of the enriched snapshots. Enable Masters discovery and metadata only on the isolated loopback test server. Build from the pinned revisions and record the toolchain and executable hashes.
 
 ```bash
-mkdir -p data/hardening
+builds="$PWD/data/hardening/builds"
+mkdir -p "$builds"
+git worktree add --detach "$builds/main" 575d988dad9e69468e637dee05090008d364bccb
+git worktree add --detach "$builds/pre-hardening" 6a29e6e929cac08a4ae27feac282a67e5201e1c5
+git worktree add --detach "$builds/candidate" 3518a8e7f38b4497a5491dca926b54440da57848
+cargo build --locked --release --manifest-path "$builds/main/Cargo.toml" \
+  --target-dir "$builds/main/target" -p opening-explorer-cli --bin opening-explorer
+cargo build --locked --release --manifest-path "$builds/pre-hardening/Cargo.toml" \
+  --target-dir "$builds/pre-hardening/target" -p opening-explorer-cli --bin chess-database
+cargo build --locked --release --manifest-path "$builds/candidate/Cargo.toml" \
+  --target-dir "$builds/candidate/target" -p chess-database-cli --bin chess-database
+MAIN_BIN="$builds/main/target/release/opening-explorer"
+PRE_HARDENING_BIN="$builds/pre-hardening/target/release/chess-database"
+CANDIDATE_BIN="$builds/candidate/target/release/chess-database"
+rustc --version
+sha256sum "$MAIN_BIN" "$PRE_HARDENING_BIN" "$CANDIDATE_BIN"
+```
+
+Set `MASTERS_ROOT` and `ELITE_ROOT` to the enriched release roots. For the search comparison run both workload shapes once against each server, using separate output filenames. The canonical replay helper runs without a server. The HTTP oracle comparison is for the hardened candidate.
+
+```bash
 cargo build --locked --release -p chess-database-cli --example audit_filtered_explorer
 target/release/examples/audit_filtered_explorer --dataset "$MASTERS_ROOT" \
   > data/hardening/masters-expected.json
@@ -174,7 +204,7 @@ python3 scripts/bench_search_interactive.py --url http://127.0.0.1:19192 \
   --output data/hardening/interactive.json
 ```
 
-Repeat the interactive probe with the candidate server started using `--search-concurrency 1` and a separate output filename.
+Repeat against `PRE_HARDENING_BIN` for the before/after workload and against `CANDIDATE_BIN` with `--search-concurrency 1` for the worker comparison. Stop the previous server before starting the next.
 
 For the legacy pair, stop the search test server and choose separate physical CPUs for the server and client. Set `MASTERS_CPI_ROOT` and `ELITE_CPI_ROOT` to the unmodified Masters R3 and Elite R1 indexed release roots. The main baseline predates the enriched snapshot manifest. Repeat with `--evict` and a separate output directory.
 

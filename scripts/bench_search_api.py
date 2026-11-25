@@ -83,9 +83,6 @@ def cases_for(connect, collection, depth):
             search["event_prefix"] = with_query(f"{root}/events", prefix=name[:4])
         search["metadata_event"] = with_query(games, event=name, sort="date_desc")
 
-    page = get(connect, with_query(games, sort="date_desc", limit=25))
-    if page["next_cursor"]:
-        search["metadata_second_page"] = with_query(games, sort="date_desc", limit=25, cursor=page["next_cursor"])
     return legacy_cases, search
 
 
@@ -146,6 +143,12 @@ def main():
         raise RuntimeError(f"Search is disabled for {args.collection}")
     depth = dataset["capabilities"]["position_search_coverage"].get("max_ply", len(LONG_LINE))
     legacy, search = cases_for(connect, args.collection, depth)
+    page = get(connect, search["metadata_broad"])
+    if page["next_cursor"]:
+        search["metadata_second_page"] = with_query(
+            f"/v1/collections/{args.collection}/games",
+            sort="date_desc", limit=25, cursor=page["next_cursor"],
+        )
     measure(connect, legacy, 5, 1)
     report = {
         "dataset": dataset,

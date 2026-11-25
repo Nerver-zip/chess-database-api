@@ -1,0 +1,163 @@
+{
+  "binary_sha256": "0436ed664d6305b0d3d01dc79bec92a48fb7833b1b190d2cdf832e1941c38c31",
+  "capabilities_unchanged": true,
+  "environment_notes": "Four simultaneous Masters users ran on the native loopback during same-snapshot verification. The emulated Docker guest was active on a separate CPU set. Native RSS includes mapped file pages and cannot be compared to Docker cgroup memory.",
+  "http_status": 200,
+  "interactive_during_reload": {
+    "cases": {
+      "autocomplete": {
+        "acceptance_rate": 1.0,
+        "accepted": 40,
+        "attempted": 40,
+        "max_us": 2858.79,
+        "min_us": 1240.56,
+        "p50_us": 1596.69,
+        "p95_us": 2642.12,
+        "p99_us": 2858.79,
+        "statuses": {
+          "200": 40
+        }
+      },
+      "filtered_date": {
+        "acceptance_rate": 0.9,
+        "accepted": 36,
+        "attempted": 40,
+        "max_us": 86830.99,
+        "min_us": 23388.62,
+        "p50_us": 33692.77,
+        "p95_us": 77075.13,
+        "p99_us": 86830.99,
+        "statuses": {
+          "200": 36,
+          "429": 4
+        }
+      },
+      "filtered_rating": {
+        "acceptance_rate": 0.9,
+        "accepted": 36,
+        "attempted": 40,
+        "max_us": 275401.15,
+        "min_us": 130927.58,
+        "p50_us": 156242.15,
+        "p95_us": 260091.66,
+        "p99_us": 275401.15,
+        "statuses": {
+          "200": 36,
+          "429": 4
+        }
+      },
+      "filtered_selective": {
+        "acceptance_rate": 0.9,
+        "accepted": 36,
+        "attempted": 40,
+        "max_us": 89738.48,
+        "min_us": 2558.19,
+        "p50_us": 3698.74,
+        "p95_us": 84135.92,
+        "p99_us": 89738.48,
+        "statuses": {
+          "200": 36,
+          "429": 4
+        }
+      },
+      "legacy_opening": {
+        "acceptance_rate": 1.0,
+        "accepted": 40,
+        "attempted": 40,
+        "max_us": 1740.34,
+        "min_us": 712.12,
+        "p50_us": 1076.37,
+        "p95_us": 1513.62,
+        "p99_us": 1740.34,
+        "statuses": {
+          "200": 40
+        }
+      },
+      "legacy_pgn": {
+        "acceptance_rate": 1.0,
+        "accepted": 40,
+        "attempted": 40,
+        "max_us": 7736.57,
+        "min_us": 1044.56,
+        "p50_us": 1397.04,
+        "p95_us": 4967.32,
+        "p99_us": 7736.57,
+        "statuses": {
+          "200": 40
+        }
+      },
+      "metadata": {
+        "acceptance_rate": 1.0,
+        "accepted": 40,
+        "attempted": 40,
+        "max_us": 8363.56,
+        "min_us": 1756.04,
+        "p50_us": 2384.01,
+        "p95_us": 5163.02,
+        "p99_us": 8363.56,
+        "statuses": {
+          "200": 40
+        }
+      },
+      "navigation_latest": {
+        "acceptance_rate": 1.0,
+        "accepted": 40,
+        "attempted": 40,
+        "max_us": 2876.51,
+        "min_us": 869.7,
+        "p50_us": 1511.52,
+        "p95_us": 2850.27,
+        "p99_us": 2876.51,
+        "statuses": {
+          "200": 40
+        }
+      },
+      "position": {
+        "acceptance_rate": 1.0,
+        "accepted": 40,
+        "attempted": 40,
+        "max_us": 6654.12,
+        "min_us": 1718.18,
+        "p50_us": 2154.61,
+        "p95_us": 4573.82,
+        "p99_us": 6654.12,
+        "statuses": {
+          "200": 40
+        }
+      }
+    },
+    "client_abandoned_navigation": 40,
+    "collection": "masters-otb",
+    "dataset_version": "codb-masters-otb-1795640229266821029-29be58d4f83e0484-search",
+    "duration_seconds": 14.124928907998765,
+    "rounds": 10,
+    "think_ms": 125,
+    "users": 4,
+    "workload": {
+      "autocomplete": "/v1/collections/masters-otb/players?prefix=Cid%2C",
+      "filtered_date": "/v1/explorer/position/filtered?collection=masters-otb&moves=e4%2Cc5&from_year=2000",
+      "filtered_rating": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&min_both_ratings=2200",
+      "filtered_selective": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=Cid%2C+Marino+Alejandro",
+      "legacy_opening": "/v1/explorer/position?collection=masters-otb&moves=e4%2Cc5%2CNf3",
+      "legacy_pgn": "/v1/collections/masters-otb/games/16278808172669517150",
+      "metadata": "/v1/collections/masters-otb/games?player=Cid%2C+Marino+Alejandro",
+      "navigation_latest": "/v1/collections/masters-otb/games?moves=e4%2Cc5%2CNf3&limit=5",
+      "position": "/v1/collections/masters-otb/games?moves=e4%2Cc5%2CNf3"
+    }
+  },
+  "process_load_to_listen_seconds": 50.468,
+  "process_memory": {
+    "VmHWM_kib": 5468796,
+    "VmRSS_kib": 2740392
+  },
+  "reload_response": {
+    "reloaded_collections": [
+      "masters-otb (version: codb-masters-otb-1795640229266821029-29be58d4f83e0484-search)",
+      "elite-online (version: codb-elite-online-1795638650408508480-cfc2575f9f6971eb-search)"
+    ],
+    "status": "ok"
+  },
+  "resource_limits": "Native process with no Docker serving cgroup",
+  "same_snapshot_reload_seconds": 14.837546,
+  "source_revision": "3518a8e7f38b4497a5491dca926b54440da57848"
+}
