@@ -1,0 +1,990 @@
+{
+  "binaries": {
+    "baseline": "56b690fdcc42507d49883a57a16f3cdcaf83d4e17d250b63efa424ed4ed0a8b2",
+    "candidate": "066a2ddc959dfcb54994b044a90c89fcfde9741f542770ef60394a1430b517d3"
+  },
+  "cpu_affinity": [
+    0,
+    1
+  ],
+  "datasets": {
+    "elite-online": {
+      "median_comparison": {
+        "hit_warm_pass:p50_us": {
+          "baseline": 10.17,
+          "candidate": 6.430000000000001,
+          "relative_change": -0.367748279252704
+        },
+        "hit_warm_pass:p95_us": {
+          "baseline": 17.829,
+          "candidate": 13.35,
+          "relative_change": -0.2512199225980145
+        },
+        "hit_warm_pass:p99_us": {
+          "baseline": 26.69,
+          "candidate": 21.36,
+          "relative_change": -0.19970026227051335
+        },
+        "miss_warm_pass:p50_us": {
+          "baseline": 7.33,
+          "candidate": 5.04,
+          "relative_change": -0.31241473396998637
+        },
+        "miss_warm_pass:p95_us": {
+          "baseline": 10.879999999999999,
+          "candidate": 7.859999999999999,
+          "relative_change": -0.2775735294117647
+        },
+        "miss_warm_pass:p99_us": {
+          "baseline": 19.51,
+          "candidate": 12.76,
+          "relative_change": -0.34597642234751413
+        }
+      },
+      "samples": {
+        "baseline": [
+          {
+            "collection": "elite-online",
+            "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 3007.98,
+              "p50_us": 9.870000000000001,
+              "p95_us": 17.759999999999998,
+              "p99_us": 26.77
+            },
+            "hit_warm_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 958.93,
+              "p50_us": 10.52,
+              "p95_us": 18.21,
+              "p99_us": 27.93
+            },
+            "index_depth_plies": 30,
+            "miss_warm_pass": {
+              "count": 14185,
+              "hits": 0,
+              "max_us": 2029.6,
+              "p50_us": 7.45,
+              "p95_us": 11.1,
+              "p99_us": 19.51
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 6136307
+          },
+          {
+            "collection": "elite-online",
+            "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 578.72,
+              "p50_us": 10.749,
+              "p95_us": 18.470000000000002,
+              "p99_us": 28.43
+            },
+            "hit_warm_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 366.75,
+              "p50_us": 10.44,
+              "p95_us": 17.829,
+              "p99_us": 26.69
+            },
+            "index_depth_plies": 30,
+            "miss_warm_pass": {
+              "count": 14185,
+              "hits": 0,
+              "max_us": 138.47,
+              "p50_us": 7.16,
+              "p95_us": 10.68,
+              "p99_us": 17.240000000000002
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 6136307
+          },
+          {
+            "collection": "elite-online",
+            "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 930.72,
+              "p50_us": 8.671000000000001,
+              "p95_us": 15.18,
+              "p99_us": 25.44
+            },
+            "hit_warm_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 441.28000000000003,
+              "p50_us": 8.52,
+              "p95_us": 14.91,
+              "p99_us": 23.689999999999998
+            },
+            "index_depth_plies": 30,
+            "miss_warm_pass": {
+              "count": 14185,
+              "hits": 0,
+              "max_us": 157.16,
+              "p50_us": 7.119999999999999,
+              "p95_us": 10.190000000000001,
+              "p99_us": 16.84
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 6136307
+          },
+          {
+            "collection": "elite-online",
+            "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 1441.19,
+              "p50_us": 9.92,
+              "p95_us": 18.06,
+              "p99_us": 27.189999999999998
+            },
+            "hit_warm_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 1231.3400000000001,
+              "p50_us": 10.17,
+              "p95_us": 17.94,
+              "p99_us": 27.509999999999998
+            },
+            "index_depth_plies": 30,
+            "miss_warm_pass": {
+              "count": 14185,
+              "hits": 0,
+              "max_us": 3603.33,
+              "p50_us": 8.809,
+              "p95_us": 11.871,
+              "p99_us": 22.34
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 6136307
+          },
+          {
+            "collection": "elite-online",
+            "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 263.439,
+              "p50_us": 8.96,
+              "p95_us": 17.08,
+              "p99_us": 25.32
+            },
+            "hit_warm_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 537.0699999999999,
+              "p50_us": 9.08,
+              "p95_us": 16.759999999999998,
+              "p99_us": 26.599999999999998
+            },
+            "index_depth_plies": 30,
+            "miss_warm_pass": {
+              "count": 14185,
+              "hits": 0,
+              "max_us": 112.749,
+              "p50_us": 7.33,
+              "p95_us": 10.879999999999999,
+              "p99_us": 20.95
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 6136307
+          },
+          {
+            "collection": "elite-online",
+            "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 875.9100000000001,
+              "p50_us": 8.729999999999999,
+              "p95_us": 15.99,
+              "p99_us": 25.16
+            },
+            "hit_warm_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 528.54,
+              "p50_us": 8.52,
+              "p95_us": 15.09,
+              "p99_us": 23.19
+            },
+            "index_depth_plies": 30,
+            "miss_warm_pass": {
+              "count": 14185,
+              "hits": 0,
+              "max_us": 154.51000000000002,
+              "p50_us": 7.04,
+              "p95_us": 9.66,
+              "p99_us": 14.709999999999999
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 6136307
+          },
+          {
+            "collection": "elite-online",
+            "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 1369.981,
+              "p50_us": 9.41,
+              "p95_us": 17.200000000000003,
+              "p99_us": 27.591
+            },
+            "hit_warm_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 3066.85,
+              "p50_us": 10.491,
+              "p95_us": 18.54,
+              "p99_us": 30.589999999999996
+            },
+            "index_depth_plies": 30,
+            "miss_warm_pass": {
+              "count": 14185,
+              "hits": 0,
+              "max_us": 267.27,
+              "p50_us": 9.61,
+              "p95_us": 12.799999999999999,
+              "p99_us": 25.09
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 6136307
+          }
+        ],
+        "candidate": [
+          {
+            "collection": "elite-online",
+            "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 181.18,
+              "p50_us": 6.8709999999999996,
+              "p95_us": 14.17,
+              "p99_us": 21.209999999999997
+            },
+            "hit_warm_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 369.73,
+              "p50_us": 6.3999999999999995,
+              "p95_us": 13.35,
+              "p99_us": 21.36
+            },
+            "index_depth_plies": 30,
+            "miss_warm_pass": {
+              "count": 14185,
+              "hits": 0,
+              "max_us": 104.85,
+              "p50_us": 5.04,
+              "p95_us": 7.859999999999999,
+              "p99_us": 12.729
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 6136307
+          },
+          {
+            "collection": "elite-online",
+            "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 3326.229,
+              "p50_us": 6.78,
+              "p95_us": 14.19,
+              "p99_us": 23.099999999999998
+            },
+            "hit_warm_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 3061.48,
+              "p50_us": 6.96,
+              "p95_us": 14.69,
+              "p99_us": 22.779999999999998
+            },
+            "index_depth_plies": 30,
+            "miss_warm_pass": {
+              "count": 14185,
+              "hits": 0,
+              "max_us": 160.98100000000002,
+              "p50_us": 6.96,
+              "p95_us": 9.65,
+              "p99_us": 19.18
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 6136307
+          },
+          {
+            "collection": "elite-online",
+            "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 308.21,
+              "p50_us": 7.45,
+              "p95_us": 15.299999999999999,
+              "p99_us": 24.98
+            },
+            "hit_warm_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 2479.16,
+              "p50_us": 6.430000000000001,
+              "p95_us": 13.16,
+              "p99_us": 19.369999999999997
+            },
+            "index_depth_plies": 30,
+            "miss_warm_pass": {
+              "count": 14185,
+              "hits": 0,
+              "max_us": 569.879,
+              "p50_us": 6.07,
+              "p95_us": 7.9799999999999995,
+              "p99_us": 15.509
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 6136307
+          },
+          {
+            "collection": "elite-online",
+            "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 3117.88,
+              "p50_us": 8.709999999999999,
+              "p95_us": 17.75,
+              "p99_us": 28.98
+            },
+            "hit_warm_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 3572.18,
+              "p50_us": 8.2,
+              "p95_us": 16.351,
+              "p99_us": 24.82
+            },
+            "index_depth_plies": 30,
+            "miss_warm_pass": {
+              "count": 14185,
+              "hits": 0,
+              "max_us": 172.54,
+              "p50_us": 5.35,
+              "p95_us": 8.47,
+              "p99_us": 16.28
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 6136307
+          },
+          {
+            "collection": "elite-online",
+            "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 213.12,
+              "p50_us": 6.409999999999999,
+              "p95_us": 13.74,
+              "p99_us": 20.720000000000002
+            },
+            "hit_warm_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 238.64000000000001,
+              "p50_us": 6.3,
+              "p95_us": 13.040000000000001,
+              "p99_us": 19.65
+            },
+            "index_depth_plies": 30,
+            "miss_warm_pass": {
+              "count": 14185,
+              "hits": 0,
+              "max_us": 108.8,
+              "p50_us": 4.92,
+              "p95_us": 7.48,
+              "p99_us": 12.76
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 6136307
+          },
+          {
+            "collection": "elite-online",
+            "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 1230.54,
+              "p50_us": 7.56,
+              "p95_us": 14.96,
+              "p99_us": 23.220000000000002
+            },
+            "hit_warm_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 288.74,
+              "p50_us": 5.76,
+              "p95_us": 11.08,
+              "p99_us": 16.75
+            },
+            "index_depth_plies": 30,
+            "miss_warm_pass": {
+              "count": 14185,
+              "hits": 0,
+              "max_us": 813.48,
+              "p50_us": 4.931,
+              "p95_us": 7.35,
+              "p99_us": 11.67
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 6136307
+          },
+          {
+            "collection": "elite-online",
+            "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 735.0,
+              "p50_us": 6.82,
+              "p95_us": 14.08,
+              "p99_us": 21.77
+            },
+            "hit_warm_pass": {
+              "count": 99294,
+              "hits": 99294,
+              "max_us": 773.4000000000001,
+              "p50_us": 7.09,
+              "p95_us": 14.488999999999999,
+              "p99_us": 26.19
+            },
+            "index_depth_plies": 30,
+            "miss_warm_pass": {
+              "count": 14185,
+              "hits": 0,
+              "max_us": 188.6,
+              "p50_us": 4.95,
+              "p95_us": 7.74,
+              "p99_us": 12.56
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 6136307
+          }
+        ]
+      }
+    },
+    "masters-otb": {
+      "median_comparison": {
+        "hit_warm_pass:p50_us": {
+          "baseline": 12.45,
+          "candidate": 9.4,
+          "relative_change": -0.2449799196787148
+        },
+        "hit_warm_pass:p95_us": {
+          "baseline": 21.831000000000003,
+          "candidate": 18.150000000000002,
+          "relative_change": -0.16861343960423253
+        },
+        "hit_warm_pass:p99_us": {
+          "baseline": 32.94,
+          "candidate": 29.26,
+          "relative_change": -0.11171827565270177
+        },
+        "miss_warm_pass:p50_us": {
+          "baseline": 10.540000000000001,
+          "candidate": 7.8,
+          "relative_change": -0.2599620493358635
+        },
+        "miss_warm_pass:p95_us": {
+          "baseline": 13.41,
+          "candidate": 10.11,
+          "relative_change": -0.24608501118568238
+        },
+        "miss_warm_pass:p99_us": {
+          "baseline": 25.060000000000002,
+          "candidate": 24.04,
+          "relative_change": -0.040702314445331324
+        }
+      },
+      "samples": {
+        "baseline": [
+          {
+            "collection": "masters-otb",
+            "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 700.38,
+              "p50_us": 11.81,
+              "p95_us": 20.2,
+              "p99_us": 29.9
+            },
+            "hit_warm_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 2082.9109999999996,
+              "p50_us": 11.430000000000001,
+              "p95_us": 19.69,
+              "p99_us": 28.69
+            },
+            "index_depth_plies": 40,
+            "miss_warm_pass": {
+              "count": 19463,
+              "hits": 0,
+              "max_us": 336.81,
+              "p50_us": 9.049999999999999,
+              "p95_us": 13.05,
+              "p99_us": 25.060000000000002
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 51909604
+          },
+          {
+            "collection": "masters-otb",
+            "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 945.26,
+              "p50_us": 11.97,
+              "p95_us": 20.95,
+              "p99_us": 30.0
+            },
+            "hit_warm_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 5538.900000000001,
+              "p50_us": 11.96,
+              "p95_us": 21.46,
+              "p99_us": 33.33
+            },
+            "index_depth_plies": 40,
+            "miss_warm_pass": {
+              "count": 19463,
+              "hits": 0,
+              "max_us": 3592.85,
+              "p50_us": 8.719999999999999,
+              "p95_us": 12.42,
+              "p99_us": 24.871
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 51909604
+          },
+          {
+            "collection": "masters-otb",
+            "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 17758.509,
+              "p50_us": 12.819999999999999,
+              "p95_us": 22.129,
+              "p99_us": 32.81
+            },
+            "hit_warm_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 17002.499,
+              "p50_us": 12.571,
+              "p95_us": 21.88,
+              "p99_us": 32.94
+            },
+            "index_depth_plies": 40,
+            "miss_warm_pass": {
+              "count": 19463,
+              "hits": 0,
+              "max_us": 2030.4899999999998,
+              "p50_us": 10.950000000000001,
+              "p95_us": 14.46,
+              "p99_us": 29.39
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 51909604
+          },
+          {
+            "collection": "masters-otb",
+            "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 591.7900000000001,
+              "p50_us": 12.93,
+              "p95_us": 22.540000000000003,
+              "p99_us": 33.64
+            },
+            "hit_warm_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 6261.19,
+              "p50_us": 12.45,
+              "p95_us": 22.02,
+              "p99_us": 34.3
+            },
+            "index_depth_plies": 40,
+            "miss_warm_pass": {
+              "count": 19463,
+              "hits": 0,
+              "max_us": 10130.87,
+              "p50_us": 10.540000000000001,
+              "p95_us": 13.28,
+              "p99_us": 24.53
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 51909604
+          },
+          {
+            "collection": "masters-otb",
+            "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 12657.730000000001,
+              "p50_us": 13.1,
+              "p95_us": 22.549,
+              "p99_us": 34.31
+            },
+            "hit_warm_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 9132.63,
+              "p50_us": 12.540000000000001,
+              "p95_us": 21.831000000000003,
+              "p99_us": 32.77
+            },
+            "index_depth_plies": 40,
+            "miss_warm_pass": {
+              "count": 19463,
+              "hits": 0,
+              "max_us": 1381.12,
+              "p50_us": 10.28,
+              "p95_us": 13.41,
+              "p99_us": 24.740000000000002
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 51909604
+          },
+          {
+            "collection": "masters-otb",
+            "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 13983.278999999999,
+              "p50_us": 13.48,
+              "p95_us": 23.74,
+              "p99_us": 36.46
+            },
+            "hit_warm_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 4756.12,
+              "p50_us": 12.75,
+              "p95_us": 22.310000000000002,
+              "p99_us": 34.6
+            },
+            "index_depth_plies": 40,
+            "miss_warm_pass": {
+              "count": 19463,
+              "hits": 0,
+              "max_us": 9083.61,
+              "p50_us": 10.84,
+              "p95_us": 13.549,
+              "p99_us": 28.799999999999997
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 51909604
+          },
+          {
+            "collection": "masters-otb",
+            "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 7148.83,
+              "p50_us": 13.17,
+              "p95_us": 22.99,
+              "p99_us": 36.050000000000004
+            },
+            "hit_warm_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 9084.06,
+              "p50_us": 12.35,
+              "p95_us": 21.330000000000002,
+              "p99_us": 31.6
+            },
+            "index_depth_plies": 40,
+            "miss_warm_pass": {
+              "count": 19463,
+              "hits": 0,
+              "max_us": 1876.6,
+              "p50_us": 11.13,
+              "p95_us": 15.149000000000001,
+              "p99_us": 31.35
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 51909604
+          }
+        ],
+        "candidate": [
+          {
+            "collection": "masters-otb",
+            "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 4406.700000000001,
+              "p50_us": 9.72,
+              "p95_us": 18.31,
+              "p99_us": 29.560000000000002
+            },
+            "hit_warm_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 6565.69,
+              "p50_us": 7.94,
+              "p95_us": 15.43,
+              "p99_us": 22.92
+            },
+            "index_depth_plies": 40,
+            "miss_warm_pass": {
+              "count": 19463,
+              "hits": 0,
+              "max_us": 275.08,
+              "p50_us": 7.34,
+              "p95_us": 10.11,
+              "p99_us": 20.34
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 51909604
+          },
+          {
+            "collection": "masters-otb",
+            "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 949.0699999999999,
+              "p50_us": 8.120000000000001,
+              "p95_us": 16.689,
+              "p99_us": 25.32
+            },
+            "hit_warm_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 1246.5910000000001,
+              "p50_us": 8.18,
+              "p95_us": 15.99,
+              "p99_us": 24.4
+            },
+            "index_depth_plies": 40,
+            "miss_warm_pass": {
+              "count": 19463,
+              "hits": 0,
+              "max_us": 418.719,
+              "p50_us": 5.75,
+              "p95_us": 8.92,
+              "p99_us": 16.09
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 51909604
+          },
+          {
+            "collection": "masters-otb",
+            "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 21135.739,
+              "p50_us": 10.0,
+              "p95_us": 19.06,
+              "p99_us": 31.79
+            },
+            "hit_warm_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 2226.97,
+              "p50_us": 9.4,
+              "p95_us": 17.880000000000003,
+              "p99_us": 29.26
+            },
+            "index_depth_plies": 40,
+            "miss_warm_pass": {
+              "count": 19463,
+              "hits": 0,
+              "max_us": 602.4,
+              "p50_us": 7.890999999999999,
+              "p95_us": 9.690000000000001,
+              "p99_us": 22.77
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 51909604
+          },
+          {
+            "collection": "masters-otb",
+            "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 2953.279,
+              "p50_us": 9.75,
+              "p95_us": 18.689,
+              "p99_us": 30.7
+            },
+            "hit_warm_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 27662.039,
+              "p50_us": 9.36,
+              "p95_us": 18.150000000000002,
+              "p99_us": 28.68
+            },
+            "index_depth_plies": 40,
+            "miss_warm_pass": {
+              "count": 19463,
+              "hits": 0,
+              "max_us": 217.32000000000002,
+              "p50_us": 7.880000000000001,
+              "p95_us": 10.7,
+              "p99_us": 24.610999999999997
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 51909604
+          },
+          {
+            "collection": "masters-otb",
+            "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 11234.559,
+              "p50_us": 9.66,
+              "p95_us": 18.55,
+              "p99_us": 29.549
+            },
+            "hit_warm_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 1163.8700000000001,
+              "p50_us": 9.41,
+              "p95_us": 18.468999999999998,
+              "p99_us": 30.4
+            },
+            "index_depth_plies": 40,
+            "miss_warm_pass": {
+              "count": 19463,
+              "hits": 0,
+              "max_us": 1042.1,
+              "p50_us": 7.94,
+              "p95_us": 11.2,
+              "p99_us": 24.23
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 51909604
+          },
+          {
+            "collection": "masters-otb",
+            "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 964.82,
+              "p50_us": 9.78,
+              "p95_us": 18.669999999999998,
+              "p99_us": 30.65
+            },
+            "hit_warm_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 392.07,
+              "p50_us": 9.5,
+              "p95_us": 18.270999999999997,
+              "p99_us": 30.1
+            },
+            "index_depth_plies": 40,
+            "miss_warm_pass": {
+              "count": 19463,
+              "hits": 0,
+              "max_us": 568.04,
+              "p50_us": 7.73,
+              "p95_us": 11.0,
+              "p99_us": 25.42
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 51909604
+          },
+          {
+            "collection": "masters-otb",
+            "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+            "games_sampled": 10000,
+            "hit_first_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 4485.909,
+              "p50_us": 9.94,
+              "p95_us": 18.97,
+              "p99_us": 31.430999999999997
+            },
+            "hit_warm_pass": {
+              "count": 136235,
+              "hits": 136235,
+              "max_us": 3555.089,
+              "p50_us": 9.629999999999999,
+              "p95_us": 18.669999999999998,
+              "p99_us": 30.29
+            },
+            "index_depth_plies": 40,
+            "miss_warm_pass": {
+              "count": 19463,
+              "hits": 0,
+              "max_us": 183.07,
+              "p50_us": 7.8,
+              "p95_us": 9.73,
+              "p99_us": 24.04
+            },
+            "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+            "unique_positions": 51909604
+          }
+        ]
+      }
+    }
+  },
+  "games_requested": 10000,
+  "rounds": 7
+}

@@ -67,3 +67,22 @@ taskset -c 0,1 python3 scripts/bench_legacy_pair.py \
   --server-cpus 6,7 --pairs 5 --rounds 300 \
   --output-dir data/paired-legacy-search
 ```
+
+The [separated-CPU comparison](../../benchmarks/search/PAIRED_SEPARATE_CPU.json) met all proposed HTTP tolerances across five alternating runs. Sequential p50/p95/p99 changed by −4.7%/−7.2%/−13.7%. Concurrent p95 changed by +1.3%, p99 by +1.2%, and throughput by +2.2%. Response bodies and ETags matched on the same pinned legacy snapshots. The in-process warm-hit p95 increased by 12.1% for Elite and 8.5% for Masters in this run, while the earlier shared-CPU run met the in-process limits. These samples predate the CPI decoder reuse change.
+
+The [dedicated CPI repeat](../../benchmarks/search/DEDICATED_CPI_PRE_DECODER.json) used seven alternating pairs and 10,000 sampled games per collection. Elite warm hit and miss p95 increased 5.8% and 13.3%. The final CPI reader reuses one Zstandard decoder context per worker. With this change, the [dedicated CPI comparison](../../benchmarks/search/DEDICATED_CPI.json) found warm hit p95 decreased 25.1% for Elite and 16.9% for Masters. Warm miss p95 decreased 27.8% and 24.6%. All measured warm CPI quantiles met the proposed limits.
+
+```bash
+taskset -c 0,1 python3 scripts/bench_cpi_pair.py \
+  --baseline data/baseline/opening-explorer-main \
+  --candidate target/release/chess-database \
+  --masters data/baseline/datasets/masters-otb \
+  --elite data/baseline/datasets/elite-online \
+  --output data/cpi-search-pair.json
+```
+
+## Compact Elite production checks
+
+The [companion install](../../benchmarks/search/ELITE_R1_BUNDLE_INSTALL.json) reproduced both search artifact hashes against a separate installation of the published Elite snapshot. The installed version passed deep verification and retained the same canonical artifact inventory.
+
+The [native workflow](../../benchmarks/search/ELITE_R1_NATIVE_FLOW.json) verified the search-to-PGN flow, filtered counts and the legacy conditional request. In the [native workload](../../benchmarks/search/ELITE_R1_NATIVE_WORKLOAD.json), player prefix p95 was 12.3 ms and positional page p95 was below 2 ms for the sampled start, common and medium positions. The date-sorted common event name query took 849 ms at p95. The broad initial-position filtered aggregate returned the documented 422 work-limit response. All 300 legacy requests during four-client search overload returned 200. Search admission returned 429 when the single worker was occupied.

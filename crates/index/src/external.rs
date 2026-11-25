@@ -1110,6 +1110,17 @@ mod tests {
         if let Ok(idx) = DiskPositionIndex::open(&p5) {
             assert!(idx.verify_integrity().is_err());
         }
+
+        // A failed decompression must not poison the worker-local decoder.
+        let valid = DiskPositionIndex::open(&valid_cpi).unwrap();
+        let stats = valid
+            .query(compute_position_key(&Chess::default()))
+            .unwrap();
+        assert!(stats.is_some());
+        assert_eq!(
+            valid.verify_integrity().unwrap().total_positions,
+            valid.total_positions()
+        );
     }
 
     #[test]

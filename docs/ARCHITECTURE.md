@@ -213,7 +213,7 @@ Memory limits are strictly enforced across all components:
 | **Deduplication** | Disk-backed SQLite index in staging directory | 256 KiB SQLite cache plus a 512 KiB staging-catalog cache; temp store is disk-backed |
 | **CGB3 Storage** | Single active block buffer ($N = 512$ games) flushed to disk | $\approx 2\text{ MB}$ uncompressed block RAM |
 | **Position Indexing** | External merge sort with partitioned `.crun` spill files | Strictly bounded by `--memory-limit-mib` (default 128 MiB) |
-| **Opening Query** | Memory-mapped sparse index ($34\text{ B/entry}$) + single block cache | $< 10\text{ MB}$ query overhead |
+| **Opening Query** | Memory-mapped sparse index ($34\text{ B/entry}$) and one decoded block per call | The decoder context is worker-local. The existing CPI block size limit bounds the decoded payload. |
 | **HTTP Serving** | Bounded reader pool plus memory-mapped CPI/games.idx | Reader count and request waits are bounded; process RSS includes touched file-backed pages and is measured against the real releases |
 
 > **Measured releases:** Build-step and real-container RSS measurements are recorded in [CORPUS_BUILD.md](CORPUS_BUILD.md) and its Docker integration evidence.
@@ -277,4 +277,4 @@ graph LR
 
 ## 9. Derived search
 
-The [search index](SEARCH_INDEX.md) projects canonical metadata into a bounded-cache SQLite catalog and maps position keys to sorted game occurrences. Search requests use a dedicated concurrency budget and cooperative deadlines for SQLite and postings. A request pins the metadata catalog and postings from the same snapshot. Unfiltered Explorer requests continue to query CPI v2.
+The [search index](SEARCH_INDEX.md) projects canonical metadata into a bounded-cache SQLite catalog and maps position keys to sorted game occurrences. Search requests use a dedicated concurrency budget and cooperative deadlines for SQLite and postings. A request pins the metadata catalog and postings from the same snapshot. Unfiltered Explorer requests continue to query CPI v2. Each worker reuses its Zstandard decoder context while retaining per-query block validation.
