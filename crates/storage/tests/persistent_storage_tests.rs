@@ -1,8 +1,8 @@
-use opening_explorer_core::{
+use chess_database_core::{
     compute_stable_game_id, Collection, CompactMove, GameMetadata, GameResult,
     IngestionCompletionStatus, IngestionStats, ParsedGame,
 };
-use opening_explorer_storage::{
+use chess_database_storage::{
     compute_file_sha256, resolve_dataset_snapshot, verify_dataset, CurationPolicyMetadata,
     DatasetReader, DatasetWriter, DatasetWriterConfig, FileChecksumMetadata, GameLookupReader,
     GameLookupWriter, ShardReader, ShardWriter, SourceArchiveMetadata, StorageError,
@@ -62,7 +62,7 @@ fn test_shard_writer_reader_round_trip() {
 
     // Create 2 blocks with 10 games each
     for b in 0..2 {
-        let mut block = opening_explorer_storage::GameBlock::new(Collection::MastersOtb);
+        let mut block = chess_database_storage::GameBlock::new(Collection::MastersOtb);
         for g in 0..10 {
             let game = sample_game(
                 (b * 10 + g) as u64,
@@ -112,13 +112,13 @@ fn test_lookup_writer_reader_binary_search() {
     let lookup_path = tmp.path().join("games.idx");
 
     let mut writer = GameLookupWriter::new(lookup_path.clone(), Collection::MastersOtb);
-    writer.add_entry(500, opening_explorer_core::GameLocation::new(0, 1, 3));
-    writer.add_entry(100, opening_explorer_core::GameLocation::new(0, 0, 0));
-    writer.add_entry(300, opening_explorer_core::GameLocation::new(0, 0, 5));
-    writer.add_entry(700, opening_explorer_core::GameLocation::new(1, 0, 2));
+    writer.add_entry(500, chess_database_core::GameLocation::new(0, 1, 3));
+    writer.add_entry(100, chess_database_core::GameLocation::new(0, 0, 0));
+    writer.add_entry(300, chess_database_core::GameLocation::new(0, 0, 5));
+    writer.add_entry(700, chess_database_core::GameLocation::new(1, 0, 2));
 
     // Collision case: identical game_id with different location
-    writer.add_entry(300, opening_explorer_core::GameLocation::new(0, 0, 6));
+    writer.add_entry(300, chess_database_core::GameLocation::new(0, 0, 6));
 
     let (path, size, sha) = writer.finish().unwrap();
     assert_eq!(path, lookup_path);

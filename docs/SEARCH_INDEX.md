@@ -15,7 +15,7 @@ Player name and prefix discovery select alias matches before fetching bounded pl
 Install the indexed release package into an isolated, versioned dataset root using the [release installer](DATASET_RELEASES.md). Build the CLI and enrich the selected active version.
 
 ```bash
-cargo build --locked --release --package opening-explorer-cli
+cargo build --locked --release --package chess-database-cli
 target/release/chess-database build-search-index \
   --dataset data/releases/elite-online --memory-limit-mib 128
 target/release/chess-database verify-search-index \
@@ -71,3 +71,10 @@ The bundle directory contains `search-index.json` and the two `search/` artifact
 ## Measurement
 
 See the [search index experiments](research/search-index-experiments.md) for the sample layout comparison and reproducible legacy performance gate. Use each production collection separately to measure index construction, verification, search latency and mixed traffic. Full coverage increases the number of predominantly rare position keys and can make the position directory substantially larger.
+
+
+## Filtered aggregation at runtime
+
+An enabled filtered Explorer collection can build a bounded in-memory ordinal projection from the verified SQLite catalog when its snapshot opens. It contains ratings, date bounds and results. At most 4,000,000 games are projected per collection, with up to 16 bytes per game. The projection does not change the bundled artifact format. During a reload, both the old and new snapshots can briefly retain their projections.
+
+Rating, date, year and result queries can scan up to 20 MiB of one position's encoded postings with no SQL row merge. They use the first occurrence per game and the same known-result and depth rules as CPI. Other filters use the SQL/posting planner with its original work cap. Both paths have a cooperative deadline. A filter of `min_plies=0` adds no restriction and uses CPI directly when it is the only filter.

@@ -6,7 +6,7 @@ use crate::state::AppState;
 use axum::extract::{Path, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
-use opening_explorer_core::Collection;
+use chess_database_core::Collection;
 use std::sync::Arc;
 use std::time::Duration;
 

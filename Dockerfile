@@ -7,7 +7,7 @@ RUN apt-get update \
 WORKDIR /workspace
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
-RUN cargo build --locked --release --package opening-explorer-cli
+RUN cargo build --locked --release --package chess-database-cli
 
 FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc AS runtime
 

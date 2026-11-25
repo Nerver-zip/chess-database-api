@@ -6,7 +6,7 @@ status: current
 
 # Search API
 
-This guide covers the discovery and search endpoints added alongside the existing Opening Explorer API. For the legacy position and PGN contracts, see the [API Reference](API_REFERENCE.md). Dataset terms are separate from the software license; see [Licensing](LICENSING.md), especially [the current Masters OTB policy](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment).
+This guide covers the discovery and search endpoints added alongside the legacy Opening Explorer routes. For the legacy position and PGN contracts, see the [API Reference](API_REFERENCE.md). Dataset terms are separate from the software license; see [Licensing](LICENSING.md), especially [the current Masters OTB policy](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment).
 
 The examples use a local service at `http://127.0.0.1:8080` and the `elite-online` collection. Replace names and event prefixes with values present in the installed snapshot. Each collection is queried separately; FIDE Elo and Lichess Glicko-2 values and counts are never combined.
 
@@ -50,13 +50,13 @@ chess-database serve \
   --elite-discovery true \
   --elite-game-metadata true \
   --search-max-page-size 100 \
-  --search-concurrency 1 \
+  --search-concurrency 2 \
   --search-deadline-ms 2000
 ~~~
 
 The discovery flags are `--masters-discovery` and `--elite-discovery`. The game metadata flags are `--masters-game-metadata` and `--elite-game-metadata`. They also accept environment variables `CHESS_DATABASE_MASTERS_DISCOVERY`, `CHESS_DATABASE_ELITE_DISCOVERY`, `CHESS_DATABASE_MASTERS_GAME_METADATA`, and `CHESS_DATABASE_ELITE_GAME_METADATA`.
 
-Search controls are `--search-max-page-size` (1–100, default 100), `--search-concurrency` (1–8, default 1), and `--search-deadline-ms` (greater than zero and at most 15000, default 2000). Search requests either receive a worker immediately or return `search_busy`. A separate overall HTTP request timeout also applies. Move-sequence queries default to a maximum of 200 plies and can be configured up to 512 with `--max-move-plies`.
+Search controls are `--search-max-page-size` (1–100, default 100), `--search-concurrency` (1–8, default 2), and `--search-deadline-ms` (greater than zero and at most 15000, default 2000). Search requests can wait in a bounded queue for up to 100 ms. Only one filtered aggregation can execute at a time. Saturation returns `search_busy`. A separate overall HTTP request timeout also applies. Move-sequence queries default to a maximum of 200 plies and can be configured up to 512 with `--max-move-plies`.
 
 ## 3. Game search
 
@@ -277,11 +277,13 @@ Errors use the standard JSON envelope `{"error":{"code":"...","message":"..."}}`
 | 408 | `search_timeout`, `request_timeout` | Search-specific or overall HTTP request deadline elapsed. |
 | 409 | `stale_cursor` | Cursor or supplied dataset version belongs to a different snapshot. Restart from the current snapshot. |
 | 422 | `search_work_limit` | Query exceeded a bounded work budget. Narrow the filters or remove exact counting. |
-| 429 | `search_busy` | All configured search workers are occupied. Retry after a short delay. |
+| 429 | `search_busy` | The search or aggregation queue is full or the admission wait expired. |
 | 503 | `search_unavailable`, `collection_unavailable` | Required search index or collection is unavailable. |
 | 500 | `storage_error`, `internal_error` | Server-side failure. |
 
 The query string is limited to 8192 bytes. Search is bounded by page size, work budget, deadline, and configured concurrency. A broad position query, exact count, or broad metadata filter can exceed the work budget; the API returns an error rather than a partial result.
+
+For `search_busy`, retry only if the query still describes the current board or input. Debounce autocomplete and cancel superseded navigation. For `search_timeout`, show that the search expired and consider asking for tighter inputs. For a work-limit error, narrow the filters or use the unfiltered CPI endpoint when aggregate corpus statistics are acceptable. Do not present errors as zero matching games.
 
 ## 9. Evalis integration
 

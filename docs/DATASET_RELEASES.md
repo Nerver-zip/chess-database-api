@@ -61,19 +61,19 @@ python3 scripts/release_assets.py reconstruct \
   --manifest releases/masters-otb-r3.json --dist-dir dist/ --output-dir reconstructed/
 
 # 4. Install the indexed package into a dataset root (never into a live root in use)
-cargo build --release -p opening-explorer-cli
+cargo build --release -p chess-database-cli
 python3 scripts/release_assets.py install \
   --manifest releases/masters-otb-r3.json \
   --package reconstructed/masters-otb-r3-indexed.tar \
   --target /srv/opening-explorer/masters-otb \
-  --codb target/release/opening-explorer
+  --codb target/release/chess-database
 
 # 5. Check the installed snapshot and query it
-target/release/opening-explorer verify --dataset /srv/opening-explorer/masters-otb --deep
-target/release/opening-explorer query --dataset /srv/opening-explorer/masters-otb --moves "e2e4" --json
+target/release/chess-database verify --dataset /srv/opening-explorer/masters-otb --deep
+target/release/chess-database query --dataset /srv/opening-explorer/masters-otb --moves "e2e4" --json
 ```
 
-For Elite Online R1, use `releases/elite-online-r1.json`, the reconstructed `elite-online-r1-indexed.tar`, and a separate target such as `/srv/opening-explorer/elite-online`. The installer verifies the collection identity and CPI depth from the package manifest. Query an opening with `target/release/opening-explorer query --dataset /srv/opening-explorer/elite-online --moves "e2e4" --json`.
+For Elite Online R1, use `releases/elite-online-r1.json`, the reconstructed `elite-online-r1-indexed.tar`, and a separate target such as `/srv/opening-explorer/elite-online`. The installer verifies the collection identity and CPI depth from the package manifest. Query an opening with `target/release/chess-database query --dataset /srv/opening-explorer/elite-online --moves "e2e4" --json`.
 
 The complete Elite download and installation sequence is:
 
@@ -85,24 +85,24 @@ python3 scripts/release_assets.py verify \
 python3 scripts/release_assets.py reconstruct \
   --manifest releases/elite-online-r1.json \
   --dist-dir elite-dist/ --output-dir elite-reconstructed/
-cargo build --release -p opening-explorer-cli
+cargo build --release -p chess-database-cli
 python3 scripts/release_assets.py install \
   --manifest releases/elite-online-r1.json \
   --package elite-reconstructed/elite-online-r1-indexed.tar \
   --target /srv/opening-explorer/elite-online \
-  --codb target/release/opening-explorer
-target/release/opening-explorer verify \
+  --codb target/release/chess-database
+target/release/chess-database verify \
   --dataset /srv/opening-explorer/elite-online --deep
-target/release/opening-explorer query \
+target/release/chess-database query \
   --dataset /srv/opening-explorer/elite-online --moves "e2e4" --json
 zstd -dc elite-dist/elite-online-r1-filtered.pgn.zst | head
 ```
 
 After publication, download the individual products from the same release. `elite-online-r1-SHA256SUMS.txt` lists their SHA-256 digests; the `verify` command also checks every uploaded part and reconstructed product against the committed manifest.
 
-`install` extracts the package into a staging directory, checks its release record, runs `opening-explorer verify --deep`, publishes it atomically with `opening-explorer publish`, and deep-verifies the target. A failed step leaves the previously active snapshot unchanged.
+`install` extracts the package into a staging directory, checks its release record, runs `chess-database verify --deep`, publishes it atomically with `chess-database publish`, and deep-verifies the target. A failed step leaves the previously active snapshot unchanged.
 
-**Rollback.** Earlier versions are kept under `versions/`. To reactivate one, run `opening-explorer publish --candidate <versions/build-id> --target <root> --collection masters-otb`, then verify and restart the service.
+**Rollback.** Earlier versions are kept under `versions/`. To reactivate one, run `chess-database publish --candidate <versions/build-id> --target <root> --collection masters-otb`, then verify and restart the service.
 
 **The filtered PGN** is a standard Zstandard stream: `zstd -dc <release>-filtered.pgn.zst | head`, or any Zstandard-capable reader. Verify its SHA-256 before extracting or processing it.
 
@@ -119,7 +119,7 @@ After publication, download the individual products from the same release. `elit
 
 Elite Online R1 exports the complete stored mainline for each of its 429,150 canonical games, not a 30-ply truncation. It uses persisted metadata and has no attribution sidecar, so no sidecar-derived fields are fabricated. As with Masters, comments, NAGs, variations, clock annotations, and original termination annotations are unavailable after ingestion and are not recreated.
 
-The exporter is `opening-explorer export-pgn --dataset <snapshot> --output <file>[.zst] [--report <json>]`. It refuses to overwrite an output file and writes through a `.partial` file that is renamed only after a complete, checksummed stream.
+The exporter is `chess-database export-pgn --dataset <snapshot> --output <file>[.zst] [--report <json>]`. It refuses to overwrite an output file and writes through a `.partial` file that is renamed only after a complete, checksummed stream.
 
 ## 6. Licensing and the distribution gate
 
@@ -147,9 +147,9 @@ The workflow never rebuilds data. It asks GitHub not to mark the dataset release
 
 | Evidence | Produced by | Covers |
 | --- | --- | --- |
-| `benchmarks/gigabase/PGN_EXPORT_VERIFICATION_R3.json` | `scripts/release_pgn_verify.py` (scratch venv: python-chess, zstandard) | Masters headers, sidecar tags, `Result`, `PlyCount`, and SAN token count of every game against a direct decode of the CGB3 shards; full python-chess replay of every 16th game (205,277 of 3,284,429), comparing the replayed moves; probe positions compared with `opening-explorer query` |
-| `benchmarks/gigabase/PGN_REIMPORT_LEGALITY_R3.json` | `opening-explorer build` over the whole filtered PGN | All 3,284,429 games reimported through the project's own ingest (shakmaty, not an independent parser): 0 illegal, 0 malformed, 0 variant rejections. Its policy and duplicate counts come from the default Masters policy and are not findings about the export |
-| `benchmarks/gigabase/PGN_EXPORT_R3_REPORT.json` | `opening-explorer export-pgn --report` | Exact counts, omitted tags, and the sidecar hash used |
+| `benchmarks/gigabase/PGN_EXPORT_VERIFICATION_R3.json` | `scripts/release_pgn_verify.py` (scratch venv: python-chess, zstandard) | Masters headers, sidecar tags, `Result`, `PlyCount`, and SAN token count of every game against a direct decode of the CGB3 shards; full python-chess replay of every 16th game (205,277 of 3,284,429), comparing the replayed moves; probe positions compared with `chess-database query` |
+| `benchmarks/gigabase/PGN_REIMPORT_LEGALITY_R3.json` | `chess-database build` over the whole filtered PGN | All 3,284,429 games reimported through the project's own ingest (shakmaty, not an independent parser): 0 illegal, 0 malformed, 0 variant rejections. Its policy and duplicate counts come from the default Masters policy and are not findings about the export |
+| `benchmarks/gigabase/PGN_EXPORT_R3_REPORT.json` | `chess-database export-pgn --report` | Exact counts, omitted tags, and the sidecar hash used |
 | `benchmarks/gigabase/INSTALL_VERIFICATION_R3.json` | Reconstruction, installation, rollback, and API run on the prepared assets | Reconstructed hashes, install into a scratch root, deep verification, rollback, and API responses. The published asset digests reported by GitHub equal the manifest checksums |
 
 Elite Online R1 verification is kept separately under `benchmarks/elite-online/`; it checks every exported game against the canonical CGB3 records and independently replays legal mainlines, including results, supported metadata, final positions, and representative index queries. Installation and HTTP/API verification use the packaged assets and a separate scratch root.

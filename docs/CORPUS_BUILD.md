@@ -8,7 +8,7 @@ status: current
 
 This document is the operational counterpart of CORPUS_AND_DEDUPLICATION.md (what is accepted), LICENSING.md (what may be redistributed), and ARCHITECTURE.md (where the tooling sits). It covers pinned source builds, event qualification, package bootstrap, and serving through opening-explorer or Docker Compose.
 
-The orchestration (`scripts/corpus.sh` → `scripts/corpus.py`) never reimplements ingestion, curation, deduplication, indexing, or publication. The pinned-source workflow uses only the Python standard library; the opt-in local `.7z` extraction command uses the pinned optional dependency in `scripts/requirements-corpus-archive.txt`. The tool invokes `opening-explorer build`, `opening-explorer build-index`, `opening-explorer verify --deep`, and `opening-explorer report` for catalog releases.
+The orchestration (`scripts/corpus.sh` → `scripts/corpus.py`) never reimplements ingestion, curation, deduplication, indexing, or publication. The pinned-source workflow uses only the Python standard library; the opt-in local `.7z` extraction command uses the pinned optional dependency in `scripts/requirements-corpus-archive.txt`. The tool invokes `chess-database build`, `chess-database build-index`, `chess-database verify --deep`, and `chess-database report` for catalog releases.
 
 ## 1. Pipeline
 
@@ -19,22 +19,22 @@ corpus/catalog.json (pinned sources, licenses, publisher SHA-256)
 data/sources/<collection>/*.pgn.zst              (git-ignored)
         |  corpus.sh build        verifies every archive again, then:
         v
-opening-explorer build --manifest  ->  policy + dedupe + CGB3 + games.idx   (private workspace data/work/)
-opening-explorer build-index       ->  CPI v2 positions.cpi (bounded memory)
-opening-explorer verify --deep     ->  deep integrity gate
-opening-explorer report            ->  quality report
-        |  opening-explorer publish moves a complete immutable version and atomically switches current
+chess-database build --manifest  ->  policy + dedupe + CGB3 + games.idx   (private workspace data/work/)
+chess-database build-index       ->  CPI v2 positions.cpi (bounded memory)
+chess-database verify --deep     ->  deep integrity gate
+chess-database report            ->  quality report
+        |  chess-database publish moves a complete immutable version and atomically switches current
         v
 data/releases/<collection>/ { versions/<id>/, current, RELEASE/ }
         |-- corpus.sh package  ->  data/packages/<collection>-<version>.tar + .sha256
-        '-- corpus.sh serve    ->  opening-explorer serve (both collections)
+        '-- corpus.sh serve    ->  chess-database serve (both collections)
 ```
 
 ## 2. Prerequisites
 
 | Requirement | Notes |
 | :--- | :--- |
-| Rust stable toolchain | `cargo build --release -p opening-explorer-cli` produces `target/release/opening-explorer`. |
+| Rust stable toolchain | `cargo build --release -p chess-database-cli` produces `target/release/chess-database`. |
 | Python 3.11+ | Standard library for the pinned catalog workflow. Install `scripts/requirements-corpus-archive.txt` only when using local `.7z` extraction. |
 | Network | HTTPS to `database.lichess.org`. Offline verification (`--offline`, `verify-sources`) needs none. |
 | Disk | See §3. The data directory defaults to `./data` (git-ignored); override with `--data-dir` or `OPENING_EXPLORER_DATA_DIR`. The tool refuses a data directory inside the repository unless it is under a git-ignored directory. |
@@ -113,7 +113,7 @@ The command requires one regular member with a plain basename, checks the declar
 
 The separate `scripts/local_gigabase_eval.py` workflow does not add Gigabase to `corpus/catalog.json` or the approved-source catalog. It verified the archive and member against local evidence, built the opt-in Gigabase policy, and created a package explicitly marked local-evaluation-only. The archive and PGN are not included in the package. The existing R3 snapshot is the active Masters snapshot. Its source is still outside the approved source catalog (a build-tooling control), while its distribution and public non-commercial use rest on the maintainer's recorded decisions ([LICENSING.md](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment)). The package's "local-evaluation-only" marking is a build-time record that predates those decisions and is preserved unmodified.
 
-For the build, the workflow writes a one-source manifest in the ignored work root. It pins the extracted PGN to its registered local SHA-256, leaves the source URL null, and labels the license as `Publisher claim: CC BY-NC 4.0; upstream rights unresolved`. It invokes `opening-explorer build --manifest` and checks that both the build report and persistent dataset manifest contain exactly that registered filename, local hash, size, URL, and license label. In this local path, `checksum_verified: true` means Opening Explorer matched the build-time bytes to the locally pinned manifest hash; it is not publisher authentication. The registration still records no publisher checksum, unresolved upstream rights, and `release_eligible: false`. See [DATA_CONTRACTS.md](DATA_CONTRACTS.md) for the general checksum field contract.
+For the build, the workflow writes a one-source manifest in the ignored work root. It pins the extracted PGN to its registered local SHA-256, leaves the source URL null, and labels the license as `Publisher claim: CC BY-NC 4.0; upstream rights unresolved`. It invokes `chess-database build --manifest` and checks that both the build report and persistent dataset manifest contain exactly that registered filename, local hash, size, URL, and license label. In this local path, `checksum_verified: true` means Opening Explorer matched the build-time bytes to the locally pinned manifest hash; it is not publisher authentication. The registration still records no publisher checksum, unresolved upstream rights, and `release_eligible: false`. See [DATA_CONTRACTS.md](DATA_CONTRACTS.md) for the general checksum field contract.
 
 Promote the already-built R3 snapshot without rerunning ingestion or indexing. The command verifies the release identity and every artifact hash, performs deep Opening Explorer verification, copies the candidate to a same-filesystem staging directory, and invokes the existing atomic storage publisher. The original evaluation snapshot is left intact; the previous active version remains under `versions/` for rollback.
 
@@ -121,7 +121,7 @@ Promote the already-built R3 snapshot without rerunning ingestion or indexing. T
 python3 scripts/promote_gigabase_r3.py \
   --candidate data/work/gigabase-eval/docker-r3-smoke/releases/masters-otb/versions/codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40 \
   --target data/releases/masters-otb \
-  --opening-explorer target/release/opening-explorer \
+  --opening-explorer target/release/chess-database \
   --publish
 ~~~
 
@@ -136,16 +136,16 @@ tar -xf "$archive" -C data/work/gigabase-r3-install
 python3 scripts/promote_gigabase_r3.py \
   --candidate data/work/gigabase-r3-install/masters-otb/versions/codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40 \
   --target data/releases/masters-otb \
-  --opening-explorer target/release/opening-explorer \
+  --opening-explorer target/release/chess-database \
   --publish
 ~~~
 
 Routine `corpus.sh build` and `bootstrap` refuse to replace an active Gigabase local-evaluation release. An intentional replacement requires the explicit `--allow-replacing-local-evaluation-release` option. Rollback uses the verified publisher with a staged copy of the retained prior version, as described in [Docker deployment](DOCKER_DEPLOYMENT.md#private-gigabase-r3-deployment).
 
-Before a production-scale qualification build, run the full-stream `opening-explorer inventory` scan with `--policy-impact-output`. It records header-level r3 eligibility using the same production header-policy functions and reconciles the report to the scanned source. Those counts are candidates only: they do not establish legal moves, final eligibility after termination checks, or accepted unique games. The production build must then replay and account for the complete PGN. For r3, pass an explicit `--scratch-dir`; the local runner sets `TMPDIR` to that ignored directory and stores per-process peak RSS, wall time, and sampled allocated bytes for ingestion and CPI indexing in `RELEASE/resource_metrics.json`.
+Before a production-scale qualification build, run the full-stream `chess-database inventory` scan with `--policy-impact-output`. It records header-level r3 eligibility using the same production header-policy functions and reconciles the report to the scanned source. Those counts are candidates only: they do not establish legal moves, final eligibility after termination checks, or accepted unique games. The production build must then replay and account for the complete PGN. For r3, pass an explicit `--scratch-dir`; the local runner sets `TMPDIR` to that ignored directory and stores per-process peak RSS, wall time, and sampled allocated bytes for ingestion and CPI indexing in `RELEASE/resource_metrics.json`.
 
 ```bash
-target/release/opening-explorer inventory \
+target/release/chess-database inventory \
   --input data/sources/lumbra/extracted/LumbrasGigabase_OTB_Complete.pgn \
   --output benchmarks/gigabase/INVENTORY.json \
   --policy-impact-output benchmarks/gigabase/POLICY_IMPACT.json \
@@ -162,28 +162,28 @@ python3 scripts/local_gigabase_eval.py build \
   --work-root data/work/gigabase-eval/policy-impact-r3 \
   --output-root data/work/gigabase-eval/candidate-r3 \
   --depth-plies 40 --memory-limit-mib 128 \
-  --opening-explorer target/release/opening-explorer
+  --opening-explorer target/release/chess-database
 
 python3 scripts/local_gigabase_eval.py package \
   --root data/work/gigabase-eval/candidate \
   --output-dir data/work/gigabase-eval/packages \
-  --opening-explorer target/release/opening-explorer
+  --opening-explorer target/release/chess-database
 
 python3 scripts/local_gigabase_eval.py bootstrap \
   --package data/work/gigabase-eval/packages/masters-otb-<version>-local-evaluation.tar \
   --previous-root data/releases/masters-otb \
   --target data/work/gigabase-eval/deploy/masters-otb \
-  --opening-explorer target/release/opening-explorer
+  --opening-explorer target/release/chess-database
 ```
 
-Bootstrap deep-verifies the package, retains the previous snapshot in the isolated evaluation root, atomically activates the Gigabase snapshot, and runs an offline opening query. A rollback republishes the retained previous immutable version through `opening-explorer publish`:
+Bootstrap deep-verifies the package, retains the previous snapshot in the isolated evaluation root, atomically activates the Gigabase snapshot, and runs an offline opening query. A rollback republishes the retained previous immutable version through `chess-database publish`:
 
 ```bash
 previous_id="$(basename "$(readlink -f data/releases/masters-otb/current)")"
 python3 scripts/local_gigabase_eval.py rollback \
   --target data/work/gigabase-eval/deploy/masters-otb \
   --version "$previous_id" \
-  --opening-explorer target/release/opening-explorer
+  --opening-explorer target/release/chess-database
 ```
 
 To run a position-statistics-only service, set `OPENING_EXPLORER_MASTERS_RELEASE_DIR=data/work/gigabase-eval/deploy/masters-otb` and `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=false` before starting Compose; this removes only the game route. By default retrieval is enabled and is a supported public capability ([LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment)). The package is not an approved-catalog release. The publisher's CC BY-NC 4.0 statement is retained as a publisher claim, the publisher checksum is `null`, and unresolved upstream rights are recorded in `RELEASE/RELEASE.json` and `RELEASE/DATASET_LICENSE.txt`, which predate the maintainer's decisions and are preserved unmodified.
@@ -218,10 +218,10 @@ Behavior (all covered by offline tests):
 
 `build` first re-verifies every archive and **refuses to build from unverified bytes**. It then runs, in a private workspace `data/work/<run-id>/`:
 
-1. `opening-explorer build --manifest … --report-json …` (sources in deterministic `(period, id)` order, disk-backed deduplication),
-2. `opening-explorer build-index --depth-plies N --memory-limit-mib 128 --json`,
-3. `opening-explorer verify --deep`,
-4. `opening-explorer report`,
+1. `chess-database build --manifest … --report-json …` (sources in deterministic `(period, id)` order, disk-backed deduplication),
+2. `chess-database build-index --depth-plies N --memory-limit-mib 128 --json`,
+3. `chess-database verify --deep`,
+4. `chess-database report`,
 
 writes RELEASE/ (provenance, license notice, reports, per-step wall time, peak RSS, and peak workspace disk) inside the completed immutable snapshot. The Rust storage publisher deeply verifies the candidate, moves it into the stable data/releases/<collection>/versions/<id> directory, then atomically replaces the relative current symlink. It preserves prior version directories and never removes the active path during transition. A failure before the pointer switch leaves the prior active snapshot untouched; a failed post-switch validation atomically restores the prior target. Failed work and any unreferenced promoted candidate are retained for diagnosis.
 
@@ -247,12 +247,12 @@ data/releases/masters-otb/
 ## 7. Verify
 
 ```bash
-./scripts/corpus.sh verify                         # opening-explorer verify --deep + artifact re-hash for both releases
-./target/release/opening-explorer verify --dataset data/releases/masters-otb --deep
+./scripts/corpus.sh verify                         # chess-database verify --deep + artifact re-hash for both releases
+./target/release/chess-database verify --dataset data/releases/masters-otb --deep
 ./scripts/corpus.sh report --collection all        # regenerate quality reports under data/reports/
 ```
 
-`opening-explorer verify --deep` checks the manifest, shard block checksums, `games.idx`, CPI integrity, collection identity, game counts, and the accounting identity `total_encountered = accepted_unique + confirmed_duplicates + superseded_prior + rejected_by_policy + rejected_variant + rejected_illegal + rejected_malformed + quarantined`.
+`chess-database verify --deep` checks the manifest, shard block checksums, `games.idx`, CPI integrity, collection identity, game counts, and the accounting identity `total_encountered = accepted_unique + confirmed_duplicates + superseded_prior + rejected_by_policy + rejected_variant + rejected_illegal + rejected_malformed + quarantined`.
 
 ## 8. Package, Serve, and Query
 
@@ -263,14 +263,14 @@ data/releases/masters-otb/
 ./scripts/corpus.sh verify-package --archive data/packages/masters-otb-<version>.tar
 ```
 
-The `.tar` contains the current version directory (including `positions.cpi`, shards, `games.idx`, `manifest.json`), the root symlinks, and `RELEASE/` (license notice included); it excludes lock files, the superseded pre-index version, and temporary files. The archive is written deterministically (sorted names, zero mtimes and owners), so the same release yields the same bytes. `package` emits `<archive>.sha256`, then extracts into a fresh directory, re-hashes every artifact, runs `opening-explorer verify --deep`, and executes a query before reporting success. This corpus package is a verified local build artifact. Public release products are prepared from an existing verified snapshot by [`scripts/release_assets.py`](../scripts/release_assets.py) and published only through the reviewed manual workflow described in [Dataset Releases](DATASET_RELEASES.md).
+The `.tar` contains the current version directory (including `positions.cpi`, shards, `games.idx`, `manifest.json`), the root symlinks, and `RELEASE/` (license notice included); it excludes lock files, the superseded pre-index version, and temporary files. The archive is written deterministically (sorted names, zero mtimes and owners), so the same release yields the same bytes. `package` emits `<archive>.sha256`, then extracts into a fresh directory, re-hashes every artifact, runs `chess-database verify --deep`, and executes a query before reporting success. This corpus package is a verified local build artifact. Public release products are prepared from an existing verified snapshot by [`scripts/release_assets.py`](../scripts/release_assets.py) and published only through the reviewed manual workflow described in [Dataset Releases](DATASET_RELEASES.md).
 
 ### 8.2 Serve
 
 ```bash
 ./scripts/corpus.sh serve                       # 127.0.0.1:8080
 # equivalent:
-./target/release/opening-explorer serve \
+./target/release/chess-database serve \
   --masters-dataset data/releases/masters-otb \
   --elite-dataset   data/releases/elite-online \
   --host 127.0.0.1 --port 8080 \
@@ -286,7 +286,7 @@ curl -s http://127.0.0.1:8080/v1/collections
 curl -s 'http://127.0.0.1:8080/v1/explorer/position?collection=masters-otb&moves=e4,e5,Nf3'
 curl -s 'http://127.0.0.1:8080/v1/explorer/position?collection=elite-online&moves=e4,e5,Nf3'
 curl -s 'http://127.0.0.1:8080/v1/collections/masters-otb/games/<stable-id>'   # PGN
-./target/release/opening-explorer query --dataset data/releases/masters-otb --moves "e4,e5,Nf3" --json  # must match HTTP
+./target/release/chess-database query --dataset data/releases/masters-otb --moves "e4,e5,Nf3" --json  # must match HTTP
 ```
 
 Stable game IDs are listed in `games.idx` (32-byte header, 16-byte records, 32-byte footer; see [DATA_CONTRACTS.md](DATA_CONTRACTS.md#23-global-game-lookup-gamesidx)); `corpus.sh http-check` samples them.
@@ -297,7 +297,7 @@ Stable game IDs are listed in `games.idx` (32-byte header, 16-byte records, 32-b
 ./scripts/corpus.sh http-check      # starts a server, runs the checks, writes data/reports/http_check.json
 ```
 
-It asserts, per collection and against the real release: collection identity and `dataset_version` equal to the manifest; `/v1/collections` metadata; W+D+L reconciliation at the position and per candidate move; candidate moves are legal (each is replayed through the API); HTTP equals `opening-explorer query` on a stratified position sample (common, mid-frequency, rare, beyond-depth, absent, and transposition pairs); transposed move orders return identical statistics; invalid FEN, illegal moves, ambiguous or missing positions, and unsupported parameters are rejected with 400; real stored games are retrieved and equal `opening-explorer get-game`; ids from one collection return 404 in the other; conditional requests return 304; and latency, concurrency (1–32 workers), and startup time are measured.
+It asserts, per collection and against the real release: collection identity and `dataset_version` equal to the manifest; `/v1/collections` metadata; W+D+L reconciliation at the position and per candidate move; candidate moves are legal (each is replayed through the API); HTTP equals `chess-database query` on a stratified position sample (common, mid-frequency, rare, beyond-depth, absent, and transposition pairs); transposed move orders return identical statistics; invalid FEN, illegal moves, ambiguous or missing positions, and unsupported parameters are rejected with 400; real stored games are retrieved and equal `opening-explorer get-game`; ids from one collection return 404 in the other; conditional requests return 304; and latency, concurrency (1–32 workers), and startup time are measured.
 
 ## 9. Measured Results and Current Release
 
@@ -386,7 +386,7 @@ The Elite Online R1 measurements come from `benchmarks/elite-online/REBUILD_VERI
 
 At 16–32 client processes the shared four-core host is oversubscribed, increasing tail latency; these are single-machine measurements, not dedicated-host capacity claims.
 
-In-process lookups (`opening-explorer bench-lookup`, 5,000 sampled games; excludes HTTP, JSON, and SAN):
+In-process lookups (`chess-database bench-lookup`, 5,000 sampled games; excludes HTTP, JSON, and SAN):
 
 | Measure | `masters-otb` | `elite-online` |
 | :--- | ---: | ---: |
@@ -395,9 +395,9 @@ In-process lookups (`opening-explorer bench-lookup`, 5,000 sampled games; exclud
 
 ### 9.4 Correctness, package, and Docker evidence
 
-The real HTTP/CLI run passed **414/414 checks** with **262 stratified position comparisons** and no mismatches. It checked health/readiness, both collection identities, legal candidates and W/D/L totals, invalid input errors, cross-collection game isolation, and stored PGN retrieval. For `moves=e4,e5,Nf3`, Masters returned **3,902** games (W 1,294 / D 1,690 / B 918; top moves Nc6 3,501, Nf6 353, d6 46); Elite returned **30,390** (W 14,325 / D 2,404 / B 13,661; top moves Nc6 23,951, Nf6 3,291, d6 1,799). Both HTTP bodies matched `opening-explorer query --json`; each collection returned a real stored PGN. Full bodies and PGN hashes are in [`http_examples.json`](../benchmarks/corpus/http_examples.json).
+The real HTTP/CLI run passed **414/414 checks** with **262 stratified position comparisons** and no mismatches. It checked health/readiness, both collection identities, legal candidates and W/D/L totals, invalid input errors, cross-collection game isolation, and stored PGN retrieval. For `moves=e4,e5,Nf3`, Masters returned **3,902** games (W 1,294 / D 1,690 / B 918; top moves Nc6 3,501, Nf6 353, d6 46); Elite returned **30,390** (W 14,325 / D 2,404 / B 13,661; top moves Nc6 23,951, Nf6 3,291, d6 1,799). Both HTTP bodies matched `chess-database query --json`; each collection returned a real stored PGN. Full bodies and PGN hashes are in [`http_examples.json`](../benchmarks/corpus/http_examples.json).
 
-The final Masters and Elite package SHA-256 values are recorded in [`package_checksums.json`](../benchmarks/corpus/package_checksums.json). A fresh Path A bootstrap verified both sidecars, extracted both immutable release trees, and passed `opening-explorer verify --deep` for each collection. Path B remains an explicit source rebuild; it downloads the pinned 8.66 GB archive set only when `bootstrap --rebuild` is run.
+The final Masters and Elite package SHA-256 values are recorded in [`package_checksums.json`](../benchmarks/corpus/package_checksums.json). A fresh Path A bootstrap verified both sidecars, extracted both immutable release trees, and passed `chess-database verify --deep` for each collection. Path B remains an explicit source rebuild; it downloads the pinned 8.66 GB archive set only when `bootstrap --rebuild` is run.
 
 Elite Online R1 was separately installed from its prepared 210,370,560-byte indexed package into a scratch collection root. A one-bit-corrupted package was rejected by its SHA-256 check while the previous `current` pointer still selected a synthetic one-game Elite seed; the valid package then installed and passed deep verification at 429,150 games. The seed version remained available and was atomically restored and deep-verified as the rollback target. An API instance started with only `--elite-dataset` passed health, readiness, collection listing, a position query matching CLI results (30,390 games for `e4 e5 Nf3`), canonical PGN retrieval, and invalid-move rejection, then shut down cleanly. Details are in [`REBUILD_VERIFICATION_R1.json`](../benchmarks/elite-online/REBUILD_VERIFICATION_R1.json).
 
@@ -405,7 +405,7 @@ The real Compose smoke used an independent digest-pinned curl client on a shared
 
 ### 9.5 Reproducibility measured on the real corpus
 
-An independent second Masters build and CPI indexing pass from the pinned archives produced byte-identical `games.idx`, `positions.cpi`, and `shard_0000.cgb3` files. The 2026-11-17 Elite Online R1 reconstruction also matches the previously verified Elite baseline byte-for-byte for those three core artifacts. Both collections reconcile accounting and pass `opening-explorer verify --deep`; the Elite build ID, source checksums, accounting, RSS, deep-verification result, and exact artifact hashes are in [`REBUILD_VERIFICATION_R1.json`](../benchmarks/elite-online/REBUILD_VERIFICATION_R1.json). Build IDs, timestamps, release manifests, and catalog metadata differ as expected; complete-directory bitwise identity is not claimed.
+An independent second Masters build and CPI indexing pass from the pinned archives produced byte-identical `games.idx`, `positions.cpi`, and `shard_0000.cgb3` files. The 2026-11-17 Elite Online R1 reconstruction also matches the previously verified Elite baseline byte-for-byte for those three core artifacts. Both collections reconcile accounting and pass `chess-database verify --deep`; the Elite build ID, source checksums, accounting, RSS, deep-verification result, and exact artifact hashes are in [`REBUILD_VERIFICATION_R1.json`](../benchmarks/elite-online/REBUILD_VERIFICATION_R1.json). Build IDs, timestamps, release manifests, and catalog metadata differ as expected; complete-directory bitwise identity is not claimed.
 
 ## 9.6 Storage and Scale
 
@@ -433,10 +433,10 @@ Container-to-container requests do not use browser CORS. A browser needs a reach
 | `insufficient disk space` | Free space below need + headroom | Free space or pass `--data-dir` on a larger volume. |
 | `source … is not verified` at build | Archive missing/tampered | `fetch` again; the build never proceeds. |
 | `step '<name>' failed` | A `opening-explorer` step failed | Active release untouched; inspect `data/work/<run>/logs/<name>.log`, fix, rerun, then delete the stale workspace. |
-| `database or disk is full` in standalone `opening-explorer build` | SQLite temporary files may be using a full or size-limited system temp directory | Set `TMPDIR` to a writable directory with enough space. `corpus.sh build` already scopes temporary files to `data/work/<run>/tmp`. |
+| `database or disk is full` in standalone `chess-database build` | SQLite temporary files may be using a full or size-limited system temp directory | Set `TMPDIR` to a writable directory with enough space. `corpus.sh build` already scopes temporary files to `data/work/<run>/tmp`. |
 | `post-publication verification failed` | Published copy failed deep verify | The previous current target is restored automatically when one exists; inspect the candidate workspace and stable release root. |
 | Interrupted `build` | Workspace left under `data/work/` | Safe to delete; the active release root changes only when the atomic current symlink is switched. |
-| Crash during `opening-explorer build` inside a dataset root | Staging directory under `versions/.staging_*` | `opening-explorer recover --dataset <dir>`; or discard the workspace. |
+| Crash during `chess-database build` inside a dataset root | Staging directory under `versions/.staging_*` | Preserve the active version. Discard an isolated build workspace only after the writer has stopped. |
 
 ## 13. Reproducibility Status
 

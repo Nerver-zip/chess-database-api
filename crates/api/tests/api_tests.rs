@@ -1,22 +1,22 @@
-//! Integration, contract, concurrency, and equivalence tests for `opening-explorer-api`.
+//! Integration, contract, concurrency, and equivalence tests for `chess-database-api`.
 
 use axum::body::Body;
 use axum::http::{header, Method, Request, StatusCode};
-use http_body_util::BodyExt;
-use opening_explorer_api::config::ServerConfig;
-use opening_explorer_api::models::{
+use chess_database_api::config::ServerConfig;
+use chess_database_api::models::{
     AdminReloadResponse, CollectionsResponse, HealthResponse, PositionResponse, ReadyResponse,
 };
-use opening_explorer_api::routes::{create_router, create_router_with_request_timeout};
-use opening_explorer_api::state::AppState;
-use opening_explorer_api::{ApiError, ErrorEnvelope};
-use opening_explorer_core::{
+use chess_database_api::routes::{create_router, create_router_with_request_timeout};
+use chess_database_api::state::AppState;
+use chess_database_api::{ApiError, ErrorEnvelope};
+use chess_database_core::{
     Collection, CompactMove, GameMetadata, GameResult, IngestionStats, ParsedGame,
 };
-use opening_explorer_storage::{
+use chess_database_storage::{
     build_dataset_position_index, DatasetIndexConfig, DatasetWriter, DatasetWriterConfig,
     SourceArchiveMetadata,
 };
+use http_body_util::BodyExt;
 use std::path::Path;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -707,10 +707,10 @@ async fn test_cli_and_http_query_equivalence() {
     let app = create_router(state);
 
     // Directly query the dataset using DatasetReader (same underlying call as CLI)
-    let reader = opening_explorer_storage::DatasetReader::open(&masters_dir).unwrap();
+    let reader = chess_database_storage::DatasetReader::open(&masters_dir).unwrap();
     let mut board = shakmaty::Chess::default();
-    opening_explorer_api::chess_util::parse_and_apply_moves(&mut board, "e4, e5", 200).unwrap();
-    let key = opening_explorer_api::chess_util::compute_key(&board);
+    chess_database_api::chess_util::parse_and_apply_moves(&mut board, "e4, e5", 200).unwrap();
+    let key = chess_database_api::chess_util::compute_key(&board);
 
     let direct_stats = reader
         .query_position(key)
@@ -1951,7 +1951,7 @@ fn urlencode(value: &str) -> String {
 #[cfg(unix)]
 #[tokio::test]
 async fn search_rolls_forward_and_back_with_snapshot_bound_cursors() {
-    use opening_explorer_storage::search::{build_search_index, BuildSearchConfig};
+    use chess_database_storage::search::{build_search_index, BuildSearchConfig};
     use serde_json::Value;
     use std::os::unix::fs::symlink;
 
@@ -2082,6 +2082,13 @@ async fn search_rolls_forward_and_back_with_snapshot_bound_cursors() {
     )
     .await;
     assert_eq!(enriched_answer, all_stats);
+    let no_op = get(
+        &router,
+        "/v1/explorer/position/filtered?collection=elite-online&moves=e4&min_plies=0",
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(enriched_answer, no_op);
     let filtered = get(
         &router,
         "/v1/explorer/position/filtered?collection=elite-online&moves=e4&result=1-0",

@@ -1,9 +1,9 @@
-use opening_explorer_core::{
+use chess_database_core::{
     compute_stable_game_id, Collection, CompactMove, GameMetadata, GameResult,
     IngestionCompletionStatus, IngestionStats, ParsedGame,
 };
-use opening_explorer_storage::fault::{self, FaultPoint};
-use opening_explorer_storage::{
+use chess_database_storage::fault::{self, FaultPoint};
+use chess_database_storage::{
     cleanup_old_versions, publish_prebuilt_dataset, recover_dataset, resolve_dataset_snapshot,
     verify_dataset, DatasetReader, DatasetWriter, DatasetWriterConfig, SourceArchiveMetadata,
     StorageError,

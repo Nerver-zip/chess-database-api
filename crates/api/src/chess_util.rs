@@ -1,8 +1,8 @@
 //! Reusable chess position validation, move parsing, and SAN notation generation.
 
 use crate::error::ApiError;
-use opening_explorer_core::PositionKey;
-use opening_explorer_index::position::compute_position_key;
+use chess_database_core::PositionKey;
+use chess_database_index::position::compute_position_key;
 use sha2::{Digest, Sha256};
 use shakmaty::fen::Fen;
 use shakmaty::san::{San, SanPlus};

@@ -234,10 +234,10 @@ def load_registration(path: Path) -> tuple[dict[str, Any], Path]:
 
 
 def find_opening_explorer(value: str | None) -> Path:
-    candidate = Path(value) if value else REPO_ROOT / "target" / "release" / "opening-explorer"
+    candidate = Path(value) if value else REPO_ROOT / "target" / "release" / "chess-database"
     if candidate.is_file() and os.access(candidate, os.X_OK):
         return candidate.resolve()
-    located = shutil.which(value or "opening-explorer")
+    located = shutil.which(value or "chess-database")
     if located:
         return Path(located).resolve()
     raise EvaluationError("opening-explorer executable not found; build it or pass --opening-explorer")
@@ -835,7 +835,7 @@ def rollback(target: Path, version: str, opening_explorer: Path) -> dict[str, An
 
 
 def _add_shared_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--opening-explorer", help="opening-explorer executable (default: target/release/opening-explorer)")
+    parser.add_argument("--opening-explorer", help="opening-explorer executable (default: target/release/chess-database)")
 
 
 def build_parser() -> argparse.ArgumentParser:

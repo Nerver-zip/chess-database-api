@@ -49,7 +49,7 @@ See the [API reference](docs/API_REFERENCE.md) and [search contract](docs/SEARCH
 Build the CLI (`chess-database`), make a small sample dataset from the bundled synthetic fixture, serve it, and query it:
 
 ```bash
-cargo build --locked --release --package opening-explorer-cli
+cargo build --locked --release --package chess-database-cli
 
 ./target/release/chess-database build \
   --input fixtures/stage_a_validation.pgn --collection elite-online \
@@ -64,22 +64,25 @@ cargo build --locked --release --package opening-explorer-cli
   --elite-dataset data/sample/elite-online --host 127.0.0.1 --port 8080
 ```
 
-In another terminal, ask for the position after `1.e4 e5 2.Nf3`:
+In another terminal, discover games that reached the board after `1.e4 e5 2.Nf3`, then compare opening statistics for a rating range:
 
 ```bash
-curl --get 'http://127.0.0.1:8080/v1/explorer/position' \
+API=http://127.0.0.1:8080
+curl --fail-with-body --get "$API/v1/collections/elite-online/games" \
+  --data-urlencode 'moves=e4,e5,Nf3' --data-urlencode 'limit=3'
+curl --fail-with-body --get "$API/v1/explorer/position/filtered" \
   --data-urlencode 'collection=elite-online' \
-  --data-urlencode 'moves=e4,e5,Nf3'
+  --data-urlencode 'moves=e4,e5,Nf3' --data-urlencode 'min_both_ratings=2200'
 ```
 
-The result lists `total_games`, `white_wins`, `draws`, `black_wins`, and a `moves` array with the same counts per candidate move. The sample is synthetic test data. [Getting started](docs/GETTING_STARTED.md) walks through it step by step.
+Game search returns stable IDs and matching plies. Use an ID with `GET /v1/collections/elite-online/games/{id}` to retrieve its PGN. [Getting started](docs/GETTING_STARTED.md) walks through the synthetic fixture.
 
 ### With Docker
 
 ```bash
 cp .env.example .env          # point it at your dataset directory
-docker compose up -d --build
-curl http://127.0.0.1:8080/ready
+docker compose -f compose.yaml -f compose.debug.yaml up -d --build
+curl http://127.0.0.1:8081/ready
 ```
 
 See [Deployment](docs/DOCKER_DEPLOYMENT.md) for read-only mounts, resource bounds, and operational settings.
@@ -99,18 +102,19 @@ The indexed package contains the immutable snapshot, position index, release met
 
 Worked examples are in [docs/USE_CASES.md](docs/USE_CASES.md), with runnable code in [`examples/`](examples/) (curl, dependency-free JavaScript, Python):
 
-1. **Opening explorer in a chess app**: query on every move and render next-move bars.
-2. **Masters vs. Elite comparison**: query both collections for one position and show them side by side, never merged.
-3. **Next-move frequencies and W/D/L** for a position.
-4. **Analysis pipeline**: batch positions through the API and export CSV.
-5. **Curated PGN for research**: use the filtered PGN download.
+1. **Game browser in a chess app.** Discover players and find games that reached the current board.
+2. **Opening Explorer in a chess app.** Show next moves for the corpus or a rating and date range.
+3. **Masters vs. Elite comparison**: query both collections for one position and show them side by side, never merged.
+4. **Next-move frequencies and W/D/L** for a position.
+5. **Analysis pipeline**: batch positions through the API and export CSV.
+6. **Curated PGN for research**: use the filtered PGN download.
 
 A minimal JavaScript client:
 
 ```js
-import { OpeningExplorer } from "./examples/js/opening-explorer.mjs";
+import { OpeningExplorerClient } from "./examples/js/opening-explorer.mjs";
 
-const explorer = new OpeningExplorer("http://127.0.0.1:8080");
+const explorer = new OpeningExplorerClient("http://127.0.0.1:8080");
 const result = await explorer.position({ collection: "elite-online", moves: ["e4", "e5", "Nf3"] });
 console.log(result.total_games, result.moves[0]);
 ```
@@ -143,6 +147,6 @@ Contribution rules are in [CONTRIBUTING.md](CONTRIBUTING.md); agent workflow not
 
 - **Software:** [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option. These licenses do not apply to the datasets.
 - **Masters OTB data:** games from [Lumbra's Gigabase](https://lumbrasgigabase.com/), which the publisher offers under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). This project filtered, deduplicated, normalized, and indexed them; it claims no authorship of any game and is not endorsed by the publisher. **Non-commercial use only, with attribution.** Public, non-commercial deployment of the API (position statistics and single-game PGN retrieval) is supported under the maintainer's recorded decisions; commercial use is not covered. The terms for your application, the required acknowledgment, and the open questions are in [docs/LICENSING.md](docs/LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment).
-- **Elite Online data:** selected standard rated archives from [Lichess](https://database.lichess.org/standard/), licensed under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/). Opening Explorer filters, deduplicates, normalizes, and indexes these historical games; the data license is separate from the software license. See [LICENSING.md](docs/LICENSING.md) for source periods and details.
+- **Elite Online data:** selected standard rated archives from [Lichess](https://database.lichess.org/standard/), licensed under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/). Chess Database API filters, deduplicates, normalizes, and indexes these historical games; the data license is separate from the software license. See [LICENSING.md](docs/LICENSING.md) for source periods and details.
 
 Attribution text, changes made, and the open upstream-rights questions: [docs/LICENSING.md](docs/LICENSING.md).

@@ -6,7 +6,7 @@ status: current
 
 # Data Contracts Specification
 
-## 1. Domain Models (`opening-explorer-core`)
+## 1. Domain Models (`chess-database-core`)
 
 All core domain models are defined in [`crates/core/src/models.rs`](../crates/core/src/models.rs).
 
@@ -211,7 +211,7 @@ The optional `search_index` entry describes a derived metadata catalog and posit
 
 ## 5. CLI JSON Contracts
 
-### 5.1 `opening-explorer query --json`
+### 5.1 `chess-database query --json`
 ```json
 {
   "position_key": "463b96181691fc9c0000000000000000",
@@ -232,9 +232,9 @@ The optional `search_index` entry describes a derived metadata catalog and posit
 }
 ```
 
-### 5.1.1 `opening-explorer build --report-json <path>` and `opening-explorer report`
+### 5.1.1 `chess-database build --report-json <path>` and `chess-database report`
 
-`opening-explorer build --report-json` writes the build accounting after finalization:
+`chess-database build --report-json` writes the build accounting after finalization:
 ```json
 {
   "collection": "masters-otb",
@@ -254,11 +254,11 @@ The optional `search_index` entry describes a derived metadata catalog and posit
 
 `quarantine_reasons` breaks down `accounting.quarantined`. The opt-in Gigabase source policy records stable game ID conflicts as `stable_game_id_collision`; other collections retain their existing fatal collision behavior.
 
-`opening-explorer report --dataset <dir> [--output <json>]` iterates every stored game and emits `results`, `unknown_result_games`, `years`, `months`, `min_player_rating_bins` (100-point bins of the lower rating; FIDE Elo for `masters-otb`, Glicko-2 for `elite-online`, never pooled), `plies_bins`, `speed_classes` (`elite-online` only), `time_control_raw_top20` (`masters-otb` only), `distinct_players_hash_estimate`, `distinct_events_hash_estimate`, and `missing_metadata` counts. Neither command changes any persisted binary format.
+`chess-database report --dataset <dir> [--output <json>]` iterates every stored game and emits `results`, `unknown_result_games`, `years`, `months`, `min_player_rating_bins` (100-point bins of the lower rating; FIDE Elo for `masters-otb`, Glicko-2 for `elite-online`, never pooled), `plies_bins`, `speed_classes` (`elite-online` only), `time_control_raw_top20` (`masters-otb` only), `distinct_players_hash_estimate`, `distinct_events_hash_estimate`, and `missing_metadata` counts. Neither command changes any persisted binary format.
 
-`opening-explorer bench-lookup --dataset <dir> [--games N] [--output <json>]` replays stored games to sample positions and reports in-process `DiskPositionIndex::query` latency (`hit_first_pass`, `hit_warm_pass`, `miss_warm_pass`: `count`, `hits`, `p50_us`, `p95_us`, `p99_us`, `max_us`). It reads only and does not modify the dataset.
+`chess-database bench-lookup --dataset <dir> [--games N] [--output <json>]` replays stored games to sample positions and reports in-process `DiskPositionIndex::query` latency (`hit_first_pass`, `hit_warm_pass`, `miss_warm_pass`: `count`, `hits`, `p50_us`, `p95_us`, `p99_us`, `max_us`). It reads only and does not modify the dataset.
 
-### 5.2 `opening-explorer inspect --json`
+### 5.2 `chess-database inspect --json`
 ```json
 {
   "dataset_version": "v1",

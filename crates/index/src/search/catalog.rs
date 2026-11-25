@@ -4,7 +4,7 @@ use super::metadata::{
     classify_time_control, derive_fide_id, normalize_name_search, parse_pgn_date_bounds,
     PlayerIdentityEvidence,
 };
-use opening_explorer_core::{Collection, GameSourceAttribution, ParsedGame};
+use chess_database_core::{Collection, GameSourceAttribution, ParsedGame};
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use std::fmt::Write;
 use std::fs;
@@ -711,7 +711,7 @@ fn hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use opening_explorer_core::{CompactMove, GameMetadata, GameResult};
+    use chess_database_core::{CompactMove, GameMetadata, GameResult};
     use tempfile::tempdir;
 
     #[test]

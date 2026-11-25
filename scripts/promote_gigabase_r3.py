@@ -117,7 +117,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--candidate", type=Path, default=DEFAULT_CANDIDATE)
     parser.add_argument("--target", type=Path, default=ROOT / "data/releases/masters-otb")
-    parser.add_argument("--opening-explorer", type=Path, default=ROOT / "target/release/opening-explorer")
+    parser.add_argument("--opening-explorer", type=Path, default=ROOT / "target/release/chess-database")
     parser.add_argument("--publish", action="store_true", help="publish after checksum and deep verification")
     args = parser.parse_args()
 

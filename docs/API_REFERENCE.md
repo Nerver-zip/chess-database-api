@@ -1,12 +1,12 @@
 ---
 summary: "Reference for the Opening Explorer HTTP API: endpoints, parameters, response fields, statistics semantics, errors, caching, CORS, admin reload, and server configuration."
-read_when: "Integrating a client with the Opening Explorer API, checking an endpoint, parameter, field, or error code, or interpreting position statistics."
+read_when: "Integrating a client with the Chess Database API, checking an endpoint, parameter, field, or error code, or interpreting position statistics."
 status: current
 ---
 
 # Chess Database API Reference
 
-This document describes the HTTP API served by `opening-explorer serve`. It covers the behavior of the current implementation. Where the implementation has a known deviation or limitation, it is stated in [Known limitations](#known-limitations).
+This document describes the HTTP API served by `chess-database serve`. It covers the behavior of the current implementation. Where the implementation has a known deviation or limitation, it is stated in [Known limitations](#known-limitations).
 
 For a first request, see [GETTING_STARTED.md](GETTING_STARTED.md). For end-to-end integration patterns, see [USE_CASES.md](USE_CASES.md). Runnable examples live in [`examples/`](../examples/).
 
@@ -45,6 +45,9 @@ The [Search API](SEARCH_API.md) documents discovery, metadata and filtered stati
 | `GET` | `/ready` | Readiness: which collections are loaded | none | not set |
 | `GET` | `/v1/collections` | Metadata of each loaded collection | none | `public, max-age=60` |
 | `GET` | `/v1/explorer/position` | Statistics and next moves for one position | none | `public, max-age=60` |
+| `GET` | `/v1/collections/{collection}/games`, `/players`, and `/events` | Game, player and event discovery on an enabled search snapshot | none | `no-store` |
+| `GET` | `/v1/collections/{collection}/games/{id}/metadata` | Stored game summary | none | `no-store` |
+| `GET` | `/v1/explorer/position/filtered` | Exact opening statistics with metadata filters | none | `no-store` |
 | `GET` | `/v1/collections/{collection}/games/{id}` | One stored game as PGN (only if enabled) | none | `public, max-age=3600` |
 | `POST` | `/v1/admin/reload` | Re-verify and swap dataset snapshots | admin token (must be configured) | not set |
 
@@ -126,7 +129,7 @@ The additive `capabilities` object describes which features are enabled for this
 | Index depth | 40 plies in the current release. | 30 plies in the current release. |
 | Licensing | Release-specific. See [LICENSING.md](LICENSING.md). | CC0 1.0. |
 
-The API has no rating filter. Ratings are used only to select games during the build. Do not compare numeric ratings across the two collections, and do not combine their counts or averages.
+The legacy `/v1/explorer/position` endpoint reads corpus-wide CPI statistics. [Game search and filtered Explorer](SEARCH_API.md) accept rating ranges on search-enabled snapshots. Use each collection’s own rating scale.
 
 ## 5. Position statistics
 
@@ -263,7 +266,7 @@ The setting applies to the whole process and to both collections; there is no pe
 
 ### Finding game IDs
 
-The HTTP API cannot list games or return game IDs from position queries. IDs come from the release's lookup index (`games.idx`, described in [DATA_CONTRACTS.md](DATA_CONTRACTS.md#23-global-game-lookup-gamesidx)) and from the CLI. The PGN produced by `opening-explorer export` does not include stable IDs (see [Known limitations](#known-limitations)).
+Use [game search](SEARCH_API.md) with metadata or a board position to discover stable game IDs, represented as decimal strings. The legacy position response contains aggregate statistics. On CPI-only snapshots, use identities already known to your client or the release's [lookup index](DATA_CONTRACTS.md#23-global-game-lookup-gamesidx).
 
 Example: [`examples/curl/game.sh`](../examples/curl/game.sh).
 
@@ -300,7 +303,7 @@ A missing or wrong token returns `401` with `unauthorized`.
 
 **Duration.** The reload is not subject to the request timeout that applies to read endpoints. Verifying a large snapshot can take a long time, and the response arrives when the reload finishes. The reload runs in its own task, so it completes and swaps atomically even if the caller stops waiting. Concurrent reloads are serialized. Set your HTTP client's timeout to suit the snapshot size. In one measurement on the verification host, with production-size snapshots (about 2.9 GB for both collections), the reload returned `200` after about 20 seconds.
 
-Signals remain available. `SERVER_PID` is the process ID of the running `opening-explorer serve`:
+Signals remain available. `SERVER_PID` is the process ID of the running `chess-database serve`:
 
 ```sh
 kill -HUP "$SERVER_PID"
@@ -385,7 +388,7 @@ Position queries do not use the reader pool. They read memory-mapped index pages
 
 ## 10. Server configuration
 
-Run `opening-explorer serve --help` for the exact flags. Each flag can also be set through an environment variable.
+Run `chess-database serve --help` for the flags. `CHESS_DATABASE_*` takes precedence over the listed `OPENING_EXPLORER_*` and applicable `CODB_*` compatibility names. See the [search settings](SEARCH_API.md) and [naming migration](NAMING_MIGRATION.md).
 
 | Flag | Environment variable | Default | Notes |
 | :--- | :--- | :--- | :--- |
@@ -419,5 +422,5 @@ Startup fails with a message if a configured dataset is missing, belongs to anot
 These behaviors are part of the current implementation. Each one is recorded so that clients can work around it.
 
 1. **Game retrieval is a single process-wide switch.** Masters and Elite cannot differ within one server. Run a separate instance, or place a proxy in front, if one collection's PGN must stay private.
-2. **Game IDs cannot be discovered over HTTP.** Stored IDs come from the release's lookup index. PGN exported with `opening-explorer export` does not contain stable IDs, so an exported game cannot be matched to `/games/{id}` from its text alone.
+2. **PGN export omits stable IDs.** Use a game search result’s `id` when identifying a game through the API.
 3. **`/ready` cannot report `not_ready` after startup.** Startup validates every configured dataset before binding, so readiness is effectively fixed for the life of the process.

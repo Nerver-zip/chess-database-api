@@ -1,4 +1,4 @@
-//! `opening-explorer-api`: Production Opening Explorer HTTP API service.
+//! `chess-database-api`: Production Opening Explorer HTTP API service.
 //!
 //! Provides high-throughput, low-latency, read-only HTTP endpoints exposing
 //! persistent CGB3 game archives and CPI v2 position opening indexes.

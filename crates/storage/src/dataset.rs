@@ -1,11 +1,11 @@
-use opening_explorer_core::{
+use chess_database_core::{
     Collection, GameSourceAttribution, IngestionStats, ParsedGame, PositionKey,
 };
-use opening_explorer_index::external::{
+use chess_database_index::external::{
     ExternalIndexConfig, ExternalIndexFaultPoint, ExternalIndexStats, ExternalPositionIndexer,
     DEFAULT_CPI_ZSTD_LEVEL, DEFAULT_MAX_MERGE_FAN_IN, DEFAULT_MEMORY_LIMIT_BYTES,
 };
-use opening_explorer_index::position::{
+use chess_database_index::position::{
     DiskPositionIndex, PositionStats, CPI_VERSION, DEFAULT_POSITIONS_PER_BLOCK,
 };
 use serde::{Deserialize, Serialize};

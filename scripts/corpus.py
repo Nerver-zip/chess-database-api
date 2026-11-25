@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Reproducible corpus acquisition, build, release, and serving orchestration.
 
-This tool is a thin orchestration layer around the existing `opening-explorer` Rust CLI. It
+This tool is a thin orchestration layer around the `chess-database` Rust CLI. It
 never reimplements ingestion, curation, deduplication, indexing, or dataset
 publication: it pins and verifies source archives, invokes `opening-explorer build`,
 `opening-explorer build-index`, `opening-explorer verify --deep`, and `opening-explorer report`, records release
@@ -55,8 +55,9 @@ USER_AGENT = "opening-explorer-api-corpus/1 (+https://github.com/Nerver-zip/open
 
 
 def env_setting(name: str) -> str | None:
-    """Returns OPENING_EXPLORER_<name>, falling back to the deprecated CODB_<name> alias."""
-    return os.environ.get(f"OPENING_EXPLORER_{name}") or os.environ.get(f"CODB_{name}") or None
+    """Read the current configuration name before its two compatibility aliases."""
+    return (os.environ.get(f"CHESS_DATABASE_{name}")
+            or os.environ.get(f"OPENING_EXPLORER_{name}") or os.environ.get(f"CODB_{name}"))
 
 
 class CorpusError(Exception):
@@ -944,13 +945,14 @@ def find_opening_explorer(explicit: str | None) -> Path:
             if p.is_file():
                 return p.resolve()
             raise CorpusError(f"opening-explorer binary not found: {cand}")
-    for sub in ("release", "debug"):
-        p = REPO_ROOT / "target" / sub / "opening-explorer"
-        if p.is_file():
-            return p
+    for name in ("chess-database", "opening-explorer"):
+        for sub in ("release", "debug"):
+            p = REPO_ROOT / "target" / sub / name
+            if p.is_file():
+                return p
     raise CorpusError(
-        "opening-explorer binary not found. Build it with `cargo build --release -p opening-explorer-cli` "
-        "or pass --opening-explorer / OPENING_EXPLORER_BIN."
+        "opening-explorer binary not found. Build it with `cargo build --release -p chess-database-cli` "
+        "or pass --chess-database / CHESS_DATABASE_BIN."
     )
 
 
@@ -2489,7 +2491,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--catalog", default=str(DEFAULT_CATALOG), help="pinned source catalog")
     p.add_argument("--data-dir", help="data directory (default $OPENING_EXPLORER_DATA_DIR or ./data)")
-    p.add_argument("--opening-explorer", help="path to the opening-explorer binary (default target/release/opening-explorer)")
+    p.add_argument("--chess-database", "--opening-explorer", dest="opening_explorer",
+                   help="path to the CLI binary (default target/release/chess-database)")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     def with_col(sp, default="all"):

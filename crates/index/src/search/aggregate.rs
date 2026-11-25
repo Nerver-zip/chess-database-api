@@ -1,15 +1,188 @@
 //! Exact filtered opening statistics reconstructed from position postings.
 
 use super::control::SearchControl;
-use super::postings::{SearchPosting, SearchPostingsReader};
-use super::query::{GameFilters, QueryError, SearchCondition};
+use super::postings::{PostingIter, SearchPosting, SearchPostingsReader};
+use super::query::{GameFilters, QueryError, Range, SearchCondition};
 use crate::position::{MoveStats, PositionStats};
-use opening_explorer_core::{CompactMove, PositionKey};
+use chess_database_core::{CompactMove, PositionKey};
 use rusqlite::{params_from_iter, types::Value, Connection, OptionalExtension};
 use std::collections::BTreeMap;
 
 const SMALL_POSITION_THRESHOLD: usize = 512;
 const MAX_AGGREGATE_WORK: usize = 250_000;
+const MAX_PROJECTED_GAMES: u32 = 4_000_000;
+const MAX_PROJECTED_POSTING_BYTES: usize = 20 * 1024 * 1024;
+
+/// In-memory projection of the verified catalog. Every row occupies at most 16 bytes.
+pub struct AggregateProjection {
+    games: Vec<ProjectedGame>,
+}
+
+#[derive(Clone, Copy)]
+struct ProjectedGame {
+    date_lower: u32,
+    date_upper: u32,
+    white: u16,
+    black: u16,
+    known_ratings: u8,
+    outcome: u8,
+}
+
+impl AggregateProjection {
+    pub fn load(connection: &Connection, game_count: u32) -> Result<Option<Self>, QueryError> {
+        if game_count > MAX_PROJECTED_GAMES {
+            return Ok(None);
+        }
+        let mut games = Vec::with_capacity(game_count as usize);
+        let mut statement = connection.prepare(
+            "SELECT ordinal, date_lower, date_upper, white_rating, black_rating, result
+             FROM games ORDER BY ordinal",
+        )?;
+        let mut rows = statement.query([])?;
+        while let Some(row) = rows.next()? {
+            if row.get::<_, u32>(0)? as usize != games.len() || games.len() == game_count as usize {
+                return Err(inconsistent_projection());
+            }
+            let white = row.get::<_, Option<u16>>(3)?;
+            let black = row.get::<_, Option<u16>>(4)?;
+            let outcome = outcome_slot(&row.get::<_, String>(5)?)?.map_or(3, |slot| slot as u8);
+            games.push(ProjectedGame {
+                date_lower: row.get::<_, Option<u32>>(1)?.unwrap_or(0),
+                date_upper: row.get::<_, Option<u32>>(2)?.unwrap_or(0),
+                white: white.unwrap_or_default(),
+                black: black.unwrap_or_default(),
+                known_ratings: u8::from(white.is_some()) | (u8::from(black.is_some()) << 1),
+                outcome,
+            });
+        }
+        if games.len() != game_count as usize {
+            return Err(inconsistent_projection());
+        }
+        Ok(Some(Self { games }))
+    }
+
+    /// Return None when this predicate or posting group needs the SQL-backed planner.
+    pub fn aggregate(
+        &self,
+        postings: &SearchPostingsReader,
+        key: PositionKey,
+        depth: usize,
+        filters: &GameFilters,
+        control: &SearchControl,
+    ) -> Result<Option<PositionStats>, QueryError> {
+        let GameFilters {
+            player: None,
+            opponent: None,
+            white: None,
+            black: None,
+            event_id: None,
+            event: None,
+            site: None,
+            eco: None,
+            time_control_category: None,
+            plies: Range {
+                min: None,
+                max: None,
+            },
+            ..
+        } = filters
+        else {
+            return Ok(None);
+        };
+        if filters.player_rating != Range::default() {
+            return Ok(None);
+        }
+        let Some(group) = postings.get(key)? else {
+            return Ok(Some(empty_stats(key)));
+        };
+        if group.remaining_encoded_bytes() > MAX_PROJECTED_POSTING_BYTES {
+            return Err(QueryError::WorkLimit);
+        }
+        self.scan(group, key, depth, filters, control).map(Some)
+    }
+
+    fn scan(
+        &self,
+        group: PostingIter<'_>,
+        key: PositionKey,
+        depth: usize,
+        filters: &GameFilters,
+        control: &SearchControl,
+    ) -> Result<PositionStats, QueryError> {
+        let result = filters.result.as_deref().map(outcome_slot).transpose()?;
+        let mut counts = BTreeMap::<CompactMove, [u32; 3]>::new();
+        let mut previous_ordinal = None;
+        for (index, posting) in group.enumerate() {
+            if index.is_multiple_of(512) && control.expired() {
+                return Err(QueryError::Deadline);
+            }
+            let posting = posting?;
+            if previous_ordinal == Some(posting.ordinal) {
+                continue;
+            }
+            previous_ordinal = Some(posting.ordinal);
+            let Some(played) = posting.played.filter(|_| usize::from(posting.ply) < depth) else {
+                continue;
+            };
+            let game = self
+                .games
+                .get(posting.ordinal as usize)
+                .ok_or_else(inconsistent_projection)?;
+            let outcome = usize::from(game.outcome);
+            if outcome < 3
+                && result.is_none_or(|requested| requested == Some(outcome))
+                && game.matches(filters)
+            {
+                add_outcome(&mut counts, played, outcome)?;
+            }
+        }
+        build_stats(key, counts)
+    }
+}
+
+fn inconsistent_projection() -> QueryError {
+    crate::position::IndexError::InvalidFormat(
+        "catalog projection ordinals do not match the snapshot".into(),
+    )
+    .into()
+}
+
+impl ProjectedGame {
+    fn matches(self, filters: &GameFilters) -> bool {
+        let white = (self.known_ratings & 1 != 0).then_some(u32::from(self.white));
+        let black = (self.known_ratings & 2 != 0).then_some(u32::from(self.black));
+        let sum = white.zip(black).map(|(white, black)| white + black);
+        let year = (self.date_lower != 0).then_some(self.date_lower / 10_000);
+        within(filters.white_rating, white, 1)
+            && within(filters.black_rating, black, 1)
+            && within(filters.both_ratings, white, 1)
+            && within(filters.both_ratings, black, 1)
+            && (within(filters.either_rating, white, 1) || within(filters.either_rating, black, 1))
+            && within(filters.average_rating, sum, 2)
+            && within(filters.year, year, 1)
+            && filters
+                .date
+                .min
+                .is_none_or(|min| self.date_upper != 0 && self.date_upper >= min)
+            && filters
+                .date
+                .max
+                .is_none_or(|max| self.date_lower != 0 && self.date_lower <= max)
+    }
+}
+
+fn within(range: Range, value: Option<u32>, multiplier: u64) -> bool {
+    range == Range::default()
+        || value.is_some_and(|value| {
+            let value = u64::from(value);
+            range
+                .min
+                .is_none_or(|min| value >= u64::from(min) * multiplier)
+                && range
+                    .max
+                    .is_none_or(|max| value <= u64::from(max) * multiplier)
+        })
+}
 
 /// Reconstruct legacy-compatible CPI statistics for the filtered subset.
 ///
@@ -278,19 +451,33 @@ fn add_result(
     mv: CompactMove,
     result: &str,
 ) -> Result<(), QueryError> {
-    let count = counts.entry(mv).or_default();
-    let slot = match result {
+    if let Some(slot) = outcome_slot(result)? {
+        add_outcome(counts, mv, slot)?;
+    }
+    Ok(())
+}
+
+fn outcome_slot(result: &str) -> Result<Option<usize>, QueryError> {
+    Ok(Some(match result {
         "1-0" => 0,
         "1/2-1/2" => 1,
         "0-1" => 2,
-        "*" => return Ok(()),
+        "*" => return Ok(None),
         other => {
             return Err(crate::position::IndexError::InvalidFormat(format!(
                 "unsupported game result `{other}` in metadata catalog"
             ))
             .into());
         }
-    };
+    }))
+}
+
+fn add_outcome(
+    counts: &mut BTreeMap<CompactMove, [u32; 3]>,
+    mv: CompactMove,
+    slot: usize,
+) -> Result<(), QueryError> {
+    let count = counts.entry(mv).or_default();
     count[slot] = count[slot].checked_add(1).ok_or_else(|| {
         crate::position::IndexError::Overflow("filtered position count exceeds u32".to_owned())
     })?;
@@ -374,7 +561,7 @@ fn query_error(error: rusqlite::Error, control: &SearchControl) -> QueryError {
 mod tests {
     use super::*;
     use crate::search::postings::{SearchPosting, SearchPostingsWriter};
-    use opening_explorer_core::GameResult;
+    use chess_database_core::GameResult;
 
     #[test]
     fn repeated_positions_unknown_results_and_depth_match_cpi_semantics() {
@@ -555,5 +742,152 @@ mod tests {
         .unwrap();
         assert_eq!(broad_stats.total_games, 600);
         assert_eq!(broad_stats.white_wins, 600);
+    }
+
+    #[test]
+    fn projected_filters_match_sql_for_nulls_partial_dates_and_outcomes() {
+        let directory = tempfile::tempdir().unwrap();
+        let connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(
+            "CREATE TABLE games (ordinal INTEGER PRIMARY KEY, result TEXT, white_rating INTEGER,
+                                 black_rating INTEGER, date_lower INTEGER, date_upper INTEGER, year INTEGER,
+                                 average_rating_sum INTEGER);
+             INSERT INTO games VALUES
+                (0, '1-0', 2300, 2400, 20200101, 20201231, 2020, 4700),
+                (1, '0-1', NULL, 2500, 20200201, 20200229, 2020, NULL),
+                (2, '1/2-1/2', 2450, 2200, NULL, NULL, NULL, 4650),
+                (3, '*', 2500, 2500, 20200301, 20200301, 2020, 5000);",
+        ).unwrap();
+        let output = directory.path().join("positions.postings");
+        let mut writer =
+            SearchPostingsWriter::create(&output, 4, &directory.path().join("spool")).unwrap();
+        let key = PositionKey(1);
+        for ordinal in 0..4 {
+            writer
+                .push(SearchPosting {
+                    key,
+                    ordinal,
+                    ply: 0,
+                    played: Some(CompactMove::new(12, 28, None)),
+                })
+                .unwrap();
+        }
+        writer.finish().unwrap();
+        let postings = SearchPostingsReader::open(output).unwrap();
+        let projected = AggregateProjection::load(&connection, 4).unwrap().unwrap();
+        let control = SearchControl::new(std::time::Duration::from_secs(5));
+        let range = |min, max| Range { min, max };
+        for filters in [
+            GameFilters {
+                both_ratings: range(Some(2200), None),
+                ..Default::default()
+            },
+            GameFilters {
+                either_rating: range(Some(2450), Some(2500)),
+                ..Default::default()
+            },
+            GameFilters {
+                average_rating: range(Some(2325), Some(2350)),
+                ..Default::default()
+            },
+            GameFilters {
+                year: range(Some(2020), None),
+                date: range(Some(20200228), Some(20200228)),
+                ..Default::default()
+            },
+            GameFilters {
+                result: Some("0-1".into()),
+                ..Default::default()
+            },
+            GameFilters {
+                result: Some("*".into()),
+                ..Default::default()
+            },
+        ] {
+            let expected =
+                filtered_position_stats(&connection, &postings, key, 30, &filters, &control)
+                    .unwrap();
+            assert_eq!(
+                projected
+                    .aggregate(&postings, key, 30, &filters, &control)
+                    .unwrap(),
+                Some(expected)
+            );
+        }
+    }
+
+    #[test]
+    fn projected_common_filters_avoid_the_sql_merge_budget() {
+        const GAMES: u32 = 130_000;
+        let directory = tempfile::tempdir().unwrap();
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(&format!(
+                "CREATE TABLE games(ordinal INTEGER PRIMARY KEY, result TEXT, white_rating INTEGER,
+                                black_rating INTEGER, date_lower INTEGER, date_upper INTEGER,
+                                event_norm TEXT);
+             INSERT INTO games
+             WITH RECURSIVE ids(n) AS (SELECT 0 UNION ALL SELECT n+1 FROM ids WHERE n+1 < {GAMES})
+             SELECT n, '1-0', 2400, 2300, 20200101, 20201231, 'event' FROM ids;"
+            ))
+            .unwrap();
+        let output = directory.path().join("positions.postings");
+        let key = PositionKey(2);
+        let mut writer = SearchPostingsWriter::create(
+            &output,
+            u64::from(GAMES),
+            &directory.path().join("spool"),
+        )
+        .unwrap();
+        for ordinal in 0..GAMES {
+            writer
+                .push(SearchPosting {
+                    key,
+                    ordinal,
+                    ply: 0,
+                    played: Some(CompactMove::new(12, 28, None)),
+                })
+                .unwrap();
+        }
+        writer.finish().unwrap();
+        let postings = SearchPostingsReader::open(output).unwrap();
+        let projected = AggregateProjection::load(&connection, GAMES)
+            .unwrap()
+            .unwrap();
+        let control = SearchControl::new(std::time::Duration::from_secs(10));
+        let simple = GameFilters {
+            both_ratings: Range {
+                min: Some(2200),
+                max: None,
+            },
+            ..Default::default()
+        };
+        assert!(matches!(
+            filtered_position_stats(&connection, &postings, key, 30, &simple, &control),
+            Err(QueryError::WorkLimit)
+        ));
+        let actual = projected
+            .aggregate(&postings, key, 30, &simple, &control)
+            .unwrap()
+            .unwrap();
+        assert_eq!(actual.total_games, GAMES);
+        assert_eq!(actual.white_wins, GAMES);
+        let complex = GameFilters {
+            event: Some("event".into()),
+            ..simple.clone()
+        };
+        assert!(projected
+            .aggregate(&postings, key, 30, &complex, &control)
+            .unwrap()
+            .is_none());
+        assert!(matches!(
+            filtered_position_stats(&connection, &postings, key, 30, &complex, &control),
+            Err(QueryError::WorkLimit)
+        ));
+        control.cancel();
+        assert!(matches!(
+            projected.aggregate(&postings, key, 30, &simple, &control),
+            Err(QueryError::Deadline)
+        ));
     }
 }

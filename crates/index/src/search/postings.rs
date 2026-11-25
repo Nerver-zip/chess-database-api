@@ -8,8 +8,8 @@
 
 use crate::position::IndexError;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use chess_database_core::{CompactMove, PositionKey};
 use memmap2::Mmap;
-use opening_explorer_core::{CompactMove, PositionKey};
 use std::fs::{self, File};
 use std::io::{BufWriter, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -725,6 +725,10 @@ pub struct PostingIter<'a> {
 }
 
 impl<'a> PostingIter<'a> {
+    pub(crate) fn remaining_encoded_bytes(&self) -> usize {
+        self.end - self.cursor
+    }
+
     fn new(
         mmap: &'a [u8],
         start: u64,

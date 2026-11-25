@@ -4,13 +4,14 @@ use crate::config::ServerConfig;
 use crate::error::ApiError;
 use crate::models::{CollectionCapabilities, CollectionMetadataResponse};
 use crate::search_runtime::{SearchOptions, SearchRuntime};
-use opening_explorer_core::Collection;
-use opening_explorer_index::position::DiskPositionIndex;
-use opening_explorer_index::search::{
-    catalog::SearchCatalog, control::SearchControl, postings::SearchPostingsReader,
+use chess_database_core::Collection;
+use chess_database_index::position::DiskPositionIndex;
+use chess_database_index::search::{
+    aggregate::AggregateProjection, catalog::SearchCatalog, control::SearchControl,
+    postings::SearchPostingsReader,
 };
-use opening_explorer_storage::search::{CATALOG_FILENAME, POSTINGS_FILENAME, SEARCH_DIRECTORY};
-use opening_explorer_storage::{
+use chess_database_storage::search::{CATALOG_FILENAME, POSTINGS_FILENAME, SEARCH_DIRECTORY};
+use chess_database_storage::{
     resolve_dataset_snapshot, DatasetManifest, DatasetReader, GameLookupReader, StorageError,
 };
 use parking_lot::{Mutex, RwLock};
@@ -172,6 +173,7 @@ pub struct DatasetSnapshot {
 
 pub(crate) struct SnapshotSearch {
     pub(crate) postings: SearchPostingsReader,
+    pub(crate) aggregate: Option<AggregateProjection>,
     catalog: Mutex<Vec<SearchCatalog>>,
 }
 
@@ -239,7 +241,7 @@ impl DatasetSnapshot {
             expected_collection,
             pool_size,
             deep_validate,
-            1,
+            &SearchOptions::default(),
         )
     }
 
@@ -248,7 +250,7 @@ impl DatasetSnapshot {
         expected_collection: Collection,
         pool_size: usize,
         deep_validate: bool,
-        search_slots: usize,
+        search: &SearchOptions,
     ) -> Result<Self, StorageError> {
         let snapshot_dir = resolve_dataset_snapshot(dataset_dir)?;
         let manifest_path = snapshot_dir.join("manifest.json");
@@ -261,7 +263,7 @@ impl DatasetSnapshot {
 
         // 1. Verify dataset integrity before opening structures!
         // This validates sha256 checksums of games.idx, shard_XXXX.cgb3, and positions.cpi!
-        let _report = opening_explorer_storage::verify_dataset(&snapshot_dir, deep_validate)?;
+        let _report = chess_database_storage::verify_dataset(&snapshot_dir, deep_validate)?;
 
         let manifest_bytes = std::fs::read(&manifest_path)?;
         let manifest: DatasetManifest = serde_json::from_slice(&manifest_bytes)
@@ -309,19 +311,26 @@ impl DatasetSnapshot {
             None
         };
 
-        let search = if manifest.search_index.is_some() {
+        let search = if let Some(search_metadata) = &manifest.search_index {
             let directory = snapshot_dir.join(SEARCH_DIRECTORY);
             let postings = SearchPostingsReader::open(directory.join(POSTINGS_FILENAME))?;
             let catalog_path = directory.join(CATALOG_FILENAME);
-            let mut catalog = Vec::with_capacity(search_slots);
-            for _ in 0..search_slots {
+            let mut catalog = Vec::with_capacity(search.concurrency);
+            for _ in 0..search.concurrency {
                 catalog.push(
                     SearchCatalog::open(&catalog_path)
                         .map_err(|error| StorageError::Integrity(error.to_string()))?,
                 );
             }
+            let aggregate = if cpi_index.is_some() && search.discovery(&expected_collection) {
+                AggregateProjection::load(catalog[0].connection(), search_metadata.game_count)
+                    .map_err(|error| StorageError::Integrity(error.to_string()))?
+            } else {
+                None
+            };
             Some(SnapshotSearch {
                 postings,
+                aggregate,
                 catalog: Mutex::new(catalog),
             })
         } else {
@@ -377,7 +386,7 @@ impl AppState {
                 Collection::MastersOtb,
                 config.reader_pool_size,
                 config.deep_validate_on_startup,
-                search.options.concurrency,
+                &search.options,
             )?;
             info!(
                 "Successfully loaded Masters OTB snapshot (version: {}, games: {}, CPI: {})",
@@ -397,7 +406,7 @@ impl AppState {
                 Collection::EliteOnline,
                 config.reader_pool_size,
                 config.deep_validate_on_startup,
-                search.options.concurrency,
+                &search.options,
             )?;
             info!(
                 "Successfully loaded Elite Online snapshot (version: {}, games: {}, CPI: {})",
@@ -442,7 +451,7 @@ impl AppState {
         let _guard = self.reload_lock.lock().await;
 
         let config = Arc::clone(&self.config);
-        let search_slots = self.search.options.concurrency;
+        let search_options = self.search.options.clone();
         let (new_masters, new_elite, reloaded) = tokio::task::spawn_blocking(move || {
             let mut reloaded = Vec::new();
 
@@ -456,7 +465,7 @@ impl AppState {
                     Collection::MastersOtb,
                     config.reader_pool_size,
                     config.deep_validate_on_startup,
-                    search_slots,
+                    &search_options,
                 )
                 .map_err(|e| {
                     tracing::error!("Masters OTB replacement snapshot validation failed: {}", e);
@@ -481,7 +490,7 @@ impl AppState {
                     Collection::EliteOnline,
                     config.reader_pool_size,
                     config.deep_validate_on_startup,
-                    search_slots,
+                    &search_options,
                 )
                 .map_err(|e| {
                     tracing::error!("Elite Online replacement snapshot validation failed: {}", e);

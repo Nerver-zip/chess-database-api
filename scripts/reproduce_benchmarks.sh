@@ -79,9 +79,9 @@ verify_file_hash() {
 }
 
 echo "=== [1/5] Building release binaries ==="
-cargo build --release -p opening-explorer-cli
+cargo build --release -p chess-database-cli
 
-BIN="./target/release/opening-explorer"
+BIN="./target/release/chess-database"
 RESULTS_DIR="benchmarks/results/historical"
 mkdir -p "$RESULTS_DIR"
 

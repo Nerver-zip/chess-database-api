@@ -1,12 +1,12 @@
 ---
-summary: "Provision catalog releases or the Gigabase R3 snapshot, run the read-only Opening Explorer API with Docker Compose, and operate it publicly for non-commercial use."
+summary: "Provision catalog releases or the Gigabase R3 snapshot, run the read-only Chess Database API with Docker Compose, and operate it publicly for non-commercial use."
 read_when: "Deploying the API locally, connecting another container, or updating the mounted datasets."
 status: current
 ---
 
 # Docker Deployment
 
-The Docker image contains only the opening-explorer API executable and runtime libraries. Masters OTB and Elite Online stay outside the image and are mounted read-only from their stable release roots. The container does not fetch, build, or modify datasets at startup.
+The Docker image ships the `chess-database` executable, its compatibility path and runtime libraries. Masters OTB and Elite Online stay outside the image and are mounted read-only from their stable release roots. The container does not fetch, build, or modify datasets at startup.
 
 The default local image is `chess-database-api:local`. Compose retains the existing service, volumes and aliases, and also builds the legacy image tag. See [Naming migration](NAMING_MIGRATION.md).
 
@@ -21,7 +21,7 @@ The default local image is `chess-database-api:local`. Compose retains the exist
 Build the host CLI used for bootstrap and verification:
 
 ~~~bash
-cargo build --locked --release --package opening-explorer-cli
+cargo build --locked --release --package chess-database-cli
 ~~~
 
 ## Provision Both Real Collections
@@ -36,7 +36,7 @@ Place each package and its detached .sha256 file in an accessible directory. Pac
   --elite-package /path/to/elite-online-<release-id>.tar
 ~~~
 
-Bootstrap checks each archive checksum, rejects unsafe or incomplete archive contents, validates collection and immutable-version identities, verifies every recorded artifact hash, runs opening-explorer verify --deep, and atomically installs both versions under data/releases/. Existing active versions remain available if extraction or validation fails.
+Bootstrap checks each archive checksum, rejects unsafe or incomplete archive contents, validates collection and immutable-version identities, verifies every recorded artifact hash, runs chess-database verify --deep, and atomically installs both versions under data/releases/. Existing active versions remain available if extraction or validation fails.
 
 ### Path B: rebuild from the pinned catalog
 
@@ -73,7 +73,7 @@ docker compose -f compose.yaml logs --follow opening-explorer
 
 The service is named opening-explorer and listens on 0.0.0.0:8080 inside the container. Compose publishes no host port by default. The image runs as UID 10001, with a read-only root filesystem, a 16 MiB /tmp, dropped Linux capabilities, no-new-privileges, a 64-process cap, and JSON logs available through docker logs. The unless-stopped restart policy brings it back after ordinary host or daemon restarts.
 
-Startup deeply validates both mounted snapshots before listening. Missing mounts, a wrong collection, a missing artifact, a bad checksum, or an invalid CPI makes startup fail and is reported in docker compose logs opening-explorer. The server binds only after every configured snapshot has been verified, so `/ready` answers once it is listening; it does not re-check data afterwards. /health reports process health.
+Startup verifies the checksums, headers, collection and accounting of both immutable snapshots before listening. Missing mounts, a wrong collection, a missing artifact, a bad checksum, or an invalid CPI makes startup fail and is reported in docker compose logs opening-explorer. The server binds only after every configured snapshot has been verified, so `/ready` answers once it is listening; it does not re-check data afterwards. /health reports process health.
 
 ## Check the API
 
@@ -184,7 +184,7 @@ docker compose --project-name codb-gigabase-r3 \
   -f compose.yaml -f compose.named-volume.yaml up -d --build
 ~~~
 
-The override mounts the shared volume at `/datasets` and replaces both host binds; the normal service paths remain `/datasets/masters-otb` and `/datasets/elite-online`. Check `/health`, `/ready`, and `/v1/collections` from the service container or another container on its private Compose network. Confirm Masters reports the R3 build ID and 3,284,429 games; compare representative HTTP position W/D/L results with `opening-explorer query`. Confirm Elite still reports 429,150 games. With retrieval enabled (the default), a known game ID returns its PGN; the route returns 404 only if an operator sets `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=false`. Inspect `docker inspect` and confirm the sole `/datasets` mount has `RW:false` and `HostConfig.PortBindings` is empty.
+The override mounts the shared volume at `/datasets` and replaces both host binds; the normal service paths remain `/datasets/masters-otb` and `/datasets/elite-online`. Check `/health`, `/ready`, and `/v1/collections` from the service container or another container on its private Compose network. Confirm Masters reports the R3 build ID and 3,284,429 games; compare representative HTTP position W/D/L results with `chess-database query`. Confirm Elite still reports 429,150 games. With retrieval enabled (the default), a known game ID returns its PGN; the route returns 404 only if an operator sets `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=false`. Inspect `docker inspect` and confirm the sole `/datasets` mount has `RW:false` and `HostConfig.PortBindings` is empty.
 
 For publisher-based rollback in the named volume, use the same atomic storage publisher. A helper can mount the volume read-write while the API retains its read-only mount:
 
@@ -197,18 +197,54 @@ docker exec opening-explorer-gigabase-r3-publisher mkdir -p /storage/.promotion-
 docker exec opening-explorer-gigabase-r3-publisher cp -a \
   "/storage/masters-otb/versions/$PREVIOUS_ID" \
   "/storage/.promotion-stage/$PREVIOUS_ID"
-docker exec opening-explorer-gigabase-r3-publisher opening-explorer publish \
+docker exec opening-explorer-gigabase-r3-publisher chess-database publish \
   --candidate "/storage/.promotion-stage/$PREVIOUS_ID" \
   --target /storage/masters-otb --collection masters-otb
 ~~~
 
-Restart the API if it has not hot-reloaded the symlink, then verify the previous ID and 29,640-game count through `/ready`, `/v1/collections`, and a position query. To reactivate R3, stage a copy of the pinned R3 snapshot into `/storage/.promotion-stage/<R3-build-id>` and invoke `opening-explorer publish` with that candidate. Confirm the R3 ID and count return, and recheck the disabled retrieval route. Keep `current` publication inside `opening-explorer publish`; never replace the symlink directly.
+Restart the API if it has not hot-reloaded the symlink, then verify the previous ID and 29,640-game count through `/ready`, `/v1/collections`, and a position query. To reactivate R3, stage a copy of the pinned R3 snapshot into `/storage/.promotion-stage/<R3-build-id>` and invoke `chess-database publish` with that candidate. Confirm the R3 ID and count return, and recheck the disabled retrieval route. Keep `current` publication inside `chess-database publish`; never replace the symlink directly.
 
 ## Enriched snapshots
 
 Build search indexes outside the serving container and publish them to the mounted dataset root. The server reads the new snapshot after reload. Masters discovery and individual metadata default to disabled. Elite discovery and metadata default to enabled when an enriched snapshot is present. Set the corresponding `CHESS_DATABASE_MASTERS_DISCOVERY`, `CHESS_DATABASE_MASTERS_GAME_METADATA`, `CHESS_DATABASE_ELITE_DISCOVERY`, and `CHESS_DATABASE_ELITE_GAME_METADATA` values to control exposure. The existing PGN retrieval switch applies independently.
 
-Search admits one worker at a time by default and uses a two-second cooperative deadline. Keep these settings and the two-CPU, 512 MiB Compose limits as the initial configuration for a small server. The reverse proxy should enforce per-client request rates and avoid exposing Masters discovery endpoints before a separate review of enumeration and attribution. See [Search API](SEARCH_API.md) and [Licensing](LICENSING.md).
+Search starts with two workers, at most one concurrent filtered aggregation, a bounded 100 ms admission wait and a two-second cooperative execution deadline. Keep these settings and the two-CPU, 512 MiB Compose limits as the initial configuration for a small server. The reverse proxy should enforce per-client request rates and avoid exposing Masters discovery endpoints before a separate review of enumeration and attribution. See [Search API](SEARCH_API.md) and [Licensing](LICENSING.md).
+
+### Verification trust model
+
+Run `chess-database verify --deep` before accepting a snapshot supplied outside the project's verified build or install workflow. Publish only verified immutable versions. Normal startup and reload rehash manifest-recorded artifacts and validate required headers and structure against the pinned version. The manifest and all files must come from a trusted promotion workflow. A checksum stored alongside its artifact does not authenticate the publisher. Keep mounted versions read-only in the service and restrict publication access on the host.
+
+Use `CHESS_DATABASE_DEEP_VALIDATE_ON_STARTUP=true` to repeat deep semantic checks on startup and reload. A full walk can be expensive on tight resource limits. This option changes the repeated serving check and leaves the publication verification gate in force.
+
+### Two-collection acceptance on a local Docker host
+
+Use separate dataset roots and a separate Compose project and network. The standard configuration keeps the service at 512 MiB and two CPUs. The debug override exposes the loopback port for the client probes. Build the search indexes outside the container if the two roots are still CPI-only.
+
+```sh
+export CHESS_DATABASE_MASTERS_RELEASE_DIR="$PWD/data/acceptance/masters-otb"
+export CHESS_DATABASE_ELITE_RELEASE_DIR="$PWD/data/acceptance/elite-online"
+export CHESS_DATABASE_NETWORK_NAME=chess-db-acceptance
+export CHESS_DATABASE_MASTERS_DISCOVERY=true
+export CHESS_DATABASE_MASTERS_GAME_METADATA=true
+COMPOSE="docker compose -p chess-db-acceptance -f compose.yaml -f compose.debug.yaml"
+$COMPOSE config
+$COMPOSE build
+time $COMPOSE up -d --wait --wait-timeout 600
+curl --fail-with-body http://127.0.0.1:8081/ready
+container=$($COMPOSE ps -q opening-explorer)
+docker inspect --format '{{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.State.OOMKilled}}' "$container"
+docker exec "$container" cat /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.peak /sys/fs/cgroup/memory.events /sys/fs/cgroup/cpu.stat
+for collection in masters-otb elite-online; do
+  python3 scripts/verify_search_api.py --url http://127.0.0.1:8081 --collection "$collection"
+  python3 scripts/bench_search_interactive.py --url http://127.0.0.1:8081 \
+    --collection "$collection" --users 4 --rounds 20 --output "data/acceptance/$collection-interactive.json"
+done
+docker logs "$container"
+docker exec "$container" cat /sys/fs/cgroup/memory.peak /sys/fs/cgroup/memory.events /sys/fs/cgroup/cpu.stat
+$COMPOSE down
+```
+
+For cold startup, begin with uncached datasets on the isolated acceptance host or use newly copied roots before boot. Record the cache preparation. For live reload, add a local Compose override that injects the admin token, keep the workload running, publish a verified alternate snapshot to a mounted root and time the [authenticated reload](#safe-dataset-updates). Compare the active version and capture the resource counters again. These commands use the stable Compose service name.
 
 ## Safe Dataset Updates
 
@@ -231,7 +267,7 @@ A restart deeply validates the new snapshots before readiness. If it fails, repu
 previous_id="$(basename "$previous_snapshot")"
 rollback_dir="$(mktemp -d "data/work/$collection-rollback-XXXXXX")"
 cp -a "$previous_snapshot" "$rollback_dir/$previous_id"
-target/release/opening-explorer publish \
+target/release/chess-database publish \
   --candidate "$rollback_dir/$previous_id" \
   --target "data/releases/$collection" \
   --collection "$collection"

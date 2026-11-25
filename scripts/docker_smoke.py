@@ -29,7 +29,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
 import corpus  # noqa: E402
 
-IMAGE = "opening-explorer-api:local"
+IMAGE = "chess-database-api:local"
 CLIENT_IMAGE = "curlimages/curl@sha256:94e9e444bcba979c2ea12e27ae39bee4cd10bc7041a472c4727a558e213744e6"
 
 
@@ -288,7 +288,7 @@ def check_bad_starts(volumes: dict[str, str], roots: dict[str, Path], bad_root: 
         "--tmpfs", "/tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777",
     ]
     base_command = [
-        "--entrypoint", "/usr/local/bin/opening-explorer", IMAGE, "serve",
+        "--entrypoint", "/usr/local/bin/chess-database", IMAGE, "serve",
         "--host", "0.0.0.0", "--port", "8080", "--deep-validate-on-startup",
         "--masters-dataset", "/datasets/masters-otb", "--elite-dataset", "/datasets/elite-online",
     ]
@@ -354,7 +354,7 @@ def runtime_rss_kib(container: str) -> int:
         "while read -r key value rest; do "
         "case \"$key\" in Name:) name=$value ;; VmRSS:) rss=$value ;; esac; "
         "done < \"$f\"; "
-        "if [ \"$name\" = opening-explore ] && [ -n \"$rss\" ]; then "
+        "if { [ \"$name\" = chess-database ] || [ \"$name\" = opening-explore ]; } && [ -n \"$rss\" ]; then "
         "printf '%s\\n' \"$rss\"; exit 0; fi; "
         "done; exit 1"
     )
@@ -546,7 +546,7 @@ def main() -> int:
         # Deep-verify the mounted read-only snapshots from inside the restarted service container.
         for collection in corpus.COLLECTIONS:
             report = subprocess.run(
-                ["docker", "exec", container, "/usr/local/bin/opening-explorer", "verify",
+                ["docker", "exec", container, "/usr/local/bin/chess-database", "verify",
                  "--dataset", f"/datasets/{collection}", "--deep"],
                 capture_output=True, text=True,
             )

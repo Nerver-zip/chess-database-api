@@ -8,8 +8,8 @@ use axum::http::{header, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use opening_explorer_core::{Collection, CompactMove};
-use opening_explorer_index::search::{
+use chess_database_core::{Collection, CompactMove};
+use chess_database_index::search::{
     metadata::{normalize_name_search, parse_pgn_date_bounds},
     query::{
         game_metadata, search_games, source_attributions, GameFilters, GamePageRequest, GameSort,
@@ -583,7 +583,7 @@ pub async fn filtered_explorer(
     use crate::chess_util::{derive_san, format_fen};
     use crate::models::{CandidateMoveResponse, PositionResponse};
     use crate::routes::explorer::calc_pct;
-    use opening_explorer_index::search::aggregate::filtered_position_stats;
+    use chess_database_index::search::aggregate::filtered_position_stats;
 
     let params = query_params::<GameParams>(&uri)?;
     if params.sort.is_some()
@@ -603,7 +603,11 @@ pub async fn filtered_explorer(
             .ok_or(ApiError::MissingCollection)?,
     )?;
     let board = params.board(&state)?.ok_or(ApiError::MissingPosition)?;
-    let filters = params.filters()?;
+    let mut filters = params.filters()?;
+    if filters.plies.min == Some(0) {
+        filters.plies.min = None;
+    }
+    let aggregate = !filters.condition().values.is_empty();
     let snapshot = search_snapshot(&state, collection, false)?;
     params.check_version(&snapshot)?;
     let depth = snapshot
@@ -612,9 +616,9 @@ pub async fn filtered_explorer(
     let key = compute_key(&board);
     state
         .search
-        .run(move |control| {
+        .run_in_lane(aggregate, move |control| {
             let search = snapshot.search.as_ref().expect("checked search snapshot");
-            let stats = if filters.condition().values.is_empty() {
+            let stats = if !aggregate {
                 snapshot
                     .cpi_index
                     .as_ref()
@@ -622,6 +626,17 @@ pub async fn filtered_explorer(
                     .query(key)
                     .map_err(|error| ApiError::Storage(error.to_string()))?
                     .unwrap_or_default()
+            } else if let Some(projected) = search
+                .aggregate
+                .as_ref()
+                .map(|projection| {
+                    projection.aggregate(&search.postings, key, depth, &filters, control)
+                })
+                .transpose()
+                .map_err(map_query_error)?
+                .flatten()
+            {
+                projected
             } else {
                 search.with_catalog(control, |catalog| {
                     filtered_position_stats(

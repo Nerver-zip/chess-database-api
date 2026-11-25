@@ -1,5 +1,5 @@
-use opening_explorer_core::{Collection, CompactMove, GameMetadata, GameResult, ParsedGame};
-use opening_explorer_curate::dedupe::{DedupeError, Deduplicator, DuplicateVerdict};
+use chess_database_core::{Collection, CompactMove, GameMetadata, GameResult, ParsedGame};
+use chess_database_curate::dedupe::{DedupeError, Deduplicator, DuplicateVerdict};
 use serde::Deserialize;
 use std::{collections::HashMap, fs, path::PathBuf};
 

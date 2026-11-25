@@ -8,8 +8,8 @@ use crate::error::ApiError;
 use crate::state::{AppState, DatasetSnapshot};
 use axum::extract::{OriginalUri, Path, State};
 use axum::response::Response;
-use opening_explorer_core::Collection;
-use opening_explorer_index::search::metadata::parse_pgn_date_bounds;
+use chess_database_core::Collection;
+use chess_database_index::search::metadata::parse_pgn_date_bounds;
 use rusqlite::{params, OptionalExtension, Row};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -188,10 +188,8 @@ pub async fn players(
                 let next_cursor = has_more.then(|| {
                     let last = results.last().expect("non-empty next page");
                     let value = last.id.parse::<i64>().expect("SQLite catalog ID");
-                    cursor.encode(opening_explorer_index::search::query::PageKey {
-                        value,
-                        ordinal: 0,
-                    })
+                    cursor
+                        .encode(chess_database_index::search::query::PageKey { value, ordinal: 0 })
                 });
                 Ok(no_store(PlayerSearchResponse {
                     collection: snapshot.collection,
@@ -371,10 +369,8 @@ pub async fn events(
                         .id
                         .parse::<i64>()
                         .expect("SQLite catalog ID");
-                    cursor.encode(opening_explorer_index::search::query::PageKey {
-                        value,
-                        ordinal: 0,
-                    })
+                    cursor
+                        .encode(chess_database_index::search::query::PageKey { value, ordinal: 0 })
                 });
                 Ok(no_store(EventSearchResponse {
                     collection: snapshot.collection,
@@ -557,10 +553,8 @@ mod tests {
     use crate::state::AppState;
     use axum::body::{to_bytes, Body};
     use axum::http::{Request, StatusCode};
-    use opening_explorer_core::{
-        CompactMove, GameMetadata, GameResult, IngestionStats, ParsedGame,
-    };
-    use opening_explorer_storage::{
+    use chess_database_core::{CompactMove, GameMetadata, GameResult, IngestionStats, ParsedGame};
+    use chess_database_storage::{
         build_dataset_position_index, DatasetIndexConfig, DatasetWriter, DatasetWriterConfig,
         SourceArchiveMetadata,
     };
@@ -634,9 +628,9 @@ mod tests {
             },
         )
         .unwrap();
-        opening_explorer_storage::search::build_search_index(
+        chess_database_storage::search::build_search_index(
             directory,
-            opening_explorer_storage::search::BuildSearchConfig::default(),
+            chess_database_storage::search::BuildSearchConfig::default(),
         )
         .unwrap();
     }

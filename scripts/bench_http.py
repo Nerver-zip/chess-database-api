@@ -426,9 +426,9 @@ def run_benchmark(bin_path: str, fixture_pgn: str, output_json: str | None = Non
 
 if __name__ == "__main__":
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    target_bin = os.path.join(repo_root, "target", "release", "opening-explorer")
+    target_bin = os.path.join(repo_root, "target", "release", "chess-database")
     if not os.path.exists(target_bin):
-        target_bin = os.path.join(repo_root, "target", "debug", "opening-explorer")
+        target_bin = os.path.join(repo_root, "target", "debug", "chess-database")
 
     fixture = os.path.join(repo_root, "fixtures", "stage_a_validation.pgn")
     out_file = os.path.join(repo_root, "benchmarks", "results", "http_api_benchmark.json")

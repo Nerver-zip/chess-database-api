@@ -1,4 +1,4 @@
-use opening_explorer_core::{CompactMove, ParsedGame};
+use chess_database_core::{CompactMove, ParsedGame};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -626,7 +626,7 @@ fn normalize_dedupe_player_name(name: &str, identity_evidence: Option<&str>) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use opening_explorer_core::{Collection, GameMetadata, GameResult, GameSourceAttribution};
+    use chess_database_core::{Collection, GameMetadata, GameResult, GameSourceAttribution};
 
     fn make_test_game(
         id: u64,

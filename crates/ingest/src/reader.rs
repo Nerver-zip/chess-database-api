@@ -1,8 +1,8 @@
-use opening_explorer_core::{
+use chess_database_core::{
     compute_stable_game_id, Collection, CompactMove, GameMetadata, GameResult,
     GameSourceAttribution, IngestionCompletionStatus, IngestionStats, ParsedGame,
 };
-use opening_explorer_curate::policy::{
+use chess_database_curate::policy::{
     is_aborted_or_infraction_termination, GigabaseHeaderMetadata, GigabaseOtbPolicy,
 };
 use pgn_reader::{RawTag, Reader, SanPlus, Visitor};
@@ -492,7 +492,7 @@ impl Visitor for ShakmatyGameVisitor {
                         }
                     }
                     if let Some(tc) = &tags.time_control {
-                        if opening_explorer_curate::policy::is_bullet_time_control(tc) {
+                        if chess_database_curate::policy::is_bullet_time_control(tc) {
                             return ControlFlow::Break(Err(IngestError::RejectedByPolicy(
                                 "Bullet TC".into(),
                             )));

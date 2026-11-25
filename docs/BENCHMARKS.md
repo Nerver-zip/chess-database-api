@@ -8,7 +8,7 @@ status: current
 
 ## 1. Benchmark Architecture & Taxonomy
 
-The benchmark ecosystem in `opening-explorer-api` is partitioned into the following domains:
+The benchmark ecosystem in `chess-database-api` is partitioned into the following domains:
 
 ```
 benchmarks/
@@ -125,3 +125,8 @@ Slicing **Masters OTB (5M games) to Depth 40** and **Elite Online (10M games) to
 - **Conservative Scenario:** **9.98 GB** total deployed footprint (leaves **20 MB / 0.2%** headroom within the 10 GB envelope).
 
 Storage feasibility is **conditional** upon enforcing Depth 30 slicing for Elite Online; extending Elite Online to Depth 40 pushes conservative projections to 12.26 GB, breaching the 10 GB budget.
+
+
+## 6. Search and interactive serving
+
+The [search evidence and reproduction commands](research/search-index-experiments.md) record compact and full coverage, build resources, exact canonical and CPI reconciliation, companion verification, and paired legacy HTTP and CPI measurements. Use the same immutable datasets, affinity and request mix for before/after trials. Separate interactive users with think time and superseded navigation from deliberate overload. Record successful latency alongside 429, 408 and 422 counts. Include the tested source revision and release-binary SHA-256. Treat QEMU timing and container memory observations as separate from native serving measurements.

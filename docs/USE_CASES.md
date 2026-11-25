@@ -1,6 +1,6 @@
 ---
-summary: "Five integration use cases for Opening Explorer API: a chess application explorer, comparing collections, next-move statistics, analysis pipelines, and downloading curated PGN."
-read_when: "Deciding how to use the Opening Explorer API in a product, research workflow, or data pipeline, or looking for a worked example."
+summary: "Worked examples for game discovery, filtered opening statistics, collection comparisons and PGN retrieval."
+read_when: "Deciding how to use the Chess Database API in a product, research workflow, or data pipeline, or looking for a worked example."
 status: current
 ---
 
@@ -127,7 +127,7 @@ There are two routes. Check the license of the dataset before you use either (se
 **A. Bulk export from a dataset.** The `export` command writes every stored game as PGN to a file or stdout. A `.zst` output path is Zstandard-compressed. `--max-games` limits the output:
 
 ```sh
-./target/release/opening-explorer export \
+./target/release/chess-database export \
   --dataset data/releases/elite-online/current \
   --output elite-online.pgn.zst
 ```
@@ -144,3 +144,32 @@ OPENING_EXPLORER_URL=http://127.0.0.1:8080 \
 **C. The published Masters OTB PGN.** The filtered PGN of all 3,284,429 Masters OTB games is a release asset (`masters-otb-r3-filtered.pgn.zst`, about 500 MB). Download it from the [`dataset-masters-otb-r3` release](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3) and verify it against `SHA256SUMS` as described in [DATASET_RELEASES.md](DATASET_RELEASES.md#4-download-verify-reconstruct-install). It is for non-commercial use with attribution, and the games carry the tag set described in [section 5 of that guide](DATASET_RELEASES.md#5-filtered-pgn).
 
 **Terms.** Single-game retrieval is enabled by default and is supported in public deployments for non-commercial use. Elite Online data is CC0 1.0, and the API does not require attribution for it. Masters OTB data is licensed for non-commercial use with attribution; the acknowledgment and the full terms are in [LICENSING.md](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). Operators can disable the route with `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=false`, in which case it returns `404`. The API does not offer bulk export; use the published release assets for that.
+
+
+## 6. Find games from the current board
+
+Discover players by prefix, then combine a returned player ID with a board position. Use the player result's dataset version to pin the player selection. The game search response returns stable game IDs and the matching ply for navigating directly to the position.
+
+```sh
+API=http://127.0.0.1:8080
+COLLECTION=$API/v1/collections/elite-online
+curl --fail-with-body --get "$COLLECTION/players" --data-urlencode 'prefix=mag'
+# Copy the returned player_id and dataset_version.
+curl --fail-with-body --get "$COLLECTION/games" \
+  --data-urlencode "player_id=$PLAYER_ID" --data-urlencode "version=$DATASET_VERSION" \
+  --data-urlencode 'moves=e4,c5' --data-urlencode 'min_both_ratings=2200'
+```
+
+For a fresh sample, obtain a player name from a game result and choose a prefix from it. Follow `next_cursor` for more results, then fetch an individual canonical PGN by its stable game ID. See [Search API](SEARCH_API.md) for player selection, pagination and capability handling.
+
+## 7. Compare filtered opening statistics
+
+Send the board and one or more metadata filters to the filtered endpoint. For a ratings-only view on an enriched Elite Online snapshot:
+
+```sh
+curl --fail-with-body --get "$API/v1/explorer/position/filtered" \
+  --data-urlencode 'collection=elite-online' --data-urlencode 'moves=e4,c5' \
+  --data-urlencode 'min_both_ratings=2200' --data-urlencode 'from_year=2015'
+```
+
+The statistics include the same W/D/L and candidate-move counts as the unfiltered endpoint, restricted to the matching games. Keep the corpus and board fixed when comparing filters.

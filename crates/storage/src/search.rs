@@ -4,7 +4,7 @@
 pub mod bundle;
 
 use crate::{compute_file_sha256, DatasetManifest, DatasetReader, StorageError};
-use opening_explorer_index::search::{catalog::SearchCatalog, postings::SearchPostingsReader};
+use chess_database_index::search::{catalog::SearchCatalog, postings::SearchPostingsReader};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -233,9 +233,9 @@ impl Default for BuildSearchConfig {
 pub struct SearchBuildReport {
     pub source_snapshot: String,
     pub published_snapshot: String,
-    pub collection: opening_explorer_core::Collection,
+    pub collection: chess_database_core::Collection,
     pub index: SearchIndexMetadata,
-    pub spill: opening_explorer_index::search::spill::SpillStats,
+    pub spill: chess_database_index::search::spill::SpillStats,
     pub postings_temporary_spool_bytes: u64,
     pub build_seconds: f64,
     pub verification_seconds: f64,
@@ -377,8 +377,8 @@ pub fn build_search_index(
     use crate::{
         resolve_dataset_snapshot, verify_dataset, DatasetLock, DatasetReader, StagingLock,
     };
-    use opening_explorer_core::Collection;
-    use opening_explorer_index::search::{
+    use chess_database_core::Collection;
+    use chess_database_index::search::{
         catalog::SearchCatalogBuilder,
         postings::{SearchPosting, SearchPostingsWriter},
         spill::OccurrenceSorter,

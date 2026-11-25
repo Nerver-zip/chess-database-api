@@ -1,8 +1,8 @@
 //! Measure candidate position-posting layouts on a contiguous sample of canonical games.
 use anyhow::{ensure, Result};
+use chess_database_index::search::visit_position_occurrences;
+use chess_database_storage::DatasetReader;
 use clap::Parser;
-use opening_explorer_index::search::visit_position_occurrences;
-use opening_explorer_storage::DatasetReader;
 use rusqlite::{params, Connection};
 use std::io::{self, Write};
 use std::path::PathBuf;

@@ -6,7 +6,7 @@ status: current
 
 # Migration from CODB
 
-The project was previously called **CODB** (repository `chess-openings-db`). It is now **Opening Explorer API**:
+The project was previously called **CODB** (repository `chess-openings-db`). The Nov. 2026 migration renamed it to **Opening Explorer API**. This guide records that historical transition. For the current Chess Database API names and upgrade procedure, see [Naming migration](NAMING_MIGRATION.md).
 
 | Scope | Name |
 |---|---|
@@ -21,7 +21,7 @@ The Rust CLI subcommands and arguments, HTTP routes, and error types are unchang
 | Area | Legacy name | Current name | Compatibility |
 |---|---|---|---|
 | CLI binary | `codb` | `opening-explorer` | No second binary is shipped. Update scripts, PATH entries, and `docker exec` commands. |
-| Cargo packages | `codb-core`, `codb-ingest`, `codb-curate`, `codb-storage`, `codb-index`, `codb-api`, `codb-cli` | `opening-explorer-core`, `-ingest`, `-curate`, `-storage`, `-index`, `-api`, `-cli` | Build with `cargo build --locked --release --package opening-explorer-cli`. Rust paths follow the package names (`opening_explorer_core`, and so on). |
+| Cargo packages | `codb-core`, `codb-ingest`, `codb-curate`, `codb-storage`, `codb-index`, `codb-api`, `codb-cli` | `opening-explorer-core`, `-ingest`, `-curate`, `-storage`, `-index`, `-api`, `-cli` | Build with `cargo build --locked --release --package chess-database-cli`. Rust paths follow the package names (`opening_explorer_core`, and so on). |
 | Repository | `Nerver-zip/chess-openings-db` | `Nerver-zip/opening-explorer-api` | GitHub redirects the old URL after the repository rename. The `repository` field already uses the new URL. |
 | Docker image | `codb-opening-explorer:local` | `opening-explorer-api:local` | Built by Compose from the same `Dockerfile`. Existing local images are not removed by the rename. |
 | Container user and binary path | user `codb`, `/usr/local/bin/codb` | user `opening-explorer`, `/usr/local/bin/opening-explorer` | UID and GID stay `10001`, so existing volume ownership still matches. |
@@ -74,12 +74,12 @@ The existing R3 deployment keeps its Docker resources, so redeploying does not c
 
 The running container `codb-gigabase-r3-codb-1` and its image `codb-opening-explorer:local` were not changed. The redeploy under the new service name creates `codb-gigabase-r3-opening-explorer-1`. **Stop the old container first.** Otherwise both containers answer the shared alias `codb` on the same network.
 
-## Checking a migration
+## Checking the historical migration
 
 ```bash
 # The CLI name and its subcommands.
-cargo build --locked --release --package opening-explorer-cli
-target/release/opening-explorer --help
+cargo build --locked --release --package chess-database-cli
+target/release/chess-database --help
 
 # Compose resolves both new and legacy variables.
 docker compose -f compose.yaml --env-file .env.example config --quiet

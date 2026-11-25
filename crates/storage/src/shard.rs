@@ -1,5 +1,5 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use opening_explorer_core::{Collection, ParsedGame};
+use chess_database_core::{Collection, ParsedGame};
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Cursor, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};

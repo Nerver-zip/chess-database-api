@@ -1,7 +1,7 @@
-use opening_explorer_core::{
+use chess_database_core::{
     Collection, CompactMove, GameMetadata, GameResult, IngestionStats, ParsedGame,
 };
-use opening_explorer_storage::{
+use chess_database_storage::{
     build_dataset_position_index, recover_dataset, verify_dataset, DatasetIndexConfig, DatasetLock,
     DatasetReader, DatasetWriter, DatasetWriterConfig, SourceArchiveMetadata, StagingLock,
     StorageError,

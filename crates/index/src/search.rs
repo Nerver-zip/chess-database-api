@@ -9,7 +9,7 @@ pub mod query;
 pub mod spill;
 
 use crate::position::IndexError;
-use opening_explorer_core::{compute_position_key, CompactMove, ParsedGame, PositionKey};
+use chess_database_core::{compute_position_key, CompactMove, ParsedGame, PositionKey};
 use shakmaty::{fen::Fen, uci::UciMove, CastlingMode, Chess, Move, Position, Role, Square};
 
 /// A position reached in the canonical mainline. The starting position is at ply zero.
@@ -85,7 +85,7 @@ fn resolve_compact(compact: CompactMove, board: &Chess) -> Option<Move> {
 mod tests {
     use super::*;
     use crate::position::extract_game_positions_detailed;
-    use opening_explorer_core::{Collection, GameMetadata, GameResult};
+    use chess_database_core::{Collection, GameMetadata, GameResult};
 
     fn game(fen_start: Option<String>, moves: Vec<CompactMove>) -> ParsedGame {
         ParsedGame {

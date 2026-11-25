@@ -11,7 +11,7 @@ use axum::extract::{Query, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
-use opening_explorer_core::Collection;
+use chess_database_core::Collection;
 use shakmaty::Chess;
 use std::sync::Arc;
 

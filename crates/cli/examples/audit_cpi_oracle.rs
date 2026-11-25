@@ -5,9 +5,9 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
-use opening_explorer_core::{compute_position_key, CompactMove, GameResult, PositionKey};
-use opening_explorer_index::position::{MoveStats, PositionStats};
-use opening_explorer_storage::DatasetReader;
+use chess_database_core::{compute_position_key, CompactMove, GameResult, PositionKey};
+use chess_database_index::position::{MoveStats, PositionStats};
+use chess_database_storage::DatasetReader;
 use serde::Serialize;
 use shakmaty::fen::Fen;
 use shakmaty::san::San;
@@ -115,7 +115,7 @@ fn parse_san_line(moves: &str) -> Result<(Chess, PositionKey)> {
     Ok((board, key))
 }
 
-fn initial_board(game: &opening_explorer_core::ParsedGame) -> Result<Chess> {
+fn initial_board(game: &chess_database_core::ParsedGame) -> Result<Chess> {
     let Some(fen) = game.fen_start.as_deref() else {
         return Ok(Chess::default());
     };

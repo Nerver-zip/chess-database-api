@@ -1,13 +1,13 @@
 //! Reconcile search postings and CPI on deterministic production-corpus probes.
 
 use anyhow::{ensure, Context, Result};
-use clap::Parser;
-use opening_explorer_core::{compute_position_key, CompactMove, ParsedGame, PositionKey};
-use opening_explorer_index::search::{catalog::SearchCatalog, postings::SearchPostingsReader};
-use opening_explorer_storage::{
+use chess_database_core::{compute_position_key, CompactMove, ParsedGame, PositionKey};
+use chess_database_index::search::{catalog::SearchCatalog, postings::SearchPostingsReader};
+use chess_database_storage::{
     search::{CATALOG_FILENAME, POSTINGS_FILENAME, SEARCH_DIRECTORY},
     DatasetReader,
 };
+use clap::Parser;
 use rusqlite::Connection;
 use shakmaty::{fen::Fen, san::San, CastlingMode, Chess, Position};
 use std::collections::{BTreeMap, BTreeSet};

@@ -2,7 +2,7 @@
 
 use crate::position::IndexError;
 use crate::search::PositionOccurrence;
-use opening_explorer_core::{CompactMove, PositionKey};
+use chess_database_core::{CompactMove, PositionKey};
 use sha2::{Digest, Sha256};
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;

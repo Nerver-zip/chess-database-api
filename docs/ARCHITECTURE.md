@@ -10,6 +10,8 @@ status: current
 
 Chess Database API is a modular chess database and position indexing engine written in Rust. It ingests large, heterogeneous PGN corpora, enforces strict legal move validation, canonicalizes headers, eliminates duplicates with prefix-supersession, stores compressed games in persistent sharded CGB3 containers, and builds immutable Compact Position Indexes (CPI v2) using bounded-memory external sorting.
 
+Search-enabled snapshots add an immutable SQLite metadata catalog and sorted positional occurrence postings. The HTTP service pins one snapshot per request and uses its CPI, search and game readers.
+
 The architecture is designed around explicit resource bounds:
 - **Streaming Ingestion Memory:** ingestion is streaming with O(1) memory scaling relative to input size. Record executed-process VmHWM for each build host; no fixed 30 MB release cutoff applies.
 - **Position Indexing Memory:** peak accumulation is bounded by the --memory-limit-mib option (default 128 MiB, configurable down to 16 MiB).
@@ -24,23 +26,23 @@ The workspace comprises seven decoupled crates within `crates/`:
 
 ```
 crates/
-├── core/       # [opening-explorer-core] Fundamental domain types, move packing, and invariants
-├── ingest/     # [opening-explorer-ingest] Streaming PGN parsing and full legal move replay
-├── curate/     # [opening-explorer-curate] Policy filtering, header canonicalization, and deduplication
-├── storage/    # [opening-explorer-storage] CGB3 container, sharding, atomic publishing, and locking
-├── index/      # [opening-explorer-index] Position extraction, external merge sort, and CPI v2 indexer
-├── api/        # [opening-explorer-api] Production-ready read-only HTTP Opening Explorer service
-└── cli/        # [opening-explorer-cli] CLI binary (opening-explorer), command dispatch, and verification tools
+├── core/       # [chess-database-core] Fundamental domain types, move packing, and invariants
+├── ingest/     # [chess-database-ingest] Streaming PGN parsing and full legal move replay
+├── curate/     # [chess-database-curate] Policy filtering, header canonicalization, and deduplication
+├── storage/    # [chess-database-storage] CGB3 container, sharding, atomic publishing, and locking
+├── index/      # [chess-database-index] Position extraction, external merge sort, and CPI v2 indexer
+├── api/        # [chess-database-api] Read-only HTTP serving, discovery and Opening Explorer
+└── cli/        # [chess-database-cli] CLI binary (chess-database), command dispatch, and verification tools
 ```
 
 ```mermaid
 flowchart TD
-    CLI["crates/cli (opening-explorer binary)"]
+    CLI["crates/cli (chess-database binary)"]
     API["crates/api (Axum HTTP server)"]
     INGEST["crates/ingest (PGN streaming & legal validation)"]
     CURATE["crates/curate (policy & deduplication)"]
     STORAGE["crates/storage (CGB3 shards, games.idx, locks, publication)"]
-    INDEX["crates/index (CPI v2, external sort, queries)"]
+    INDEX["crates/index (CPI v2, search catalog, postings and queries)"]
     CORE["crates/core (models, CompactMove, PositionKey)"]
 
     CLI --> API
@@ -61,7 +63,7 @@ flowchart TD
     INDEX --> CORE
 ```
 
-### 2.1 `opening-explorer-core`
+### 2.1 `chess-database-core`
 - **Location:** [`crates/core/`](../crates/core/)
 - **Responsibilities:**
   - `Collection`: Strictly distinguishes `MastersOtb` from `EliteOnline`.
@@ -70,21 +72,21 @@ flowchart TD
   - `GameResult`: Lenient parsing for `1-0`, `0-1`, `1/2-1/2`, and `*`.
   - `StableGameId`: Deterministic 64-bit FNV-1a hash computed over canonical metadata key and normalized move sequence.
 
-### 2.2 `opening-explorer-ingest`
+### 2.2 `chess-database-ingest`
 - **Location:** [`crates/ingest/`](../crates/ingest/)
 - **Responsibilities:**
   - Streaming PGN parser built on `pgn-reader` with transparent Zstandard decompression (`.pgn` or `.pgn.zst`).
   - Strict legal move validation using `shakmaty`: every move in every game is executed on an internal legal board state. Games with illegal moves fail closed and are rejected.
   - Time control evaluation: computes estimated game duration ($T_{\text{est}} = \text{base} + 40 \times \text{increment}$) to filter out bullet/ultrabullet games.
 
-### 2.3 `opening-explorer-curate`
+### 2.3 `chess-database-curate`
 - **Location:** [`crates/curate/`](../crates/curate/)
 - **Responsibilities:**
   - `policy.rs`: Concrete collection rules (`MastersOtbPolicy` and `EliteOnlinePolicy`), Elo/rating thresholds, minimum plies, and variant rejection.
   - `dedupe.rs`: Normalized metadata keys (`White|Black|Year|Event|Round`), move sequence prefix comparison, and superseding detection.
   - Dual-mode deduplication backends: `DeduplicatorBackend::Memory` (for tests/fixtures) and `DeduplicatorBackend::Disk` (SQLite-backed catalog in staging for multi-million game scaling).
 
-### 2.4 `opening-explorer-storage`
+### 2.4 `chess-database-storage`
 - **Location:** [`crates/storage/`](../crates/storage/)
 - **Responsibilities:**
   - `format.rs`: CGB3 block container (format version 3), block-level dictionary interning, and Zstandard compression.
@@ -93,14 +95,14 @@ flowchart TD
   - `lock.rs`: Process-level advisory file locking (`.dataset.lock`) using `flock(LOCK_EX | LOCK_NB)` to serialize mutations while permitting concurrent readers.
   - `dataset.rs`: Dataset publication coordinator, staging directory management, atomic symlink swaps, snapshot isolation, and crash recovery.
 
-### 2.5 `opening-explorer-index`
+### 2.5 `chess-database-index`
 - **Location:** [`crates/index/`](../crates/index/)
 - **Responsibilities:**
   - `position.rs`: Canonical position extraction (`extract_game_positions_detailed`), intra-game repetition tracking, game result aggregation, and CPI v2 format writer (`positions.cpi`).
   - `external.rs`: Bounded-memory external merge sort pipeline (`ExternalPositionIndexer`), temporary run file emission (`.crun`), and deterministic hierarchical K-way merge.
   - Opening Explorer query execution: sub-millisecond memory-mapped sparse index lookup and block decompression for SAN, UCI, and legal FEN inputs.
 
-### 2.6 `opening-explorer-api`
+### 2.6 `chess-database-api`
 - **Location:** [`crates/api/`](../crates/api/)
 - **Responsibilities:**
   - Production-ready, asynchronous, read-only HTTP Opening Explorer service built on Axum 0.8 and Tokio.
@@ -109,12 +111,12 @@ flowchart TD
   - Snapshot isolation pinning immutable version directories (`versions/vX/`) and atomic zero-downtime hot-reloading via `parking_lot::RwLock<Arc<DatasetSnapshot>>`.
   - Pooled, bounded threadpool execution for Zstandard CGB3 game decompression without blocking asynchronous request loops.
 
-### 2.7 `opening-explorer-cli`
+### 2.7 `chess-database-cli`
 - **Location:** [`crates/cli/`](../crates/cli/)
 - **Responsibilities:**
   - Unified CLI command parsing via `clap`: `build`, `build-index`, `query`, `verify`, `inspect`, `report`, `get-game`, `bench`, and `serve`.
-  - `opening-explorer build --report-json` and `opening-explorer report` emit machine-readable accounting, rejection-reason, and distribution reports consumed by the corpus release workflow.
-  - Service daemon lifecycle management for `opening-explorer serve`, handling host, port, timeout, move ply limits, and graceful OS shutdown signals.
+  - `chess-database build --report-json` and `chess-database report` emit machine-readable accounting, rejection-reason, and distribution reports consumed by the corpus release workflow.
+  - Service daemon lifecycle management for `chess-database serve`, handling host, port, timeout, move ply limits, and graceful OS shutdown signals.
   - Progress reporting and structured JSON diagnostic output.
   - Benchmark harnesses and verification gates.
 
@@ -126,12 +128,13 @@ flowchart TD
 sequenceDiagram
     autonumber
     participant Source as PGN / PGN.zst Source
-    participant Ingest as opening-explorer-ingest (Stream & Legal Replay)
-    participant Curate as opening-explorer-curate (Policy & Deduplication)
-    participant Storage as opening-explorer-storage (CGB3 Shards & games.idx)
-    participant Index as opening-explorer-index (External Sort & CPI v2)
+    participant Ingest as chess-database-ingest (Stream & Legal Replay)
+    participant Curate as chess-database-curate (Policy & Deduplication)
+    participant Storage as chess-database-storage (CGB3 Shards & games.idx)
+    participant Index as chess-database-index (External Sort & CPI v2)
     participant Search as Derived Metadata and Position Postings
-    participant Consumer as Chess Database API Consumer
+    participant API as Axum snapshot server
+    participant Consumer as API client
 
     Source->>Ingest: Stream PGN tokens
     Ingest->>Ingest: Validate legal moves (shakmaty)
@@ -146,11 +149,16 @@ sequenceDiagram
     Index->>Index: Extract position keys (HashSet intra-game dedupe)
     Index->>Index: External sort via temporary .crun files
     Index->>Index: Deterministic K-way merge into positions.cpi
-    Consumer->>Index: Query FEN or Move sequence
-    Index->>Consumer: PositionStats (W/D/L counters, next move candidates)
     Storage->>Search: Stream canonical games and source attribution
     Search->>Search: Build metadata catalog and merge sorted position occurrences
-    Search->>Consumer: Paginated games, player and event discovery, filtered statistics
+    Search->>Storage: Stage and deeply verify derived search snapshot
+    Storage->>Storage: Atomically activate verified version
+    API->>Storage: Verify and pin an immutable version
+    Consumer->>API: Unfiltered Opening Explorer request
+    API->>Index: Read pinned CPI
+    Consumer->>API: Search or filtered Explorer request
+    API->>Search: Bounded worker reads pinned catalog and postings
+    API->>Consumer: Page or exact filtered counts
 ```
 
 ---
@@ -167,8 +175,8 @@ dataset_dir/
     ├── v1/
     │   ├── manifest.json   # Dataset manifest, SHA-256 digests, and collection info
     │   ├── games.idx       # Sorted 16-byte fixed-record memory-mapped global index
-    │   ├── shard_0000.cgb3 # First compressed persistent game shard (CGCS header)
-    │   ├── shard_0001.cgb3 # Additional shard if corpus exceeds shard split threshold
+    │   ├── shards/        # shard_0000.cgb3 and additional CGB3 shards
+    │   ├── source-attribution.jsonl # Optional source attribution
     │   ├── positions.cpi   # Production Compact Position Index (CPI v2)
     │   └── search/         # Optional metadata.sqlite and positions.postings
     └── .staging_XXXX/      # Isolated build directory for in-flight publications
@@ -193,7 +201,7 @@ dataset_dir/
 
 ## 5. Concurrency Model and Locking (`lock.rs`)
 
-`opening-explorer-api` provides strong concurrency guarantees:
+`chess-database-api` provides strong concurrency guarantees:
 - **Lock-Free Read Snapshots:** Readers resolve `current` to its target canonical path (e.g., `versions/v1`) and pin open file descriptors. Readers require no locks, will never block on concurrent writes, and see a 100% consistent immutable snapshot even during active publication.
 - **Serialized Mutations via Advisory Flock:** Mutations (`build`, `build-index`, `recover`) acquire an exclusive lock on `.dataset.lock` via `flock(fd, LOCK_EX | LOCK_NB)`. If another mutation process holds the lock, incoming operations fail closed immediately with `StorageError::Lock`.
 - **Atomic Symlink Publication:** New versions are completely staged in `versions/.staging_<pid>_<timestamp>_<nonce>`, verified with deep integrity checks, and published via atomic symlink swap (`rename(temp_symlink, current)`). Readers observing `current` never observe a partial or half-written state.
@@ -228,13 +236,13 @@ Source acquisition and release assembly are deliberately **not** part of the Rus
 flowchart TD
     CAT["corpus/catalog.json<br/>pinned sources, licenses, publisher SHA-256"] --> FETCH["scripts/corpus.py fetch<br/>HTTPS, resume, retry, checksum, atomic finalize"]
     FETCH --> SRC["data/sources/&lt;collection&gt;/*.pgn.zst<br/>(git-ignored)"]
-    SRC --> BUILD["opening-explorer build --manifest<br/>policy, dedupe, CGB3"]
+    SRC --> BUILD["chess-database build --manifest<br/>policy, dedupe, CGB3"]
     BUILD --> ATTR["Optional Gigabase source-attribution JSONL<br/>separate from CGB3"]
-    ATTR --> INDEX["opening-explorer build-index<br/>CPI v2, bounded memory"]
-    INDEX --> VERIFY["opening-explorer verify --deep<br/>opening-explorer report"]
-    VERIFY --> PUBLISH["opening-explorer publish<br/>complete immutable version + atomic current symlink"]
+    ATTR --> INDEX["chess-database build-index<br/>CPI v2, bounded memory"]
+    INDEX --> VERIFY["chess-database verify --deep<br/>chess-database report"]
+    VERIFY --> PUBLISH["chess-database publish<br/>complete immutable version + atomic current symlink"]
     PUBLISH --> PKG["corpus.py package<br/>verifiable .tar + SHA-256"]
-    PUBLISH --> SERVE["opening-explorer serve (both collections)"]
+    PUBLISH --> SERVE["chess-database serve (both collections)"]
 ```
 
 The orchestration adds no binary format and does not reimplement ingestion, curation, deduplication, storage, or index semantics. It builds in a private data/work/ workspace, deeply verifies a complete candidate, moves the immutable version under the stable data/releases/<collection>/versions/ root, and atomically replaces the relative current symlink. Previous versions remain in place for readers pinned to an older snapshot. The opt-in Gigabase qualification path registers source tags and identity evidence in a checksummed JSONL sidecar; CGB3, CPI v2, and `games.idx` layouts are unchanged. See [CORPUS_BUILD.md](CORPUS_BUILD.md) and [DATA_CONTRACTS.md](DATA_CONTRACTS.md#4-dataset-manifest-contract-manifestjson).
@@ -243,13 +251,13 @@ The orchestration adds no binary format and does not reimplement ingestion, cura
 
 ## 7. Docker Runtime Boundary
 
-The multi-stage image contains the opening-explorer executable and runtime libraries only. It does not contain corpus releases, source archives, build workspaces, or Cargo caches. Compose mounts the stable Masters OTB and Elite Online release roots read-only, deeply validates both before readiness, and binds 0.0.0.0:8080 on the container network. It publishes no host port by default. Separate Compose projects can attach to the same external network and resolve the API by the opening-explorer service alias. Operational commands and CORS boundaries are documented in [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md).
+The multi-stage image ships `chess-database`, its compatibility executable path and runtime libraries. Compose mounts each stable dataset root read-only. Startup and reload verify all manifest-recorded checksums and required headers before activating a snapshot. Builds and installs perform deep structural verification before publication. Set `CHESS_DATABASE_DEEP_VALIDATE_ON_STARTUP=true` to repeat those deep checks during serving operations. The service binds port 8080 on the container network and exposes the `chess-database`, `opening-explorer` and `codb` aliases. See [Docker deployment](DOCKER_DEPLOYMENT.md).
 
 ## 8. Integration Boundaries (Client Applications)
 
 ```mermaid
 graph LR
-    subgraph Engine["opening-explorer-api (Core Storage & Indexing Engine)"]
+    subgraph Engine["chess-database-api (Core Storage & Indexing Engine)"]
         direction TB
         DB_STORE["Persistent CGB3 Archive"]
         DB_INDEX["Production CPI v2 Index"]
@@ -272,9 +280,11 @@ graph LR
     DB_API --> DB_STORE
 ```
 
-- **Domain Decoupling:** `opening-explorer-api` has zero dependency on UI frameworks, Stockfish engine binaries, or account synchronization.
-- **Local-First Independence:** Client applications function 100% locally in guest mode without requiring a running `opening-explorer-api` service. When configured, client applications query the Opening Explorer HTTP API to annotate games with opening tree statistics and win/draw/loss frequencies.
+- **Domain Decoupling:** `chess-database-api` has zero dependency on UI frameworks, Stockfish engine binaries, or account synchronization.
+- **Local-First Independence:** Client applications can use the read-only HTTP interface from a backend gateway. The service provides stored games, discovery and Opening Explorer statistics independently of how the client implements its board and analysis features.
 
 ## 9. Derived search
 
-The [search index](SEARCH_INDEX.md) projects canonical metadata into a bounded-cache SQLite catalog and maps position keys to sorted game occurrences. Search requests use a dedicated concurrency budget and cooperative deadlines for SQLite and postings. A request pins the metadata catalog and postings from the same snapshot. Unfiltered Explorer requests continue to query CPI v2. Each worker reuses its Zstandard decoder context while retaining per-query block validation.
+The [search index](SEARCH_INDEX.md) projects canonical metadata into a bounded-cache SQLite catalog and maps position keys to sorted game occurrences. Requests pin one immutable snapshot. The default admission limit is two blocking search workers with a short bounded queue. A single aggregation slot inside that limit keeps CPU-intensive filtered queries from occupying both workers.
+
+The legacy Explorer route uses CPI v2 with worker-local Zstandard decoder reuse and per-query block validation. For simple rating, date and result filters, a bounded dense ordinal projection avoids walking SQLite candidate rows. Other predicates use the selectivity-aware SQL and posting planner. Both paths apply CPI first-visit semantics and cooperative cancellation.

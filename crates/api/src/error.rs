@@ -193,7 +193,7 @@ impl IntoResponse for ApiError {
         if status.is_server_error() {
             // Log the full diagnostic on the server side.
             tracing::error!(
-                target: "opening_explorer_api::error",
+                target: "chess_database_api::error",
                 code = %self.error_code(),
                 diagnostic = %self,
                 "Internal server error"

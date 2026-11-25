@@ -1,5 +1,5 @@
 [package]
-name = "opening-explorer-api"
+name = "chess-database-api"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -8,9 +8,9 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-opening-explorer-core = { workspace = true }
-opening-explorer-storage = { workspace = true }
-opening-explorer-index = { workspace = true }
+chess-database-core = { workspace = true }
+chess-database-storage = { workspace = true }
+chess-database-index = { workspace = true }
 
 shakmaty = { workspace = true }
 serde = { workspace = true }

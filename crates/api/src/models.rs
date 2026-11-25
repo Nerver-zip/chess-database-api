@@ -108,7 +108,7 @@ pub struct CollectionCapabilities {
     pub event_search: bool,
     pub position_search: bool,
     pub filtered_explorer: bool,
-    pub position_search_coverage: Option<opening_explorer_storage::search::SearchCoverage>,
+    pub position_search_coverage: Option<chess_database_storage::search::SearchCoverage>,
     pub game_filter_families: Vec<String>,
 }
 

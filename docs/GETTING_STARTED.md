@@ -1,12 +1,12 @@
 ---
-summary: "Quickstart for Opening Explorer API: build the CLI, create a small local sample dataset, start the HTTP server, and run a first position query."
-read_when: "Setting up Opening Explorer API for the first time, or needing a working local server to test a client against."
+summary: "Quickstart for Chess Database API: build the CLI, create a small local sample dataset, start the HTTP server, and run a first position query."
+read_when: "Setting up Chess Database API for the first time, or needing a working local server to test a client against."
 status: current
 ---
 
 # Getting Started
 
-This guide takes about ten minutes. You will build the command-line tool, create a small local dataset from the sample PGN that ships with the repository, start the HTTP API, and make a first position query.
+This guide takes about ten minutes. You will build the command-line tool, create a small local dataset from the sample PGN that ships with the repository, start the HTTP API, then search for a game and retrieve its PGN.
 
 The sample is synthetic test data. Its statistics are for trying the API only. For real datasets, see [section 6](#6-real-datasets).
 
@@ -21,35 +21,38 @@ The sample is synthetic test data. Its statistics are for trying the API only. F
 From the repository root:
 
 ```sh
-cargo build --locked --release --package opening-explorer-cli
-./target/release/opening-explorer --help
+cargo build --locked --release --package chess-database-cli
+./target/release/chess-database --help
 ```
 
-The binary provides the commands used below: `build`, `build-index`, `serve`, `query`, `export`, `verify`, and `inspect`. `opening-explorer serve --help` lists every server option.
+The binary provides the commands used below: `build`, `build-index`, `serve`, `query`, `export`, `verify`, and `inspect`. `chess-database serve --help` lists every server option.
 
 ## 3. Create a local sample dataset
 
 The repository ships `fixtures/stage_a_validation.pgn`, 1,000 synthetic games. Build them into an `elite-online` dataset, then build its position index:
 
 ```sh
-./target/release/opening-explorer build \
+./target/release/chess-database build \
   --input fixtures/stage_a_validation.pgn \
   --collection elite-online \
   --output data/sample/elite-online
 
-./target/release/opening-explorer build-index \
+./target/release/chess-database build-index \
   --dataset data/sample/elite-online \
   --collection elite-online
+
+./target/release/chess-database build-search-index \
+  --dataset data/sample/elite-online
 ```
 
-`build` applies the Elite Online selection rule and reports how many games it retained. Those games are the sample. `build-index` writes the position index (depth 30 by default for this collection) and publishes it as the dataset's `current` snapshot. The `data/` directory is ignored by Git.
+`build` applies the Elite Online selection rule and reports how many games it retained. Those games are the sample. `build-index` writes the position index (depth 30 by default for this collection) and publishes it as the dataset's `current` snapshot. `build-search-index` publishes the optional discovery artifacts while reusing the canonical files and CPI. The `data/` directory is ignored by Git.
 
 Do not present a locally built sample as the published Masters OTB dataset. The published Masters release is described in [DATASET_RELEASES.md](DATASET_RELEASES.md); building a corpus from source is covered in [CORPUS_BUILD.md](CORPUS_BUILD.md).
 
 ## 4. Start the API
 
 ```sh
-./target/release/opening-explorer serve \
+./target/release/chess-database serve \
   --elite-dataset data/sample/elite-online \
   --host 127.0.0.1 \
   --port 8080
@@ -96,12 +99,26 @@ OPENING_EXPLORER_COLLECTION=elite-online \
 To cross-check the HTTP answer against the CLI, run:
 
 ```sh
-./target/release/opening-explorer query \
+./target/release/chess-database query \
   --dataset data/sample/elite-online \
   --moves "e4,e5,Nf3" --json
 ```
 
 The CLI reports the same `total_games`, `white_wins`, `draws`, and `black_wins` as the HTTP response. Its JSON field names differ slightly from the HTTP contract (for example, `total` in each move instead of `total_games`). The HTTP reference is authoritative for integrations.
+
+### Find a game and open its PGN
+
+Check the advertised `game_search` capability, then constrain game discovery to the same board. The response includes matching plies, played continuations and stable game IDs.
+
+```sh
+API=http://127.0.0.1:8080
+GAMES=$API/v1/collections/elite-online/games
+curl --fail-with-body "$API/v1/collections"
+curl --fail-with-body --get "$GAMES" \
+  --data-urlencode 'moves=e4,e5,Nf3' --data-urlencode 'limit=3'
+```
+
+Copy a returned decimal `id` into `GAME_ID`, then run `curl --fail-with-body "$GAMES/$GAME_ID"`. More search parameters and cursor examples are in the [Search API](SEARCH_API.md).
 
 ## 6. Real datasets
 

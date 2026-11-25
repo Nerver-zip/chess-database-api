@@ -728,7 +728,7 @@ def ensure_opening_explorer() -> Path:
         cargo_bin = Path.home() / ".cargo" / "bin"
         if cargo_bin.is_dir():
             env["PATH"] = f"{cargo_bin}:{env['PATH']}"
-        subprocess.run(["cargo", "build", "-q", "-p", "opening-explorer-cli"], cwd=REPO, env=env, check=True)
+        subprocess.run(["cargo", "build", "-q", "-p", "chess-database-cli"], cwd=REPO, env=env, check=True)
         return corpus.find_opening_explorer(None)
 
 

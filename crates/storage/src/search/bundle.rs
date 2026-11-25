@@ -490,7 +490,7 @@ mod tests {
     use super::*;
     use crate::search::build_search_index;
     use crate::{verify_dataset, DatasetWriter, DatasetWriterConfig, SourceArchiveMetadata};
-    use opening_explorer_core::{
+    use chess_database_core::{
         Collection, CompactMove, GameMetadata, GameResult, IngestionStats, ParsedGame,
     };
     use std::os::unix::fs::{symlink, MetadataExt};

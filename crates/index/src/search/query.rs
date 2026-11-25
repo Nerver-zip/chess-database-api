@@ -3,7 +3,7 @@
 use super::control::SearchControl;
 use super::postings::{SearchPosting, SearchPostingsReader};
 use crate::position::IndexError;
-use opening_explorer_core::{CompactMove, GameSourceAttribution, PositionKey};
+use chess_database_core::{CompactMove, GameSourceAttribution, PositionKey};
 use rusqlite::{params_from_iter, types::Value, Connection, OptionalExtension, Row};
 use serde::{Deserialize, Serialize};
 

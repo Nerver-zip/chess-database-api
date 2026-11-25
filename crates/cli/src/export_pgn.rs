@@ -35,8 +35,8 @@ use std::os::unix::fs::FileExt;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context, Result};
-use opening_explorer_core::{Collection, CompactMove, ParsedGame};
-use opening_explorer_storage::{compute_file_sha256, DatasetReader};
+use chess_database_core::{Collection, CompactMove, ParsedGame};
+use chess_database_storage::{compute_file_sha256, DatasetReader};
 use serde::{Deserialize, Serialize};
 use shakmaty::fen::Fen;
 use shakmaty::san::SanPlus;
@@ -639,7 +639,7 @@ impl MovetextWrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use opening_explorer_core::{GameMetadata, GameResult};
+    use chess_database_core::{GameMetadata, GameResult};
 
     fn game_with(
         moves: Vec<CompactMove>,
@@ -919,7 +919,7 @@ mod tests {
         fen_start: Option<&str>,
         result: GameResult,
     ) -> ParsedGame {
-        use opening_explorer_core::compute_stable_game_id;
+        use chess_database_core::compute_stable_game_id;
         let id = compute_stable_game_id(
             collection,
             Some(seed),
@@ -939,8 +939,8 @@ mod tests {
 
     #[test]
     fn export_writes_each_canonical_game_once_and_is_deterministic() {
-        use opening_explorer_core::{IngestionCompletionStatus, IngestionStats};
-        use opening_explorer_storage::{
+        use chess_database_core::{IngestionCompletionStatus, IngestionStats};
+        use chess_database_storage::{
             compute_file_sha256, CurationPolicyMetadata, DatasetWriter, DatasetWriterConfig,
             FileChecksumMetadata,
         };
@@ -1079,10 +1079,8 @@ mod tests {
 
     #[test]
     fn elite_export_without_sidecar_uses_only_persisted_metadata() {
-        use opening_explorer_core::{IngestionCompletionStatus, IngestionStats};
-        use opening_explorer_storage::{
-            CurationPolicyMetadata, DatasetWriter, DatasetWriterConfig,
-        };
+        use chess_database_core::{IngestionCompletionStatus, IngestionStats};
+        use chess_database_storage::{CurationPolicyMetadata, DatasetWriter, DatasetWriterConfig};
 
         let dir = tempfile::tempdir().unwrap();
         let target = dir.path().join("elite-online");
