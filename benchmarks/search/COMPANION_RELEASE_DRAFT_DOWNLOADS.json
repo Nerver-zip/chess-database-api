@@ -1,0 +1,89 @@
+{
+  "assets": [
+    {
+      "actual_bytes": 269896854,
+      "actual_sha256": "f011e539407ae49c7623a315456696e33ee5e5c4b0477cbca7f655859d6f1cca",
+      "exit_code": 0,
+      "expected_bytes": 269896854,
+      "expected_sha256": "f011e539407ae49c7623a315456696e33ee5e5c4b0477cbca7f655859d6f1cca",
+      "name": "elite-online-r1-d30-search-v1.tar.zst",
+      "release": "search-elite-online-r1-d30-v1"
+    },
+    {
+      "actual_bytes": 1571,
+      "actual_sha256": "733b47046ee6be98f7d4fdfe3104b2437b5db025bc1fdde1b4077451e6a5df8e",
+      "exit_code": 0,
+      "expected_bytes": 1571,
+      "expected_sha256": "733b47046ee6be98f7d4fdfe3104b2437b5db025bc1fdde1b4077451e6a5df8e",
+      "name": "elite-online-r1-d30-search-v1-NOTICE.md",
+      "release": "search-elite-online-r1-d30-v1"
+    },
+    {
+      "actual_bytes": 3045,
+      "actual_sha256": "514f4f66bd0c427c2f151c0f2bb8ba0ca188a459d3759aba125c91f966e51938",
+      "exit_code": 0,
+      "expected_bytes": 3045,
+      "expected_sha256": "514f4f66bd0c427c2f151c0f2bb8ba0ca188a459d3759aba125c91f966e51938",
+      "name": "elite-online-r1-d30-search-v1-RELEASE_MANIFEST.json",
+      "release": "search-elite-online-r1-d30-v1"
+    },
+    {
+      "actual_bytes": 328,
+      "actual_sha256": "9de164f3a39e3c08dff7e7d40bfa12afef53c381b5c402443ce8aa278d871155",
+      "exit_code": 0,
+      "expected_bytes": 328,
+      "expected_sha256": "9de164f3a39e3c08dff7e7d40bfa12afef53c381b5c402443ce8aa278d871155",
+      "name": "SHA256SUMS",
+      "release": "search-elite-online-r1-d30-v1"
+    },
+    {
+      "actual_bytes": 1992294400,
+      "actual_sha256": "f7fe0e1e70948390493830d25cf0427c1fd29558996fd12618cf5cab9f78ec72",
+      "exit_code": 0,
+      "expected_bytes": 1992294400,
+      "expected_sha256": "f7fe0e1e70948390493830d25cf0427c1fd29558996fd12618cf5cab9f78ec72",
+      "name": "masters-otb-r3-d40-search-v1.tar.zst.part-001",
+      "release": "search-masters-otb-r3-d40-v1"
+    },
+    {
+      "actual_bytes": 454613548,
+      "actual_sha256": "17dac76e74c734cd8a75a7f195a8d4594210a184ca545b3b2bcfe1352fb7fefd",
+      "exit_code": 0,
+      "expected_bytes": 454613548,
+      "expected_sha256": "17dac76e74c734cd8a75a7f195a8d4594210a184ca545b3b2bcfe1352fb7fefd",
+      "name": "masters-otb-r3-d40-search-v1.tar.zst.part-002",
+      "release": "search-masters-otb-r3-d40-v1"
+    },
+    {
+      "actual_bytes": 2308,
+      "actual_sha256": "3793ab257687ad642d4d7d18f2ba96230b6327f39a9102a124a36032cdc0bc73",
+      "exit_code": 0,
+      "expected_bytes": 2308,
+      "expected_sha256": "3793ab257687ad642d4d7d18f2ba96230b6327f39a9102a124a36032cdc0bc73",
+      "name": "masters-otb-r3-d40-search-v1-NOTICE.md",
+      "release": "search-masters-otb-r3-d40-v1"
+    },
+    {
+      "actual_bytes": 5116,
+      "actual_sha256": "8892dc0c9731b2d389de42e093a303b83f448894654e6db5c2e4cd76536658ca",
+      "exit_code": 0,
+      "expected_bytes": 5116,
+      "expected_sha256": "8892dc0c9731b2d389de42e093a303b83f448894654e6db5c2e4cd76536658ca",
+      "name": "search-masters-otb-r3-d40-v1.json",
+      "release": "search-masters-otb-r3-d40-v1"
+    },
+    {
+      "actual_bytes": 429,
+      "actual_sha256": "04758c07222f6eb551609716a476ef1237815a2e6414b72bedf08c01a82f1392",
+      "exit_code": 0,
+      "expected_bytes": 429,
+      "expected_sha256": "04758c07222f6eb551609716a476ef1237815a2e6414b72bedf08c01a82f1392",
+      "name": "SHA256SUMS",
+      "release": "search-masters-otb-r3-d40-v1"
+    }
+  ],
+  "complete": true,
+  "finished_utc": "2026-11-26T11:35:57Z",
+  "method": "Authenticated gh release download streamed to SHA-256 and byte counter; no local archive copy",
+  "started_utc": "2026-11-26T11:32:52Z"
+}

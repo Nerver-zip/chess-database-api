@@ -1,0 +1,28 @@
+{
+  "cases": {
+    "collections": {
+      "latency_us": 427.207000029739,
+      "status": 200
+    },
+    "games_disabled": {
+      "latency_us": 219.27499983576126,
+      "status": 503
+    },
+    "legacy_conditional": {
+      "latency_us": 218.75599850318395,
+      "status": 304
+    },
+    "legacy_explorer": {
+      "latency_us": 275.66800054046325,
+      "status": 200
+    },
+    "ready": {
+      "latency_us": 2953.6470010498306,
+      "status": 200
+    }
+  },
+  "collection": "masters-otb",
+  "dataset_version": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+  "mode": "legacy",
+  "seconds": 0.00432968799941591
+}

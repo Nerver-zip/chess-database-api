@@ -1,0 +1,1142 @@
+{
+  "binary_sha256": "3f098706851f0d32170b47d8cd2b74abf5f5b48327fb14254cac0e4d1d6aec5c",
+  "cpu_affinity": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "datasets": {
+    "elite-online": {
+      "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+      "lookup_table": {
+        "entry_count": 429150,
+        "file_size_bytes": 6866464,
+        "filename": "games.idx",
+        "sha256": "83125009540b3887c3b1ebd75e2435207aeb0e6a8e1e797a0b2d7d7eec309558"
+      },
+      "position_index": {
+        "block_count": 95880,
+        "custom_fen_games": 0,
+        "excluded_unknown_result_games": 0,
+        "file_size_bytes": 132054643,
+        "filename": "positions.cpi",
+        "format_version": "CPI/v2",
+        "games_indexed": 429150,
+        "games_processed": 429150,
+        "indexed_depth_plies": 30,
+        "positions_per_block": 64,
+        "raw_observations_extracted": 12760622,
+        "repeated_positions_skipped": 1847,
+        "sha256": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
+        "unique_position_move_pairs": 6739644,
+        "unique_positions": 6136307,
+        "zstd_level": 3
+      },
+      "shards": [
+        {
+          "block_count": 839,
+          "file_size_bytes": 71360460,
+          "filename": "shard_0000.cgb3",
+          "game_count": 429150,
+          "sha256": "5ecd991fc9b8df1798d05e3969f0b9e826da7bd8be4efb7f442a981b1daf3cbd",
+          "shard_id": 0
+        }
+      ],
+      "total_games": 429150
+    },
+    "masters-otb": {
+      "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+      "lookup_table": {
+        "entry_count": 3284429,
+        "file_size_bytes": 52550928,
+        "filename": "games.idx",
+        "sha256": "297ecf32313e3d239d154a085d22ea5cec63fede54660a5912c22b6aab1d185c"
+      },
+      "position_index": {
+        "block_count": 811088,
+        "custom_fen_games": 0,
+        "excluded_unknown_result_games": 0,
+        "file_size_bytes": 1107897085,
+        "filename": "positions.cpi",
+        "format_version": "CPI/v2",
+        "games_indexed": 3284429,
+        "games_processed": 3284429,
+        "indexed_depth_plies": 40,
+        "positions_per_block": 64,
+        "raw_observations_extracted": 127444117,
+        "repeated_positions_skipped": 123703,
+        "sha256": "284898e18f4a4aba0b56d383e8b1a163790a85e1081749f0ff9204fdab5a971c",
+        "unique_position_move_pairs": 55864091,
+        "unique_positions": 51909604,
+        "zstd_level": 3
+      },
+      "shards": [
+        {
+          "block_count": 977,
+          "file_size_bytes": 88149136,
+          "filename": "shard_0000.cgb3",
+          "game_count": 500192,
+          "sha256": "2523525f459b77ba9fcbcbedeb5cb396fbf84d4f9bfde0d38d14838a96d5bc47",
+          "shard_id": 0
+        },
+        {
+          "block_count": 977,
+          "file_size_bytes": 86908531,
+          "filename": "shard_0001.cgb3",
+          "game_count": 500224,
+          "sha256": "2b67de818cfc186a3c7d607da0b280f03bf47991e36a2877a37485d56cf01375",
+          "shard_id": 1
+        },
+        {
+          "block_count": 977,
+          "file_size_bytes": 84953435,
+          "filename": "shard_0002.cgb3",
+          "game_count": 500224,
+          "sha256": "57b932b708408ee6a74e466faa3bd48d61f28240d60c300bb5a2e59148d0dedd",
+          "shard_id": 2
+        },
+        {
+          "block_count": 977,
+          "file_size_bytes": 81871872,
+          "filename": "shard_0003.cgb3",
+          "game_count": 500224,
+          "sha256": "e2c0ae3719db5a7845196fd3b3fe45721993b3301f08b683ef518891cdf9d2a4",
+          "shard_id": 3
+        },
+        {
+          "block_count": 977,
+          "file_size_bytes": 78693348,
+          "filename": "shard_0004.cgb3",
+          "game_count": 500206,
+          "sha256": "b1000e174ecb65b018041d950cbae4692ab5328781dcd69ebd6e2603e8eaa8a2",
+          "shard_id": 4
+        },
+        {
+          "block_count": 977,
+          "file_size_bytes": 76100646,
+          "filename": "shard_0005.cgb3",
+          "game_count": 500145,
+          "sha256": "e20be5dd42e6e0d11c67592c53c2f9b1a4a2e7f378d084a1f85de8e450bd008f",
+          "shard_id": 5
+        },
+        {
+          "block_count": 554,
+          "file_size_bytes": 41925257,
+          "filename": "shard_0006.cgb3",
+          "game_count": 283214,
+          "sha256": "3792844c757b9816f95b65d454205c05e22784de95ff0ab1334861f5cd6b9b01",
+          "shard_id": 6
+        }
+      ],
+      "total_games": 3284429
+    }
+  },
+  "machine": "Linux-7.3.6-arch1-1-x86_64-with-glibc2.44",
+  "request_corpus": {
+    "elite-online:beyond_depth": "/v1/explorer/position?collection=elite-online&moves=e4%2Ce5%2CNf3%2CNc6%2CBb5%2Ca6%2CBa4%2CNf6%2CO-O%2CBe7%2CRe1%2Cb5%2CBb3%2Cd6%2Cc3%2CO-O%2Ch3%2CNb8%2Cd4%2CNbd7%2Cc4%2Cc6%2CNc3%2CBb7%2Ca3%2CQc7%2Ccxb5%2Caxb5%2CBe3%2CRfe8%2CRc1",
+    "elite-online:common": "/v1/explorer/position?collection=elite-online&moves=e4%2Cc5%2CNf3",
+    "elite-online:custom_fen": "/v1/explorer/position?collection=elite-online&fen=4k3%2F8%2F8%2F8%2F8%2F8%2F8%2F4K3+w+-+-+0+1",
+    "elite-online:less_common": "/v1/explorer/position?collection=elite-online&moves=a3%2Ch5%2Ca4%2Ch4%2CNf3",
+    "elite-online:pgn_0": "/v1/collections/elite-online/games/27289182012770",
+    "elite-online:pgn_1": "/v1/collections/elite-online/games/2630633302676066564",
+    "elite-online:pgn_2": "/v1/collections/elite-online/games/5269291514212320475",
+    "elite-online:pgn_3": "/v1/collections/elite-online/games/7901338865402807896",
+    "elite-online:pgn_4": "/v1/collections/elite-online/games/10534658814768365226",
+    "elite-online:pgn_5": "/v1/collections/elite-online/games/13171933035051377272",
+    "elite-online:pgn_6": "/v1/collections/elite-online/games/15806203570984506265",
+    "elite-online:pgn_7": "/v1/collections/elite-online/games/18446700545072799029",
+    "elite-online:start": "/v1/explorer/position?collection=elite-online&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1",
+    "elite-online:transposition_a": "/v1/explorer/position?collection=elite-online&moves=Nf3%2CNf6%2Cg3%2Cg6",
+    "elite-online:transposition_b": "/v1/explorer/position?collection=elite-online&moves=g3%2Cg6%2CNf3%2CNf6",
+    "masters-otb:beyond_depth": "/v1/explorer/position?collection=masters-otb&moves=e4%2Ce5%2CNf3%2CNc6%2CBb5%2Ca6%2CBa4%2CNf6%2CO-O%2CBe7%2CRe1%2Cb5%2CBb3%2Cd6%2Cc3%2CO-O%2Ch3%2CNb8%2Cd4%2CNbd7%2Cc4%2Cc6%2CNc3%2CBb7%2Ca3%2CQc7%2Ccxb5%2Caxb5%2CBe3%2CRfe8%2CRc1%2CQb8%2CNg5%2CRf8%2Cdxe5%2Cdxe5%2CBe6%2CQe8%2CBa2%2Ch6%2CNf3",
+    "masters-otb:common": "/v1/explorer/position?collection=masters-otb&moves=e4%2Cc5%2CNf3",
+    "masters-otb:custom_fen": "/v1/explorer/position?collection=masters-otb&fen=4k3%2F8%2F8%2F8%2F8%2F8%2F8%2F4K3+w+-+-+0+1",
+    "masters-otb:less_common": "/v1/explorer/position?collection=masters-otb&moves=a3%2Ch5%2Ca4%2Ch4%2CNf3",
+    "masters-otb:pgn_0": "/v1/collections/masters-otb/games/4239177970205",
+    "masters-otb:pgn_1": "/v1/collections/masters-otb/games/2638069285631588209",
+    "masters-otb:pgn_2": "/v1/collections/masters-otb/games/5273274102692794559",
+    "masters-otb:pgn_3": "/v1/collections/masters-otb/games/7913271516831685059",
+    "masters-otb:pgn_4": "/v1/collections/masters-otb/games/10546804295094554661",
+    "masters-otb:pgn_5": "/v1/collections/masters-otb/games/13179612919962400624",
+    "masters-otb:pgn_6": "/v1/collections/masters-otb/games/15811612647321778067",
+    "masters-otb:pgn_7": "/v1/collections/masters-otb/games/18446743697827722248",
+    "masters-otb:start": "/v1/explorer/position?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1",
+    "masters-otb:transposition_a": "/v1/explorer/position?collection=masters-otb&moves=Nf3%2CNf6%2Cg3%2Cg6",
+    "masters-otb:transposition_b": "/v1/explorer/position?collection=masters-otb&moves=g3%2Cg6%2CNf3%2CNf6"
+  },
+  "revision": "575d988dad9e69468e637dee05090008d364bccb",
+  "runs": [
+    {
+      "http": {
+        "concurrent": {
+          "cases": {
+            "elite-online:beyond_depth": {
+              "max_us": 6583.14,
+              "min_us": 348.51,
+              "p50_us": 1472.2,
+              "p95_us": 3686.84,
+              "p99_us": 5527.14,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:common": {
+              "max_us": 6699.55,
+              "min_us": 341.96,
+              "p50_us": 1503.39,
+              "p95_us": 3519.57,
+              "p99_us": 5161.47,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:custom_fen": {
+              "max_us": 5333.44,
+              "min_us": 363.51,
+              "p50_us": 1505.09,
+              "p95_us": 3450.91,
+              "p99_us": 4515.2,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:less_common": {
+              "max_us": 6085.68,
+              "min_us": 458.02,
+              "p50_us": 1558.61,
+              "p95_us": 3793.81,
+              "p99_us": 4801.3,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_0": {
+              "max_us": 13344.13,
+              "min_us": 758.92,
+              "p50_us": 4705.38,
+              "p95_us": 9056.44,
+              "p99_us": 11909.71,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_1": {
+              "max_us": 12501.05,
+              "min_us": 680.08,
+              "p50_us": 4472.86,
+              "p95_us": 8149.39,
+              "p99_us": 10494.45,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_2": {
+              "max_us": 10734.31,
+              "min_us": 533.8,
+              "p50_us": 4278.49,
+              "p95_us": 7931.33,
+              "p99_us": 10070.83,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_3": {
+              "max_us": 13481.42,
+              "min_us": 474.09,
+              "p50_us": 4240.76,
+              "p95_us": 8656.63,
+              "p99_us": 10165.79,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_4": {
+              "max_us": 11701.21,
+              "min_us": 689.68,
+              "p50_us": 4289.52,
+              "p95_us": 8284.68,
+              "p99_us": 10913.82,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_5": {
+              "max_us": 14787.1,
+              "min_us": 697.65,
+              "p50_us": 4289.57,
+              "p95_us": 8205.24,
+              "p99_us": 10730.12,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_6": {
+              "max_us": 13602.35,
+              "min_us": 701.42,
+              "p50_us": 4331.02,
+              "p95_us": 8474.38,
+              "p99_us": 10473.31,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_7": {
+              "max_us": 13784.4,
+              "min_us": 787.47,
+              "p50_us": 4432.02,
+              "p95_us": 8802.11,
+              "p99_us": 11451.39,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:start": {
+              "max_us": 7318.58,
+              "min_us": 424.82,
+              "p50_us": 1455.64,
+              "p95_us": 3272.29,
+              "p99_us": 4280.36,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:start:304": {
+              "max_us": 9929.64,
+              "min_us": 309.16,
+              "p50_us": 1467.04,
+              "p95_us": 3724.82,
+              "p99_us": 5156.8,
+              "statuses": {
+                "304": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:transposition_a": {
+              "max_us": 6067.45,
+              "min_us": 392.13,
+              "p50_us": 1548.66,
+              "p95_us": 3881.07,
+              "p99_us": 5317.76,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:transposition_b": {
+              "max_us": 5507.82,
+              "min_us": 376.51,
+              "p50_us": 1577.03,
+              "p95_us": 3691.2,
+              "p99_us": 5143.19,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:beyond_depth": {
+              "max_us": 11815.13,
+              "min_us": 336.29,
+              "p50_us": 1540.58,
+              "p95_us": 3465.66,
+              "p99_us": 4462.11,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:common": {
+              "max_us": 7588.66,
+              "min_us": 442.09,
+              "p50_us": 1597.15,
+              "p95_us": 3791.25,
+              "p99_us": 5432.93,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:custom_fen": {
+              "max_us": 7419.96,
+              "min_us": 332.39,
+              "p50_us": 1565.08,
+              "p95_us": 3450.78,
+              "p99_us": 5489.99,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:less_common": {
+              "max_us": 8360.54,
+              "min_us": 325.19,
+              "p50_us": 1518.53,
+              "p95_us": 3882.42,
+              "p99_us": 4837.84,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_0": {
+              "max_us": 19118.77,
+              "min_us": 832.97,
+              "p50_us": 4541.05,
+              "p95_us": 8701.23,
+              "p99_us": 11537.89,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_1": {
+              "max_us": 20592.09,
+              "min_us": 630.7,
+              "p50_us": 4339.81,
+              "p95_us": 8267.85,
+              "p99_us": 14174.21,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_2": {
+              "max_us": 21901.58,
+              "min_us": 663.55,
+              "p50_us": 4436.88,
+              "p95_us": 9280.72,
+              "p99_us": 11532.24,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_3": {
+              "max_us": 23725.24,
+              "min_us": 668.01,
+              "p50_us": 4000.29,
+              "p95_us": 8111.01,
+              "p99_us": 12050.43,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_4": {
+              "max_us": 20572.82,
+              "min_us": 877.35,
+              "p50_us": 4130.26,
+              "p95_us": 8322.84,
+              "p99_us": 13320.52,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_5": {
+              "max_us": 20818.37,
+              "min_us": 753.42,
+              "p50_us": 4312.77,
+              "p95_us": 8555.19,
+              "p99_us": 11897.72,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_6": {
+              "max_us": 17401.27,
+              "min_us": 621.61,
+              "p50_us": 4090.36,
+              "p95_us": 7995.93,
+              "p99_us": 10300.9,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_7": {
+              "max_us": 14235.03,
+              "min_us": 1090.41,
+              "p50_us": 4485.33,
+              "p95_us": 8900.14,
+              "p99_us": 11349.47,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:start": {
+              "max_us": 6824.94,
+              "min_us": 466.12,
+              "p50_us": 1583.03,
+              "p95_us": 3630.11,
+              "p99_us": 4837.28,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:start:304": {
+              "max_us": 6295.93,
+              "min_us": 348.63,
+              "p50_us": 1536.98,
+              "p95_us": 3796.68,
+              "p99_us": 5000.57,
+              "statuses": {
+                "304": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:transposition_a": {
+              "max_us": 6205.9,
+              "min_us": 439.34,
+              "p50_us": 1466.91,
+              "p95_us": 3425.34,
+              "p99_us": 4003.83,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:transposition_b": {
+              "max_us": 7541.3,
+              "min_us": 439.24,
+              "p50_us": 1435.9,
+              "p95_us": 3612.29,
+              "p99_us": 4894.71,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            }
+          },
+          "max_us": 23725.24,
+          "min_us": 309.16,
+          "p50_us": 2867.91,
+          "p95_us": 7399.88,
+          "p99_us": 9879.72,
+          "requests": 16000,
+          "requests_per_second": 1226.7912469088412,
+          "server_cpu_seconds": 19.67,
+          "unexpected_responses": 0,
+          "wall_seconds": 13.042153700000199
+        },
+        "first_requests_after_startup": {
+          "elite-online:beyond_depth": {
+            "etag": "\"elite-online-codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30-e71ed302e56de7679cf249800238acc3-fbe01b7edc6838cb\"",
+            "latency_us": 581.4950000058161,
+            "response_sha256": "17d1b472b5351c55ec6c7b2763e7de038fb7645a9114265f62e863a761cfc453"
+          },
+          "elite-online:common": {
+            "etag": "\"elite-online-codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30-145181aadc37d40bbf29a6086ab02bd6-21be20d59c787e03\"",
+            "latency_us": 641.9499986805022,
+            "response_sha256": "36fa9c9712551af3c110d959de7de7a379a8efc4789e0ca71905bac6bce928ab"
+          },
+          "elite-online:custom_fen": {
+            "etag": "\"elite-online-codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30-bcb62382f9b1de245e854d7a97eb14c6-28ab55ed4bfb8da4\"",
+            "latency_us": 660.5149992537918,
+            "response_sha256": "9e132fcbaa7c9695ffd627f598b651d7ae0f8dafb85df17396e8bc303a96a3d1"
+          },
+          "elite-online:less_common": {
+            "etag": "\"elite-online-codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30-4fbb27c5ac431e03bc3cddbffda2c63b-b8ee0de6b5a8eb38\"",
+            "latency_us": 1170.4819989972748,
+            "response_sha256": "6f3e8a484568bd2cc0a187b2a591cc8166a42693cfb002ddc5a6f014d3b174af"
+          },
+          "elite-online:pgn_0": {
+            "etag": "\"elite-online-codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30-27289182012770\"",
+            "latency_us": 5343.192000509589,
+            "response_sha256": "4582b200b09fb9380284f0eaadf8fd74ec59842cb3c7a49d6ffd39cd332311b6"
+          },
+          "elite-online:pgn_1": {
+            "etag": "\"elite-online-codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30-2630633302676066564\"",
+            "latency_us": 2867.8500002570217,
+            "response_sha256": "ac519f164ef7fbcdbce95d151f64a38ba2eb5eef0bbbeb77fdea79f8d7b51677"
+          },
+          "elite-online:pgn_2": {
+            "etag": "\"elite-online-codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30-5269291514212320475\"",
+            "latency_us": 3044.367000256898,
+            "response_sha256": "c8ec379745a6607d6d84e4507f8f5ec2fb87b3ff74ecfc8e2e58a5ac87af55d8"
+          },
+          "elite-online:pgn_3": {
+            "etag": "\"elite-online-codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30-7901338865402807896\"",
+            "latency_us": 2773.1099999073194,
+            "response_sha256": "03be4bbb3bae75a488aafba79ef0d17b225eb17648bcf5ad7a8023c188265236"
+          },
+          "elite-online:pgn_4": {
+            "etag": "\"elite-online-codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30-10534658814768365226\"",
+            "latency_us": 2848.00499866833,
+            "response_sha256": "3a60801d59fb8a873d36333e21cc3735d08e494056e1cd38b90ce51391562967"
+          },
+          "elite-online:pgn_5": {
+            "etag": "\"elite-online-codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30-13171933035051377272\"",
+            "latency_us": 2240.152998638223,
+            "response_sha256": "eec694fd602c8b217e22b97f3b0b40de5fd72b86bce819c23db01a2c5175e68a"
+          },
+          "elite-online:pgn_6": {
+            "etag": "\"elite-online-codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30-15806203570984506265\"",
+            "latency_us": 2274.0730000805343,
+            "response_sha256": "6cb073d40e4b65c1ee45ded8b5a9c022f521fc59869ba0c485249cb3846697a2"
+          },
+          "elite-online:pgn_7": {
+            "etag": "\"elite-online-codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30-18446700545072799029\"",
+            "latency_us": 2580.8959999267245,
+            "response_sha256": "357a2e537cf64ea71946681ada16ec76c0948f2ed30978c0b030f950dd8f81b3"
+          },
+          "elite-online:start": {
+            "etag": "\"elite-online-codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30-3d71fe83987aab73463b96181691fc9c-a53abc2b99a6574e\"",
+            "latency_us": 959.9200002412545,
+            "response_sha256": "7a2a697fa70abae3f3481931d74b09f01dd3f169f0c653cd7040d7d6e5d55103"
+          },
+          "elite-online:transposition_a": {
+            "etag": "\"elite-online-codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30-06cbbe786eb7823303e3a60148d59644-67b9ce6b66dedc4e\"",
+            "latency_us": 616.1509991216008,
+            "response_sha256": "db547e9e18c374cf2b0f1c1a8628a0d6ca610c92a7182772e1606e865f3c9d31"
+          },
+          "elite-online:transposition_b": {
+            "etag": "\"elite-online-codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30-06cbbe786eb7823303e3a60148d59644-1576f127d9a17c86\"",
+            "latency_us": 538.9230009313906,
+            "response_sha256": "1a92b2df56ffd6e2f11933c6286325ca5e80e56e8f9a39ff7e4ecfa0696fc5f4"
+          },
+          "masters-otb:beyond_depth": {
+            "etag": "\"masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-516564c31dcb685647897802c5faeb04-29555fc691d7b45b\"",
+            "latency_us": 1210.280999657698,
+            "response_sha256": "bd58ac411e821a1677fddedc505fc5cec437b2d90f868f5e1451814f210cfde5"
+          },
+          "masters-otb:common": {
+            "etag": "\"masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-145181aadc37d40bbf29a6086ab02bd6-d66f73799a1618c1\"",
+            "latency_us": 832.2720004798612,
+            "response_sha256": "7fc8f2a94ad550f36eb87efbca6e6145372594603b68100a74319f0a36fd9648"
+          },
+          "masters-otb:custom_fen": {
+            "etag": "\"masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-bcb62382f9b1de245e854d7a97eb14c6-64ad43f1163fbffa\"",
+            "latency_us": 394.49399992008694,
+            "response_sha256": "053f72847931cd1e6b8d792135cb731f0101bb1bb96519816c53ce00261c28ca"
+          },
+          "masters-otb:less_common": {
+            "etag": "\"masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-4fbb27c5ac431e03bc3cddbffda2c63b-b1d9201e69ffeab3\"",
+            "latency_us": 532.4390003806911,
+            "response_sha256": "5b051c5c0031f1949814abac51d9488b83a7386fa2148f998ddc5fb85f3b7453"
+          },
+          "masters-otb:pgn_0": {
+            "etag": "\"masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-4239177970205\"",
+            "latency_us": 5801.753000923782,
+            "response_sha256": "9845c97ad1efe8b724128d3f160e3c4fa5dacdf384119f0bbf89cd4564f3650d"
+          },
+          "masters-otb:pgn_1": {
+            "etag": "\"masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-2638069285631588209\"",
+            "latency_us": 6217.18399997917,
+            "response_sha256": "606b9c927b820a1993ccf6f973dfa776ae9a120a53c4436e69d0e51ad0e0146b"
+          },
+          "masters-otb:pgn_2": {
+            "etag": "\"masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-5273274102692794559\"",
+            "latency_us": 6375.498000124935,
+            "response_sha256": "ab1a7f8c196991f9db51134eb6873b1518c9efe68634b612344b839796b9b6cd"
+          },
+          "masters-otb:pgn_3": {
+            "etag": "\"masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-7913271516831685059\"",
+            "latency_us": 5939.815999226994,
+            "response_sha256": "c23266f19f6fcab712f3282bbf7b61d87c94aa39e676f65378281c4b4a874bba"
+          },
+          "masters-otb:pgn_4": {
+            "etag": "\"masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-10546804295094554661\"",
+            "latency_us": 2597.938000690192,
+            "response_sha256": "c9e908527e69452c1346203dd9821a4e28bc2ab1ea54db35a95a19a3a878cd2b"
+          },
+          "masters-otb:pgn_5": {
+            "etag": "\"masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-13179612919962400624\"",
+            "latency_us": 2304.980000189971,
+            "response_sha256": "4b781ab2d9e40966ff93974520eebae17c392f769667c703417677cfe674c8db"
+          },
+          "masters-otb:pgn_6": {
+            "etag": "\"masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-15811612647321778067\"",
+            "latency_us": 2149.1030001925537,
+            "response_sha256": "6f3b06635cab120e05c771de82589b8215b4137055f9f897169606ac7f240001"
+          },
+          "masters-otb:pgn_7": {
+            "etag": "\"masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-18446743697827722248\"",
+            "latency_us": 6285.526998908608,
+            "response_sha256": "f67d44ef1f6c8730393acf5314abc2aebdcbe43600c889ee348e3289acfff615"
+          },
+          "masters-otb:start": {
+            "etag": "\"masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-3d71fe83987aab73463b96181691fc9c-972a52be309f5d65\"",
+            "latency_us": 924.9309987353627,
+            "response_sha256": "b7fb27f296247363f8fafe29e94a58cbbc1221a55015ec2afe5ba37ed47f67dd"
+          },
+          "masters-otb:transposition_a": {
+            "etag": "\"masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-06cbbe786eb7823303e3a60148d59644-0b432e541f6b12d2\"",
+            "latency_us": 360.7380003813887,
+            "response_sha256": "b841e8f3b6625e642652e1aa9e399ceb2ee1df906607803e93b3aa5205d3fa25"
+          },
+          "masters-otb:transposition_b": {
+            "etag": "\"masters-otb-codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40-06cbbe786eb7823303e3a60148d59644-2dada64314d8e099\"",
+            "latency_us": 539.213999218191,
+            "response_sha256": "76ef9ff08a0175b6294b4176d28bb53b2a8953574bd967529c1d0c96162b4d7d"
+          }
+        },
+        "peak_sampled_rss_kib": 1285732,
+        "same_snapshot_reload": null,
+        "sequential": {
+          "cases": {
+            "elite-online:beyond_depth": {
+              "max_us": 1285.13,
+              "min_us": 178.69,
+              "p50_us": 354.49,
+              "p95_us": 712.65,
+              "p99_us": 952.84,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:common": {
+              "max_us": 1089.01,
+              "min_us": 223.37,
+              "p50_us": 445.98,
+              "p95_us": 837.26,
+              "p99_us": 1008.49,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:custom_fen": {
+              "max_us": 958.75,
+              "min_us": 169.0,
+              "p50_us": 366.57,
+              "p95_us": 692.89,
+              "p99_us": 887.59,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:less_common": {
+              "max_us": 2945.51,
+              "min_us": 169.25,
+              "p50_us": 390.68,
+              "p95_us": 742.42,
+              "p99_us": 921.58,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_0": {
+              "max_us": 5266.25,
+              "min_us": 1274.45,
+              "p50_us": 2041.52,
+              "p95_us": 2961.72,
+              "p99_us": 3764.31,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_1": {
+              "max_us": 5066.34,
+              "min_us": 1275.45,
+              "p50_us": 2121.83,
+              "p95_us": 3212.1,
+              "p99_us": 4138.82,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_2": {
+              "max_us": 5205.77,
+              "min_us": 1193.24,
+              "p50_us": 2010.41,
+              "p95_us": 2972.37,
+              "p99_us": 4005.3,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_3": {
+              "max_us": 4037.62,
+              "min_us": 1161.87,
+              "p50_us": 2016.6,
+              "p95_us": 2994.18,
+              "p99_us": 3500.76,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_4": {
+              "max_us": 4744.31,
+              "min_us": 1236.73,
+              "p50_us": 2134.81,
+              "p95_us": 3123.22,
+              "p99_us": 3752.24,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_5": {
+              "max_us": 4970.17,
+              "min_us": 1190.98,
+              "p50_us": 2057.78,
+              "p95_us": 3044.13,
+              "p99_us": 3892.87,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_6": {
+              "max_us": 6306.09,
+              "min_us": 1203.09,
+              "p50_us": 2094.27,
+              "p95_us": 3063.63,
+              "p99_us": 3516.72,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:pgn_7": {
+              "max_us": 5626.7,
+              "min_us": 1304.76,
+              "p50_us": 2084.96,
+              "p95_us": 3124.32,
+              "p99_us": 4074.15,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:start": {
+              "max_us": 2569.98,
+              "min_us": 280.13,
+              "p50_us": 574.36,
+              "p95_us": 931.73,
+              "p99_us": 1194.62,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:start:304": {
+              "max_us": 1758.15,
+              "min_us": 205.58,
+              "p50_us": 420.13,
+              "p95_us": 786.35,
+              "p99_us": 1087.88,
+              "statuses": {
+                "304": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:transposition_a": {
+              "max_us": 1113.84,
+              "min_us": 188.85,
+              "p50_us": 403.6,
+              "p95_us": 728.52,
+              "p99_us": 926.4,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "elite-online:transposition_b": {
+              "max_us": 1061.73,
+              "min_us": 181.19,
+              "p50_us": 372.1,
+              "p95_us": 718.06,
+              "p99_us": 940.37,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:beyond_depth": {
+              "max_us": 1278.48,
+              "min_us": 181.31,
+              "p50_us": 374.49,
+              "p95_us": 690.08,
+              "p99_us": 982.61,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:common": {
+              "max_us": 2350.6,
+              "min_us": 214.93,
+              "p50_us": 453.72,
+              "p95_us": 796.68,
+              "p99_us": 994.27,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:custom_fen": {
+              "max_us": 2591.16,
+              "min_us": 167.34,
+              "p50_us": 379.82,
+              "p95_us": 713.15,
+              "p99_us": 1008.55,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:less_common": {
+              "max_us": 2395.51,
+              "min_us": 177.3,
+              "p50_us": 396.99,
+              "p95_us": 687.86,
+              "p99_us": 906.29,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_0": {
+              "max_us": 5144.8,
+              "min_us": 1222.67,
+              "p50_us": 2008.92,
+              "p95_us": 2869.67,
+              "p99_us": 3576.19,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_1": {
+              "max_us": 11697.85,
+              "min_us": 1179.25,
+              "p50_us": 1973.07,
+              "p95_us": 2937.59,
+              "p99_us": 3674.2,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_2": {
+              "max_us": 7350.73,
+              "min_us": 1250.86,
+              "p50_us": 2086.0,
+              "p95_us": 3171.81,
+              "p99_us": 3901.59,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_3": {
+              "max_us": 6587.42,
+              "min_us": 1104.09,
+              "p50_us": 1853.41,
+              "p95_us": 2914.52,
+              "p99_us": 4895.09,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_4": {
+              "max_us": 9983.56,
+              "min_us": 1167.55,
+              "p50_us": 1930.67,
+              "p95_us": 3068.32,
+              "p99_us": 4091.98,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_5": {
+              "max_us": 6145.92,
+              "min_us": 1194.94,
+              "p50_us": 2016.93,
+              "p95_us": 3131.03,
+              "p99_us": 4768.35,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_6": {
+              "max_us": 4572.01,
+              "min_us": 1170.61,
+              "p50_us": 1960.83,
+              "p95_us": 2767.23,
+              "p99_us": 3310.26,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:pgn_7": {
+              "max_us": 4230.37,
+              "min_us": 1297.76,
+              "p50_us": 2122.62,
+              "p95_us": 3125.63,
+              "p99_us": 3743.97,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:start": {
+              "max_us": 2034.53,
+              "min_us": 282.67,
+              "p50_us": 573.42,
+              "p95_us": 945.52,
+              "p99_us": 1254.1,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:start:304": {
+              "max_us": 3231.69,
+              "min_us": 199.0,
+              "p50_us": 442.35,
+              "p95_us": 806.14,
+              "p99_us": 960.58,
+              "statuses": {
+                "304": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:transposition_a": {
+              "max_us": 2805.22,
+              "min_us": 181.16,
+              "p50_us": 390.21,
+              "p95_us": 734.37,
+              "p99_us": 909.36,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            },
+            "masters-otb:transposition_b": {
+              "max_us": 5869.24,
+              "min_us": 173.28,
+              "p50_us": 379.88,
+              "p95_us": 724.35,
+              "p99_us": 1068.91,
+              "statuses": {
+                "200": 500
+              },
+              "unexpected_responses": 0
+            }
+          },
+          "max_us": 11697.85,
+          "min_us": 167.34,
+          "p50_us": 1233.13,
+          "p95_us": 2745.48,
+          "p99_us": 3428.41,
+          "requests": 16000,
+          "requests_per_second": 775.5089308620936,
+          "server_cpu_seconds": 14.54,
+          "unexpected_responses": 0,
+          "wall_seconds": 20.631612820001465
+        },
+        "startup_seconds": 23.60824211200088
+      },
+      "in_process_cpi": {
+        "elite-online": {
+          "collection": "elite-online",
+          "dataset_build_id": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+          "games_sampled": 5000,
+          "hit_first_pass": {
+            "count": 49686,
+            "hits": 49686,
+            "max_us": 397.122,
+            "p50_us": 11.161,
+            "p95_us": 23.377,
+            "p99_us": 33.061
+          },
+          "hit_warm_pass": {
+            "count": 49686,
+            "hits": 49686,
+            "max_us": 279.05699999999996,
+            "p50_us": 9.262,
+            "p95_us": 18.783,
+            "p99_us": 26.529
+          },
+          "index_depth_plies": 30,
+          "miss_warm_pass": {
+            "count": 7098,
+            "hits": 0,
+            "max_us": 122.296,
+            "p50_us": 7.720999999999999,
+            "p95_us": 11.792,
+            "p99_us": 16.227
+          },
+          "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+          "unique_positions": 6136307
+        },
+        "masters-otb": {
+          "collection": "masters-otb",
+          "dataset_build_id": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+          "games_sampled": 5000,
+          "hit_first_pass": {
+            "count": 68125,
+            "hits": 68125,
+            "max_us": 325.17100000000005,
+            "p50_us": 9.621,
+            "p95_us": 16.816,
+            "p99_us": 24.689999999999998
+          },
+          "hit_warm_pass": {
+            "count": 68125,
+            "hits": 68125,
+            "max_us": 101.36,
+            "p50_us": 9.317,
+            "p95_us": 18.470000000000002,
+            "p99_us": 26.836
+          },
+          "index_depth_plies": 40,
+          "miss_warm_pass": {
+            "count": 9733,
+            "hits": 0,
+            "max_us": 44.833000000000006,
+            "p50_us": 8.192,
+            "p95_us": 13.553999999999998,
+            "p99_us": 19.919
+          },
+          "note": "In-process DiskPositionIndex::query latency (memory-mapped sparse index + one block decompression); excludes HTTP, JSON, and SAN derivation.",
+          "unique_positions": 51909604
+        }
+      }
+    }
+  ],
+  "schema_version": 1,
+  "settings": {
+    "deep_verify_at_startup": false,
+    "eviction_advised_before_startup": false,
+    "reader_pool": 4,
+    "rounds": 500,
+    "server_cpus": "2,3",
+    "skip_reload": true,
+    "workers": 4
+  }
+}

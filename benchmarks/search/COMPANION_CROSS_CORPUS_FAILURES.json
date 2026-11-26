@@ -1,0 +1,22 @@
+{
+  "cases": [
+    {
+      "case": "elite-on-masters",
+      "exit_code": 1,
+      "stderr": "Error: Integrity error: Search bundle version, coverage, counts or canonical identity do not match the dataset\n",
+      "stdout": "",
+      "before": "versions/codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+      "after": "versions/codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+      "active_unchanged": true
+    },
+    {
+      "case": "masters-on-elite",
+      "exit_code": 1,
+      "stderr": "Error: Integrity error: Search bundle version, coverage, counts or canonical identity do not match the dataset\n",
+      "stdout": "",
+      "before": "versions/codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+      "after": "versions/codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+      "active_unchanged": true
+    }
+  ]
+}

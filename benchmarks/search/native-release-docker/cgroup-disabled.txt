@@ -1,0 +1,19 @@
+536870912
+536870912
+low 0
+high 0
+max 32744
+oom 0
+oom_kill 0
+oom_group_kill 0
+sock_throttled 0
+usage_usec 29342341
+user_usec 25208012
+system_usec 4134329
+nice_usec 0
+core_sched.force_idle_usec 0
+nr_periods 345
+nr_throttled 0
+throttled_usec 0
+nr_bursts 0
+burst_usec 0

@@ -1,0 +1,61 @@
+{
+  "binary_sha256": "71a7c4b88b362effb7e56ba66f846ee53916fc0291c48ca619c90539d7d67a24",
+  "build": {
+    "build_seconds": 217.956516505,
+    "collection": "elite-online",
+    "index": {
+      "artifacts": {
+        "metadata.sqlite": {
+          "file_size_bytes": 332054528,
+          "sha256": "09ed87118635ce2b87863d27b0c541a84951c8bb8b9724812f54c10628480ece"
+        },
+        "positions.postings": {
+          "file_size_bytes": 228431615,
+          "sha256": "0fd48685b2d0e6293d8f567955c977b8302e49e2323acd0304085790812f0c4a"
+        }
+      },
+      "canonical_sha256": "431595228cdcfed941c5d3542ba38c417014c0a2e76f333b912c149cf7d2fcac",
+      "coverage": {
+        "max_ply": 30,
+        "mode": "bounded"
+      },
+      "format_version": 1,
+      "game_count": 429150,
+      "position_count": 6558404,
+      "posting_count": 13191619,
+      "sort_buffer_bytes": 134217720,
+      "source_snapshot": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30"
+    },
+    "postings_temporary_spool_bytes": 228431551,
+    "published_snapshot": "codb-elite-online-1795682258183662040-d44cd7f511ab64f1-search",
+    "source_snapshot": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+    "spill": {
+      "buffer_bytes": 134217720,
+      "initial_runs": 3,
+      "intermediate_merges": 0,
+      "peak_temp_bytes": 316598952
+    },
+    "verification_seconds": 53.568962729
+  },
+  "environment": "native x86_64 Linux, Rust 1.100.0; shared host under preparation workloads",
+  "process": {
+    "command": [
+      "target/release/chess-database",
+      "build-search-index",
+      "--dataset",
+      "data/acceptance/datasets/elite-online",
+      "--depth-plies",
+      "30",
+      "--memory-limit-mib",
+      "128",
+      "--temp-dir",
+      "data/acceptance/scratch"
+    ],
+    "exit_code": 0,
+    "peak_rss_kib": 285556,
+    "system_seconds": 67.773635,
+    "user_seconds": 139.680487,
+    "wall_seconds": 271.5398236199999
+  },
+  "source_revision": "5e8dc184b06ed122a4d0b335cd032d55298466ac"
+}

@@ -58,7 +58,7 @@ The [Search API](SEARCH_API.md) documents discovery, metadata and filtered stati
 Liveness. Returns `200` while the HTTP listener is running.
 
 ```json
-{"status":"ok","version":"0.1.0"}
+{"status":"ok","version":"0.2.0"}
 ```
 
 | Field | Type | Meaning |

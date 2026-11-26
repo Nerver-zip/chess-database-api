@@ -1,0 +1,142 @@
+{
+  "cases": {
+    "autocomplete": {
+      "acceptance_rate": 1.0,
+      "accepted": 120,
+      "attempted": 120,
+      "max_us": 13640.91,
+      "min_us": 775.37,
+      "p50_us": 1974.22,
+      "p95_us": 3824.91,
+      "p99_us": 11708.03,
+      "statuses": {
+        "200": 120
+      }
+    },
+    "filtered_date": {
+      "acceptance_rate": 0.5583333333333333,
+      "accepted": 67,
+      "attempted": 120,
+      "max_us": 205365.57,
+      "min_us": 43078.07,
+      "p50_us": 85498.07,
+      "p95_us": 174614.72,
+      "p99_us": 205365.57,
+      "statuses": {
+        "200": 67,
+        "429": 53
+      }
+    },
+    "filtered_rating": {
+      "acceptance_rate": 0.5833333333333334,
+      "accepted": 70,
+      "attempted": 120,
+      "max_us": 816210.85,
+      "min_us": 247316.2,
+      "p50_us": 453529.62,
+      "p95_us": 759986.74,
+      "p99_us": 816210.85,
+      "statuses": {
+        "200": 70,
+        "429": 50
+      }
+    },
+    "filtered_selective": {
+      "acceptance_rate": 0.5166666666666667,
+      "accepted": 62,
+      "attempted": 120,
+      "max_us": 102486.17,
+      "min_us": 2129.86,
+      "p50_us": 7132.46,
+      "p95_us": 91220.99,
+      "p99_us": 102486.17,
+      "statuses": {
+        "200": 62,
+        "429": 58
+      }
+    },
+    "legacy_opening": {
+      "acceptance_rate": 1.0,
+      "accepted": 120,
+      "attempted": 120,
+      "max_us": 13235.78,
+      "min_us": 786.84,
+      "p50_us": 1440.4,
+      "p95_us": 2397.02,
+      "p99_us": 4356.53,
+      "statuses": {
+        "200": 120
+      }
+    },
+    "legacy_pgn": {
+      "acceptance_rate": 1.0,
+      "accepted": 120,
+      "attempted": 120,
+      "max_us": 7875.13,
+      "min_us": 955.33,
+      "p50_us": 1657.02,
+      "p95_us": 2924.73,
+      "p99_us": 7739.55,
+      "statuses": {
+        "200": 120
+      }
+    },
+    "metadata": {
+      "acceptance_rate": 1.0,
+      "accepted": 120,
+      "attempted": 120,
+      "max_us": 15351.54,
+      "min_us": 1494.38,
+      "p50_us": 3145.72,
+      "p95_us": 12651.16,
+      "p99_us": 14283.31,
+      "statuses": {
+        "200": 120
+      }
+    },
+    "navigation_latest": {
+      "acceptance_rate": 1.0,
+      "accepted": 120,
+      "attempted": 120,
+      "max_us": 18074.1,
+      "min_us": 931.7,
+      "p50_us": 1836.1,
+      "p95_us": 5506.05,
+      "p99_us": 17326.41,
+      "statuses": {
+        "200": 120
+      }
+    },
+    "position": {
+      "acceptance_rate": 1.0,
+      "accepted": 120,
+      "attempted": 120,
+      "max_us": 18481.57,
+      "min_us": 1423.26,
+      "p50_us": 2673.96,
+      "p95_us": 4531.75,
+      "p99_us": 5739.82,
+      "statuses": {
+        "200": 120
+      }
+    }
+  },
+  "client_abandoned_navigation": 120,
+  "collection": "masters-otb",
+  "dataset_version": "codb-masters-otb-1795683916381345171-153d9b7393c864b5-search",
+  "duration_seconds": 50.27697080300095,
+  "rounds": 30,
+  "think_ms": 125,
+  "users": 4,
+  "workload": {
+    "autocomplete": "/v1/collections/masters-otb/players?prefix=Cid%2C",
+    "filtered_date": "/v1/explorer/position/filtered?collection=masters-otb&moves=e4%2Cc5&from_year=2000",
+    "filtered_rating": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&min_both_ratings=2200",
+    "filtered_selective": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=Cid%2C+Marino+Alejandro",
+    "legacy_opening": "/v1/explorer/position?collection=masters-otb&moves=e4%2Cc5%2CNf3",
+    "legacy_pgn": "/v1/collections/masters-otb/games/16278808172669517150",
+    "metadata": "/v1/collections/masters-otb/games?player=Cid%2C+Marino+Alejandro",
+    "navigation_latest": "/v1/collections/masters-otb/games?moves=e4%2Cc5%2CNf3&limit=5",
+    "position": "/v1/collections/masters-otb/games?moves=e4%2Cc5%2CNf3"
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "archive": {
+    "compression": "zstd",
+    "name": "elite-online-r1-d30-search-v1.tar.zst",
+    "parts": [
+      {
+        "name": "elite-online-r1-d30-search-v1.tar.zst",
+        "sha256": "f011e539407ae49c7623a315456696e33ee5e5c4b0477cbca7f655859d6f1cca",
+        "size_bytes": 269896854
+      }
+    ],
+    "sha256": "f011e539407ae49c7623a315456696e33ee5e5c4b0477cbca7f655859d6f1cca",
+    "size_bytes": 269896854
+  },
+  "canonical_artifacts": {
+    "lookup_table": {
+      "entry_count": 429150,
+      "file_size_bytes": 6866464,
+      "filename": "games.idx",
+      "sha256": "83125009540b3887c3b1ebd75e2435207aeb0e6a8e1e797a0b2d7d7eec309558"
+    },
+    "position_index": {
+      "block_count": 95880,
+      "custom_fen_games": 0,
+      "excluded_unknown_result_games": 0,
+      "file_size_bytes": 132054643,
+      "filename": "positions.cpi",
+      "format_version": "CPI/v2",
+      "games_indexed": 429150,
+      "games_processed": 429150,
+      "indexed_depth_plies": 30,
+      "positions_per_block": 64,
+      "raw_observations_extracted": 12760622,
+      "repeated_positions_skipped": 1847,
+      "sha256": "fbdb3cea1ebe5041aeedf276198a6530605c1d8a1c0218be56182941705e4986",
+      "unique_position_move_pairs": 6739644,
+      "unique_positions": 6136307,
+      "zstd_level": 3
+    },
+    "shards": [
+      {
+        "block_count": 839,
+        "file_size_bytes": 71360460,
+        "filename": "shard_0000.cgb3",
+        "game_count": 429150,
+        "sha256": "5ecd991fc9b8df1798d05e3969f0b9e826da7bd8be4efb7f442a981b1daf3cbd",
+        "shard_id": 0
+      }
+    ]
+  },
+  "canonical_dataset_release": "dataset-elite-online-r1",
+  "canonical_sha256": "431595228cdcfed941c5d3542ba38c417014c0a2e76f333b912c149cf7d2fcac",
+  "collection": "elite-online",
+  "license": "CC0-1.0",
+  "notice": {
+    "name": "elite-online-r1-d30-search-v1-NOTICE.md",
+    "sha256": "733b47046ee6be98f7d4fdfe3104b2437b5db025bc1fdde1b4077451e6a5df8e",
+    "size_bytes": 1571
+  },
+  "release_id": "search-elite-online-r1-d30-v1",
+  "required_software": "Chess Database API 0.2.0 (planned); merged revision 5e8dc184b06ed122a4d0b335cd032d55298466ac supports this bundle",
+  "schema_version": 1,
+  "search_index": {
+    "artifacts": {
+      "metadata.sqlite": {
+        "file_size_bytes": 332054528,
+        "sha256": "09ed87118635ce2b87863d27b0c541a84951c8bb8b9724812f54c10628480ece"
+      },
+      "positions.postings": {
+        "file_size_bytes": 228431615,
+        "sha256": "0fd48685b2d0e6293d8f567955c977b8302e49e2323acd0304085790812f0c4a"
+      }
+    },
+    "canonical_sha256": "431595228cdcfed941c5d3542ba38c417014c0a2e76f333b912c149cf7d2fcac",
+    "coverage": {
+      "max_ply": 30,
+      "mode": "bounded"
+    },
+    "format_version": 1,
+    "game_count": 429150,
+    "position_count": 6558404,
+    "posting_count": 13191619,
+    "sort_buffer_bytes": 134217720,
+    "source_snapshot": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30"
+  },
+  "source_snapshot": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30"
+}

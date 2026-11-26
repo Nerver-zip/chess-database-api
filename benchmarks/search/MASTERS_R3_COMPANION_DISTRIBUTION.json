@@ -1,0 +1,24 @@
+{
+  "archive": {
+    "name": "masters-otb-r3-d40-search-v1.tar.zst",
+    "parts": [
+      {
+        "name": "masters-otb-r3-d40-search-v1.tar.zst.part-001",
+        "sha256": "f7fe0e1e70948390493830d25cf0427c1fd29558996fd12618cf5cab9f78ec72",
+        "size_bytes": 1992294400
+      },
+      {
+        "name": "masters-otb-r3-d40-search-v1.tar.zst.part-002",
+        "sha256": "17dac76e74c734cd8a75a7f195a8d4594210a184ca545b3b2bcfe1352fb7fefd",
+        "size_bytes": 454613548
+      }
+    ],
+    "sha256": "8d25cc01d0e4dad36f41b370a31bc8966d8d92525516ee2e6cefc40669e75a14",
+    "size_bytes": 2446907948
+  },
+  "consumer_installation": "passed: canonical release installed independently; reconstructed parts installed and deeply verified; enriched API and canonical PGN passed; original CPI-only snapshot republished",
+  "final_rollback_snapshot": "versions/codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+  "parts_verification": "Each part and concatenation matched declared size and SHA-256.",
+  "whole_archive_note": "The redundant unsplit archive was removed after part verification to recover disk space.",
+  "zstd_test": "passed on whole archive before splitting"
+}

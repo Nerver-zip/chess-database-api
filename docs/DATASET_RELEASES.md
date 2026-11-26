@@ -25,6 +25,7 @@ Both indexed products contain CGB3 game shards, `games.idx`, CPI v2 `positions.c
 
 - **Software versions** follow the Cargo workspace version and `vX.Y.Z` tags. They are independent of dataset versions.
 - **Dataset release identifiers** are collection-scoped, such as `masters-otb-r3` and `elite-online-r1`. Each GitHub tag is `dataset-<release-id>`.
+- **Search companion releases** are separately versioned derived indexes tied to a canonical fingerprint and coverage. They augment a compatible installed dataset without replacing its canonical release or requiring the original corpus to be downloaded again. No companion release is published yet; the [local bundle procedure](SEARCH_INDEX.md) is available in the meantime.
 - **Immutable build identifier** is the snapshot directory name and the `dataset_version` in the manifest (for example `codb-masters-otb-…-cpi-d40` or `codb-elite-online-…-cpi-d30`). A release manifest records the actual identifier; it is never forced to match a prior build.
 - **Format versions** are recorded in the manifest (`CGB3/v1` shards, `CPI/v2` index). A software release must state which format versions it reads.
 - **Tags are immutable.** Create a dataset tag only on a reviewed commit on `main`, protect it with a repository tag ruleset, and never move or reuse it.
@@ -102,7 +103,71 @@ After publication, download the individual products from the same release. `elit
 
 `install` extracts the package into a staging directory, checks its release record, runs `chess-database verify --deep`, publishes it atomically with `chess-database publish`, and deep-verifies the target. A failed step leaves the previously active snapshot unchanged.
 
-**Rollback.** Earlier versions are kept under `versions/`. To reactivate one, run `chess-database publish --candidate <versions/build-id> --target <root> --collection masters-otb`, then verify and restart the service.
+### Prepared search companions
+
+The Elite Online R1 D30 and Masters OTB R3 D40 search companions are prepared but **not yet published**. These instructions apply to their verified distribution directories once available. Use the matching canonical dataset installed above, retain its CPI-only version for rollback, and use Chess Database API 0.2.0 or a compatible build supporting search-index format 1. A compatible existing installation does not need to download the canonical dataset again. The software and data licenses are separate; read the companion notice and the [Masters rights disclosures](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment) before use.
+
+In each example, compare the downloaded manifest to the reviewed repository copy and verify all listed assets before using them. Do not extract an archive or install a bundle if a check fails. The commands require Bash, Python 3.11 or newer, `tar` with Zstandard support, and `sha256sum`. Paths to the distribution, repository and dataset are examples.
+
+For the single-file Elite companion:
+
+```bash
+set -e
+cd /path/to/elite-companion-dist
+cmp elite-online-r1-d30-search-v1-RELEASE_MANIFEST.json \
+  /path/to/chess-database-api/releases/search-elite-online-r1-d30-v1.json
+sha256sum -c SHA256SUMS
+python3 - <<'PYVERIFY'
+import hashlib
+import json
+from pathlib import Path
+
+manifest = json.loads(Path("elite-online-r1-d30-search-v1-RELEASE_MANIFEST.json").read_text())
+archive = Path(manifest["archive"]["name"])
+with archive.open("rb") as stream:
+    digest = hashlib.file_digest(stream, "sha256").hexdigest()
+if archive.stat().st_size != manifest["archive"]["size_bytes"] or digest != manifest["archive"]["sha256"]:
+    raise SystemExit("Elite archive failed verification against the reviewed manifest")
+PYVERIFY
+mkdir -p extracted
+tar --zstd -xf elite-online-r1-d30-search-v1.tar.zst -C extracted
+chess-database install-search-index --dataset /srv/opening-explorer/elite-online \
+  --bundle extracted/elite-search-bundle
+chess-database verify-search-index --dataset /srv/opening-explorer/elite-online
+```
+
+For the split Masters companion, verify each part, concatenate in order, and verify the reconstructed archive against the reviewed manifest before extraction:
+
+```bash
+set -e
+cd /path/to/masters-companion-dist
+cmp search-masters-otb-r3-d40-v1.json \
+  /path/to/chess-database-api/releases/search-masters-otb-r3-d40-v1.json
+sha256sum -c SHA256SUMS
+cat masters-otb-r3-d40-search-v1.tar.zst.part-001 \
+    masters-otb-r3-d40-search-v1.tar.zst.part-002 > masters-otb-r3-d40-search-v1.tar.zst
+python3 - <<'PYVERIFY'
+import hashlib
+import json
+from pathlib import Path
+
+manifest = json.loads(Path("search-masters-otb-r3-d40-v1.json").read_text())
+archive = Path(manifest["archive"]["name"])
+with archive.open("rb") as stream:
+    digest = hashlib.file_digest(stream, "sha256").hexdigest()
+if archive.stat().st_size != manifest["archive"]["size_bytes"] or digest != manifest["archive"]["sha256"]:
+    raise SystemExit("Reconstructed archive failed verification")
+PYVERIFY
+mkdir -p extracted
+tar --zstd -xf masters-otb-r3-d40-search-v1.tar.zst -C extracted
+chess-database install-search-index --dataset /srv/opening-explorer/masters-otb \
+  --bundle extracted/masters-search-bundle
+chess-database verify-search-index --dataset /srv/opening-explorer/masters-otb
+```
+
+Both installs validate the canonical fingerprint and deeply verify the staged snapshot before atomic activation. Check collection capabilities after reloading the service. Masters discovery and game metadata remain disabled by default. An interrupted or rejected installation must not change the active snapshot; see [Search indexes](SEARCH_INDEX.md) for details.
+
+**Rollback.** Earlier versions are kept under `versions/`. Copy the desired version to a staging directory outside the dataset root, retaining its exact build ID as the directory basename. Run `chess-database publish --candidate <staging/build-id> --target <root> --collection masters-otb` (or `elite-online`), then verify and reload or restart the service. The publisher rejects candidates inside the active dataset root and directory names that differ from the manifest build ID. See the [Docker rollback example](DOCKER_DEPLOYMENT.md#safe-dataset-updates).
 
 **The filtered PGN** is a standard Zstandard stream: `zstd -dc <release>-filtered.pgn.zst | head`, or any Zstandard-capable reader. Verify its SHA-256 before extracting or processing it.
 

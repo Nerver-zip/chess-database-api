@@ -1,0 +1,22 @@
+2026-11-26T11:14:05Z
+ 08:14:05 up  9:33,  1 user,  load average: 2.46, 2.97, 3.17
+    PID COMMAND         %CPU %MEM STAT
+ 115366 zsh             50.0  0.0 Ss
+  32364 kitty           14.0  0.4 Sl
+  33545 codex           11.8  0.4 Sl+
+   1251 Hyprland         7.3  0.4 Sl
+ 111729 spotifast        3.0  0.9 SLl
+   1359 qs               2.4  2.1 Ssl
+  31854 java             1.8  0.1 Ssl
+   9449 codex            1.4  1.8 Ssl
+   9404 codex            1.2  0.2 Sl+
+    632 tailscaled       0.6  0.1 Ssl
+     93 kswapd0          0.4  0.0 S
+ 111486 kworker/u32:2-e  0.4  0.0 I
+ 113219 kworker/u33:3+i  0.4  0.0 D<
+ 113596 kworker/u32:4-i  0.3  0.0 I
+ 113641 kworker/u33:0-r  0.3  0.0 I<
+ 112895 kworker/0:0-i91  0.3  0.0 I
+ 113540 kworker/u32:0-e  0.3  0.0 I
+ 114645 kworker/u33:2-h  0.3  0.0 I<
+   2073 opencode         0.2  1.2 Ssl

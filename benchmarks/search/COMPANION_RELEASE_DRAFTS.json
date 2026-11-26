@@ -1,0 +1,77 @@
+{
+  "releases": [
+    {
+      "assets": [
+        {
+          "asset_id": 795574308,
+          "name": "elite-online-r1-d30-search-v1.tar.zst",
+          "sha256": "f011e539407ae49c7623a315456696e33ee5e5c4b0477cbca7f655859d6f1cca",
+          "size_bytes": 269896854
+        },
+        {
+          "asset_id": 795574302,
+          "name": "elite-online-r1-d30-search-v1-NOTICE.md",
+          "sha256": "733b47046ee6be98f7d4fdfe3104b2437b5db025bc1fdde1b4077451e6a5df8e",
+          "size_bytes": 1571
+        },
+        {
+          "asset_id": 795574303,
+          "name": "elite-online-r1-d30-search-v1-RELEASE_MANIFEST.json",
+          "sha256": "514f4f66bd0c427c2f151c0f2bb8ba0ca188a459d3759aba125c91f966e51938",
+          "size_bytes": 3045
+        },
+        {
+          "asset_id": 795574300,
+          "name": "SHA256SUMS",
+          "sha256": "9de164f3a39e3c08dff7e7d40bfa12afef53c381b5c402443ce8aa278d871155",
+          "size_bytes": 328
+        }
+      ],
+      "draft": true,
+      "html_url": "https://github.com/Nerver-zip/chess-database-api/releases/tag/untagged-6ea83221304dcb016c00",
+      "release_id": 459319089,
+      "tag_name": "search-elite-online-r1-d30-v1",
+      "target_commitish": "main"
+    },
+    {
+      "assets": [
+        {
+          "asset_id": 795575742,
+          "name": "masters-otb-r3-d40-search-v1.tar.zst.part-001",
+          "sha256": "f7fe0e1e70948390493830d25cf0427c1fd29558996fd12618cf5cab9f78ec72",
+          "size_bytes": 1992294400
+        },
+        {
+          "asset_id": 795575750,
+          "name": "masters-otb-r3-d40-search-v1.tar.zst.part-002",
+          "sha256": "17dac76e74c734cd8a75a7f195a8d4594210a184ca545b3b2bcfe1352fb7fefd",
+          "size_bytes": 454613548
+        },
+        {
+          "asset_id": 795575751,
+          "name": "masters-otb-r3-d40-search-v1-NOTICE.md",
+          "sha256": "3793ab257687ad642d4d7d18f2ba96230b6327f39a9102a124a36032cdc0bc73",
+          "size_bytes": 2308
+        },
+        {
+          "asset_id": 795575755,
+          "name": "search-masters-otb-r3-d40-v1.json",
+          "sha256": "8892dc0c9731b2d389de42e093a303b83f448894654e6db5c2e4cd76536658ca",
+          "size_bytes": 5116
+        },
+        {
+          "asset_id": 795575752,
+          "name": "SHA256SUMS",
+          "sha256": "04758c07222f6eb551609716a476ef1237815a2e6414b72bedf08c01a82f1392",
+          "size_bytes": 429
+        }
+      ],
+      "draft": true,
+      "html_url": "https://github.com/Nerver-zip/chess-database-api/releases/tag/untagged-4dae4052a6d1f7d162cf",
+      "release_id": 459319106,
+      "tag_name": "search-masters-otb-r3-d40-v1",
+      "target_commitish": "main"
+    }
+  ],
+  "verification": "GitHub API reports uploaded assets, sizes and SHA-256 digests matching verified local files."
+}

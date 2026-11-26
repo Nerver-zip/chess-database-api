@@ -1,0 +1,32 @@
+2026-11-26T10:49:41Z
+ 07:49:41 up  9:09,  1 user,  load average: 1.90, 2.87, 3.66
+CPU CORE SOCKET NODE
+  0    0      0    0
+  1    1      0    0
+  2    2      0    0
+  3    3      0    0
+  4    0      0    0
+  5    1      0    0
+  6    2      0    0
+  7    3      0    0
+    PID COMMAND         %CPU %MEM STAT
+ 113861 zsh             33.3  0.0 Ss
+  32364 kitty           14.0  0.4 Sl
+  33545 codex           11.8  0.4 Sl+
+   1251 Hyprland         7.1  0.4 Sl
+ 111729 spotifast        5.1  0.9 SLl
+   1359 qs               2.0  1.9 Ssl
+  31854 java             2.0  0.1 Ssl
+   9449 codex            1.4  1.7 Ssl
+   9404 codex            1.2  0.2 Sl+
+    632 tailscaled       0.6  0.1 Ssl
+ 111486 kworker/u32:2-e  0.5  0.0 I
+     93 kswapd0          0.4  0.0 S
+ 112077 kworker/u33:1-h  0.4  0.0 I<
+ 113219 kworker/u33:3-h  0.4  0.0 I<
+ 113596 kworker/u32:4-i  0.4  0.0 I
+ 107972 kworker/u33:2+i  0.3  0.0 D<
+ 113641 kworker/u33:0-h  0.3  0.0 I<
+   2073 opencode         0.2  0.5 Ssl
+ 110017 kworker/u32:1-e  0.2  0.0 I
+Observed client PID 113868 affinity: 0,1,4,5; server PID 113881 affinity: 2,3. Client physical cores 0,1; server physical cores 2,3. Other host processes were not restricted.

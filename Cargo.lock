@@ -211,7 +211,7 @@ checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
 name = "chess-database-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -237,7 +237,7 @@ dependencies = [
 
 [[package]]
 name = "chess-database-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chess-database-api",
@@ -261,7 +261,7 @@ dependencies = [
 
 [[package]]
 name = "chess-database-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "byteorder",
  "serde",
@@ -272,7 +272,7 @@ dependencies = [
 
 [[package]]
 name = "chess-database-curate"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chess-database-core",
  "rusqlite",
@@ -285,7 +285,7 @@ dependencies = [
 
 [[package]]
 name = "chess-database-index"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "byteorder",
  "chess-database-core",
@@ -304,7 +304,7 @@ dependencies = [
 
 [[package]]
 name = "chess-database-ingest"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chess-database-core",
  "chess-database-curate",
@@ -320,7 +320,7 @@ dependencies = [
 
 [[package]]
 name = "chess-database-storage"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "byteorder",
  "chess-database-core",

@@ -1,0 +1,6 @@
+{
+  "source": "Masters R3 production build search metadata; artifact directory intentionally empty because metadata is validated first",
+  "exit_code": 1,
+  "active_unchanged": true,
+  "stderr": "Error: Integrity error: Search bundle version, coverage, counts or canonical identity do not match the dataset"
+}
