@@ -1,15 +1,24 @@
 # Changelog
 
-All notable changes to `opening-explorer-api` are documented in this file. The project adheres to [Semantic Versioning](https://semver.org/).
+This file records notable changes to Chess Database API. The project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
 ## [Unreleased]
 
-### Changed
+### Chess Database API
+
+- Added game, position, player and event discovery, individual search metadata, capabilities, and exact filtered Opening Explorer statistics.
+- Added derived search indexes, deep verification, local companion bundles and snapshot-bound keyset pagination. Existing canonical games, lookup files and CPI v2 remain reusable.
+- Adopted the `chess-database` CLI, `chess-database-*` Rust packages and `chess-database-api:local` image tag. Existing CLI, image, network and configuration aliases remain available. [Naming migration](docs/NAMING_MIGRATION.md).
+
+- Added bounded rating and date projections for filtered Explorer and a two-worker search default with one aggregation slot. Serving checks artifact digests at each startup and reload, with deep structural verification at publication.
+- Added a reproducible comparison between filtered HTTP statistics and canonical Masters replay. Lightweight benchmark validation keeps archived Stage A measurements intact.
+
+### Earlier release milestones
 - **Licensing and deployment policy reconciliation:** `docs/LICENSING.md` section 6 is now the single authoritative statement of current policy, with a new decision record `releases/public_deployment_decision.json` for public, non-commercial API deployment (position statistics and single-game PGN retrieval). The existing distribution clearance is unchanged. Earlier private-evaluation and retrieval-disabled guidance is described as historical; the example environment file keeps retrieval enabled; Docker guidance adds a public-instance checklist. Commercial use and bulk export remain outside the decisions, and the publisher's B2B terms, unverified upstream rights, and missing checksum stay disclosed. Immutable R3 artifacts and `benchmarks/gigabase/` evidence are unchanged.
-- **Opening Explorer API consolidation (Draft PR, stacked on PR #7):**
-  - `opening-explorer-api` is the single public identity: CLI `opening-explorer`, crates `opening-explorer-*`, `OPENING_EXPLORER_*` environment variables (legacy `CODB_*` accepted as deprecated fallbacks), renamed compose files and image. Binary magics, game IDs, CPI keys, the `codb-` build-identifier prefix, HTTP routes, and historical evidence are unchanged. See [docs/MIGRATION_FROM_CODB.md](docs/MIGRATION_FROM_CODB.md).
+- **Earlier Opening Explorer API migration (PR #8):**
+  - At that point, `opening-explorer-api` became the project identity: CLI `opening-explorer`, crates `opening-explorer-*`, `OPENING_EXPLORER_*` environment variables (legacy `CODB_*` accepted as deprecated fallbacks), renamed compose files and image. Binary magics, game IDs, CPI keys, the `codb-` build-identifier prefix, HTTP routes, and historical evidence are unchanged. See [docs/MIGRATION_FROM_CODB.md](docs/MIGRATION_FROM_CODB.md).
   - The root README is a first-visit landing page; the API contract moved to [docs/API_REFERENCE.md](docs/API_REFERENCE.md), with getting-started, use-case, and dataset-release guides and runnable `examples/`.
   - Backward-compatible API fixes: additive `cpi_depth_plies` on position responses; `POST /v1/admin/reload` is no longer cut off by the 15 s read timeout; framework rejections (bad query, 404, 405, timeout) use the standard error envelope; clearer illegal-move and missing-collection messages.
 - **Dataset distribution tooling:** `opening-explorer export-pgn` (deterministic streaming PGN export), `scripts/release_assets.py` (prepare, split, verify, reconstruct, install, dry-run-by-default upload), an independent python-chess verifier, a manually triggered `publish-dataset.yml` workflow that only validates and publishes a reviewed draft release, and a distribution gate (`releases/distribution_clearance.json`) that blocks publication until written clearance is recorded. `dataset-masters-otb-r3` was published on 2026-11-16 after the maintainer recorded a distribution clearance (see `docs/LICENSING.md` section 6).

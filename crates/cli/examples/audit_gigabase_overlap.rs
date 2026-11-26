@@ -5,9 +5,9 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
-use opening_explorer_core::{GameResult, ParsedGame};
-use opening_explorer_curate::dedupe::normalize_player_name;
-use opening_explorer_storage::DatasetReader;
+use chess_database_core::{GameResult, ParsedGame};
+use chess_database_curate::dedupe::normalize_player_name;
+use chess_database_storage::DatasetReader;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]

@@ -1,0 +1,72 @@
+{
+  "cases": {
+    "collections": {
+      "latency_us": 402.76900017488515,
+      "status": 200
+    },
+    "continuation": {
+      "latency_us": 524.3299992798711,
+      "status": 200
+    },
+    "event_detail": {
+      "latency_us": 485.99000001559034,
+      "status": 200
+    },
+    "event_games": {
+      "latency_us": 851.390000207175,
+      "status": 200
+    },
+    "filtered_player": {
+      "latency_us": 2272.789000016928,
+      "status": 200
+    },
+    "first_games": {
+      "latency_us": 1353.3010005630786,
+      "status": 200
+    },
+    "game_metadata": {
+      "latency_us": 526.4100000204053,
+      "status": 200
+    },
+    "game_pgn": {
+      "latency_us": 4861.230000642536,
+      "status": 200
+    },
+    "legacy_conditional": {
+      "latency_us": 330.59999987017363,
+      "status": 304
+    },
+    "legacy_explorer": {
+      "latency_us": 531.7300001479452,
+      "status": 200
+    },
+    "player_detail": {
+      "latency_us": 718.6000002548099,
+      "status": 200
+    },
+    "player_position_games": {
+      "latency_us": 1446.9100005953806,
+      "status": 200
+    },
+    "players": {
+      "latency_us": 11310.369999591785,
+      "status": 200
+    },
+    "ready": {
+      "latency_us": 3245.2199993713293,
+      "status": 200
+    },
+    "second_games": {
+      "latency_us": 580.9090007460327,
+      "status": 200
+    },
+    "unfiltered_compatibility": {
+      "latency_us": 681.6700006311294,
+      "status": 200
+    }
+  },
+  "collection": "elite-online",
+  "dataset_version": "codb-elite-online-1795638650408508480-cfc2575f9f6971eb-search",
+  "mode": "enriched",
+  "seconds": 0.03161852999983239
+}

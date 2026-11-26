@@ -2,9 +2,11 @@
 
 pub mod admin;
 pub mod collections;
+pub mod discovery;
 pub mod explorer;
 pub mod games;
 pub mod health;
+pub mod search;
 
 use crate::error::ApiError;
 use crate::state::AppState;
@@ -84,7 +86,32 @@ pub fn create_router_with_request_timeout(
         // Collection metadata
         .route("/v1/collections", get(collections::list_collections))
         // Opening explorer position queries
-        .route("/v1/explorer/position", get(explorer::query_position));
+        .route("/v1/explorer/position", get(explorer::query_position))
+        .route(
+            "/v1/explorer/position/filtered",
+            get(search::filtered_explorer),
+        )
+        .route(
+            "/v1/collections/{collection}/players",
+            get(discovery::players),
+        )
+        .route(
+            "/v1/collections/{collection}/players/{id}",
+            get(discovery::player),
+        )
+        .route(
+            "/v1/collections/{collection}/events",
+            get(discovery::events),
+        )
+        .route(
+            "/v1/collections/{collection}/events/{id}",
+            get(discovery::event),
+        )
+        .route("/v1/collections/{collection}/games", get(search::games))
+        .route(
+            "/v1/collections/{collection}/games/{id}/metadata",
+            get(search::metadata),
+        );
     if enable_game_retrieval {
         reads = reads.route(
             "/v1/collections/{collection}/games/{id}",

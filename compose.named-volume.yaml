@@ -8,4 +8,4 @@ services:
 
 volumes:
   runtime:
-    name: ${OPENING_EXPLORER_RUNTIME_VOLUME:-${CODB_RUNTIME_VOLUME:-codb-gigabase-r3-runtime}}
+    name: ${CHESS_DATABASE_RUNTIME_VOLUME:-${OPENING_EXPLORER_RUNTIME_VOLUME:-${CODB_RUNTIME_VOLUME:-codb-gigabase-r3-runtime}}}

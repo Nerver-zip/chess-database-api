@@ -31,16 +31,24 @@ The following architectural decisions have been evaluated, implemented, and acce
 - **Rationale:** Masters OTB theory extends deeply into classical lines, whereas online play diversifies widely in early plies. Depth 30 for Elite Online preserves high-frequency opening statistics while constraining conservative deployed storage to 9.98 GB, strictly satisfying the 10 GB envelope constraint.
 
 ### 1.6 Production Read-Only HTTP API Architecture (ADR-0004)
-- **Decision:** Build the Opening Explorer serving layer as a dedicated crate (`opening-explorer-api`) using Axum 0.8, Tokio, and Tower, integrated into the CLI via `opening-explorer serve`.
+- **Decision:** Build the Opening Explorer serving layer as a dedicated crate (`chess-database-api`) using Axum 0.8, Tokio, and Tower, integrated into the CLI via `chess-database serve`.
 - **Rationale:** Axum provides modular, zero-cost routing with first-class state sharing via `Arc`. CPI v2 position queries run 100% lock-free across concurrent worker threads directly against memory-mapped data (`DiskPositionIndex`), achieving sub-millisecond p50 latencies (~220–250 µs). CGB3 game decompression is offloaded to a bounded reader pool (`DatasetReaderPool`) on `tokio::task::spawn_blocking`.
 - **Zero-Downtime Reloading:** Pinned snapshots (`DatasetSnapshot`) are swapped atomically via `parking_lot::RwLock<Arc<DatasetSnapshot>>` upon `POST /v1/admin/reload`, allowing seamless updates under live traffic with zero dropped requests.
 
 ### 1.7 Corpus Orchestration Outside the Rust Workspace
-- **Decision:** Source acquisition, release assembly, packaging, and HTTP validation live in `scripts/corpus.py` (Python standard library) driven by a pinned `corpus/catalog.json`, and invoke the existing `opening-explorer` CLI instead of adding download or release logic to the Rust crates.
-- **Rationale:** Acquisition and provenance are release-process concerns that change independently of storage formats; keeping them out of `opening-explorer-*` preserves the binary-format and determinism contracts and avoids new Rust dependencies (HTTP client, TLS). The catalog fails closed on missing checksums and unapproved licenses.
+- **Decision:** Source acquisition, release assembly, packaging, and HTTP validation live in `scripts/corpus.py` (Python standard library) driven by a pinned `corpus/catalog.json`, and invoke the `chess-database` CLI instead of adding download or release logic to the Rust crates.
+- **Rationale:** Acquisition and provenance are release-process concerns that change independently of storage formats; keeping them out of `chess-database-*` preserves the binary-format and determinism contracts and avoids new Rust dependencies (HTTP client, TLS). The catalog fails closed on missing checksums and unapproved licenses.
 - **Trade-off:** A second language in the repository; mitigated by stdlib-only code, offline tests in `validate.sh`, and no new dependencies.
 
 ---
+
+### 1.8 Derived search artifacts and bounded filtered aggregation
+
+Keep the read-only metadata catalog and position postings separate from canonical CGB3, `games.idx` and CPI. The optional in-memory projection joins result, ratings and dates to positional occurrences by snapshot-local ordinal. This supports frequent exact filters without changing the persisted format or rebuilding the released corpora. Use one aggregation execution slot and a separate bounded SQL/posting work budget for complex predicates.
+
+### 1.9 Verification at promotion and serving boundaries
+
+Publish only deeply verified immutable snapshots. Verify manifest checksums, headers, accounting and collection identity on each startup and reload. Operators can repeat the deep walk of compressed games and search structures when they also need a serving-side audit. Access to change both a manifest and its data files is within the operator trust boundary.
 
 ## 2. Historical Research Classification
 
@@ -83,3 +91,8 @@ With the core HTTP serving layer delivered in PR-04, Q-01 through Q-03 remain op
 - **Measurement correction:** The earlier `wait4` RSS sampler included the Python orchestrator's fork-time memory. The corpus builder now reads `VmHWM` from the executed process after `exec`. The final 29,640-game Masters build measured 23,015,424 bytes. The unchanged Elite release retains its earlier recorded measurement and was not rebuilt for this follow-up.
 - **Decision:** Track per-process RSS on the build host; approximately 31 MB is acceptable. There is no fixed 30,000,000-byte ingestion cutoff. The CPI indexer still honors its configured `--memory-limit-mib` buffer limit.
 - **Status:** Resolved; remeasure after changing the Rust runtime, allocator, or source-scale profile.
+
+
+### Q-05: Broader complex filters
+
+Complex filters on very frequent positions can still exceed the bounded SQL/posting workload. A future persistent secondary projection or bitmap approach needs a measured trade-off between coverage, build cost, storage and serving latency. The current API returns an explicit resource-limit error for these queries.

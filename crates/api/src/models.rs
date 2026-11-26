@@ -94,6 +94,22 @@ pub struct CollectionMetadataResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cpi_total_positions: Option<u64>,
     pub format_version: String,
+    #[serde(default)]
+    pub capabilities: CollectionCapabilities,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CollectionCapabilities {
+    pub opening_explorer: bool,
+    pub game_retrieval: bool,
+    pub game_search: bool,
+    pub game_metadata: bool,
+    pub player_search: bool,
+    pub event_search: bool,
+    pub position_search: bool,
+    pub filtered_explorer: bool,
+    pub position_search_coverage: Option<chess_database_storage::search::SearchCoverage>,
+    pub game_filter_families: Vec<String>,
 }
 
 /// JSON payload returned by `GET /health`.

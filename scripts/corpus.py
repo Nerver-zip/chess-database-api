@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Reproducible corpus acquisition, build, release, and serving orchestration.
 
-This tool is a thin orchestration layer around the existing `opening-explorer` Rust CLI. It
+This tool is a thin orchestration layer around the `chess-database` Rust CLI. It
 never reimplements ingestion, curation, deduplication, indexing, or dataset
-publication: it pins and verifies source archives, invokes `opening-explorer build`,
-`opening-explorer build-index`, `opening-explorer verify --deep`, and `opening-explorer report`, records release
-provenance, packages releases, and drives `opening-explorer serve`.
+publication: it pins and verifies source archives, invokes `chess-database build`,
+`chess-database build-index`, `chess-database verify --deep`, and `chess-database report`, records release
+provenance, packages releases, and drives `chess-database serve`.
 
 The normal acquisition and release workflow uses only the Python standard library. The
 opt-in local 7z extraction command requires the pinned py7zr dependency in
@@ -51,12 +51,13 @@ CATALOG_SCHEMA_VERSION = 1
 CHUNK = 1 << 20
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 CONFIDENCE_LEVELS = ("high", "medium", "low")
-USER_AGENT = "opening-explorer-api-corpus/1 (+https://github.com/Nerver-zip/opening-explorer-api)"
+USER_AGENT = "opening-explorer-api-corpus/1 (+https://github.com/Nerver-zip/chess-database-api)"
 
 
 def env_setting(name: str) -> str | None:
-    """Returns OPENING_EXPLORER_<name>, falling back to the deprecated CODB_<name> alias."""
-    return os.environ.get(f"OPENING_EXPLORER_{name}") or os.environ.get(f"CODB_{name}") or None
+    """Read the current configuration name before its two compatibility aliases."""
+    return (os.environ.get(f"CHESS_DATABASE_{name}")
+            or os.environ.get(f"OPENING_EXPLORER_{name}") or os.environ.get(f"CODB_{name}"))
 
 
 class CorpusError(Exception):
@@ -935,7 +936,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
 
 
 # --------------------------------------------------------------------------- #
-# opening-explorer invocation helpers
+# Chess Database CLI invocation helpers
 # --------------------------------------------------------------------------- #
 def find_opening_explorer(explicit: str | None) -> Path:
     for cand in (explicit, env_setting("BIN")):
@@ -943,14 +944,15 @@ def find_opening_explorer(explicit: str | None) -> Path:
             p = Path(cand)
             if p.is_file():
                 return p.resolve()
-            raise CorpusError(f"opening-explorer binary not found: {cand}")
-    for sub in ("release", "debug"):
-        p = REPO_ROOT / "target" / sub / "opening-explorer"
-        if p.is_file():
-            return p
+            raise CorpusError(f"chess-database binary not found: {cand}")
+    for name in ("chess-database", "opening-explorer"):
+        for sub in ("release", "debug"):
+            p = REPO_ROOT / "target" / sub / name
+            if p.is_file():
+                return p
     raise CorpusError(
-        "opening-explorer binary not found. Build it with `cargo build --release -p opening-explorer-cli` "
-        "or pass --opening-explorer / OPENING_EXPLORER_BIN."
+        "chess-database binary not found. Build it with `cargo build --release -p chess-database-cli` "
+        "or pass --chess-database / CHESS_DATABASE_BIN."
     )
 
 
@@ -1070,7 +1072,7 @@ def run_measured(
 def opening_explorer_json(opening_explorer: Path, args: list[str]) -> Any:
     r = subprocess.run([str(opening_explorer), *args], capture_output=True, text=True)
     if r.returncode != 0:
-        raise CorpusError(f"opening-explorer {' '.join(args)} failed: {r.stderr.strip() or r.stdout.strip()}")
+        raise CorpusError(f"chess-database {' '.join(args)} failed: {r.stderr.strip() or r.stdout.strip()}")
     return json.loads(r.stdout)
 
 
@@ -1399,7 +1401,7 @@ def write_release_files(cat, collection, profile, sources, ds_root, version_dir,
         "commands": {
             "fetch": f"./scripts/corpus.sh fetch --collection {collection} --profile {profile}",
             "build": f"./scripts/corpus.sh build --collection {collection} --profile {profile}",
-            "verify": f"opening-explorer verify --dataset <release-dir> --deep",
+            "verify": "chess-database verify --dataset <release-dir> --deep",
             "serve": "./scripts/corpus.sh serve",
         },
         "build_metrics_summary": {
@@ -1426,7 +1428,7 @@ def write_release_files(cat, collection, profile, sources, ds_root, version_dir,
     notice = (
         f"Dataset: {collection} ({release['dataset_version']})\n"
         f"License: {lic['name']} ({lic['url']})\n\n{ATTRIBUTION[collection]}\n"
-        "The opening-explorer-api software is licensed MIT OR Apache-2.0; that license does not\n"
+        "The Chess Database API software is licensed MIT OR Apache-2.0; that license does not\n"
         "apply to this dataset. Source archives are listed with checksums in RELEASE/RELEASE.json.\n"
         "No claim is made that this license covers material outside the listed Lichess archives.\n"
     )
@@ -1646,7 +1648,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
         verdict = verify_release_files(root)
         if verdict is None:
             verdict = verify_release_compatibility(root, c, catalog)
-        log(f"[verify] {c}: opening-explorer verify --deep {'PASS' if ok else 'FAIL'}; "
+        log(f"[verify] {c}: chess-database verify --deep {'PASS' if ok else 'FAIL'}; "
             f"release artifacts {'PASS' if verdict is None else 'FAIL: ' + verdict}")
         failures += 0 if ok and verdict is None else 1
     if failures:
@@ -1776,7 +1778,7 @@ def verify_package(archive: Path, opening_explorer: Path, expected_games: int | 
         r = subprocess.run([str(opening_explorer), "verify", "--dataset", str(root), "--deep"],
                            capture_output=True, text=True)
         if r.returncode != 0 or "Result: SUCCESS" not in r.stdout:
-            raise CorpusError(f"extracted package failed opening-explorer verify --deep:\n{r.stdout}{r.stderr}")
+            raise CorpusError(f"extracted package failed chess-database verify --deep:\n{r.stdout}{r.stderr}")
         info = json.loads((current_version_dir(root) / "RELEASE" / "RELEASE.json").read_text())
         if expected_games is not None and info["accepted_games"] != expected_games:
             raise CorpusError("extracted release game count differs from the source release")
@@ -2133,7 +2135,7 @@ SAN_RE = re.compile(r"^(?:O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])
 
 
 def parse_export_blocks(pgn: str) -> list[list[str]]:
-    """Extracts SAN move lists from `opening-explorer export` output.
+    """Extracts SAN move lists from `chess-database export` output.
 
     Only the last paragraph of each record is read as movetext, and a record is
     skipped unless every token is a well-formed SAN move (this protects against
@@ -2284,7 +2286,7 @@ def run_http_checks(opening_explorer: Path, roots: dict[str, Path], host: str, p
             except OSError:
                 pass
             if proc.poll() is not None:
-                raise CorpusError(f"opening-explorer serve exited early (see {serve_log})")
+                raise CorpusError(f"chess-database serve exited early (see {serve_log})")
             time.sleep(0.05)
         if ready_at is None:
             raise CorpusError("server did not become ready")
@@ -2488,8 +2490,9 @@ def cmd_http_check(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--catalog", default=str(DEFAULT_CATALOG), help="pinned source catalog")
-    p.add_argument("--data-dir", help="data directory (default $OPENING_EXPLORER_DATA_DIR or ./data)")
-    p.add_argument("--opening-explorer", help="path to the opening-explorer binary (default target/release/opening-explorer)")
+    p.add_argument("--data-dir", help="data directory (default $CHESS_DATABASE_DATA_DIR or ./data)")
+    p.add_argument("--chess-database", "--opening-explorer", dest="opening_explorer", metavar="PATH",
+                   help="path to the CLI binary (default target/release/chess-database)")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     def with_col(sp, default="all"):
@@ -2597,7 +2600,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sp.set_defaults(fn=cmd_bootstrap)
 
-    sp = sub.add_parser("serve", help="serve both collections via opening-explorer serve")
+    sp = sub.add_parser("serve", help="serve both collections via chess-database serve")
     sp.add_argument("--host", default="127.0.0.1")
     sp.add_argument("--port", type=int, default=8080)
     sp.add_argument("--allowed-origins", default=DEFAULT_ORIGINS)

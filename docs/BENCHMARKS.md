@@ -8,7 +8,7 @@ status: current
 
 ## 1. Benchmark Architecture & Taxonomy
 
-The benchmark ecosystem in `opening-explorer-api` is partitioned into the following domains:
+The benchmark ecosystem in `chess-database-api` is partitioned into the following domains:
 
 ```
 benchmarks/
@@ -58,7 +58,9 @@ benchmarks/corpus/
 └── elite-online/{...same files...}
 ```
 
-`python3 scripts/validate_corpus_evidence.py` (part of `validate.sh`) checks exact accounting, rejection-reason totals, hashes, source checksums and licenses, build steps, and HTTP evidence. The current real releases contain 29,640 event-qualified Masters games (depth 40, 705,718 positions) and 429,150 Elite games (depth 30, 6,136,307 positions; seven archives from 2015-09 to 2017-03). The latest run passed 414/414 HTTP checks, 262 HTTP-vs-CLI position comparisons, and the real Compose smoke with 96/96 container-to-container requests. HTTP position-query p50 was 167.9 µs (Masters) / 190.6 µs (Elite); warm in-process CPI hit p50 was 4.95 / 5.60 µs; 4-client-process throughput reached 10,671 / 8,127 requests/s on a shared 4-core host (see [CORPUS_BUILD.md §9.3](CORPUS_BUILD.md#93-query-and-api-performance)). The container sampled peak was 159,224 KiB under its 512 MiB cap. These real-corpus results supersede fixture figures for serving; fixture-based `http_api_benchmark.json` remains the lightweight CI baseline.
+`python3 scripts/validate_corpus_evidence.py` checks exact accounting, rejection-reason totals, hashes, source checksums and licenses, build steps, and HTTP evidence. This historical baseline used 29,640 event-qualified Masters games (depth 40, 705,718 positions) and 429,150 Elite games (depth 30, 6,136,307 positions; seven archives from 2015-09 to 2017-03). It passed 414/414 HTTP checks, 262 HTTP-vs-CLI position comparisons, and a Compose smoke with 96/96 container-to-container requests. HTTP position-query p50 was 167.9 µs for Masters and 190.6 µs for Elite. Warm in-process CPI hit p50 was 4.95 and 5.60 µs, respectively. Four-client-process throughput reached 10,671 and 8,127 requests/s on a shared four-core host. The container sampled peak was 159,224 KiB under its 512 MiB cap. See [corpus build performance](CORPUS_BUILD.md#93-query-and-api-performance).
+
+The historical Masters snapshot remains a rollback version. Use the [current corpus search and legacy measurements](#6-search-and-interactive-serving) for Masters R3 (3,284,429 games) and Elite R1. The fixture-based `http_api_benchmark.json` remains the lightweight CI baseline.
 
 ---
 
@@ -91,7 +93,7 @@ zstd -dc \
 ## 4. Benchmark Reproduction Procedures
 
 ### 4.1 Lightweight CI Mode (`--ci`)
-Executes the deterministic 1,000-game Stage A validation fixture and asserts schema and consistency invariants without external downloads:
+Executes the deterministic 1,000-game Stage A validation fixture and asserts schema and consistency invariants without external downloads. The generated result is validated in temporary storage, so the archived Stage A measurements stay intact.
 ```bash
 ./scripts/reproduce_benchmarks.sh --ci
 ```
@@ -120,8 +122,15 @@ Fitted via ordinary least squares (OLS) log-linear regression in [`scripts/fit_h
 
 ### 5.2 Option B Deployment Projections (15 Million Games)
 Slicing **Masters OTB (5M games) to Depth 40** and **Elite Online (10M games) to Depth 30**:
-- **Historical baseline:** **7.68 GB** was the original projection using earlier storage-density measurements. *(PR-A update: applying measured bytes per position and per game from the real 29,640-game Masters and 429,150-game Elite releases gives ≈ 7.76 GB deployed under the same model; predicted unique-position counts are within −1.6% (Masters) and −4.9% (Elite) of current measurements. See [CORPUS_BUILD.md §9.6](CORPUS_BUILD.md#96-storage-feasibility-against-the-earlier-projection). This remains an extrapolation.)*
+- **Historical baseline:** **7.68 GB** was the original projection using prototype storage-density measurements. The later PR-A extrapolation used the 29,640-game Masters and 429,150-game Elite snapshots and estimated about 7.76 GB. Its predicted unique-position counts were 1.6% below the Masters measurement and 4.9% below the Elite measurement at that time. See [storage feasibility against the earlier projection](CORPUS_BUILD.md#96-storage-feasibility-against-the-earlier-projection).
 - **Optimistic Scenario:** **6.44 GB** total deployed footprint.
 - **Conservative Scenario:** **9.98 GB** total deployed footprint (leaves **20 MB / 0.2%** headroom within the 10 GB envelope).
 
 Storage feasibility is **conditional** upon enforcing Depth 30 slicing for Elite Online; extending Elite Online to Depth 40 pushes conservative projections to 12.26 GB, breaching the 10 GB budget.
+
+
+## 6. Search and interactive serving
+
+The [search evidence and reproduction commands](research/search-index-experiments.md) record compact and full coverage, build resources, exact canonical and CPI reconciliation, companion verification, and paired legacy HTTP and CPI measurements. Use the same immutable datasets, affinity and request mix for before/after trials. Separate interactive users with think time and superseded navigation from deliberate overload. Record successful latency alongside 429, 408 and 422 counts. Include the tested source revision and release-binary SHA-256. Treat QEMU timing and container memory observations as separate from native serving measurements.
+
+The [hardening comparison](research/search-index-experiments.md#final-hardening-on-both-production-snapshots) records the three previously rejected Masters requests, full canonical replay for rating and year filters, the single- and two-worker workloads, and the warm and eviction-advised legacy pairs.

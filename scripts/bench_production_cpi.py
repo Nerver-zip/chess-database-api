@@ -37,7 +37,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # the real filesystem: /tmp is frequently tmpfs, where file contents and mmap'd pages are RAM-backed (shmem)
 # and would distort both RSS and "temporary disk" measurements.
 WORK_BASE = os.environ.get("OPENING_EXPLORER_BENCH_WORKDIR", os.path.join(ROOT_DIR, "target", "bench_work"))
-BIN_PATH = os.path.join(ROOT_DIR, "target", "release", "opening-explorer")
+BIN_PATH = os.path.join(ROOT_DIR, "target", "release", "chess-database")
 OUTPUT_DIR = os.path.join(ROOT_DIR, "benchmarks", "production_cpi")
 
 BENCHMARK_MOVES = [

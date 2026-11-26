@@ -1,6 +1,6 @@
-# Contributing to `opening-explorer-api`
+# Contributing to Chess Database API
 
-Thank you for contributing to `opening-explorer-api`! This document outlines our contribution workflow, coding standards, and verification expectations.
+Follow the coding, dataset and verification practices below. Build the `chess-database` CLI with `cargo build --locked --release -p chess-database-cli`.
 
 The project is **English-only** for code comments, user-facing strings, documentation, Pull Requests, and commit messages. Please read [AGENTS.md](AGENTS.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and [docs/DATA_CONTRACTS.md](docs/DATA_CONTRACTS.md) before modifying ingestion, storage, or indexing logic.
 

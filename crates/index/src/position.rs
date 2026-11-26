@@ -1,9 +1,10 @@
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
-use opening_explorer_core::{CompactMove, GameResult, ParsedGame, PositionKey};
+use chess_database_core::{CompactMove, GameResult, ParsedGame, PositionKey};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use shakmaty::fen::Fen;
 use shakmaty::{CastlingMode, Chess, Position};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, HashSet};
 use std::fs::File;
 use std::io::{BufWriter, Cursor, Read, Seek, SeekFrom, Write};
@@ -18,6 +19,12 @@ pub const CPI_SPARSE_ENTRY_SIZE: usize = 34;
 pub const MAX_CPI_BLOCK_UNCOMPRESSED_SIZE: u32 = 16 * 1024 * 1024; // 16 MiB safety bound
 
 const HEADER_SIZE: usize = CPI_HEADER_SIZE;
+
+thread_local! {
+    // Reuse decoder scratch within a worker. Blocks and query results remain owned by each call.
+    static CPI_DECODER: RefCell<Option<zstd::bulk::Decompressor<'static>>> =
+        const { RefCell::new(None) };
+}
 
 #[derive(Error, Debug)]
 pub enum IndexError {
@@ -71,7 +78,7 @@ pub struct GamePositionExtraction {
     pub repeated_positions_skipped: usize,
 }
 
-pub use opening_explorer_core::compute_position_key;
+pub use chess_database_core::compute_position_key;
 
 /// Extracts position-to-next-move records from a game up to `max_plies` with full accounting details.
 ///
@@ -1025,7 +1032,17 @@ impl DiskPositionIndex {
 
         let compressed_slice = &self.mmap[start..end];
         let expected_uncompressed = block_entry.uncompressed_len as usize;
-        let decompressed = zstd::bulk::decompress(compressed_slice, expected_uncompressed)
+        let decompressed = CPI_DECODER
+            .with(|decoder| {
+                let mut decoder = decoder.borrow_mut();
+                if decoder.is_none() {
+                    *decoder = Some(zstd::bulk::Decompressor::new()?);
+                }
+                decoder
+                    .as_mut()
+                    .expect("CPI decoder is initialized")
+                    .decompress(compressed_slice, expected_uncompressed)
+            })
             .map_err(|e| {
                 IndexError::InvalidFormat(format!(
                     "Failed to decompress CPI block {}: {}",
@@ -1303,7 +1320,7 @@ impl DiskPositionIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use opening_explorer_core::{Collection, GameMetadata};
+    use chess_database_core::{Collection, GameMetadata};
     use shakmaty::{Move, Role, Square};
 
     #[test]

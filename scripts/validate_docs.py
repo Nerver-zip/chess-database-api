@@ -36,6 +36,9 @@ CANONICAL_DOCUMENTS = [
     "docs/DATASET_RELEASES.md",
     "docs/DOCKER_DEPLOYMENT.md",
     "docs/MIGRATION_FROM_CODB.md",
+    "docs/NAMING_MIGRATION.md",
+    "docs/SEARCH_API.md",
+    "docs/SEARCH_INDEX.md",
 ]
 
 ADR_DOCUMENTS = [
@@ -190,6 +193,21 @@ def main():
     image_errors = []
     metadata_errors = []
     filename_errors = []
+
+    reference = os.path.join(ROOT_DIR, "docs", "API_REFERENCE.md")
+    if os.path.isfile(reference):
+        with open(reference, encoding="utf-8") as file:
+            api_reference = file.read()
+        for stale_claim in (
+            r"the API has no rating filter",
+            r"game IDs cannot be discovered over HTTP",
+            r"the HTTP API cannot list games",
+        ):
+            if re.search(stale_claim, api_reference, re.IGNORECASE):
+                metadata_errors.append(f"docs/API_REFERENCE.md: stale search claim ({stale_claim})")
+        for route in ("/v1/explorer/position/filtered", "/v1/collections/{collection}/games"):
+            if route not in api_reference:
+                metadata_errors.append(f"docs/API_REFERENCE.md: missing search route ({route})")
 
     # 1. Walk repository and validate all Markdown files
     for root, dirs, files in os.walk(ROOT_DIR):

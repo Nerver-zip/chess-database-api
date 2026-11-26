@@ -51,10 +51,10 @@ COLLECTIONS = ("masters-otb", "elite-online")
 ADMIN_TOKEN = "quick-test-token"  # token used when fixtures were recorded
 FEN_AFTER_NF3 = "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"
 
-# Flags that belong to tools other than the `opening-explorer` CLI and are
+# Flags that belong to tools other than the `chess-database` CLI and are
 # used in documented shell snippets or the Python example.
 EXTERNAL_FLAGS = {
-    "--get", "--data-urlencode", "--fail", "--silent", "--show-error", "--request",
+    "--get", "--data-urlencode", "--fail", "--fail-with-body", "--silent", "--show-error", "--request",
     "--header", "--write-out", "--locked", "--release", "--package", "--help",
     "--url", "--version",
 }
@@ -239,6 +239,14 @@ class StaticDocumentationContract(unittest.TestCase):
 
     def test_documented_query_parameters_are_supported(self) -> None:
         supported = {"collection", "moves", "fen", "since_year", "min_rating"}
+        routes_dir = ROOT / "crates" / "api" / "src" / "routes"
+        for path, structs in (("search.rs", ("GameParams",)),
+                              ("discovery.rs", ("PlayerSearchParams", "EventSearchParams"))):
+            source = read(routes_dir / path)
+            for name in structs:
+                match = re.search(r"\bstruct " + name + r" \{(.*?)\n\}", source, re.DOTALL)
+                self.assertIsNotNone(match, f"missing query structure {name}")
+                supported |= set(re.findall(r"^\s*(\w+):", match.group(1), re.MULTILINE))
         used = set()
         for name in API_DOCS:
             used |= set(re.findall(r"--data-urlencode\s+['\"]([a-z_]+)=", self.texts[name]))
@@ -319,16 +327,12 @@ class StaticDocumentationContract(unittest.TestCase):
         self.assertEqual(unknown, [], "flags documented but not defined by the CLI")
 
     def test_documented_environment_variables_exist(self) -> None:
-        # Variables read by the example clients and scripts, not by the server.
-        client_only = {"OPENING_EXPLORER_URL", "OPENING_EXPLORER_COLLECTION"}
         documented = set()
         for name in API_DOCS:
-            documented |= set(re.findall(r"OPENING_EXPLORER_[A-Z_]*[A-Z]", self.texts[name]))
-        documented -= client_only
-        defined = cli_serve_env_names()
+            documented |= set(re.findall(r"CHESS_DATABASE_[A-Z_]*[A-Z]", self.texts[name]))
+        defined = {name for name in cli_serve_env_names() if name.startswith("CHESS_DATABASE_")}
         self.assertEqual(sorted(documented - defined), [], "documented variables not read by the CLI")
-        served = {name for name in defined if name.startswith("OPENING_EXPLORER_")}
-        self.assertEqual(sorted(served - documented), [], "CLI variables missing from the reference")
+        self.assertEqual(sorted(defined - documented), [], "CLI variables missing from the reference")
 
 
 class ExampleSyntax(unittest.TestCase):

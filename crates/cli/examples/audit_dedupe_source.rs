@@ -5,16 +5,16 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
-use opening_explorer_core::{Collection, GameMetadata, GameSourceAttribution, ParsedGame};
-use opening_explorer_curate::dedupe::{
+use chess_database_core::{Collection, GameMetadata, GameSourceAttribution, ParsedGame};
+use chess_database_curate::dedupe::{
     normalize_metadata, DedupeError, Deduplicator, DuplicateVerdict,
 };
-use opening_explorer_curate::policy::GigabaseOtbPolicy;
-use opening_explorer_ingest::{
+use chess_database_curate::policy::GigabaseOtbPolicy;
+use chess_database_ingest::{
     build_pgn_reader, is_recoverable_pgn_syntax_error, resync_after_syntax_error,
     ShakmatyGameVisitor,
 };
-use opening_explorer_storage::{DatasetReader, StorageError};
+use chess_database_storage::{DatasetReader, StorageError};
 use pgn_reader::Reader;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -154,8 +154,8 @@ fn replay_final_position(game: &ParsedGame) -> Result<Chess> {
 }
 
 fn is_strict_prefix(
-    shorter: &[opening_explorer_core::CompactMove],
-    longer: &[opening_explorer_core::CompactMove],
+    shorter: &[chess_database_core::CompactMove],
+    longer: &[chess_database_core::CompactMove],
 ) -> bool {
     shorter.len() < longer.len() && longer.starts_with(shorter)
 }
@@ -590,7 +590,7 @@ fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::is_strict_prefix;
-    use opening_explorer_core::CompactMove;
+    use chess_database_core::CompactMove;
 
     #[test]
     fn strict_move_prefix_is_directional_and_excludes_equal_sequences() {

@@ -3,7 +3,7 @@ use crate::position::{
     DEFAULT_POSITIONS_PER_BLOCK,
 };
 use byteorder::{BigEndian, ReadBytesExt};
-use opening_explorer_core::{CompactMove, GameResult, ParsedGame, PositionKey};
+use chess_database_core::{CompactMove, GameResult, ParsedGame, PositionKey};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::cmp::Reverse;
@@ -732,7 +732,7 @@ mod tests {
     use crate::position::{
         compute_position_key, DiskPositionIndex, ImmutablePositionIndex, SqlitePositionIndex,
     };
-    use opening_explorer_core::{Collection, GameMetadata};
+    use chess_database_core::{Collection, GameMetadata};
     use sha2::Digest;
     use shakmaty::{Chess, Move, Position, Role, Square};
 
@@ -1110,6 +1110,17 @@ mod tests {
         if let Ok(idx) = DiskPositionIndex::open(&p5) {
             assert!(idx.verify_integrity().is_err());
         }
+
+        // A failed decompression must not poison the worker-local decoder.
+        let valid = DiskPositionIndex::open(&valid_cpi).unwrap();
+        let stats = valid
+            .query(compute_position_key(&Chess::default()))
+            .unwrap();
+        assert!(stats.is_some());
+        assert_eq!(
+            valid.verify_integrity().unwrap().total_positions,
+            valid.total_positions()
+        );
     }
 
     #[test]

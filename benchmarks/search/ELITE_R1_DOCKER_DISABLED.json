@@ -1,0 +1,84 @@
+{
+  "binary_sha256": "c05bb84b90ad47142e7b6b98171bbb1deb51c668b584d49e14b62c77cda70ce4",
+  "cold_deep_startup_attempt": {
+    "cgroup": {
+      "cpu_max": "200000 100000",
+      "memory_events": {
+        "high": 0,
+        "low": 0,
+        "max": 2123,
+        "oom": 0,
+        "oom_group_kill": 0,
+        "oom_kill": 0
+      },
+      "memory_max_bytes": 536870912,
+      "memory_peak_bytes": 536879104
+    },
+    "result": "Stopped while verifying the catalog under QEMU TCG before readiness. The process experienced file-cache pressure and no OOM events."
+  },
+  "disabled_container": {
+    "cpu_max": "200000 100000",
+    "memory_events": {
+      "high": 0,
+      "low": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_group_kill": 0,
+      "oom_kill": 0
+    },
+    "memory_max_bytes": 536870912,
+    "memory_peak_bytes": 9535488
+  },
+  "disabled_flow": {
+    "cases": {
+      "collections": {
+        "latency_us": 23689.919999924314,
+        "status": 200
+      },
+      "games_disabled": {
+        "latency_us": 30213.209000066854,
+        "status": 403
+      },
+      "legacy_conditional": {
+        "latency_us": 33616.66000000696,
+        "status": 304
+      },
+      "legacy_explorer": {
+        "latency_us": 56922.869000118226,
+        "status": 200
+      },
+      "ready": {
+        "latency_us": 26148.719000048004,
+        "status": 200
+      }
+    },
+    "collection": "elite-online",
+    "dataset_version": "codb-elite-online-1795638650408508480-cfc2575f9f6971eb-search",
+    "mode": "disabled",
+    "seconds": 0.17121405600028083
+  },
+  "independent_limit": "Final disabled run used normal startup checks against artifacts already deeply validated on the native host.",
+  "legacy_pgn_status": 200,
+  "network_alias_probes": {
+    "chess-database": {
+      "collections_loaded": [
+        "elite-online"
+      ],
+      "status": "ready"
+    },
+    "codb": {
+      "collections_loaded": [
+        "elite-online"
+      ],
+      "status": "ready"
+    },
+    "opening-explorer": {
+      "collections_loaded": [
+        "elite-online"
+      ],
+      "status": "ready"
+    }
+  },
+  "runtime_image_id": "sha256:5e4f13b377293078636b42264c4d1ac1707ebeb318d58391cdcbbc0b6c982533",
+  "search_metadata_status": 403
+}

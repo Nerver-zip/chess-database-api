@@ -2,10 +2,16 @@
 
 use crate::config::ServerConfig;
 use crate::error::ApiError;
-use crate::models::CollectionMetadataResponse;
-use opening_explorer_core::Collection;
-use opening_explorer_index::position::DiskPositionIndex;
-use opening_explorer_storage::{
+use crate::models::{CollectionCapabilities, CollectionMetadataResponse};
+use crate::search_runtime::{SearchOptions, SearchRuntime};
+use chess_database_core::Collection;
+use chess_database_index::position::DiskPositionIndex;
+use chess_database_index::search::{
+    aggregate::AggregateProjection, catalog::SearchCatalog, control::SearchControl,
+    postings::SearchPostingsReader,
+};
+use chess_database_storage::search::{CATALOG_FILENAME, POSTINGS_FILENAME, SEARCH_DIRECTORY};
+use chess_database_storage::{
     resolve_dataset_snapshot, DatasetManifest, DatasetReader, GameLookupReader, StorageError,
 };
 use parking_lot::{Mutex, RwLock};
@@ -160,11 +166,61 @@ pub struct DatasetSnapshot {
     pub manifest: DatasetManifest,
     pub lookup_reader: Arc<GameLookupReader>,
     pub cpi_index: Option<Arc<DiskPositionIndex>>,
+    pub(crate) search: Option<SnapshotSearch>,
     pub reader_pool: Arc<DatasetReaderPool>,
     pub loaded_at: SystemTime,
 }
 
+pub(crate) struct SnapshotSearch {
+    pub(crate) postings: SearchPostingsReader,
+    pub(crate) aggregate: Option<AggregateProjection>,
+    catalog: Mutex<Vec<SearchCatalog>>,
+}
+
+impl SnapshotSearch {
+    pub(crate) fn with_catalog<T>(
+        &self,
+        control: &SearchControl,
+        operation: impl FnOnce(&SearchCatalog) -> Result<T, ApiError>,
+    ) -> Result<T, ApiError> {
+        struct CatalogGuard<'a> {
+            pool: &'a Mutex<Vec<SearchCatalog>>,
+            catalog: Option<SearchCatalog>,
+        }
+        impl Drop for CatalogGuard<'_> {
+            fn drop(&mut self) {
+                if let Some(catalog) = self.catalog.take() {
+                    self.pool.lock().push(catalog);
+                }
+            }
+        }
+
+        let catalog = self.catalog.lock().pop().ok_or(ApiError::SearchBusy)?;
+        let guard = CatalogGuard {
+            pool: &self.catalog,
+            catalog: Some(catalog),
+        };
+        let catalog = guard.catalog.as_ref().expect("leased search catalog");
+        control.interrupt_sqlite(catalog.connection());
+        operation(catalog)
+    }
+}
+
 impl DatasetSnapshot {
+    pub(crate) fn filtered_explorer_depth(&self) -> Option<usize> {
+        let search = self.manifest.search_index.as_ref()?;
+        let cpi = self.manifest.position_index.as_ref()?;
+        if search
+            .coverage
+            .max_ply()
+            .map_or(true, |depth| usize::from(depth) >= cpi.indexed_depth_plies)
+        {
+            Some(cpi.indexed_depth_plies)
+        } else {
+            None
+        }
+    }
+
     /// Checks whether the snapshot contains the given 64-bit stable game ID via `games.idx` binary search.
     pub fn contains_game(&self, game_id: u64) -> bool {
         !self.lookup_reader.find_locations(game_id).is_empty()
@@ -180,6 +236,22 @@ impl DatasetSnapshot {
         pool_size: usize,
         deep_validate: bool,
     ) -> Result<Self, StorageError> {
+        Self::open_and_validate_with_search(
+            dataset_dir,
+            expected_collection,
+            pool_size,
+            deep_validate,
+            &SearchOptions::default(),
+        )
+    }
+
+    fn open_and_validate_with_search(
+        dataset_dir: &Path,
+        expected_collection: Collection,
+        pool_size: usize,
+        deep_validate: bool,
+        search: &SearchOptions,
+    ) -> Result<Self, StorageError> {
         let snapshot_dir = resolve_dataset_snapshot(dataset_dir)?;
         let manifest_path = snapshot_dir.join("manifest.json");
         if !manifest_path.exists() {
@@ -191,7 +263,7 @@ impl DatasetSnapshot {
 
         // 1. Verify dataset integrity before opening structures!
         // This validates sha256 checksums of games.idx, shard_XXXX.cgb3, and positions.cpi!
-        let _report = opening_explorer_storage::verify_dataset(&snapshot_dir, deep_validate)?;
+        let _report = chess_database_storage::verify_dataset(&snapshot_dir, deep_validate)?;
 
         let manifest_bytes = std::fs::read(&manifest_path)?;
         let manifest: DatasetManifest = serde_json::from_slice(&manifest_bytes)
@@ -239,6 +311,32 @@ impl DatasetSnapshot {
             None
         };
 
+        let search = if let Some(search_metadata) = &manifest.search_index {
+            let directory = snapshot_dir.join(SEARCH_DIRECTORY);
+            let postings = SearchPostingsReader::open(directory.join(POSTINGS_FILENAME))?;
+            let catalog_path = directory.join(CATALOG_FILENAME);
+            let mut catalog = Vec::with_capacity(search.concurrency);
+            for _ in 0..search.concurrency {
+                catalog.push(
+                    SearchCatalog::open(&catalog_path)
+                        .map_err(|error| StorageError::Integrity(error.to_string()))?,
+                );
+            }
+            let aggregate = if cpi_index.is_some() && search.discovery(&expected_collection) {
+                AggregateProjection::load(catalog[0].connection(), search_metadata.game_count)
+                    .map_err(|error| StorageError::Integrity(error.to_string()))?
+            } else {
+                None
+            };
+            Some(SnapshotSearch {
+                postings,
+                aggregate,
+                catalog: Mutex::new(catalog),
+            })
+        } else {
+            None
+        };
+
         let reader_pool = Arc::new(DatasetReaderPool::new(
             snapshot_dir.clone(),
             pool_size,
@@ -252,6 +350,7 @@ impl DatasetSnapshot {
             manifest,
             lookup_reader,
             cpi_index,
+            search,
             reader_pool,
             loaded_at: SystemTime::now(),
         })
@@ -264,20 +363,30 @@ pub struct AppState {
     masters_snapshot: RwLock<Option<Arc<DatasetSnapshot>>>,
     elite_snapshot: RwLock<Option<Arc<DatasetSnapshot>>>,
     reload_lock: tokio::sync::Mutex<()>,
+    pub(crate) search: SearchRuntime,
 }
 
 impl AppState {
     /// Initializes application state, validating and opening configured datasets at startup.
     pub fn new(config: ServerConfig) -> Result<Arc<Self>, anyhow::Error> {
+        Self::new_with_search(config, SearchOptions::default())
+    }
+
+    pub fn new_with_search(
+        config: ServerConfig,
+        search: SearchOptions,
+    ) -> Result<Arc<Self>, anyhow::Error> {
         config.validate().map_err(anyhow::Error::msg)?;
+        let search = SearchRuntime::new(search)?;
 
         let masters = if let Some(ref path) = config.masters_dataset {
             info!("Loading Masters OTB dataset from: {}", path.display());
-            let snapshot = DatasetSnapshot::open_and_validate(
+            let snapshot = DatasetSnapshot::open_and_validate_with_search(
                 path,
                 Collection::MastersOtb,
                 config.reader_pool_size,
                 config.deep_validate_on_startup,
+                &search.options,
             )?;
             info!(
                 "Successfully loaded Masters OTB snapshot (version: {}, games: {}, CPI: {})",
@@ -292,11 +401,12 @@ impl AppState {
 
         let elite = if let Some(ref path) = config.elite_dataset {
             info!("Loading Elite Online dataset from: {}", path.display());
-            let snapshot = DatasetSnapshot::open_and_validate(
+            let snapshot = DatasetSnapshot::open_and_validate_with_search(
                 path,
                 Collection::EliteOnline,
                 config.reader_pool_size,
                 config.deep_validate_on_startup,
+                &search.options,
             )?;
             info!(
                 "Successfully loaded Elite Online snapshot (version: {}, games: {}, CPI: {})",
@@ -314,6 +424,7 @@ impl AppState {
             masters_snapshot: RwLock::new(masters),
             elite_snapshot: RwLock::new(elite),
             reload_lock: tokio::sync::Mutex::new(()),
+            search,
         }))
     }
 
@@ -340,6 +451,7 @@ impl AppState {
         let _guard = self.reload_lock.lock().await;
 
         let config = Arc::clone(&self.config);
+        let search_options = self.search.options.clone();
         let (new_masters, new_elite, reloaded) = tokio::task::spawn_blocking(move || {
             let mut reloaded = Vec::new();
 
@@ -348,11 +460,12 @@ impl AppState {
                     "Validating replacement Masters OTB snapshot from {}",
                     path.display()
                 );
-                let snap = DatasetSnapshot::open_and_validate(
+                let snap = DatasetSnapshot::open_and_validate_with_search(
                     path,
                     Collection::MastersOtb,
                     config.reader_pool_size,
                     config.deep_validate_on_startup,
+                    &search_options,
                 )
                 .map_err(|e| {
                     tracing::error!("Masters OTB replacement snapshot validation failed: {}", e);
@@ -372,11 +485,12 @@ impl AppState {
                     "Validating replacement Elite Online snapshot from {}",
                     path.display()
                 );
-                let snap = DatasetSnapshot::open_and_validate(
+                let snap = DatasetSnapshot::open_and_validate_with_search(
                     path,
                     Collection::EliteOnline,
                     config.reader_pool_size,
                     config.deep_validate_on_startup,
+                    &search_options,
                 )
                 .map_err(|e| {
                     tracing::error!("Elite Online replacement snapshot validation failed: {}", e);
@@ -411,6 +525,45 @@ impl AppState {
     }
 
     /// Returns metadata summaries for all currently loaded collections.
+    fn capabilities(&self, snapshot: &DatasetSnapshot) -> CollectionCapabilities {
+        let metadata = snapshot.manifest.search_index.as_ref();
+        let discovery = metadata.is_some() && self.search.options.discovery(&snapshot.collection);
+        CollectionCapabilities {
+            opening_explorer: snapshot.cpi_index.is_some(),
+            game_retrieval: self.config.enable_game_retrieval,
+            game_search: discovery,
+            position_search: discovery,
+            player_search: discovery,
+            event_search: discovery,
+            filtered_explorer: discovery && snapshot.filtered_explorer_depth().is_some(),
+            game_metadata: metadata.is_some()
+                && self.search.options.game_metadata(&snapshot.collection),
+            position_search_coverage: metadata.filter(|_| discovery).map(|index| index.coverage),
+            game_filter_families: if discovery {
+                [
+                    "player",
+                    "side",
+                    "matchup",
+                    "rating",
+                    "date",
+                    "result",
+                    "event",
+                    "site",
+                    "eco",
+                    "time_control_category",
+                    "plies",
+                    "position",
+                    "continuation",
+                ]
+                .iter()
+                .map(|s| (*s).into())
+                .collect()
+            } else {
+                Vec::new()
+            },
+        }
+    }
+
     pub fn available_collections(&self) -> Vec<CollectionMetadataResponse> {
         let mut result = Vec::new();
 
@@ -432,6 +585,7 @@ impl AppState {
                     .as_ref()
                     .map(|p| p.unique_positions),
                 format_version: snap.manifest.format_version.clone(),
+                capabilities: self.capabilities(snap),
             });
         }
 
@@ -453,6 +607,7 @@ impl AppState {
                     .as_ref()
                     .map(|p| p.unique_positions),
                 format_version: snap.manifest.format_version.clone(),
+                capabilities: self.capabilities(snap),
             });
         }
 

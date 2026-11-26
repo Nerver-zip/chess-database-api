@@ -1,0 +1,16 @@
+{
+  "collection": "elite-online",
+  "common_probes": 7,
+  "coverage": {
+    "mode": "full"
+  },
+  "cpi_depth": 30,
+  "cpi_positions_matched": 789,
+  "empty_cpi_probes": 244,
+  "game_count": 429150,
+  "sampled_games": 256,
+  "seconds": 6.069283619,
+  "snapshot": "codb-elite-online-1795638306926448160-865a78390733cd33-search",
+  "source_snapshot": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+  "verified_occurrences": 20754
+}

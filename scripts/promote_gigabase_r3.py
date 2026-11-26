@@ -97,7 +97,7 @@ def load_and_verify_release(candidate: Path) -> dict:
 def run_opening_explorer(opening_explorer: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
     result = subprocess.run([str(opening_explorer), *arguments], capture_output=True, text=True)
     if result.returncode:
-        raise PromotionError(f"opening-explorer {' '.join(arguments)} failed:\n{result.stdout}{result.stderr}")
+        raise PromotionError(f"chess-database {' '.join(arguments)} failed:\n{result.stdout}{result.stderr}")
     return result
 
 
@@ -117,7 +117,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--candidate", type=Path, default=DEFAULT_CANDIDATE)
     parser.add_argument("--target", type=Path, default=ROOT / "data/releases/masters-otb")
-    parser.add_argument("--opening-explorer", type=Path, default=ROOT / "target/release/opening-explorer")
+    parser.add_argument(
+        "--chess-database", "--opening-explorer", dest="opening_explorer", metavar="PATH",
+        type=Path, default=ROOT / "target/release/chess-database",
+    )
     parser.add_argument("--publish", action="store_true", help="publish after checksum and deep verification")
     args = parser.parse_args()
 

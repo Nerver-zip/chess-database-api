@@ -1,0 +1,723 @@
+{
+  "config": {
+    "cpu_quota_nanocpus": 2000000000,
+    "datasets_read_only": true,
+    "environment": {
+      "CHESS_DATABASE_ALLOWED_ORIGINS": "",
+      "CHESS_DATABASE_DEEP_VALIDATE_ON_STARTUP": "false",
+      "CHESS_DATABASE_ELITE_DISCOVERY": "true",
+      "CHESS_DATABASE_ELITE_GAME_METADATA": "true",
+      "CHESS_DATABASE_ENABLE_GAME_RETRIEVAL": "true",
+      "CHESS_DATABASE_MASTERS_DISCOVERY": "false",
+      "CHESS_DATABASE_MASTERS_GAME_METADATA": "false",
+      "CHESS_DATABASE_SEARCH_CONCURRENCY": "2",
+      "CHESS_DATABASE_SEARCH_DEADLINE_MS": "2000",
+      "CHESS_DATABASE_SEARCH_MAX_PAGE_SIZE": "100",
+      "RUST_LOG": "info"
+    },
+    "files": [
+      "compose.yaml",
+      "compose.debug.yaml"
+    ],
+    "healthcheck": {
+      "interval": "10s",
+      "retries": 5,
+      "start_period": "1m30s",
+      "test": [
+        "CMD",
+        "/usr/bin/curl",
+        "--fail",
+        "--silent",
+        "--show-error",
+        "http://127.0.0.1:8080/ready"
+      ],
+      "timeout": "3s"
+    },
+    "memory_limit_bytes": 536870912
+  },
+  "environment": {
+    "accelerator": "QEMU TCG",
+    "guest_page_cache_evicted": true,
+    "host_backing_cache_controlled": false,
+    "kvm_available": false,
+    "native_cgroup_mount": "read-only"
+  },
+  "image": {
+    "binary_sha256": "5c247f38935c738d3d4af4836039b07e963f38eef362de0424457082340f555b",
+    "build": "Repository Dockerfile with cargo build --locked --release",
+    "compatibility_cli_version": "chess-database 0.1.0",
+    "local_image_id": "sha256:e2a165b1c992b1edd5ae29ae3c1822d952488dd3eabb2cd2ded74e714ab9a6d1",
+    "source_revision": "5b94bbe311cff5dca1681886e5cdec4d18e5127b"
+  },
+  "mixed_traffic": {
+    "cgroup_after": {
+      "container_state": "running",
+      "cpu_stat": {
+        "burst_usec": 0,
+        "core_sched.force_idle_usec": 0,
+        "nr_bursts": 0,
+        "nr_periods": 5771,
+        "nr_throttled": 172,
+        "system_usec": 327604499,
+        "throttled_usec": 2609797,
+        "usage_usec": 594573184,
+        "user_usec": 266968684
+      },
+      "health": "healthy",
+      "memory_events": {
+        "high": 0,
+        "low": 0,
+        "max": 48175,
+        "oom": 0,
+        "oom_group_kill": 0,
+        "oom_kill": 0
+      },
+      "memory_limit_bytes": 536870912,
+      "memory_peak_bytes": 536875008,
+      "oom_killed": false,
+      "restart_count": 0
+    },
+    "cgroup_before": {
+      "container_state": "running",
+      "cpu_stat": {
+        "burst_usec": 0,
+        "core_sched.force_idle_usec": 0,
+        "nr_bursts": 0,
+        "nr_periods": 5246,
+        "nr_throttled": 158,
+        "system_usec": 317085761,
+        "throttled_usec": 2280392,
+        "usage_usec": 549054043,
+        "user_usec": 231968281
+      },
+      "health": "healthy",
+      "memory_events": {
+        "high": 0,
+        "low": 0,
+        "max": 48156,
+        "oom": 0,
+        "oom_group_kill": 0,
+        "oom_kill": 0
+      },
+      "memory_limit_bytes": 536870912,
+      "memory_peak_bytes": 536875008,
+      "oom_killed": false,
+      "restart_count": 0
+    },
+    "elite_discovery_flow": {
+      "cases": {
+        "collections": {
+          "latency_us": 15286.567999282852,
+          "status": 200
+        },
+        "continuation": {
+          "latency_us": 17269.600997678936,
+          "status": 200
+        },
+        "event_detail": {
+          "latency_us": 18851.06299960171,
+          "status": 200
+        },
+        "event_games": {
+          "latency_us": 29410.505001578713,
+          "status": 200
+        },
+        "filtered_player": {
+          "latency_us": 128590.5949989683,
+          "status": 200
+        },
+        "first_games": {
+          "latency_us": 88656.10700013349,
+          "status": 200
+        },
+        "game_metadata": {
+          "latency_us": 25277.879998611752,
+          "status": 200
+        },
+        "game_pgn": {
+          "latency_us": 124016.15900307661,
+          "status": 200
+        },
+        "legacy_conditional": {
+          "latency_us": 15240.847998938989,
+          "status": 304
+        },
+        "legacy_explorer": {
+          "latency_us": 51136.332000169205,
+          "status": 200
+        },
+        "player_detail": {
+          "latency_us": 24878.809999790974,
+          "status": 200
+        },
+        "player_position_games": {
+          "latency_us": 57829.86900157994,
+          "status": 200
+        },
+        "players": {
+          "latency_us": 79822.94600151363,
+          "status": 200
+        },
+        "ready": {
+          "latency_us": 33459.31000148994,
+          "status": 200
+        },
+        "second_games": {
+          "latency_us": 20929.825001076097,
+          "status": 200
+        },
+        "unfiltered_compatibility": {
+          "latency_us": 20323.06499677361,
+          "status": 200
+        }
+      },
+      "collection": "elite-online",
+      "dataset_version": "codb-elite-online-1795638650408508480-cfc2575f9f6971eb-search",
+      "mode": "enriched",
+      "seconds": 0.7531057939995662
+    },
+    "elite_interactive": {
+      "cases": {
+        "autocomplete": {
+          "acceptance_rate": 1.0,
+          "accepted": 120,
+          "attempted": 120,
+          "max_us": 410117.2,
+          "min_us": 14174.02,
+          "p50_us": 20493.51,
+          "p95_us": 30055.3,
+          "p99_us": 124541.54,
+          "statuses": {
+            "200": 120
+          }
+        },
+        "filtered_date": {
+          "acceptance_rate": 0.6666666666666666,
+          "accepted": 80,
+          "attempted": 120,
+          "max_us": 446844.46,
+          "min_us": 49105.68,
+          "p50_us": 63050.23,
+          "p95_us": 164819.04,
+          "p99_us": 446844.46,
+          "statuses": {
+            "200": 80,
+            "429": 40
+          }
+        },
+        "filtered_rating": {
+          "acceptance_rate": 0.7833333333333333,
+          "accepted": 94,
+          "attempted": 120,
+          "max_us": 626582.01,
+          "min_us": 214687.14,
+          "p50_us": 256650.94,
+          "p95_us": 367815.63,
+          "p99_us": 626582.01,
+          "statuses": {
+            "200": 94,
+            "429": 26
+          }
+        },
+        "filtered_selective": {
+          "acceptance_rate": 0.7083333333333334,
+          "accepted": 85,
+          "attempted": 120,
+          "max_us": 222131.01,
+          "min_us": 31996.19,
+          "p50_us": 45414.29,
+          "p95_us": 131022.99,
+          "p99_us": 222131.01,
+          "statuses": {
+            "200": 85,
+            "429": 35
+          }
+        },
+        "legacy_opening": {
+          "acceptance_rate": 1.0,
+          "accepted": 120,
+          "attempted": 120,
+          "max_us": 47801.45,
+          "min_us": 10798.72,
+          "p50_us": 16176.29,
+          "p95_us": 27256.61,
+          "p99_us": 33449.05,
+          "statuses": {
+            "200": 120
+          }
+        },
+        "legacy_pgn": {
+          "acceptance_rate": 1.0,
+          "accepted": 120,
+          "attempted": 120,
+          "max_us": 56441.6,
+          "min_us": 10992.77,
+          "p50_us": 16900.1,
+          "p95_us": 24463.36,
+          "p99_us": 30235.03,
+          "statuses": {
+            "200": 120
+          }
+        },
+        "metadata": {
+          "acceptance_rate": 1.0,
+          "accepted": 120,
+          "attempted": 120,
+          "max_us": 178461.08,
+          "min_us": 23212.09,
+          "p50_us": 29050.36,
+          "p95_us": 55289.12,
+          "p99_us": 70311.91,
+          "statuses": {
+            "200": 120
+          }
+        },
+        "navigation_latest": {
+          "acceptance_rate": 1.0,
+          "accepted": 120,
+          "attempted": 120,
+          "max_us": 51736.2,
+          "min_us": 17399.26,
+          "p50_us": 25138.18,
+          "p95_us": 37562.79,
+          "p99_us": 49060.45,
+          "statuses": {
+            "200": 120
+          }
+        },
+        "position": {
+          "acceptance_rate": 1.0,
+          "accepted": 120,
+          "attempted": 120,
+          "max_us": 322793.58,
+          "min_us": 20188.37,
+          "p50_us": 27238.3,
+          "p95_us": 48119.84,
+          "p99_us": 142061.06,
+          "statuses": {
+            "200": 120
+          }
+        }
+      },
+      "client_abandoned_navigation": 120,
+      "collection": "elite-online",
+      "dataset_version": "codb-elite-online-1795638650408508480-cfc2575f9f6971eb-search",
+      "duration_seconds": 51.046227668997744,
+      "rounds": 30,
+      "think_ms": 125,
+      "users": 4,
+      "workload": {
+        "autocomplete": "/v1/collections/elite-online/players?prefix=skop",
+        "filtered_date": "/v1/explorer/position/filtered?collection=elite-online&moves=e4%2Cc5&from_year=2000",
+        "filtered_rating": "/v1/explorer/position/filtered?collection=elite-online&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&min_both_ratings=2200",
+        "filtered_selective": "/v1/explorer/position/filtered?collection=elite-online&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=skopje123",
+        "legacy_opening": "/v1/explorer/position?collection=elite-online&moves=e4%2Cc5%2CNf3",
+        "legacy_pgn": "/v1/collections/elite-online/games/13183733732487493000",
+        "metadata": "/v1/collections/elite-online/games?player=skopje123",
+        "navigation_latest": "/v1/collections/elite-online/games?moves=e4%2Cc5%2CNf3&limit=5",
+        "position": "/v1/collections/elite-online/games?moves=e4%2Cc5%2CNf3"
+      }
+    },
+    "legacy_explorer_both_collections": {
+      "elite-online": {
+        "attempted": 60,
+        "statuses": {
+          "200": 60
+        },
+        "successful_latency_us": {
+          "max_us": 29541.13,
+          "min_us": 11773.19,
+          "p50_us": 16418.22,
+          "p95_us": 27587.53,
+          "p99_us": 29541.13
+        }
+      },
+      "masters-otb": {
+        "attempted": 60,
+        "statuses": {
+          "200": 60
+        },
+        "successful_latency_us": {
+          "max_us": 39721.38,
+          "min_us": 11223.01,
+          "p50_us": 16077.06,
+          "p95_us": 24026.77,
+          "p99_us": 39721.38
+        }
+      }
+    }
+  },
+  "reload": {
+    "cgroup_after": {
+      "container_state": "running",
+      "cpu_stat": {
+        "burst_usec": 0,
+        "core_sched.force_idle_usec": 0,
+        "nr_bursts": 0,
+        "nr_periods": 11200,
+        "nr_throttled": 458,
+        "system_usec": 675307042,
+        "throttled_usec": 9714423,
+        "usage_usec": 1208684434,
+        "user_usec": 533377392
+      },
+      "health": "healthy",
+      "memory_events": {
+        "high": 0,
+        "low": 0,
+        "max": 97768,
+        "oom": 0,
+        "oom_group_kill": 0,
+        "oom_kill": 0
+      },
+      "memory_limit_bytes": 536870912,
+      "memory_peak_bytes": 536879104,
+      "oom_killed": false,
+      "restart_count": 0
+    },
+    "collection_versions_and_capabilities_unchanged": true,
+    "during": {
+      "cgroup": {
+        "container_state": "running",
+        "cpu_stat": {
+          "burst_usec": 0,
+          "core_sched.force_idle_usec": 0,
+          "nr_bursts": 0,
+          "nr_periods": 6481,
+          "nr_throttled": 329,
+          "system_usec": 379910887,
+          "throttled_usec": 7424084,
+          "usage_usec": 712865392,
+          "user_usec": 332954505
+        },
+        "health": "healthy",
+        "memory_events": {
+          "high": 0,
+          "low": 0,
+          "max": 53433,
+          "oom": 0,
+          "oom_group_kill": 0,
+          "oom_kill": 0
+        },
+        "memory_limit_bytes": 536870912,
+        "memory_peak_bytes": 536879104,
+        "oom_killed": false,
+        "restart_count": 0
+      },
+      "elite_interactive": {
+        "cases": {
+          "autocomplete": {
+            "acceptance_rate": 1.0,
+            "accepted": 120,
+            "attempted": 120,
+            "max_us": 117520.73,
+            "min_us": 17463.45,
+            "p50_us": 34165.92,
+            "p95_us": 61752.63,
+            "p99_us": 68965.89,
+            "statuses": {
+              "200": 120
+            }
+          },
+          "filtered_date": {
+            "acceptance_rate": 0.5833333333333334,
+            "accepted": 70,
+            "attempted": 120,
+            "max_us": 222190.39,
+            "min_us": 65883.73,
+            "p50_us": 115192.21,
+            "p95_us": 175197.75,
+            "p99_us": 222190.39,
+            "statuses": {
+              "200": 70,
+              "429": 50
+            }
+          },
+          "filtered_rating": {
+            "acceptance_rate": 0.775,
+            "accepted": 93,
+            "attempted": 120,
+            "max_us": 761946.65,
+            "min_us": 278240.69,
+            "p50_us": 403322.14,
+            "p95_us": 618907.22,
+            "p99_us": 761946.65,
+            "statuses": {
+              "200": 93,
+              "429": 27
+            }
+          },
+          "filtered_selective": {
+            "acceptance_rate": 0.5416666666666666,
+            "accepted": 65,
+            "attempted": 120,
+            "max_us": 197895.9,
+            "min_us": 47524.6,
+            "p50_us": 87114.23,
+            "p95_us": 166718.33,
+            "p99_us": 197895.9,
+            "statuses": {
+              "200": 65,
+              "429": 55
+            }
+          },
+          "legacy_opening": {
+            "acceptance_rate": 1.0,
+            "accepted": 120,
+            "attempted": 120,
+            "max_us": 84025.77,
+            "min_us": 16200.69,
+            "p50_us": 26526.05,
+            "p95_us": 41758.49,
+            "p99_us": 51021.16,
+            "statuses": {
+              "200": 120
+            }
+          },
+          "legacy_pgn": {
+            "acceptance_rate": 1.0,
+            "accepted": 120,
+            "attempted": 120,
+            "max_us": 60354.38,
+            "min_us": 14110.4,
+            "p50_us": 27568.96,
+            "p95_us": 52521.33,
+            "p99_us": 57383.2,
+            "statuses": {
+              "200": 120
+            }
+          },
+          "metadata": {
+            "acceptance_rate": 1.0,
+            "accepted": 120,
+            "attempted": 120,
+            "max_us": 135788.75,
+            "min_us": 23700.44,
+            "p50_us": 52654.53,
+            "p95_us": 105644.07,
+            "p99_us": 135262.43,
+            "statuses": {
+              "200": 120
+            }
+          },
+          "navigation_latest": {
+            "acceptance_rate": 1.0,
+            "accepted": 120,
+            "attempted": 120,
+            "max_us": 119820.26,
+            "min_us": 19007.63,
+            "p50_us": 55256.75,
+            "p95_us": 94229.61,
+            "p99_us": 105488.5,
+            "statuses": {
+              "200": 120
+            }
+          },
+          "position": {
+            "acceptance_rate": 1.0,
+            "accepted": 120,
+            "attempted": 120,
+            "max_us": 126923.64,
+            "min_us": 24297.31,
+            "p50_us": 47940.51,
+            "p95_us": 88499.52,
+            "p99_us": 126660.3,
+            "statuses": {
+              "200": 120
+            }
+          }
+        },
+        "client_abandoned_navigation": 120,
+        "collection": "elite-online",
+        "dataset_version": "codb-elite-online-1795638650408508480-cfc2575f9f6971eb-search",
+        "duration_seconds": 61.46013711399792,
+        "rounds": 30,
+        "think_ms": 125,
+        "users": 4,
+        "workload": {
+          "autocomplete": "/v1/collections/elite-online/players?prefix=skop",
+          "filtered_date": "/v1/explorer/position/filtered?collection=elite-online&moves=e4%2Cc5&from_year=2000",
+          "filtered_rating": "/v1/explorer/position/filtered?collection=elite-online&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&min_both_ratings=2200",
+          "filtered_selective": "/v1/explorer/position/filtered?collection=elite-online&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=skopje123",
+          "legacy_opening": "/v1/explorer/position?collection=elite-online&moves=e4%2Cc5%2CNf3",
+          "legacy_pgn": "/v1/collections/elite-online/games/13183733732487493000",
+          "metadata": "/v1/collections/elite-online/games?player=skopje123",
+          "navigation_latest": "/v1/collections/elite-online/games?moves=e4%2Cc5%2CNf3&limit=5",
+          "position": "/v1/collections/elite-online/games?moves=e4%2Cc5%2CNf3"
+        }
+      },
+      "legacy_explorer_both_collections": {
+        "elite-online": {
+          "attempted": 60,
+          "statuses": {
+            "200": 60
+          },
+          "successful_latency_us": {
+            "max_us": 64719.14,
+            "min_us": 12084.69,
+            "p50_us": 27033.49,
+            "p95_us": 51341.15,
+            "p99_us": 64719.14
+          }
+        },
+        "masters-otb": {
+          "attempted": 60,
+          "statuses": {
+            "200": 60
+          },
+          "successful_latency_us": {
+            "max_us": 61515.96,
+            "min_us": 13502.77,
+            "p50_us": 26542.15,
+            "p95_us": 51642.9,
+            "p99_us": 61515.96
+          }
+        }
+      }
+    },
+    "method": "SIGHUP, same snapshots",
+    "mid_reload_http": {
+      "legacy_statuses": {
+        "elite-online": 200,
+        "masters-otb": 200
+      },
+      "ready": {
+        "body": {
+          "collections_loaded": [
+            "masters-otb",
+            "elite-online"
+          ],
+          "status": "ready"
+        },
+        "status": 200
+      },
+      "sampled_at_utc": "2026-11-26T00:34:21.427379+00:00"
+    },
+    "server_completion_log": "2026-11-26T00:39:08.953089Z  INFO chess_database_api::server: SIGHUP reload completed successfully for: [\"masters-otb (version: codb-masters-otb-1795640229266821029-29be58d4f83e0484-search)\", \"elite-online (version: codb-elite-online-1795638650408508480-cfc2575f9f6971eb-search)\"]",
+    "server_duration_seconds": 536.407367,
+    "server_start_log": "2026-11-26T00:30:12.545722Z  INFO chess_database_api::server: Received SIGHUP signal, initiating administrative dataset reload...",
+    "snapshot_verification_log": [
+      "2026-11-26T00:30:12.581805Z  INFO chess_database_api::state: Validating replacement Masters OTB snapshot from /datasets/masters-otb",
+      "2026-11-26T00:38:20.152666Z  INFO chess_database_api::state: Validating replacement Elite Online snapshot from /datasets/elite-online"
+    ],
+    "status": "completed"
+  },
+  "startup": {
+    "acceptance_window_seconds": 600,
+    "cgroup": {
+      "container_state": "running",
+      "cpu_stat": {
+        "burst_usec": 0,
+        "core_sched.force_idle_usec": 0,
+        "nr_bursts": 0,
+        "nr_periods": 5254,
+        "nr_throttled": 160,
+        "system_usec": 317636276,
+        "throttled_usec": 2334771,
+        "usage_usec": 550113031,
+        "user_usec": 232476755
+      },
+      "health": "healthy",
+      "memory_events": {
+        "high": 0,
+        "low": 0,
+        "max": 48159,
+        "oom": 0,
+        "oom_group_kill": 0,
+        "oom_kill": 0
+      },
+      "memory_limit_bytes": 536870912,
+      "memory_peak_bytes": 536875008,
+      "oom_killed": false,
+      "restart_count": 0
+    },
+    "collections_response": {
+      "collections": [
+        {
+          "build_timestamp": "2026-11-25T20:57:11Z",
+          "capabilities": {
+            "event_search": false,
+            "filtered_explorer": false,
+            "game_filter_families": [],
+            "game_metadata": false,
+            "game_retrieval": true,
+            "game_search": false,
+            "opening_explorer": true,
+            "player_search": false,
+            "position_search": false,
+            "position_search_coverage": null
+          },
+          "collection": "masters-otb",
+          "cpi_available": true,
+          "cpi_depth_plies": 40,
+          "cpi_total_positions": 51909604,
+          "dataset_version": "codb-masters-otb-1795640229266821029-29be58d4f83e0484-search",
+          "format_version": "CGB3/v1",
+          "total_games": 3284429
+        },
+        {
+          "build_timestamp": "2026-11-25T20:30:50Z",
+          "capabilities": {
+            "event_search": true,
+            "filtered_explorer": true,
+            "game_filter_families": [
+              "player",
+              "side",
+              "matchup",
+              "rating",
+              "date",
+              "result",
+              "event",
+              "site",
+              "eco",
+              "time_control_category",
+              "plies",
+              "position",
+              "continuation"
+            ],
+            "game_metadata": true,
+            "game_retrieval": true,
+            "game_search": true,
+            "opening_explorer": true,
+            "player_search": true,
+            "position_search": true,
+            "position_search_coverage": {
+              "max_ply": 30,
+              "mode": "bounded"
+            }
+          },
+          "collection": "elite-online",
+          "cpi_available": true,
+          "cpi_depth_plies": 30,
+          "cpi_total_positions": 6136307,
+          "dataset_version": "codb-elite-online-1795638650408508480-cfc2575f9f6971eb-search",
+          "format_version": "CGB3/v1",
+          "total_games": 429150
+        }
+      ]
+    },
+    "legacy_explorer_move_line": "e4,e5,Nf3",
+    "legacy_explorer_statuses": {
+      "elite-online": 200,
+      "masters-otb": 200
+    },
+    "observed_ready_seconds": 549,
+    "readiness_method": "docker compose up -d --no-build followed by polling GET /ready",
+    "ready_response": {
+      "collections_loaded": [
+        "masters-otb",
+        "elite-online"
+      ],
+      "status": "ready"
+    },
+    "sampled_after_legacy_at_utc": "2026-11-26T00:29:08Z",
+    "verification_log": [
+      "2026-11-26T00:20:21.314334Z  INFO chess_database_api::state: Loading Masters OTB dataset from: /datasets/masters-otb",
+      "2026-11-26T00:28:09.153896Z  INFO chess_database_api::state: Successfully loaded Masters OTB snapshot (version: codb-masters-otb-1795640229266821029-29be58d4f83e0484-search, games: 3284429, CPI: true)",
+      "2026-11-26T00:28:09.206969Z  INFO chess_database_api::state: Loading Elite Online dataset from: /datasets/elite-online",
+      "2026-11-26T00:28:59.455558Z  INFO chess_database_api::state: Successfully loaded Elite Online snapshot (version: codb-elite-online-1795638650408508480-cfc2575f9f6971eb-search, games: 429150, CPI: true)",
+      "2026-11-26T00:28:59.487978Z  INFO chess_database_api::server:   Chess Database API listening on http://0.0.0.0:8080",
+      "2026-11-26T00:28:59.489422Z  INFO chess_database_api::server:   Active collections: [\"masters-otb\", \"elite-online\"]"
+    ]
+  }
+}

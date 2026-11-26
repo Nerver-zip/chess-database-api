@@ -1,7 +1,7 @@
-use opening_explorer_core::{Collection, IngestionCompletionStatus};
-use opening_explorer_curate::dedupe::Deduplicator;
-use opening_explorer_curate::policy::GigabaseOtbPolicy;
-use opening_explorer_ingest::pipeline::{CuratedPipeline, MemoryGameConsumer};
+use chess_database_core::{Collection, IngestionCompletionStatus};
+use chess_database_curate::dedupe::Deduplicator;
+use chess_database_curate::policy::GigabaseOtbPolicy;
+use chess_database_ingest::pipeline::{CuratedPipeline, MemoryGameConsumer};
 use std::collections::HashSet;
 use std::io::Cursor;
 

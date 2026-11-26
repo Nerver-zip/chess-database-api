@@ -4,6 +4,7 @@ pub mod dataset;
 pub mod format;
 pub mod lock;
 pub mod lookup;
+pub mod search;
 pub mod shard;
 
 pub use dataset::*;

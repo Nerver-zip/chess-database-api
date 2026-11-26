@@ -1,21 +1,30 @@
 [package]
-name = "opening-explorer-cli"
+name = "chess-database-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+autobins = false
+default-run = "chess-database"
+
+[lib]
+path = "src/lib.rs"
 
 [[bin]]
 name = "opening-explorer"
-path = "src/main.rs"
+path = "src/legacy.rs"
+
+[[bin]]
+name = "chess-database"
+path = "src/chess_database.rs"
 
 [dependencies]
-opening-explorer-core.workspace = true
-opening-explorer-ingest.workspace = true
-opening-explorer-curate.workspace = true
-opening-explorer-storage.workspace = true
-opening-explorer-index.workspace = true
-opening-explorer-api.workspace = true
+chess-database-core.workspace = true
+chess-database-ingest.workspace = true
+chess-database-curate.workspace = true
+chess-database-storage.workspace = true
+chess-database-index.workspace = true
+chess-database-api.workspace = true
 
 pgn-reader.workspace = true
 zstd.workspace = true

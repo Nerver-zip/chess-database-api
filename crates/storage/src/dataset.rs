@@ -1,11 +1,11 @@
-use opening_explorer_core::{
+use chess_database_core::{
     Collection, GameSourceAttribution, IngestionStats, ParsedGame, PositionKey,
 };
-use opening_explorer_index::external::{
+use chess_database_index::external::{
     ExternalIndexConfig, ExternalIndexFaultPoint, ExternalIndexStats, ExternalPositionIndexer,
     DEFAULT_CPI_ZSTD_LEVEL, DEFAULT_MAX_MERGE_FAN_IN, DEFAULT_MEMORY_LIMIT_BYTES,
 };
-use opening_explorer_index::position::{
+use chess_database_index::position::{
     DiskPositionIndex, PositionStats, CPI_VERSION, DEFAULT_POSITIONS_PER_BLOCK,
 };
 use serde::{Deserialize, Serialize};
@@ -231,13 +231,15 @@ pub struct DatasetManifest {
     pub position_index: Option<PositionIndexMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_attribution: Option<FileChecksumMetadata>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search_index: Option<crate::search::SearchIndexMetadata>,
 }
 
 #[derive(Debug, Deserialize)]
-struct SourceAttributionLine {
-    schema_version: u32,
-    game_id: u64,
-    source_attributions: Vec<GameSourceAttribution>,
+pub(crate) struct SourceAttributionLine {
+    pub(crate) schema_version: u32,
+    pub(crate) game_id: u64,
+    pub(crate) source_attributions: Vec<GameSourceAttribution>,
 }
 
 pub struct DatasetWriterConfig {
@@ -845,6 +847,7 @@ impl DatasetWriter {
             is_complete: true,
             position_index: None,
             source_attribution,
+            search_index: None,
         };
 
         // Write manifest.json in staging directory
@@ -1143,7 +1146,7 @@ impl DatasetReader {
     pub fn query_position(&self, key: PositionKey) -> Result<Option<PositionStats>, StorageError> {
         let idx = self.open_position_index()?.ok_or_else(|| {
             StorageError::Decoding(format!(
-                "Dataset at '{}' does not contain a published position index (positions.cpi); run 'opening-explorer build-index' first",
+                "Dataset at '{}' does not contain a published position index (positions.cpi); run 'chess-database build-index' first",
                 self.dataset_dir.display()
             ))
         })?;
@@ -1364,7 +1367,7 @@ pub fn compute_file_sha256(path: &Path) -> Result<String, StorageError> {
     Ok(format!("{:064x}", hasher.finalize()))
 }
 
-fn chrono_iso8601_now() -> String {
+pub(crate) fn chrono_iso8601_now() -> String {
     let now = std::time::SystemTime::now();
     let duration = now
         .duration_since(std::time::UNIX_EPOCH)
@@ -1496,6 +1499,8 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
         ));
     }
 
+    let search_bytes = crate::search::verify_search_artifacts(&snapshot_dir, &reader, deep)?;
+
     // 3b. Verify optional CPI position index if present in manifest (or reject undeclared positions.cpi)
     let (
         position_index_present,
@@ -1553,10 +1558,11 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
                     .as_ref()
                     .map_or(0, |metadata| metadata.file_size_bytes),
             )
-            .saturating_add(cpi_meta.file_size_bytes);
+            .saturating_add(cpi_meta.file_size_bytes)
+            .saturating_add(search_bytes);
         if manifest.total_physical_bytes != expected_physical {
             return Err(StorageError::Integrity(format!(
-                "Manifest total_physical_bytes ({}) != sum of shards + lookup + CPI ({})",
+                "Manifest total_physical_bytes ({}) != sum of declared artifacts ({})",
                 manifest.total_physical_bytes, expected_physical
             )));
         }
@@ -1619,10 +1625,11 @@ pub fn verify_dataset(dataset_dir: &Path, deep: bool) -> Result<VerificationRepo
                     .source_attribution
                     .as_ref()
                     .map_or(0, |metadata| metadata.file_size_bytes),
-            );
+            )
+            .saturating_add(search_bytes);
         if manifest.total_physical_bytes != expected_physical {
             return Err(StorageError::Integrity(format!(
-                "Manifest total_physical_bytes ({}) != sum of shards + lookup + source attribution ({})",
+                "Manifest total_physical_bytes ({}) != sum of declared artifacts ({})",
                 manifest.total_physical_bytes, expected_physical
             )));
         }
@@ -2029,7 +2036,7 @@ pub fn publish_prebuilt_dataset(
             .unwrap_or(false)
     {
         return Err(StorageError::Integrity(
-            "Target contains a legacy flat dataset; migrate it with opening-explorer recover before publication"
+            "Target contains a legacy flat dataset; migrate it with chess-database recover before publication"
                 .into(),
         ));
     }
@@ -2442,7 +2449,7 @@ fn rollback_backup(backup_path: &Path, link_path: &Path) -> Result<(), StorageEr
     Ok(())
 }
 
-fn ensure_root_symlinks(target_dir: &Path) -> Result<(), StorageError> {
+pub(crate) fn ensure_root_symlinks(target_dir: &Path) -> Result<(), StorageError> {
     #[cfg(unix)]
     {
         for (link_name, target) in [
@@ -3547,7 +3554,7 @@ pub struct DatasetIndexBuildReport {
     pub total_physical_bytes: u64,
 }
 
-fn link_or_copy_verified_file(
+pub(crate) fn link_or_copy_verified_file(
     src: &Path,
     dst: &Path,
     expected_size: u64,
@@ -3784,11 +3791,29 @@ pub fn build_dataset_position_index(
         )?;
     }
 
+    let search_bytes = if let Some(search) = &src_manifest.search_index {
+        let source_dir = src_snapshot.join(crate::search::SEARCH_DIRECTORY);
+        let target_dir = staging_dir.join(crate::search::SEARCH_DIRECTORY);
+        fs::create_dir(&target_dir)?;
+        for (name, artifact) in &search.artifacts {
+            link_or_copy_verified_file(
+                &source_dir.join(name),
+                &target_dir.join(name),
+                artifact.file_size_bytes,
+                &artifact.sha256,
+            )?;
+        }
+        search.file_size_bytes()?
+    } else {
+        0
+    };
+
     let shards_bytes: u64 = src_manifest.shards.iter().map(|s| s.file_size_bytes).sum();
     let total_physical_bytes = shards_bytes
         .saturating_add(src_manifest.lookup_table.file_size_bytes)
         .saturating_add(source_attribution_bytes)
-        .saturating_add(cpi_size_bytes);
+        .saturating_add(cpi_size_bytes)
+        .saturating_add(search_bytes);
 
     let new_build_id = config.build_id_override.clone().unwrap_or_else(|| {
         format!(
@@ -3834,6 +3859,7 @@ pub fn build_dataset_position_index(
         is_complete: true,
         position_index: Some(pos_index_meta),
         source_attribution: src_manifest.source_attribution.clone(),
+        search_index: src_manifest.search_index.clone(),
     };
 
     let manifest_json = serde_json::to_string_pretty(&new_manifest)

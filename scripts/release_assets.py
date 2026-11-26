@@ -867,7 +867,7 @@ def resolve_codb(explicit: Path | None) -> Path:
         candidate = explicit
     else:
         candidate = None
-        for name in ("opening-explorer", "codb"):
+        for name in ("chess-database", "opening-explorer", "codb"):
             path = REPO_ROOT / "target" / "release" / name
             if path.is_file():
                 candidate = path

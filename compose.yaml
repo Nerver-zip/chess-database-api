@@ -2,10 +2,12 @@ name: opening-explorer-api
 
 services:
   opening-explorer:
-    image: opening-explorer-api:local
+    image: ${CHESS_DATABASE_IMAGE:-chess-database-api:local}
     build:
       context: .
       dockerfile: Dockerfile
+      tags:
+        - opening-explorer-api:local
     restart: unless-stopped
     init: true
     stop_signal: SIGTERM
@@ -18,16 +20,24 @@ services:
     security_opt:
       - no-new-privileges:true
     pids_limit: 64
-    mem_limit: ${OPENING_EXPLORER_MEMORY_LIMIT:-${CODB_MEMORY_LIMIT:-512m}}
-    cpus: ${OPENING_EXPLORER_CPU_LIMIT:-${CODB_CPU_LIMIT:-2}}
+    mem_limit: ${CHESS_DATABASE_MEMORY_LIMIT:-${OPENING_EXPLORER_MEMORY_LIMIT:-${CODB_MEMORY_LIMIT:-512m}}}
+    cpus: ${CHESS_DATABASE_CPU_LIMIT:-${OPENING_EXPLORER_CPU_LIMIT:-${CODB_CPU_LIMIT:-2}}}
     ulimits:
       nofile:
         soft: 1024
         hard: 1024
     environment:
-      RUST_LOG: ${OPENING_EXPLORER_LOG_LEVEL:-${CODB_LOG_LEVEL:-info}}
-      OPENING_EXPLORER_ALLOWED_ORIGINS: ${OPENING_EXPLORER_ALLOWED_ORIGINS:-${CODB_ALLOWED_ORIGINS:-}}
-      OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL: ${OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL:-${CODB_ENABLE_GAME_RETRIEVAL:-true}}
+      RUST_LOG: ${CHESS_DATABASE_LOG_LEVEL:-${OPENING_EXPLORER_LOG_LEVEL:-${CODB_LOG_LEVEL:-info}}}
+      CHESS_DATABASE_ALLOWED_ORIGINS: ${CHESS_DATABASE_ALLOWED_ORIGINS:-${OPENING_EXPLORER_ALLOWED_ORIGINS:-${CODB_ALLOWED_ORIGINS:-}}}
+      CHESS_DATABASE_ENABLE_GAME_RETRIEVAL: ${CHESS_DATABASE_ENABLE_GAME_RETRIEVAL:-${OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL:-${CODB_ENABLE_GAME_RETRIEVAL:-true}}}
+      CHESS_DATABASE_MASTERS_DISCOVERY: ${CHESS_DATABASE_MASTERS_DISCOVERY:-false}
+      CHESS_DATABASE_ELITE_DISCOVERY: ${CHESS_DATABASE_ELITE_DISCOVERY:-true}
+      CHESS_DATABASE_MASTERS_GAME_METADATA: ${CHESS_DATABASE_MASTERS_GAME_METADATA:-false}
+      CHESS_DATABASE_ELITE_GAME_METADATA: ${CHESS_DATABASE_ELITE_GAME_METADATA:-true}
+      CHESS_DATABASE_DEEP_VALIDATE_ON_STARTUP: ${CHESS_DATABASE_DEEP_VALIDATE_ON_STARTUP:-false}
+      CHESS_DATABASE_SEARCH_MAX_PAGE_SIZE: ${CHESS_DATABASE_SEARCH_MAX_PAGE_SIZE:-100}
+      CHESS_DATABASE_SEARCH_CONCURRENCY: ${CHESS_DATABASE_SEARCH_CONCURRENCY:-2}
+      CHESS_DATABASE_SEARCH_DEADLINE_MS: ${CHESS_DATABASE_SEARCH_DEADLINE_MS:-2000}
     command:
       - serve
       - --masters-dataset
@@ -39,25 +49,24 @@ services:
       - --port
       - "8080"
       - --reader-pool-size
-      - "${OPENING_EXPLORER_READER_POOL_SIZE:-${CODB_READER_POOL_SIZE:-16}}"
+      - "${CHESS_DATABASE_READER_POOL_SIZE:-${OPENING_EXPLORER_READER_POOL_SIZE:-${CODB_READER_POOL_SIZE:-16}}}"
       - --reader-pool-timeout-secs
-      - "${OPENING_EXPLORER_READER_POOL_TIMEOUT_SECS:-${CODB_READER_POOL_TIMEOUT_SECS:-5}}"
+      - "${CHESS_DATABASE_READER_POOL_TIMEOUT_SECS:-${OPENING_EXPLORER_READER_POOL_TIMEOUT_SECS:-${CODB_READER_POOL_TIMEOUT_SECS:-5}}}"
       - --request-timeout-secs
-      - "${OPENING_EXPLORER_REQUEST_TIMEOUT_SECS:-${CODB_REQUEST_TIMEOUT_SECS:-15}}"
+      - "${CHESS_DATABASE_REQUEST_TIMEOUT_SECS:-${OPENING_EXPLORER_REQUEST_TIMEOUT_SECS:-${CODB_REQUEST_TIMEOUT_SECS:-15}}}"
       - --max-move-plies
-      - "${OPENING_EXPLORER_MAX_MOVE_PLIES:-${CODB_MAX_MOVE_PLIES:-200}}"
+      - "${CHESS_DATABASE_MAX_MOVE_PLIES:-${OPENING_EXPLORER_MAX_MOVE_PLIES:-${CODB_MAX_MOVE_PLIES:-200}}}"
       - --enable-game-retrieval
-      - "${OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL:-${CODB_ENABLE_GAME_RETRIEVAL:-true}}"
-      - --deep-validate-on-startup
+      - "${CHESS_DATABASE_ENABLE_GAME_RETRIEVAL:-${OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL:-${CODB_ENABLE_GAME_RETRIEVAL:-true}}}"
     volumes:
       - type: bind
-        source: ${OPENING_EXPLORER_MASTERS_RELEASE_DIR:-${CODB_MASTERS_RELEASE_DIR:-${OPENING_EXPLORER_DATA_DIR:-${CODB_DATA_DIR:-./data}}/releases/masters-otb}}
+        source: ${CHESS_DATABASE_MASTERS_RELEASE_DIR:-${OPENING_EXPLORER_MASTERS_RELEASE_DIR:-${CODB_MASTERS_RELEASE_DIR:-${CHESS_DATABASE_DATA_DIR:-${OPENING_EXPLORER_DATA_DIR:-${CODB_DATA_DIR:-./data}}}/releases/masters-otb}}}
         target: /datasets/masters-otb
         read_only: true
         bind:
           create_host_path: false
       - type: bind
-        source: ${OPENING_EXPLORER_ELITE_RELEASE_DIR:-${CODB_ELITE_RELEASE_DIR:-${OPENING_EXPLORER_DATA_DIR:-${CODB_DATA_DIR:-./data}}/releases/elite-online}}
+        source: ${CHESS_DATABASE_ELITE_RELEASE_DIR:-${OPENING_EXPLORER_ELITE_RELEASE_DIR:-${CODB_ELITE_RELEASE_DIR:-${CHESS_DATABASE_DATA_DIR:-${OPENING_EXPLORER_DATA_DIR:-${CODB_DATA_DIR:-./data}}}/releases/elite-online}}}
         target: /datasets/elite-online
         read_only: true
         bind:
@@ -65,6 +74,7 @@ services:
     networks:
       opening-explorer-shared:
         aliases:
+          - chess-database
           - opening-explorer
           # Deprecated alias kept for sibling containers that still address the service as `codb`.
           - codb
@@ -88,5 +98,5 @@ services:
 
 networks:
   opening-explorer-shared:
-    name: ${OPENING_EXPLORER_NETWORK_NAME:-${CODB_NETWORK_NAME:-opening-explorer-shared}}
-    external: ${OPENING_EXPLORER_NETWORK_EXTERNAL:-${CODB_NETWORK_EXTERNAL:-false}}
+    name: ${CHESS_DATABASE_NETWORK_NAME:-${OPENING_EXPLORER_NETWORK_NAME:-${CODB_NETWORK_NAME:-opening-explorer-shared}}}
+    external: ${CHESS_DATABASE_NETWORK_EXTERNAL:-${OPENING_EXPLORER_NETWORK_EXTERNAL:-${CODB_NETWORK_EXTERNAL:-false}}}

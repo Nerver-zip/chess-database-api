@@ -1,6 +1,6 @@
-use opening_explorer_core::{Collection, IngestionCompletionStatus, IngestionStats, ParsedGame};
-use opening_explorer_curate::dedupe::{DedupeError, Deduplicator, DuplicateVerdict};
-use opening_explorer_curate::policy::{
+use chess_database_core::{Collection, IngestionCompletionStatus, IngestionStats, ParsedGame};
+use chess_database_curate::dedupe::{DedupeError, Deduplicator, DuplicateVerdict};
+use chess_database_curate::policy::{
     EliteOnlinePolicy, GigabaseOtbPolicy, MastersOtbPolicy, PolicyVerdict,
 };
 use std::collections::HashSet;
@@ -19,7 +19,7 @@ pub enum PipelineError {
     #[error("Fatal IO error: {0}")]
     Io(#[from] std::io::Error),
     #[error("Deduplication error: {0}")]
-    Dedupe(#[from] opening_explorer_curate::dedupe::DedupeError),
+    Dedupe(#[from] chess_database_curate::dedupe::DedupeError),
     #[error("Consumer error: {0}")]
     Consumer(String),
 }
@@ -249,7 +249,7 @@ impl<C: GameConsumer> CuratedPipeline<C> {
                             *self
                                 .policy_rejection_reasons
                                 .entry(
-                                    opening_explorer_curate::policy::early_filter_category(&reason)
+                                    chess_database_curate::policy::early_filter_category(&reason)
                                         .to_string(),
                                 )
                                 .or_insert(0) += 1;

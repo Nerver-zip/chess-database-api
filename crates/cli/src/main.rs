@@ -4,34 +4,36 @@ use std::io::{BufReader, BufWriter, Cursor, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+#[path = "export_pgn.rs"]
 mod export_pgn;
+#[path = "inventory.rs"]
 mod inventory;
 
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand, ValueEnum};
-use opening_explorer_core::{
+use chess_database_core::{
     Collection, GameSourceAttribution, IngestionCompletionStatus, IngestionStats, ParsedGame,
     PositionKey,
 };
-use opening_explorer_curate::dedupe::{Deduplicator, DuplicateVerdict};
-use opening_explorer_curate::policy::{
+use chess_database_curate::dedupe::{Deduplicator, DuplicateVerdict};
+use chess_database_curate::policy::{
     EliteOnlinePolicy, GigabaseOtbPolicy, MastersOtbPolicy, PolicyVerdict,
 };
-use opening_explorer_index::position::{
+use chess_database_index::position::{
     compute_position_key, extract_game_positions, DiskPositionIndex, ImmutablePositionIndex,
     SqlitePositionIndex,
 };
-use opening_explorer_ingest::pipeline::{CuratedPipeline, GameConsumer};
-use opening_explorer_ingest::reader::{
+use chess_database_ingest::pipeline::{CuratedPipeline, GameConsumer};
+use chess_database_ingest::reader::{
     build_pgn_reader, is_recoverable_pgn_syntax_error, resync_after_syntax_error, IngestError,
     ShakmatyGameVisitor,
 };
-use opening_explorer_storage::format::{export_to_pgn, GameBlock};
-use opening_explorer_storage::{
+use chess_database_storage::format::{export_to_pgn, GameBlock};
+use chess_database_storage::{
     compute_file_sha256, publish_prebuilt_dataset, verify_dataset, CurationPolicyMetadata,
     DatasetReader, DatasetWriter, DatasetWriterConfig, FileChecksumMetadata, ShardReader,
     SourceArchiveMetadata, StorageError,
 };
+use clap::{Args, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use shakmaty::uci::UciMove;
@@ -40,9 +42,9 @@ use tempfile::NamedTempFile;
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "opening-explorer",
+    name = "chess-database",
     version = "0.1.0",
-    about = "Build, verify, query and serve chess opening statistics datasets"
+    about = "Build, verify, query and serve curated chess databases"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -76,6 +78,32 @@ enum FormatArg {
 enum DedupeModeArg {
     Memory,
     Disk,
+}
+
+#[derive(Args, Debug)]
+struct ServeSearchArgs {
+    #[arg(long, env = "CHESS_DATABASE_MASTERS_DISCOVERY", default_value_t = false, action = clap::ArgAction::Set)]
+    masters_discovery: bool,
+    #[arg(long, env = "CHESS_DATABASE_ELITE_DISCOVERY", default_value_t = true, action = clap::ArgAction::Set)]
+    elite_discovery: bool,
+    #[arg(long, env = "CHESS_DATABASE_MASTERS_GAME_METADATA", default_value_t = false, action = clap::ArgAction::Set)]
+    masters_game_metadata: bool,
+    #[arg(long, env = "CHESS_DATABASE_ELITE_GAME_METADATA", default_value_t = true, action = clap::ArgAction::Set)]
+    elite_game_metadata: bool,
+    #[arg(
+        long,
+        env = "CHESS_DATABASE_SEARCH_MAX_PAGE_SIZE",
+        default_value_t = 100
+    )]
+    search_max_page_size: usize,
+    #[arg(long, env = "CHESS_DATABASE_SEARCH_CONCURRENCY", default_value_t = 2)]
+    search_concurrency: usize,
+    #[arg(
+        long,
+        env = "CHESS_DATABASE_SEARCH_DEADLINE_MS",
+        default_value_t = 2000
+    )]
+    search_deadline_ms: u64,
 }
 
 #[derive(Subcommand, Debug)]
@@ -282,6 +310,58 @@ enum Commands {
         json: bool,
     },
 
+    /// Build search indexes from the active canonical dataset snapshot
+    #[cfg(unix)]
+    BuildSearchIndex {
+        /// Versioned dataset root
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// Include positions through this ply, including the starting board at ply zero
+        #[arg(long, conflicts_with = "full")]
+        depth_plies: Option<u16>,
+
+        /// Include the complete canonical mainline and final board
+        #[arg(long)]
+        full: bool,
+
+        /// Sort-record buffer size in MiB, separate from database cache and total RSS
+        #[arg(long, default_value_t = 128)]
+        memory_limit_mib: usize,
+
+        /// Existing temporary directory outside the snapshot versions
+        #[arg(long)]
+        temp_dir: Option<PathBuf>,
+    },
+
+    /// Copy verified search artifacts into a local companion bundle
+    #[cfg(unix)]
+    PackSearchIndex {
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// New directory for the companion bundle
+        #[arg(short, long)]
+        output: PathBuf,
+    },
+
+    /// Verify and install a local search bundle on the matching canonical corpus
+    #[cfg(unix)]
+    InstallSearchIndex {
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// Unpacked directory produced by pack-search-index
+        #[arg(long)]
+        bundle: PathBuf,
+    },
+
+    /// Deeply verify the search indexes on a published snapshot
+    VerifySearchIndex {
+        #[arg(short, long)]
+        dataset: PathBuf,
+    },
+
     /// Query the Opening Explorer index for a position by FEN or move sequence
     Query {
         /// Dataset directory path containing manifest.json and positions.cpi
@@ -375,53 +455,53 @@ enum Commands {
         report: Option<PathBuf>,
     },
 
-    /// Start the read-only Opening Explorer HTTP API service
+    /// Start the read-only Chess Database API service
     Serve {
         /// Filesystem path to the Masters OTB dataset directory
-        #[arg(long, env = "OPENING_EXPLORER_MASTERS_DATASET")]
+        #[arg(long, env = "CHESS_DATABASE_MASTERS_DATASET")]
         masters_dataset: Option<PathBuf>,
 
         /// Filesystem path to the Elite Online dataset directory
-        #[arg(long, env = "OPENING_EXPLORER_ELITE_DATASET")]
+        #[arg(long, env = "CHESS_DATABASE_ELITE_DATASET")]
         elite_dataset: Option<PathBuf>,
 
         /// Host interface to bind HTTP listener
-        #[arg(long, default_value = "127.0.0.1", env = "OPENING_EXPLORER_HOST")]
+        #[arg(long, default_value = "127.0.0.1", env = "CHESS_DATABASE_HOST")]
         host: String,
 
         /// Port to listen on
-        #[arg(short, long, default_value = "8080", env = "OPENING_EXPLORER_PORT")]
+        #[arg(short, long, default_value = "8080", env = "CHESS_DATABASE_PORT")]
         port: u16,
 
         /// Allowed CORS origins, comma-separated (e.g. "http://localhost:3000,http://localhost:5173" or "*"). Default is empty (restrictive, same-origin only).
-        #[arg(long, default_value = "", env = "OPENING_EXPLORER_ALLOWED_ORIGINS")]
+        #[arg(long, default_value = "", env = "CHESS_DATABASE_ALLOWED_ORIGINS")]
         allowed_origins: String,
 
         /// Global request timeout in seconds
         #[arg(
             long,
             default_value = "15",
-            env = "OPENING_EXPLORER_REQUEST_TIMEOUT_SECS"
+            env = "CHESS_DATABASE_REQUEST_TIMEOUT_SECS"
         )]
         request_timeout_secs: u64,
 
         /// Maximum plies allowed in a move sequence query (1-512)
-        #[arg(long, default_value = "200", env = "OPENING_EXPLORER_MAX_MOVE_PLIES")]
+        #[arg(long, default_value = "200", env = "CHESS_DATABASE_MAX_MOVE_PLIES")]
         max_move_plies: usize,
 
-        /// Deeply validate every dataset block before the service becomes ready
-        #[arg(long)]
+        /// Repeat deep structural verification before startup and on reload
+        #[arg(long, env = "CHESS_DATABASE_DEEP_VALIDATE_ON_STARTUP")]
         deep_validate_on_startup: bool,
 
         /// Capacity of reader pool per dataset snapshot (1-64)
-        #[arg(long, default_value = "16", env = "OPENING_EXPLORER_READER_POOL_SIZE")]
+        #[arg(long, default_value = "16", env = "CHESS_DATABASE_READER_POOL_SIZE")]
         reader_pool_size: usize,
 
         /// Maximum seconds to wait for an available reader from the pool before returning 503
         #[arg(
             long,
             default_value = "5",
-            env = "OPENING_EXPLORER_READER_POOL_TIMEOUT_SECS"
+            env = "CHESS_DATABASE_READER_POOL_TIMEOUT_SECS"
         )]
         reader_pool_timeout_secs: u64,
 
@@ -429,14 +509,17 @@ enum Commands {
         #[arg(
             long,
             default_value_t = true,
-            env = "OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL",
+            env = "CHESS_DATABASE_ENABLE_GAME_RETRIEVAL",
             action = clap::ArgAction::Set
         )]
         enable_game_retrieval: bool,
 
         /// Optional secret token required for administrative operations (POST /v1/admin/reload)
-        #[arg(long, env = "OPENING_EXPLORER_ADMIN_TOKEN")]
+        #[arg(long, env = "CHESS_DATABASE_ADMIN_TOKEN")]
         admin_token: Option<String>,
+
+        #[command(flatten)]
+        search: ServeSearchArgs,
     },
 }
 
@@ -744,46 +827,43 @@ fn open_pgn_reader(path: &Path) -> Result<Box<dyn Read + Send>> {
     }
 }
 
-/// Deprecated `CODB_*` environment names and their `OPENING_EXPLORER_*` replacements.
-///
-/// A current variable always wins. A legacy variable is promoted only when its
-/// replacement is unset, and a deprecation warning is printed to stderr.
-const LEGACY_ENV_ALIASES: &[(&str, &str)] = &[
-    ("OPENING_EXPLORER_MASTERS_DATASET", "CODB_MASTERS_DATASET"),
-    ("OPENING_EXPLORER_ELITE_DATASET", "CODB_ELITE_DATASET"),
-    ("OPENING_EXPLORER_HOST", "CODB_HOST"),
-    ("OPENING_EXPLORER_PORT", "CODB_PORT"),
-    ("OPENING_EXPLORER_ALLOWED_ORIGINS", "CODB_ALLOWED_ORIGINS"),
-    (
-        "OPENING_EXPLORER_REQUEST_TIMEOUT_SECS",
-        "CODB_REQUEST_TIMEOUT_SECS",
-    ),
-    ("OPENING_EXPLORER_MAX_MOVE_PLIES", "CODB_MAX_MOVE_PLIES"),
-    ("OPENING_EXPLORER_READER_POOL_SIZE", "CODB_READER_POOL_SIZE"),
-    (
-        "OPENING_EXPLORER_READER_POOL_TIMEOUT_SECS",
-        "CODB_READER_POOL_TIMEOUT_SECS",
-    ),
-    (
-        "OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL",
-        "CODB_ENABLE_GAME_RETRIEVAL",
-    ),
-    ("OPENING_EXPLORER_ADMIN_TOKEN", "CODB_ADMIN_TOKEN"),
+/// Serving options with the two previous environment prefixes.
+const CONFIG_ALIASES: &[&str] = &[
+    "MASTERS_DATASET",
+    "ELITE_DATASET",
+    "HOST",
+    "PORT",
+    "ALLOWED_ORIGINS",
+    "REQUEST_TIMEOUT_SECS",
+    "MAX_MOVE_PLIES",
+    "READER_POOL_SIZE",
+    "READER_POOL_TIMEOUT_SECS",
+    "ENABLE_GAME_RETRIEVAL",
+    "ADMIN_TOKEN",
 ];
 
-/// Returns `(current, legacy, value)` for every legacy variable that must be promoted.
 fn legacy_env_promotions(
     lookup: impl Fn(&str) -> Option<std::ffi::OsString>,
-) -> Vec<(&'static str, &'static str, std::ffi::OsString)> {
-    LEGACY_ENV_ALIASES
+) -> Vec<(String, String, std::ffi::OsString)> {
+    CONFIG_ALIASES
         .iter()
-        .filter(|&&(current, _)| lookup(current).is_none())
-        .filter_map(|&(current, legacy)| lookup(legacy).map(|value| (current, legacy, value)))
+        .filter_map(|suffix| {
+            let current = format!("CHESS_DATABASE_{suffix}");
+            if lookup(&current).is_some() {
+                return None;
+            }
+            for prefix in ["OPENING_EXPLORER", "CODB"] {
+                let legacy = format!("{prefix}_{suffix}");
+                if let Some(value) = lookup(&legacy) {
+                    return Some((current, legacy, value));
+                }
+            }
+            None
+        })
         .collect()
 }
 
-/// Promotes deprecated `CODB_*` values into their replacement names before clap parses them.
-/// Must run before any worker threads start.
+/// Promote legacy settings before reading Clap environment defaults or starting workers.
 fn apply_legacy_env_aliases() {
     for (current, legacy, value) in legacy_env_promotions(|name| std::env::var_os(name)) {
         eprintln!("warning: {legacy} is deprecated; set {current} instead");
@@ -791,16 +871,18 @@ fn apply_legacy_env_aliases() {
     }
 }
 
-fn main() -> Result<()> {
+pub fn run(program: &'static str) -> Result<()> {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
     let _ = tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_ansi(false)
+        .with_writer(std::io::stderr)
         .try_init();
 
     apply_legacy_env_aliases();
-    let cli = Cli::parse();
+    let matches = Cli::command().name(program).bin_name(program).get_matches();
+    let cli = Cli::from_arg_matches(&matches)?;
 
     match cli.command {
         Commands::Build {
@@ -986,6 +1068,62 @@ fn main() -> Result<()> {
             })?;
         }
 
+        #[cfg(unix)]
+        Commands::BuildSearchIndex {
+            dataset,
+            depth_plies,
+            full,
+            memory_limit_mib,
+            temp_dir,
+        } => {
+            use chess_database_storage::search::{
+                build_search_index, BuildSearchConfig, SearchCoverage,
+            };
+
+            let coverage = if full {
+                Some(SearchCoverage::Full)
+            } else {
+                depth_plies.map(|max_ply| SearchCoverage::Bounded { max_ply })
+            };
+            let memory_limit_bytes = memory_limit_mib
+                .checked_mul(1024 * 1024)
+                .context("Search memory limit exceeds the address space")?;
+            if let Some(directory) = &temp_dir {
+                // The builder runs synchronously in a CLI process of its own.
+                std::env::set_var("SQLITE_TMPDIR", std::fs::canonicalize(directory)?);
+            }
+            let report = build_search_index(
+                &dataset,
+                BuildSearchConfig {
+                    coverage,
+                    memory_limit_bytes,
+                    temp_directory: temp_dir,
+                },
+            )?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+
+        #[cfg(unix)]
+        Commands::PackSearchIndex { dataset, output } => {
+            chess_database_storage::search::bundle::pack_search_index(&dataset, &output)?;
+        }
+
+        #[cfg(unix)]
+        Commands::InstallSearchIndex { dataset, bundle } => {
+            let version =
+                chess_database_storage::search::bundle::install_search_index(&dataset, &bundle)?;
+            println!("{version}");
+        }
+
+        Commands::VerifySearchIndex { dataset } => {
+            let snapshot = DatasetReader::open(&dataset)?;
+            anyhow::ensure!(
+                snapshot.manifest().search_index.is_some(),
+                "Dataset has no search index"
+            );
+            run_verify(snapshot.snapshot_dir(), true)?;
+        }
+
         Commands::Query {
             dataset,
             index,
@@ -1062,6 +1200,7 @@ fn main() -> Result<()> {
             deep_validate_on_startup,
             admin_token,
             enable_game_retrieval,
+            search,
         } => {
             let origins = allowed_origins
                 .split(',')
@@ -1069,7 +1208,7 @@ fn main() -> Result<()> {
                 .filter(|s| !s.is_empty())
                 .collect();
 
-            let config = opening_explorer_api::ServerConfig {
+            let config = chess_database_api::ServerConfig {
                 masters_dataset,
                 elite_dataset,
                 host,
@@ -1089,7 +1228,19 @@ fn main() -> Result<()> {
                 .build()
                 .context("Failed to build Tokio runtime")?;
 
-            rt.block_on(opening_explorer_api::run_server(config))?;
+            let search_options = chess_database_api::SearchOptions {
+                masters_discovery: search.masters_discovery,
+                elite_discovery: search.elite_discovery,
+                masters_game_metadata: search.masters_game_metadata,
+                elite_game_metadata: search.elite_game_metadata,
+                max_page_size: search.search_max_page_size,
+                concurrency: search.search_concurrency,
+                deadline: std::time::Duration::from_millis(search.search_deadline_ms),
+            };
+            rt.block_on(chess_database_api::run_server_with_search(
+                config,
+                search_options,
+            ))?;
         }
     }
 
@@ -2026,9 +2177,9 @@ fn run_report(dataset: &Path, output: Option<&Path>) -> Result<()> {
         }
         *results
             .entry(match m.result {
-                opening_explorer_core::GameResult::WhiteWins => "1-0",
-                opening_explorer_core::GameResult::BlackWins => "0-1",
-                opening_explorer_core::GameResult::Draw => "1/2-1/2",
+                chess_database_core::GameResult::WhiteWins => "1-0",
+                chess_database_core::GameResult::BlackWins => "0-1",
+                chess_database_core::GameResult::Draw => "1/2-1/2",
                 _ => "unknown",
             })
             .or_insert(0) += 1;
@@ -2117,7 +2268,7 @@ fn run_bench_lookup(dataset: &Path, games: usize, output: Option<&Path>) -> Resu
             break;
         }
         let game = game?;
-        let ex = opening_explorer_index::position::extract_game_positions_detailed(&game, depth)
+        let ex = chess_database_index::position::extract_game_positions_detailed(&game, depth)
             .map_err(|e| anyhow::anyhow!("position extraction failed: {e}"))?;
         for (i, (key, _, _)) in ex.entries.iter().enumerate() {
             if i % 3 == 0 {
@@ -3305,7 +3456,7 @@ fn run_build_index(opts: BuildIndexOptions<'_>) -> Result<()> {
     let start = Instant::now();
     let memory_limit_bytes = opts.memory_limit_mib.saturating_mul(1024 * 1024);
 
-    let config = opening_explorer_storage::DatasetIndexConfig {
+    let config = chess_database_storage::DatasetIndexConfig {
         depth_plies: opts.depth_plies,
         expected_collection: opts.expected_collection,
         memory_limit_bytes,
@@ -3315,7 +3466,7 @@ fn run_build_index(opts: BuildIndexOptions<'_>) -> Result<()> {
         build_id_override: None,
     };
 
-    let report = opening_explorer_storage::build_dataset_position_index(opts.dataset, config)
+    let report = chess_database_storage::build_dataset_position_index(opts.dataset, config)
         .with_context(|| {
             format!(
                 "Failed to build position index for dataset at {}",
@@ -3967,14 +4118,13 @@ mod tests {
 
         // Retrieve first game from games.idx
         let lookup_path = dataset_dir.join("games.idx");
-        let lookup_reader = opening_explorer_storage::GameLookupReader::open(&lookup_path).unwrap();
+        let lookup_reader = chess_database_storage::GameLookupReader::open(&lookup_path).unwrap();
         assert_eq!(lookup_reader.entry_count(), 20);
 
         // Test get_game with valid ID
-        let mut shard = opening_explorer_storage::ShardReader::open(
-            &dataset_dir.join("shards/shard_0000.cgb3"),
-        )
-        .unwrap();
+        let mut shard =
+            chess_database_storage::ShardReader::open(&dataset_dir.join("shards/shard_0000.cgb3"))
+                .unwrap();
         let b0 = shard.decompress_block(0).unwrap();
         let any_game_id = b0[0].metadata.id;
 
@@ -4131,7 +4281,7 @@ mod tests {
         let attribution_sha256 = attribution.sha256.clone();
         drop(reader);
 
-        let snapshot = opening_explorer_storage::resolve_dataset_snapshot(&output_dir).unwrap();
+        let snapshot = chess_database_storage::resolve_dataset_snapshot(&output_dir).unwrap();
         let attribution_line =
             std::fs::read_to_string(snapshot.join("source-attribution.jsonl")).unwrap();
         assert!(attribution_line.contains("Britbase"));
@@ -4380,9 +4530,9 @@ mod tests {
         .unwrap();
 
         // Mutate dataset manifest so source size is 0 (simulating unknown original source size)
-        let resolved = opening_explorer_storage::resolve_dataset_snapshot(&dataset_dir).unwrap();
+        let resolved = chess_database_storage::resolve_dataset_snapshot(&dataset_dir).unwrap();
         let manifest_file = resolved.join("manifest.json");
-        let mut manifest: opening_explorer_storage::DatasetManifest =
+        let mut manifest: chess_database_storage::DatasetManifest =
             serde_json::from_slice(&std::fs::read(&manifest_file).unwrap()).unwrap();
         for s in &mut manifest.source_archives {
             s.size_bytes = 0;
@@ -4463,9 +4613,9 @@ mod tests {
         assert_eq!(report_val["provenance_status"].as_str(), Some("verified"));
 
         // 2. Historical dataset where checksum_verified is None (uncertainty preserved)
-        let resolved = opening_explorer_storage::resolve_dataset_snapshot(&dataset_dir).unwrap();
+        let resolved = chess_database_storage::resolve_dataset_snapshot(&dataset_dir).unwrap();
         let manifest_file = resolved.join("manifest.json");
-        let mut manifest: opening_explorer_storage::DatasetManifest =
+        let mut manifest: chess_database_storage::DatasetManifest =
             serde_json::from_slice(&std::fs::read(&manifest_file).unwrap()).unwrap();
         manifest.source_archives[0].checksum_verified = None;
         std::fs::write(
@@ -4648,12 +4798,29 @@ mod tests {
         let promoted = legacy_env_promotions(env(&[("CODB_PORT", "9000")]));
         assert_eq!(
             promoted,
-            vec![("OPENING_EXPLORER_PORT", "CODB_PORT", OsString::from("9000"))]
+            vec![(
+                "CHESS_DATABASE_PORT".into(),
+                "CODB_PORT".into(),
+                OsString::from("9000")
+            )]
         );
 
+        let opening_explorer_wins = legacy_env_promotions(env(&[
+            ("CODB_PORT", "9000"),
+            ("OPENING_EXPLORER_PORT", "8081"),
+        ]));
+        assert_eq!(
+            opening_explorer_wins,
+            vec![(
+                "CHESS_DATABASE_PORT".into(),
+                "OPENING_EXPLORER_PORT".into(),
+                OsString::from("8081")
+            )]
+        );
         let current_wins = legacy_env_promotions(env(&[
             ("CODB_PORT", "9000"),
             ("OPENING_EXPLORER_PORT", "8081"),
+            ("CHESS_DATABASE_PORT", "8080"),
         ]));
         assert!(current_wins.is_empty(), "current name must take precedence");
 

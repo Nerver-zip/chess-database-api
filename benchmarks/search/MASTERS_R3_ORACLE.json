@@ -1,0 +1,17 @@
+{
+  "collection": "masters-otb",
+  "common_probes": 7,
+  "coverage": {
+    "max_ply": 40,
+    "mode": "bounded"
+  },
+  "cpi_depth": 40,
+  "cpi_positions_matched": 741,
+  "empty_cpi_probes": 224,
+  "game_count": 3284429,
+  "sampled_games": 256,
+  "seconds": 62.525309781,
+  "snapshot": "codb-masters-otb-1795640229266821029-29be58d4f83e0484-search",
+  "source_snapshot": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+  "verified_occurrences": 10136
+}

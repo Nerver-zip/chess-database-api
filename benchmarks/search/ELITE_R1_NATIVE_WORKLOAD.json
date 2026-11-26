@@ -1,0 +1,787 @@
+{
+  "dataset": {
+    "build_timestamp": "2026-11-25T20:30:50Z",
+    "capabilities": {
+      "event_search": true,
+      "filtered_explorer": true,
+      "game_filter_families": [
+        "player",
+        "side",
+        "matchup",
+        "rating",
+        "date",
+        "result",
+        "event",
+        "site",
+        "eco",
+        "time_control_category",
+        "plies",
+        "position",
+        "continuation"
+      ],
+      "game_metadata": true,
+      "game_retrieval": true,
+      "game_search": true,
+      "opening_explorer": true,
+      "player_search": true,
+      "position_search": true,
+      "position_search_coverage": {
+        "max_ply": 30,
+        "mode": "bounded"
+      }
+    },
+    "collection": "elite-online",
+    "cpi_available": true,
+    "cpi_depth_plies": 30,
+    "cpi_total_positions": 6136307,
+    "dataset_version": "codb-elite-online-1795638650408508480-cfc2575f9f6971eb-search",
+    "format_version": "CGB3/v1",
+    "total_games": 429150
+  },
+  "legacy": {
+    "cases": {
+      "legacy_opening": {
+        "max_us": 6344.04,
+        "min_us": 212.24,
+        "p50_us": 837.72,
+        "p95_us": 1303.54,
+        "p99_us": 3299.86,
+        "statuses": {
+          "200": 300
+        }
+      },
+      "legacy_pgn": {
+        "max_us": 9693.51,
+        "min_us": 245.48,
+        "p50_us": 1083.8,
+        "p95_us": 1701.81,
+        "p99_us": 4426.49,
+        "statuses": {
+          "200": 300
+        }
+      },
+      "legacy_start": {
+        "max_us": 2033.55,
+        "min_us": 243.1,
+        "p50_us": 843.11,
+        "p95_us": 1419.16,
+        "p99_us": 1790.06,
+        "statuses": {
+          "200": 300
+        }
+      }
+    },
+    "requests": 900,
+    "requests_per_second": 4011.9856019399117,
+    "seconds": 0.22432782399937423
+  },
+  "mixed": {
+    "cases": {
+      "event_exact": {
+        "max_us": 816.13,
+        "min_us": 535.9,
+        "p50_us": 798.67,
+        "p95_us": 816.13,
+        "p99_us": 816.13,
+        "statuses": {
+          "200": 3,
+          "429": 17
+        }
+      },
+      "event_prefix": {
+        "max_us": 1918.28,
+        "min_us": 954.11,
+        "p50_us": 1101.8,
+        "p95_us": 1918.28,
+        "p99_us": 1918.28,
+        "statuses": {
+          "200": 3,
+          "429": 17
+        }
+      },
+      "filtered_broad": {
+        "max_us": 0.0,
+        "min_us": 0.0,
+        "p50_us": 0.0,
+        "p95_us": 0.0,
+        "p99_us": 0.0,
+        "statuses": {
+          "422": 2,
+          "429": 18
+        }
+      },
+      "filtered_combination": {
+        "max_us": 2761.76,
+        "min_us": 2121.01,
+        "p50_us": 2398.7,
+        "p95_us": 2761.76,
+        "p99_us": 2761.76,
+        "statuses": {
+          "200": 3,
+          "429": 17
+        }
+      },
+      "filtered_common": {
+        "max_us": 114870.29,
+        "min_us": 105946.83,
+        "p50_us": 114870.29,
+        "p95_us": 114870.29,
+        "p99_us": 114870.29,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      },
+      "filtered_no_match": {
+        "max_us": 840.45,
+        "min_us": 641.23,
+        "p50_us": 840.45,
+        "p95_us": 840.45,
+        "p99_us": 840.45,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      },
+      "filtered_rare": {
+        "max_us": 5866.88,
+        "min_us": 2031.31,
+        "p50_us": 5866.88,
+        "p95_us": 5866.88,
+        "p99_us": 5866.88,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      },
+      "filtered_selective": {
+        "max_us": 2467.91,
+        "min_us": 2392.38,
+        "p50_us": 2467.91,
+        "p95_us": 2467.91,
+        "p99_us": 2467.91,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      },
+      "game_details": {
+        "max_us": 1054.99,
+        "min_us": 763.08,
+        "p50_us": 1054.99,
+        "p95_us": 1054.99,
+        "p99_us": 1054.99,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      },
+      "legacy_opening": {
+        "max_us": 1627.96,
+        "min_us": 268.34,
+        "p50_us": 565.72,
+        "p95_us": 1267.76,
+        "p99_us": 1627.96,
+        "statuses": {
+          "200": 100
+        }
+      },
+      "legacy_pgn": {
+        "max_us": 10449.95,
+        "min_us": 233.74,
+        "p50_us": 763.9,
+        "p95_us": 4947.96,
+        "p99_us": 10449.95,
+        "statuses": {
+          "200": 100
+        }
+      },
+      "legacy_start": {
+        "max_us": 5415.02,
+        "min_us": 268.29,
+        "p50_us": 595.33,
+        "p95_us": 1265.93,
+        "p99_us": 5415.02,
+        "statuses": {
+          "200": 100
+        }
+      },
+      "metadata_broad": {
+        "max_us": 2554.85,
+        "min_us": 851.57,
+        "p50_us": 1314.97,
+        "p95_us": 2554.85,
+        "p99_us": 2554.85,
+        "statuses": {
+          "200": 5,
+          "429": 15
+        }
+      },
+      "metadata_combined": {
+        "max_us": 13294.25,
+        "min_us": 3121.02,
+        "p50_us": 4720.17,
+        "p95_us": 13294.25,
+        "p99_us": 13294.25,
+        "statuses": {
+          "200": 3,
+          "429": 17
+        }
+      },
+      "metadata_event": {
+        "max_us": 673933.04,
+        "min_us": 592756.33,
+        "p50_us": 664846.06,
+        "p95_us": 673933.04,
+        "p99_us": 673933.04,
+        "statuses": {
+          "200": 3,
+          "429": 17
+        }
+      },
+      "metadata_exact_player": {
+        "max_us": 1844.36,
+        "min_us": 797.72,
+        "p50_us": 1726.32,
+        "p95_us": 1844.36,
+        "p99_us": 1844.36,
+        "statuses": {
+          "200": 5,
+          "429": 15
+        }
+      },
+      "metadata_matchup": {
+        "max_us": 2641.7,
+        "min_us": 1304.04,
+        "p50_us": 2187.15,
+        "p95_us": 2641.7,
+        "p99_us": 2641.7,
+        "statuses": {
+          "200": 3,
+          "429": 17
+        }
+      },
+      "metadata_other_player": {
+        "max_us": 6037.72,
+        "min_us": 1316.95,
+        "p50_us": 2161.66,
+        "p95_us": 6037.72,
+        "p99_us": 6037.72,
+        "statuses": {
+          "200": 5,
+          "429": 15
+        }
+      },
+      "metadata_ratings": {
+        "max_us": 1142.27,
+        "min_us": 597.62,
+        "p50_us": 1030.96,
+        "p95_us": 1142.27,
+        "p99_us": 1142.27,
+        "statuses": {
+          "200": 3,
+          "429": 17
+        }
+      },
+      "metadata_second_page": {
+        "max_us": 1505.46,
+        "min_us": 1145.22,
+        "p50_us": 1399.95,
+        "p95_us": 1505.46,
+        "p99_us": 1505.46,
+        "statuses": {
+          "200": 3,
+          "429": 17
+        }
+      },
+      "metadata_years": {
+        "max_us": 97319.23,
+        "min_us": 40276.11,
+        "p50_us": 70132.27,
+        "p95_us": 97319.23,
+        "p99_us": 97319.23,
+        "statuses": {
+          "200": 4,
+          "429": 16
+        }
+      },
+      "player_exact": {
+        "max_us": 18161.16,
+        "min_us": 6442.29,
+        "p50_us": 8030.94,
+        "p95_us": 18161.16,
+        "p99_us": 18161.16,
+        "statuses": {
+          "200": 3,
+          "429": 17
+        }
+      },
+      "player_prefix": {
+        "max_us": 7470.1,
+        "min_us": 7008.72,
+        "p50_us": 7470.1,
+        "p95_us": 7470.1,
+        "p99_us": 7470.1,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      },
+      "position_and_player": {
+        "max_us": 2302.06,
+        "min_us": 1734.81,
+        "p50_us": 2302.06,
+        "p95_us": 2302.06,
+        "p99_us": 2302.06,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      },
+      "position_and_rating": {
+        "max_us": 3567.81,
+        "min_us": 2878.03,
+        "p50_us": 3567.81,
+        "p95_us": 3567.81,
+        "p99_us": 3567.81,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      },
+      "position_common": {
+        "max_us": 1863.97,
+        "min_us": 852.81,
+        "p50_us": 1863.97,
+        "p95_us": 1863.97,
+        "p99_us": 1863.97,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      },
+      "position_continuation": {
+        "max_us": 985.17,
+        "min_us": 917.9,
+        "p50_us": 985.17,
+        "p95_us": 985.17,
+        "p99_us": 985.17,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      },
+      "position_deep": {
+        "max_us": 479.36,
+        "min_us": 403.84,
+        "p50_us": 479.36,
+        "p95_us": 479.36,
+        "p99_us": 479.36,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      },
+      "position_medium": {
+        "max_us": 1467.72,
+        "min_us": 789.06,
+        "p50_us": 1467.72,
+        "p95_us": 1467.72,
+        "p99_us": 1467.72,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      },
+      "position_missing": {
+        "max_us": 367.61,
+        "min_us": 308.73,
+        "p50_us": 367.61,
+        "p95_us": 367.61,
+        "p99_us": 367.61,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      },
+      "position_start": {
+        "max_us": 2115.84,
+        "min_us": 897.05,
+        "p50_us": 2115.84,
+        "p95_us": 2115.84,
+        "p99_us": 2115.84,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      },
+      "position_transposition_a": {
+        "max_us": 1027.54,
+        "min_us": 994.55,
+        "p50_us": 1027.54,
+        "p95_us": 1027.54,
+        "p99_us": 1027.54,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      },
+      "position_transposition_b": {
+        "max_us": 3773.36,
+        "min_us": 625.49,
+        "p50_us": 3773.36,
+        "p95_us": 3773.36,
+        "p99_us": 3773.36,
+        "statuses": {
+          "200": 2,
+          "429": 18
+        }
+      }
+    },
+    "requests": 900,
+    "requests_per_second": 328.17377694706585,
+    "seconds": 2.7424494679999043
+  },
+  "search": {
+    "cases": {
+      "event_exact": {
+        "max_us": 1906.5,
+        "min_us": 914.54,
+        "p50_us": 1052.23,
+        "p95_us": 1906.5,
+        "p99_us": 1906.5,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "event_prefix": {
+        "max_us": 3103.97,
+        "min_us": 1349.75,
+        "p50_us": 2023.34,
+        "p95_us": 3103.97,
+        "p99_us": 3103.97,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "filtered_broad": {
+        "max_us": 0.0,
+        "min_us": 0.0,
+        "p50_us": 0.0,
+        "p95_us": 0.0,
+        "p99_us": 0.0,
+        "statuses": {
+          "422": 5
+        }
+      },
+      "filtered_combination": {
+        "max_us": 3482.17,
+        "min_us": 2133.65,
+        "p50_us": 3127.66,
+        "p95_us": 3482.17,
+        "p99_us": 3482.17,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "filtered_common": {
+        "max_us": 170780.27,
+        "min_us": 126926.6,
+        "p50_us": 156048.63,
+        "p95_us": 170780.27,
+        "p99_us": 170780.27,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "filtered_no_match": {
+        "max_us": 1208.14,
+        "min_us": 661.92,
+        "p50_us": 954.03,
+        "p95_us": 1208.14,
+        "p99_us": 1208.14,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "filtered_rare": {
+        "max_us": 3854.17,
+        "min_us": 1908.56,
+        "p50_us": 2745.92,
+        "p95_us": 3854.17,
+        "p99_us": 3854.17,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "filtered_selective": {
+        "max_us": 4491.23,
+        "min_us": 1912.06,
+        "p50_us": 3208.39,
+        "p95_us": 4491.23,
+        "p99_us": 4491.23,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "game_details": {
+        "max_us": 1403.82,
+        "min_us": 428.55,
+        "p50_us": 871.04,
+        "p95_us": 1403.82,
+        "p99_us": 1403.82,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "metadata_broad": {
+        "max_us": 2062.14,
+        "min_us": 672.28,
+        "p50_us": 1116.64,
+        "p95_us": 2062.14,
+        "p99_us": 2062.14,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "metadata_combined": {
+        "max_us": 3585.53,
+        "min_us": 2042.5,
+        "p50_us": 2927.83,
+        "p95_us": 3585.53,
+        "p99_us": 3585.53,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "metadata_event": {
+        "max_us": 848692.9,
+        "min_us": 570193.18,
+        "p50_us": 725857.5,
+        "p95_us": 848692.9,
+        "p99_us": 848692.9,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "metadata_exact_player": {
+        "max_us": 1696.87,
+        "min_us": 803.15,
+        "p50_us": 1553.32,
+        "p95_us": 1696.87,
+        "p99_us": 1696.87,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "metadata_matchup": {
+        "max_us": 2382.26,
+        "min_us": 1658.53,
+        "p50_us": 2069.94,
+        "p95_us": 2382.26,
+        "p99_us": 2382.26,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "metadata_other_player": {
+        "max_us": 7398.26,
+        "min_us": 886.48,
+        "p50_us": 1552.82,
+        "p95_us": 7398.26,
+        "p99_us": 7398.26,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "metadata_ratings": {
+        "max_us": 1799.3,
+        "min_us": 729.61,
+        "p50_us": 1091.68,
+        "p95_us": 1799.3,
+        "p99_us": 1799.3,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "metadata_second_page": {
+        "max_us": 2920.75,
+        "min_us": 903.11,
+        "p50_us": 1214.62,
+        "p95_us": 2920.75,
+        "p99_us": 2920.75,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "metadata_years": {
+        "max_us": 69012.69,
+        "min_us": 37878.68,
+        "p50_us": 63059.07,
+        "p95_us": 69012.69,
+        "p99_us": 69012.69,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "player_exact": {
+        "max_us": 10877.6,
+        "min_us": 8700.69,
+        "p50_us": 10466.3,
+        "p95_us": 10877.6,
+        "p99_us": 10877.6,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "player_prefix": {
+        "max_us": 12300.51,
+        "min_us": 7711.24,
+        "p50_us": 12030.8,
+        "p95_us": 12300.51,
+        "p99_us": 12300.51,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "position_and_player": {
+        "max_us": 2093.35,
+        "min_us": 1337.17,
+        "p50_us": 2024.15,
+        "p95_us": 2093.35,
+        "p99_us": 2093.35,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "position_and_rating": {
+        "max_us": 4786.26,
+        "min_us": 2260.58,
+        "p50_us": 3954.62,
+        "p95_us": 4786.26,
+        "p99_us": 4786.26,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "position_common": {
+        "max_us": 1858.74,
+        "min_us": 584.44,
+        "p50_us": 1179.04,
+        "p95_us": 1858.74,
+        "p99_us": 1858.74,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "position_continuation": {
+        "max_us": 1695.12,
+        "min_us": 640.24,
+        "p50_us": 1184.17,
+        "p95_us": 1695.12,
+        "p99_us": 1695.12,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "position_deep": {
+        "max_us": 1232.39,
+        "min_us": 260.59,
+        "p50_us": 558.1,
+        "p95_us": 1232.39,
+        "p99_us": 1232.39,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "position_medium": {
+        "max_us": 1926.34,
+        "min_us": 644.59,
+        "p50_us": 1357.34,
+        "p95_us": 1926.34,
+        "p99_us": 1926.34,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "position_missing": {
+        "max_us": 725.07,
+        "min_us": 214.08,
+        "p50_us": 464.63,
+        "p95_us": 725.07,
+        "p99_us": 725.07,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "position_start": {
+        "max_us": 1831.4,
+        "min_us": 558.93,
+        "p50_us": 1258.99,
+        "p95_us": 1831.4,
+        "p99_us": 1831.4,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "position_transposition_a": {
+        "max_us": 1881.67,
+        "min_us": 597.86,
+        "p50_us": 1096.77,
+        "p95_us": 1881.67,
+        "p99_us": 1881.67,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "position_transposition_b": {
+        "max_us": 1829.3,
+        "min_us": 762.28,
+        "p50_us": 1047.8,
+        "p95_us": 1829.3,
+        "p99_us": 1829.3,
+        "statuses": {
+          "200": 5
+        }
+      }
+    },
+    "requests": 150,
+    "requests_per_second": 26.881043321676348,
+    "seconds": 5.580140555000071
+  },
+  "workload": {
+    "event_exact": "/v1/collections/elite-online/events?name=Rated+Blitz+game",
+    "event_prefix": "/v1/collections/elite-online/events?prefix=Rate",
+    "filtered_broad": "/v1/explorer/position/filtered?collection=elite-online&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&min_both_ratings=2200",
+    "filtered_combination": "/v1/explorer/position/filtered?collection=elite-online&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=skopje123&from_year=1990&min_both_ratings=2200",
+    "filtered_common": "/v1/explorer/position/filtered?collection=elite-online&moves=e4%2Cc5&min_both_ratings=2400",
+    "filtered_no_match": "/v1/explorer/position/filtered?collection=elite-online&moves=d4%2CNf6&player=benchmark+unknown+player",
+    "filtered_rare": "/v1/explorer/position/filtered?collection=elite-online&moves=e4%2Ce5%2CNf3%2CNc6%2CBb5%2Ca6%2CBa4%2CNf6%2CO-O%2CBe7%2CRe1%2Cb5%2CBb3%2Cd6%2Cc3%2CO-O%2Ch3%2CNb8%2Cd4%2CNbd7&min_plies=0",
+    "filtered_selective": "/v1/explorer/position/filtered?collection=elite-online&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=skopje123",
+    "game_details": "/v1/collections/elite-online/games/13183733732487493000/metadata",
+    "legacy_opening": "/v1/explorer/position?collection=elite-online&moves=e4%2Cc5%2CNf3",
+    "legacy_pgn": "/v1/collections/elite-online/games/13183733732487493000",
+    "legacy_start": "/v1/explorer/position?collection=elite-online&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1",
+    "metadata_broad": "/v1/collections/elite-online/games?sort=date_desc&limit=25",
+    "metadata_combined": "/v1/collections/elite-online/games?player=skopje123&min_both_ratings=2200&from_year=1990&sort=game_length",
+    "metadata_event": "/v1/collections/elite-online/games?event=Rated+Blitz+game&sort=date_desc",
+    "metadata_exact_player": "/v1/collections/elite-online/games?player=skopje123",
+    "metadata_matchup": "/v1/collections/elite-online/games?player=skopje123&opponent=NIGHTGUEST",
+    "metadata_other_player": "/v1/collections/elite-online/games?player=Elda64",
+    "metadata_ratings": "/v1/collections/elite-online/games?min_both_ratings=2400&sort=average_rating",
+    "metadata_second_page": "/v1/collections/elite-online/games?sort=date_desc&limit=25&cursor=AbTgw7FTBiCZiavIBdmkbAELiUNLV1t7g_vi5Dc5VSgEAAAAAAEzxlsABoxF",
+    "metadata_years": "/v1/collections/elite-online/games?from_year=2000&through_year=2015&sort=date_desc",
+    "player_exact": "/v1/collections/elite-online/players?name=skopje123",
+    "player_prefix": "/v1/collections/elite-online/players?prefix=skop",
+    "position_and_player": "/v1/collections/elite-online/games?fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=skopje123",
+    "position_and_rating": "/v1/collections/elite-online/games?moves=e4%2Cc5&min_both_ratings=2400",
+    "position_common": "/v1/collections/elite-online/games?moves=e4%2Cc5%2CNf3",
+    "position_continuation": "/v1/collections/elite-online/games?fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&continuation=Nf3",
+    "position_deep": "/v1/collections/elite-online/games?moves=e4%2Ce5%2CNf3%2CNc6%2CBb5%2Ca6%2CBa4%2CNf6%2CO-O%2CBe7%2CRe1%2Cb5%2CBb3%2Cd6%2Cc3%2CO-O%2Ch3%2CNb8%2Cd4%2CNbd7%2Cc4%2Cc6%2CNc3%2CBb7%2Ca3%2CQc7%2Ccxb5%2Caxb5%2CBe3%2CRfe8",
+    "position_medium": "/v1/collections/elite-online/games?moves=e4%2Ce5%2CNf3%2CNc6%2CBb5%2Ca6%2CBa4%2CNf6",
+    "position_missing": "/v1/collections/elite-online/games?fen=4k3%2F8%2F8%2F8%2F8%2F8%2F8%2F4K3+w+-+-+0+1",
+    "position_start": "/v1/collections/elite-online/games?fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1",
+    "position_transposition_a": "/v1/collections/elite-online/games?moves=Nf3%2CNf6%2Cg3%2Cg6",
+    "position_transposition_b": "/v1/collections/elite-online/games?moves=g3%2Cg6%2CNf3%2CNf6"
+  }
+}

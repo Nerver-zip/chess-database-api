@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/validate.sh — Unified verification gate for opening-explorer-api
+# scripts/validate.sh — Unified verification gate for Chess Database API
 #
 # Runs in sequence:
 # 1. cargo fmt --all -- --check
@@ -22,7 +22,7 @@ if [ -d "$HOME/.cargo/bin" ]; then
 fi
 
 echo "========================================================================"
-echo "          opening-explorer-api Unified Verification Gate"
+echo "          Chess Database API Unified Verification Gate"
 echo "========================================================================"
 
 echo ""
@@ -38,7 +38,7 @@ echo "  [PASS] Clippy passed with zero warnings."
 echo ""
 echo "=== [3/8] Running workspace unit and integration tests (cargo test) ==="
 cargo test --workspace
-cargo test -p opening-explorer-cli --example audit_dedupe_source
+cargo test -p chess-database-cli --example audit_dedupe_source
 echo "  [PASS] All Rust test suites passed."
 
 echo ""

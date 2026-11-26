@@ -41,8 +41,8 @@ if [ "$MODE" = "--help" ] || [ "$MODE" = "-h" ]; then
     exit 0
 fi
 
-DATA_DIR="${OPENING_EXPLORER_DATA_DIR:-${CODB_DATA_DIR:-data}}"
-FIXTURES_DIR="${OPENING_EXPLORER_FIXTURES_DIR:-${CODB_FIXTURES_DIR:-fixtures}}"
+DATA_DIR="${CHESS_DATABASE_DATA_DIR:-${OPENING_EXPLORER_DATA_DIR:-${CODB_DATA_DIR:-data}}}"
+FIXTURES_DIR="${CHESS_DATABASE_FIXTURES_DIR:-${OPENING_EXPLORER_FIXTURES_DIR:-${CODB_FIXTURES_DIR:-fixtures}}}"
 
 # Expected SHA-256 constants
 SHA_OTB_07="714d0eb99f99fca8d791142038b6c59b5ca6a51b3339bd3891a92f4bdffcbf0c"
@@ -79,23 +79,28 @@ verify_file_hash() {
 }
 
 echo "=== [1/5] Building release binaries ==="
-cargo build --release -p opening-explorer-cli
+cargo build --release -p chess-database-cli
 
-BIN="./target/release/opening-explorer"
+BIN="./target/release/chess-database"
 RESULTS_DIR="benchmarks/results/historical"
-mkdir -p "$RESULTS_DIR"
 
-echo "=== [2/5] Stage A Benchmark (Deterministic Fixture: 1,000 games) ==="
-"$BIN" bench \
-    --input "$FIXTURES_DIR/stage_a_validation.pgn" \
-    --collection masters-otb \
-    --output-dir "$RESULTS_DIR" \
-    --run-name stage_a_validation
+run_stage_a() {
+    echo "=== Stage A Benchmark (Deterministic Fixture: 1,000 games) ==="
+    "$BIN" bench \
+        --input "$FIXTURES_DIR/stage_a_validation.pgn" \
+        --collection masters-otb \
+        --output-dir "$1" \
+        --run-name stage_a_validation
+}
 
 if [ "$MODE" = "--ci" ] || [ "$MODE" = "--stage-a" ]; then
+    CI_WORK_DIR=$(mktemp -d)
+    trap 'rm -rf "$CI_WORK_DIR"' EXIT
+    mkdir -p "$CI_WORK_DIR/results"
+    run_stage_a "$CI_WORK_DIR/results"
+
     echo "=== Running Persistent Dataset Lifecycle Verification (CI Mode) ==="
-    CI_DATASET_DIR=$(mktemp -d /tmp/opening-explorer-ci-dataset-XXXXXX)
-    trap 'rm -rf "$CI_DATASET_DIR"' EXIT
+    CI_DATASET_DIR="$CI_WORK_DIR/dataset"
 
     echo "Building persistent dataset from deterministic fixture..."
     "$BIN" build \
@@ -122,13 +127,11 @@ if [ "$MODE" = "--ci" ] || [ "$MODE" = "--stage-a" ]; then
     "$BIN" query --dataset "$CI_DATASET_DIR" --moves "e2e4 e7e5 g1f3" --json
 
     echo "=== Running Schema and Consistency Validation (CI Mode) ==="
+    python3 scripts/validate_benchmarks.py "$CI_WORK_DIR/results"
     python3 scripts/validate_benchmarks.py
     python3 scripts/test_validate_benchmarks.py
     python3 scripts/test_feasibility_alignment.py
     python3 scripts/validate_production_cpi_benchmarks.py
-
-    rm -rf "$CI_DATASET_DIR"
-    trap - EXIT
 
     echo ""
     echo "========================================================================"
@@ -209,6 +212,8 @@ verify_file_hash "$DATA_DIR/elite_online_2013-01.pgn.zst" "$SHA_ELITE_01" "Janua
 VERIFIED_DATASETS+=("$DATA_DIR/elite_online_2013-01.pgn.zst")
 
 echo "All required empirical datasets verified successfully."
+mkdir -p "$RESULTS_DIR"
+run_stage_a "$RESULTS_DIR"
 
 # Stage B single-archive benchmarks
 echo "=== [4/5] Executing Stage B & Progressive Benchmarks ==="

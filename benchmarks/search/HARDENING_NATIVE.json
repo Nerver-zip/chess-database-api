@@ -1,0 +1,2180 @@
+{
+  "baseline": {
+    "binary_sha256": "c05bb84b90ad47142e7b6b98171bbb1deb51c668b584d49e14b62c77cda70ce4",
+    "interactive": {
+      "cases": {
+        "autocomplete": {
+          "acceptance_rate": 1.0,
+          "accepted": 40,
+          "attempted": 40,
+          "max_us": 4685.78,
+          "min_us": 1358.96,
+          "p50_us": 1923.77,
+          "p95_us": 3987.15,
+          "p99_us": 4685.78,
+          "statuses": {
+            "200": 40
+          }
+        },
+        "filtered_date": {
+          "acceptance_rate": 0.0,
+          "accepted": 0,
+          "attempted": 40,
+          "max_us": 0.0,
+          "min_us": 0.0,
+          "p50_us": 0.0,
+          "p95_us": 0.0,
+          "p99_us": 0.0,
+          "statuses": {
+            "422": 20,
+            "429": 20
+          }
+        },
+        "filtered_rating": {
+          "acceptance_rate": 0.0,
+          "accepted": 0,
+          "attempted": 40,
+          "max_us": 0.0,
+          "min_us": 0.0,
+          "p50_us": 0.0,
+          "p95_us": 0.0,
+          "p99_us": 0.0,
+          "statuses": {
+            "422": 21,
+            "429": 19
+          }
+        },
+        "filtered_selective": {
+          "acceptance_rate": 0.575,
+          "accepted": 23,
+          "attempted": 40,
+          "max_us": 5194.4,
+          "min_us": 3047.08,
+          "p50_us": 3639.16,
+          "p95_us": 4586.97,
+          "p99_us": 5194.4,
+          "statuses": {
+            "200": 23,
+            "429": 17
+          }
+        },
+        "legacy_opening": {
+          "acceptance_rate": 1.0,
+          "accepted": 40,
+          "attempted": 40,
+          "max_us": 2937.21,
+          "min_us": 859.62,
+          "p50_us": 1288.29,
+          "p95_us": 2818.19,
+          "p99_us": 2937.21,
+          "statuses": {
+            "200": 40
+          }
+        },
+        "legacy_pgn": {
+          "acceptance_rate": 1.0,
+          "accepted": 40,
+          "attempted": 40,
+          "max_us": 2675.03,
+          "min_us": 853.76,
+          "p50_us": 1603.29,
+          "p95_us": 2331.31,
+          "p99_us": 2675.03,
+          "statuses": {
+            "200": 40
+          }
+        },
+        "metadata": {
+          "acceptance_rate": 1.0,
+          "accepted": 40,
+          "attempted": 40,
+          "max_us": 3504.09,
+          "min_us": 1493.55,
+          "p50_us": 2522.85,
+          "p95_us": 3495.24,
+          "p99_us": 3504.09,
+          "statuses": {
+            "200": 40
+          }
+        },
+        "navigation_latest": {
+          "acceptance_rate": 1.0,
+          "accepted": 40,
+          "attempted": 40,
+          "max_us": 2882.49,
+          "min_us": 1018.97,
+          "p50_us": 1626.8,
+          "p95_us": 2422.68,
+          "p99_us": 2882.49,
+          "statuses": {
+            "200": 40
+          }
+        },
+        "position": {
+          "acceptance_rate": 0.775,
+          "accepted": 31,
+          "attempted": 40,
+          "max_us": 3736.72,
+          "min_us": 1738.02,
+          "p50_us": 2239.7,
+          "p95_us": 3641.0,
+          "p99_us": 3736.72,
+          "statuses": {
+            "200": 31,
+            "429": 9
+          }
+        }
+      },
+      "client_abandoned_navigation": 40,
+      "collection": "masters-otb",
+      "dataset_version": "codb-masters-otb-1795640229266821029-29be58d4f83e0484-search",
+      "duration_seconds": 12.723310547999972,
+      "rounds": 10,
+      "think_ms": 125,
+      "users": 4,
+      "workload": {
+        "autocomplete": "/v1/collections/masters-otb/players?prefix=Cid%2C",
+        "filtered_date": "/v1/explorer/position/filtered?collection=masters-otb&moves=e4%2Cc5&from_year=2000",
+        "filtered_rating": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&min_both_ratings=2200",
+        "filtered_selective": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=Cid%2C+Marino+Alejandro",
+        "legacy_opening": "/v1/explorer/position?collection=masters-otb&moves=e4%2Cc5%2CNf3",
+        "legacy_pgn": "/v1/collections/masters-otb/games/16278808172669517150",
+        "metadata": "/v1/collections/masters-otb/games?player=Cid%2C+Marino+Alejandro",
+        "navigation_latest": "/v1/collections/masters-otb/games?moves=e4%2Cc5%2CNf3&limit=5",
+        "position": "/v1/collections/masters-otb/games?moves=e4%2Cc5%2CNf3"
+      }
+    },
+    "revision": "6a29e6e929cac08a4ae27feac282a67e5201e1c5",
+    "search": {
+      "dataset": {
+        "build_timestamp": "2026-11-25T20:57:11Z",
+        "capabilities": {
+          "event_search": true,
+          "filtered_explorer": true,
+          "game_filter_families": [
+            "player",
+            "side",
+            "matchup",
+            "rating",
+            "date",
+            "result",
+            "event",
+            "site",
+            "eco",
+            "time_control_category",
+            "plies",
+            "position",
+            "continuation"
+          ],
+          "game_metadata": true,
+          "game_retrieval": true,
+          "game_search": true,
+          "opening_explorer": true,
+          "player_search": true,
+          "position_search": true,
+          "position_search_coverage": {
+            "max_ply": 40,
+            "mode": "bounded"
+          }
+        },
+        "collection": "masters-otb",
+        "cpi_available": true,
+        "cpi_depth_plies": 40,
+        "cpi_total_positions": 51909604,
+        "dataset_version": "codb-masters-otb-1795640229266821029-29be58d4f83e0484-search",
+        "format_version": "CGB3/v1",
+        "total_games": 3284429
+      },
+      "legacy": {
+        "cases": {
+          "legacy_opening": {
+            "max_us": 5959.07,
+            "min_us": 233.67,
+            "p50_us": 758.46,
+            "p95_us": 2359.73,
+            "p99_us": 3929.12,
+            "statuses": {
+              "200": 300
+            }
+          },
+          "legacy_pgn": {
+            "max_us": 6610.26,
+            "min_us": 374.22,
+            "p50_us": 895.22,
+            "p95_us": 2469.17,
+            "p99_us": 3605.25,
+            "statuses": {
+              "200": 300
+            }
+          },
+          "legacy_start": {
+            "max_us": 4639.64,
+            "min_us": 310.76,
+            "p50_us": 733.46,
+            "p95_us": 2271.2,
+            "p99_us": 3277.3,
+            "statuses": {
+              "200": 300
+            }
+          }
+        },
+        "requests": 900,
+        "requests_per_second": 3891.6028615018135,
+        "seconds": 0.2312671749996298
+      },
+      "mixed": {
+        "cases": {
+          "event_exact": {
+            "max_us": 1036.2,
+            "min_us": 812.13,
+            "p50_us": 814.26,
+            "p95_us": 1036.2,
+            "p99_us": 1036.2,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          },
+          "event_prefix": {
+            "max_us": 1757.78,
+            "min_us": 839.99,
+            "p50_us": 1459.04,
+            "p95_us": 1757.78,
+            "p99_us": 1757.78,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          },
+          "filtered_broad": {
+            "max_us": 0.0,
+            "min_us": 0.0,
+            "p50_us": 0.0,
+            "p95_us": 0.0,
+            "p99_us": 0.0,
+            "statuses": {
+              "422": 4,
+              "429": 16
+            }
+          },
+          "filtered_combination": {
+            "max_us": 3458.48,
+            "min_us": 2964.19,
+            "p50_us": 3106.45,
+            "p95_us": 3458.48,
+            "p99_us": 3458.48,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          },
+          "filtered_common": {
+            "max_us": 0.0,
+            "min_us": 0.0,
+            "p50_us": 0.0,
+            "p95_us": 0.0,
+            "p99_us": 0.0,
+            "statuses": {
+              "422": 4,
+              "429": 16
+            }
+          },
+          "filtered_no_match": {
+            "max_us": 2046.77,
+            "min_us": 1076.08,
+            "p50_us": 1293.28,
+            "p95_us": 2046.77,
+            "p99_us": 2046.77,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          },
+          "filtered_rare": {
+            "max_us": 0.0,
+            "min_us": 0.0,
+            "p50_us": 0.0,
+            "p95_us": 0.0,
+            "p99_us": 0.0,
+            "statuses": {
+              "422": 5,
+              "429": 15
+            }
+          },
+          "filtered_selective": {
+            "max_us": 3251.35,
+            "min_us": 2378.7,
+            "p50_us": 2969.14,
+            "p95_us": 3251.35,
+            "p99_us": 3251.35,
+            "statuses": {
+              "200": 4,
+              "429": 16
+            }
+          },
+          "game_details": {
+            "max_us": 1727.84,
+            "min_us": 848.14,
+            "p50_us": 1302.65,
+            "p95_us": 1727.84,
+            "p99_us": 1727.84,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          },
+          "legacy_opening": {
+            "max_us": 1630.37,
+            "min_us": 294.2,
+            "p50_us": 398.43,
+            "p95_us": 1056.39,
+            "p99_us": 1630.37,
+            "statuses": {
+              "200": 100
+            }
+          },
+          "legacy_pgn": {
+            "max_us": 2703.79,
+            "min_us": 304.47,
+            "p50_us": 676.89,
+            "p95_us": 1615.52,
+            "p99_us": 2703.79,
+            "statuses": {
+              "200": 100
+            }
+          },
+          "legacy_start": {
+            "max_us": 2012.26,
+            "min_us": 299.6,
+            "p50_us": 516.05,
+            "p95_us": 1273.72,
+            "p99_us": 2012.26,
+            "statuses": {
+              "200": 100
+            }
+          },
+          "metadata_broad": {
+            "max_us": 3934.14,
+            "min_us": 987.5,
+            "p50_us": 2756.37,
+            "p95_us": 3934.14,
+            "p99_us": 3934.14,
+            "statuses": {
+              "200": 8,
+              "429": 12
+            }
+          },
+          "metadata_combined": {
+            "max_us": 2769.23,
+            "min_us": 1611.25,
+            "p50_us": 1678.2,
+            "p95_us": 2769.23,
+            "p99_us": 2769.23,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          },
+          "metadata_event": {
+            "max_us": 1692.37,
+            "min_us": 857.67,
+            "p50_us": 1193.64,
+            "p95_us": 1692.37,
+            "p99_us": 1692.37,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          },
+          "metadata_exact_player": {
+            "max_us": 2033.1,
+            "min_us": 1122.54,
+            "p50_us": 1932.07,
+            "p95_us": 2033.1,
+            "p99_us": 2033.1,
+            "statuses": {
+              "200": 6,
+              "429": 14
+            }
+          },
+          "metadata_matchup": {
+            "max_us": 1343.89,
+            "min_us": 824.16,
+            "p50_us": 1122.26,
+            "p95_us": 1343.89,
+            "p99_us": 1343.89,
+            "statuses": {
+              "200": 4,
+              "429": 16
+            }
+          },
+          "metadata_other_player": {
+            "max_us": 2262.35,
+            "min_us": 800.91,
+            "p50_us": 1519.55,
+            "p95_us": 2262.35,
+            "p99_us": 2262.35,
+            "statuses": {
+              "200": 6,
+              "429": 14
+            }
+          },
+          "metadata_ratings": {
+            "max_us": 4846.64,
+            "min_us": 1097.06,
+            "p50_us": 1689.59,
+            "p95_us": 4846.64,
+            "p99_us": 4846.64,
+            "statuses": {
+              "200": 6,
+              "429": 14
+            }
+          },
+          "metadata_second_page": {
+            "max_us": 1585.82,
+            "min_us": 1070.87,
+            "p50_us": 1088.03,
+            "p95_us": 1585.82,
+            "p99_us": 1585.82,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          },
+          "metadata_years": {
+            "max_us": 2200.21,
+            "min_us": 1252.54,
+            "p50_us": 1873.55,
+            "p95_us": 2200.21,
+            "p99_us": 2200.21,
+            "statuses": {
+              "200": 4,
+              "429": 16
+            }
+          },
+          "player_exact": {
+            "max_us": 1411.1,
+            "min_us": 791.56,
+            "p50_us": 936.37,
+            "p95_us": 1411.1,
+            "p99_us": 1411.1,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          },
+          "player_prefix": {
+            "max_us": 1814.06,
+            "min_us": 1291.98,
+            "p50_us": 1565.08,
+            "p95_us": 1814.06,
+            "p99_us": 1814.06,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          },
+          "position_and_player": {
+            "max_us": 2845.8,
+            "min_us": 1770.64,
+            "p50_us": 2711.33,
+            "p95_us": 2845.8,
+            "p99_us": 2845.8,
+            "statuses": {
+              "200": 4,
+              "429": 16
+            }
+          },
+          "position_and_rating": {
+            "max_us": 3463.57,
+            "min_us": 1526.17,
+            "p50_us": 2588.28,
+            "p95_us": 3463.57,
+            "p99_us": 3463.57,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          },
+          "position_common": {
+            "max_us": 2356.87,
+            "min_us": 1284.11,
+            "p50_us": 2300.86,
+            "p95_us": 2356.87,
+            "p99_us": 2356.87,
+            "statuses": {
+              "200": 4,
+              "429": 16
+            }
+          },
+          "position_continuation": {
+            "max_us": 4847.9,
+            "min_us": 1022.56,
+            "p50_us": 1584.55,
+            "p95_us": 4847.9,
+            "p99_us": 4847.9,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          },
+          "position_deep": {
+            "max_us": 1526.04,
+            "min_us": 613.37,
+            "p50_us": 1381.49,
+            "p95_us": 1526.04,
+            "p99_us": 1526.04,
+            "statuses": {
+              "200": 4,
+              "429": 16
+            }
+          },
+          "position_medium": {
+            "max_us": 2861.41,
+            "min_us": 954.71,
+            "p50_us": 1777.55,
+            "p95_us": 2861.41,
+            "p99_us": 2861.41,
+            "statuses": {
+              "200": 4,
+              "429": 16
+            }
+          },
+          "position_missing": {
+            "max_us": 2077.43,
+            "min_us": 433.79,
+            "p50_us": 968.76,
+            "p95_us": 2077.43,
+            "p99_us": 2077.43,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          },
+          "position_start": {
+            "max_us": 1952.84,
+            "min_us": 1144.4,
+            "p50_us": 1554.06,
+            "p95_us": 1952.84,
+            "p99_us": 1952.84,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          },
+          "position_transposition_a": {
+            "max_us": 2054.85,
+            "min_us": 1095.0,
+            "p50_us": 1512.67,
+            "p95_us": 2054.85,
+            "p99_us": 2054.85,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          },
+          "position_transposition_b": {
+            "max_us": 2206.87,
+            "min_us": 1193.85,
+            "p50_us": 1796.87,
+            "p95_us": 2206.87,
+            "p99_us": 2206.87,
+            "statuses": {
+              "200": 5,
+              "429": 15
+            }
+          }
+        },
+        "requests": 900,
+        "requests_per_second": 470.1882257035033,
+        "seconds": 1.9141270469999654
+      },
+      "search": {
+        "cases": {
+          "event_exact": {
+            "max_us": 2814.4,
+            "min_us": 1376.61,
+            "p50_us": 2150.15,
+            "p95_us": 2814.4,
+            "p99_us": 2814.4,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "event_prefix": {
+            "max_us": 2801.49,
+            "min_us": 1412.43,
+            "p50_us": 2125.73,
+            "p95_us": 2801.49,
+            "p99_us": 2801.49,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "filtered_broad": {
+            "max_us": 0.0,
+            "min_us": 0.0,
+            "p50_us": 0.0,
+            "p95_us": 0.0,
+            "p99_us": 0.0,
+            "statuses": {
+              "422": 5
+            }
+          },
+          "filtered_combination": {
+            "max_us": 5986.58,
+            "min_us": 2634.12,
+            "p50_us": 4068.89,
+            "p95_us": 5986.58,
+            "p99_us": 5986.58,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "filtered_common": {
+            "max_us": 0.0,
+            "min_us": 0.0,
+            "p50_us": 0.0,
+            "p95_us": 0.0,
+            "p99_us": 0.0,
+            "statuses": {
+              "422": 5
+            }
+          },
+          "filtered_no_match": {
+            "max_us": 3470.32,
+            "min_us": 1492.67,
+            "p50_us": 1757.63,
+            "p95_us": 3470.32,
+            "p99_us": 3470.32,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "filtered_rare": {
+            "max_us": 0.0,
+            "min_us": 0.0,
+            "p50_us": 0.0,
+            "p95_us": 0.0,
+            "p99_us": 0.0,
+            "statuses": {
+              "422": 5
+            }
+          },
+          "filtered_selective": {
+            "max_us": 8188.7,
+            "min_us": 2731.16,
+            "p50_us": 3157.93,
+            "p95_us": 8188.7,
+            "p99_us": 8188.7,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "game_details": {
+            "max_us": 3709.11,
+            "min_us": 992.94,
+            "p50_us": 1863.3,
+            "p95_us": 3709.11,
+            "p99_us": 3709.11,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_broad": {
+            "max_us": 3187.99,
+            "min_us": 1826.3,
+            "p50_us": 2140.47,
+            "p95_us": 3187.99,
+            "p99_us": 3187.99,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_combined": {
+            "max_us": 14422.55,
+            "min_us": 2250.25,
+            "p50_us": 3791.13,
+            "p95_us": 14422.55,
+            "p99_us": 14422.55,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_event": {
+            "max_us": 2140.74,
+            "min_us": 1282.35,
+            "p50_us": 1941.78,
+            "p95_us": 2140.74,
+            "p99_us": 2140.74,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_exact_player": {
+            "max_us": 3820.75,
+            "min_us": 2185.7,
+            "p50_us": 2725.82,
+            "p95_us": 3820.75,
+            "p99_us": 3820.75,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_matchup": {
+            "max_us": 2771.1,
+            "min_us": 1351.17,
+            "p50_us": 2171.68,
+            "p95_us": 2771.1,
+            "p99_us": 2771.1,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_other_player": {
+            "max_us": 5522.32,
+            "min_us": 1919.82,
+            "p50_us": 2695.23,
+            "p95_us": 5522.32,
+            "p99_us": 5522.32,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_ratings": {
+            "max_us": 5783.59,
+            "min_us": 1919.83,
+            "p50_us": 2130.83,
+            "p95_us": 5783.59,
+            "p99_us": 5783.59,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_second_page": {
+            "max_us": 3562.98,
+            "min_us": 1311.95,
+            "p50_us": 2718.59,
+            "p95_us": 3562.98,
+            "p99_us": 3562.98,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_years": {
+            "max_us": 3333.85,
+            "min_us": 1837.9,
+            "p50_us": 2345.14,
+            "p95_us": 3333.85,
+            "p99_us": 3333.85,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "player_exact": {
+            "max_us": 2239.2,
+            "min_us": 1526.11,
+            "p50_us": 1887.2,
+            "p95_us": 2239.2,
+            "p99_us": 2239.2,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "player_prefix": {
+            "max_us": 2805.63,
+            "min_us": 1034.73,
+            "p50_us": 2053.63,
+            "p95_us": 2805.63,
+            "p99_us": 2805.63,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_and_player": {
+            "max_us": 4142.51,
+            "min_us": 1979.9,
+            "p50_us": 2924.98,
+            "p95_us": 4142.51,
+            "p99_us": 4142.51,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_and_rating": {
+            "max_us": 4776.96,
+            "min_us": 1804.19,
+            "p50_us": 2811.54,
+            "p95_us": 4776.96,
+            "p99_us": 4776.96,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_common": {
+            "max_us": 4237.85,
+            "min_us": 1611.91,
+            "p50_us": 2674.82,
+            "p95_us": 4237.85,
+            "p99_us": 4237.85,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_continuation": {
+            "max_us": 2745.97,
+            "min_us": 978.91,
+            "p50_us": 2283.13,
+            "p95_us": 2745.97,
+            "p99_us": 2745.97,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_deep": {
+            "max_us": 3213.11,
+            "min_us": 482.8,
+            "p50_us": 1416.57,
+            "p95_us": 3213.11,
+            "p99_us": 3213.11,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_medium": {
+            "max_us": 4976.51,
+            "min_us": 1179.22,
+            "p50_us": 2161.62,
+            "p95_us": 4976.51,
+            "p99_us": 4976.51,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_missing": {
+            "max_us": 3166.17,
+            "min_us": 567.73,
+            "p50_us": 1255.45,
+            "p95_us": 3166.17,
+            "p99_us": 3166.17,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_start": {
+            "max_us": 3976.03,
+            "min_us": 1247.16,
+            "p50_us": 2184.25,
+            "p95_us": 3976.03,
+            "p99_us": 3976.03,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_transposition_a": {
+            "max_us": 3764.25,
+            "min_us": 1149.16,
+            "p50_us": 1960.77,
+            "p95_us": 3764.25,
+            "p99_us": 3764.25,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_transposition_b": {
+            "max_us": 5404.99,
+            "min_us": 1261.73,
+            "p50_us": 2609.66,
+            "p95_us": 5404.99,
+            "p99_us": 5404.99,
+            "statuses": {
+              "200": 5
+            }
+          }
+        },
+        "requests": 150,
+        "requests_per_second": 62.48103734359146,
+        "seconds": 2.4007283870005267
+      },
+      "workload": {
+        "event_exact": "/v1/collections/masters-otb/events?name=Final+Abuelos+Bonaerenses+%2B60",
+        "event_prefix": "/v1/collections/masters-otb/events?prefix=Fina",
+        "filtered_broad": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&min_both_ratings=2200",
+        "filtered_combination": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=Cid%2C+Marino+Alejandro&from_year=1990&min_both_ratings=2200",
+        "filtered_common": "/v1/explorer/position/filtered?collection=masters-otb&moves=e4%2Cc5&min_both_ratings=2400",
+        "filtered_no_match": "/v1/explorer/position/filtered?collection=masters-otb&moves=d4%2CNf6&player=benchmark+unknown+player",
+        "filtered_rare": "/v1/explorer/position/filtered?collection=masters-otb&moves=e4%2Ce5%2CNf3%2CNc6%2CBb5%2Ca6%2CBa4%2CNf6%2CO-O%2CBe7%2CRe1%2Cb5%2CBb3%2Cd6%2Cc3%2CO-O%2Ch3%2CNb8%2Cd4%2CNbd7&min_plies=0",
+        "filtered_selective": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=Cid%2C+Marino+Alejandro",
+        "game_details": "/v1/collections/masters-otb/games/16278808172669517150/metadata",
+        "legacy_opening": "/v1/explorer/position?collection=masters-otb&moves=e4%2Cc5%2CNf3",
+        "legacy_pgn": "/v1/collections/masters-otb/games/16278808172669517150",
+        "legacy_start": "/v1/explorer/position?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1",
+        "metadata_broad": "/v1/collections/masters-otb/games?sort=date_desc&limit=25",
+        "metadata_combined": "/v1/collections/masters-otb/games?player=Cid%2C+Marino+Alejandro&min_both_ratings=2200&from_year=1990&sort=game_length",
+        "metadata_event": "/v1/collections/masters-otb/games?event=Final+Abuelos+Bonaerenses+%2B60&sort=date_desc",
+        "metadata_exact_player": "/v1/collections/masters-otb/games?player=Cid%2C+Marino+Alejandro",
+        "metadata_matchup": "/v1/collections/masters-otb/games?player=Cid%2C+Marino+Alejandro&opponent=Stefano%2C+Rafael",
+        "metadata_other_player": "/v1/collections/masters-otb/games?player=Xu%2C+Ziyuan",
+        "metadata_ratings": "/v1/collections/masters-otb/games?min_both_ratings=2400&sort=average_rating",
+        "metadata_second_page": "/v1/collections/masters-otb/games?sort=date_desc&limit=25&cursor=AQQAsPslz6HGW2BoxYEQ8mYLiUNLV1t7g_vi5Dc5VSgEAAAAAAE1KEEAAAAJ",
+        "metadata_years": "/v1/collections/masters-otb/games?from_year=2000&through_year=2015&sort=date_desc",
+        "player_exact": "/v1/collections/masters-otb/players?name=Cid%2C+Marino+Alejandro",
+        "player_prefix": "/v1/collections/masters-otb/players?prefix=Cid%2C",
+        "position_and_player": "/v1/collections/masters-otb/games?fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=Cid%2C+Marino+Alejandro",
+        "position_and_rating": "/v1/collections/masters-otb/games?moves=e4%2Cc5&min_both_ratings=2400",
+        "position_common": "/v1/collections/masters-otb/games?moves=e4%2Cc5%2CNf3",
+        "position_continuation": "/v1/collections/masters-otb/games?fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&continuation=Nf3",
+        "position_deep": "/v1/collections/masters-otb/games?moves=e4%2Ce5%2CNf3%2CNc6%2CBb5%2Ca6%2CBa4%2CNf6%2CO-O%2CBe7%2CRe1%2Cb5%2CBb3%2Cd6%2Cc3%2CO-O%2Ch3%2CNb8%2Cd4%2CNbd7%2Cc4%2Cc6%2CNc3%2CBb7%2Ca3%2CQc7%2Ccxb5%2Caxb5%2CBe3%2CRfe8%2CRc1%2CQb8%2CNg5%2CRf8%2Cdxe5%2Cdxe5%2CBe6%2CQe8%2CBa2%2Ch6",
+        "position_medium": "/v1/collections/masters-otb/games?moves=e4%2Ce5%2CNf3%2CNc6%2CBb5%2Ca6%2CBa4%2CNf6",
+        "position_missing": "/v1/collections/masters-otb/games?fen=4k3%2F8%2F8%2F8%2F8%2F8%2F8%2F4K3+w+-+-+0+1",
+        "position_start": "/v1/collections/masters-otb/games?fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1",
+        "position_transposition_a": "/v1/collections/masters-otb/games?moves=Nf3%2CNf6%2Cg3%2Cg6",
+        "position_transposition_b": "/v1/collections/masters-otb/games?moves=g3%2Cg6%2CNf3%2CNf6"
+      }
+    }
+  },
+  "candidate": {
+    "binary_sha256": "0436ed664d6305b0d3d01dc79bec92a48fb7833b1b190d2cdf832e1941c38c31",
+    "elite_flow": {
+      "cases": {
+        "collections": {
+          "latency_us": 643.060000584228,
+          "status": 200
+        },
+        "continuation": {
+          "latency_us": 1692.2900003919494,
+          "status": 200
+        },
+        "event_detail": {
+          "latency_us": 755.609999941953,
+          "status": 200
+        },
+        "event_games": {
+          "latency_us": 1540.969999950903,
+          "status": 200
+        },
+        "filtered_player": {
+          "latency_us": 2606.279999781691,
+          "status": 200
+        },
+        "first_games": {
+          "latency_us": 1967.8099997690879,
+          "status": 200
+        },
+        "game_metadata": {
+          "latency_us": 1557.8100001221173,
+          "status": 200
+        },
+        "game_pgn": {
+          "latency_us": 4327.520000515506,
+          "status": 200
+        },
+        "legacy_conditional": {
+          "latency_us": 561.2599998130463,
+          "status": 304
+        },
+        "legacy_explorer": {
+          "latency_us": 1283.1000003643567,
+          "status": 200
+        },
+        "player_detail": {
+          "latency_us": 1099.0399996444467,
+          "status": 200
+        },
+        "player_position_games": {
+          "latency_us": 1918.3200001862133,
+          "status": 200
+        },
+        "players": {
+          "latency_us": 1076.659999853291,
+          "status": 200
+        },
+        "ready": {
+          "latency_us": 3077.8800000916817,
+          "status": 200
+        },
+        "second_games": {
+          "latency_us": 1713.4199997599353,
+          "status": 200
+        },
+        "unfiltered_compatibility": {
+          "latency_us": 1401.4299995324109,
+          "status": 200
+        }
+      },
+      "collection": "elite-online",
+      "dataset_version": "codb-elite-online-1795638650408508480-cfc2575f9f6971eb-search",
+      "mode": "enriched",
+      "seconds": 0.029243499999211053
+    },
+    "interactive": {
+      "cases": {
+        "autocomplete": {
+          "acceptance_rate": 1.0,
+          "accepted": 40,
+          "attempted": 40,
+          "max_us": 9837.36,
+          "min_us": 1067.84,
+          "p50_us": 2085.73,
+          "p95_us": 9193.22,
+          "p99_us": 9837.36,
+          "statuses": {
+            "200": 40
+          }
+        },
+        "filtered_date": {
+          "acceptance_rate": 0.6,
+          "accepted": 24,
+          "attempted": 40,
+          "max_us": 170086.72,
+          "min_us": 25773.31,
+          "p50_us": 41136.95,
+          "p95_us": 168620.95,
+          "p99_us": 170086.72,
+          "statuses": {
+            "200": 24,
+            "429": 16
+          }
+        },
+        "filtered_rating": {
+          "acceptance_rate": 0.6,
+          "accepted": 24,
+          "attempted": 40,
+          "max_us": 828542.13,
+          "min_us": 130524.13,
+          "p50_us": 227459.51,
+          "p95_us": 775656.62,
+          "p99_us": 828542.13,
+          "statuses": {
+            "200": 24,
+            "429": 16
+          }
+        },
+        "filtered_selective": {
+          "acceptance_rate": 0.675,
+          "accepted": 27,
+          "attempted": 40,
+          "max_us": 104375.56,
+          "min_us": 3051.48,
+          "p50_us": 3684.3,
+          "p95_us": 99837.85,
+          "p99_us": 104375.56,
+          "statuses": {
+            "200": 27,
+            "429": 13
+          }
+        },
+        "legacy_opening": {
+          "acceptance_rate": 1.0,
+          "accepted": 40,
+          "attempted": 40,
+          "max_us": 10445.84,
+          "min_us": 817.35,
+          "p50_us": 1263.72,
+          "p95_us": 7359.05,
+          "p99_us": 10445.84,
+          "statuses": {
+            "200": 40
+          }
+        },
+        "legacy_pgn": {
+          "acceptance_rate": 1.0,
+          "accepted": 40,
+          "attempted": 40,
+          "max_us": 19023.25,
+          "min_us": 862.52,
+          "p50_us": 1707.75,
+          "p95_us": 16979.47,
+          "p99_us": 19023.25,
+          "statuses": {
+            "200": 40
+          }
+        },
+        "metadata": {
+          "acceptance_rate": 1.0,
+          "accepted": 40,
+          "attempted": 40,
+          "max_us": 17306.01,
+          "min_us": 1505.93,
+          "p50_us": 2572.24,
+          "p95_us": 11885.41,
+          "p99_us": 17306.01,
+          "statuses": {
+            "200": 40
+          }
+        },
+        "navigation_latest": {
+          "acceptance_rate": 1.0,
+          "accepted": 40,
+          "attempted": 40,
+          "max_us": 10693.74,
+          "min_us": 1148.43,
+          "p50_us": 2017.8,
+          "p95_us": 8915.39,
+          "p99_us": 10693.74,
+          "statuses": {
+            "200": 40
+          }
+        },
+        "position": {
+          "acceptance_rate": 1.0,
+          "accepted": 40,
+          "attempted": 40,
+          "max_us": 16086.62,
+          "min_us": 1684.44,
+          "p50_us": 2803.3,
+          "p95_us": 14025.88,
+          "p99_us": 16086.62,
+          "statuses": {
+            "200": 40
+          }
+        }
+      },
+      "client_abandoned_navigation": 40,
+      "collection": "masters-otb",
+      "dataset_version": "codb-masters-otb-1795640229266821029-29be58d4f83e0484-search",
+      "duration_seconds": 15.636425323000367,
+      "rounds": 10,
+      "think_ms": 125,
+      "users": 4,
+      "workload": {
+        "autocomplete": "/v1/collections/masters-otb/players?prefix=Cid%2C",
+        "filtered_date": "/v1/explorer/position/filtered?collection=masters-otb&moves=e4%2Cc5&from_year=2000",
+        "filtered_rating": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&min_both_ratings=2200",
+        "filtered_selective": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=Cid%2C+Marino+Alejandro",
+        "legacy_opening": "/v1/explorer/position?collection=masters-otb&moves=e4%2Cc5%2CNf3",
+        "legacy_pgn": "/v1/collections/masters-otb/games/16278808172669517150",
+        "metadata": "/v1/collections/masters-otb/games?player=Cid%2C+Marino+Alejandro",
+        "navigation_latest": "/v1/collections/masters-otb/games?moves=e4%2Cc5%2CNf3&limit=5",
+        "position": "/v1/collections/masters-otb/games?moves=e4%2Cc5%2CNf3"
+      }
+    },
+    "masters_flow": {
+      "cases": {
+        "collections": {
+          "latency_us": 990.4199996526586,
+          "status": 200
+        },
+        "continuation": {
+          "latency_us": 1596.1399994921521,
+          "status": 200
+        },
+        "event_detail": {
+          "latency_us": 1027.559999783989,
+          "status": 200
+        },
+        "event_games": {
+          "latency_us": 1130.15999977506,
+          "status": 200
+        },
+        "filtered_player": {
+          "latency_us": 1738.1010002281982,
+          "status": 200
+        },
+        "first_games": {
+          "latency_us": 1579.969999511377,
+          "status": 200
+        },
+        "game_metadata": {
+          "latency_us": 1205.2889996994054,
+          "status": 200
+        },
+        "game_pgn": {
+          "latency_us": 979.9889994610567,
+          "status": 200
+        },
+        "legacy_conditional": {
+          "latency_us": 732.7800003622542,
+          "status": 304
+        },
+        "legacy_explorer": {
+          "latency_us": 1346.759999250935,
+          "status": 200
+        },
+        "player_detail": {
+          "latency_us": 1209.5500005671056,
+          "status": 200
+        },
+        "player_position_games": {
+          "latency_us": 2481.159000126354,
+          "status": 200
+        },
+        "players": {
+          "latency_us": 2072.279999993043,
+          "status": 200
+        },
+        "ready": {
+          "latency_us": 3023.590000339027,
+          "status": 200
+        },
+        "second_games": {
+          "latency_us": 1726.6699996980606,
+          "status": 200
+        },
+        "unfiltered_compatibility": {
+          "latency_us": 857.4000003136462,
+          "status": 200
+        }
+      },
+      "collection": "masters-otb",
+      "dataset_version": "codb-masters-otb-1795640229266821029-29be58d4f83e0484-search",
+      "mode": "enriched",
+      "seconds": 0.025564489000316826
+    },
+    "revision": "3518a8e",
+    "search": {
+      "dataset": {
+        "build_timestamp": "2026-11-25T20:57:11Z",
+        "capabilities": {
+          "event_search": true,
+          "filtered_explorer": true,
+          "game_filter_families": [
+            "player",
+            "side",
+            "matchup",
+            "rating",
+            "date",
+            "result",
+            "event",
+            "site",
+            "eco",
+            "time_control_category",
+            "plies",
+            "position",
+            "continuation"
+          ],
+          "game_metadata": true,
+          "game_retrieval": true,
+          "game_search": true,
+          "opening_explorer": true,
+          "player_search": true,
+          "position_search": true,
+          "position_search_coverage": {
+            "max_ply": 40,
+            "mode": "bounded"
+          }
+        },
+        "collection": "masters-otb",
+        "cpi_available": true,
+        "cpi_depth_plies": 40,
+        "cpi_total_positions": 51909604,
+        "dataset_version": "codb-masters-otb-1795640229266821029-29be58d4f83e0484-search",
+        "format_version": "CGB3/v1",
+        "total_games": 3284429
+      },
+      "legacy": {
+        "cases": {
+          "legacy_opening": {
+            "max_us": 10813.56,
+            "min_us": 314.84,
+            "p50_us": 777.3,
+            "p95_us": 3142.65,
+            "p99_us": 9211.55,
+            "statuses": {
+              "200": 300
+            }
+          },
+          "legacy_pgn": {
+            "max_us": 12647.09,
+            "min_us": 362.99,
+            "p50_us": 925.11,
+            "p95_us": 4476.15,
+            "p99_us": 10496.73,
+            "statuses": {
+              "200": 300
+            }
+          },
+          "legacy_start": {
+            "max_us": 15271.29,
+            "min_us": 305.08,
+            "p50_us": 764.7,
+            "p95_us": 3267.31,
+            "p99_us": 10101.48,
+            "statuses": {
+              "200": 300
+            }
+          }
+        },
+        "requests": 900,
+        "requests_per_second": 3047.1400384938174,
+        "seconds": 0.29535892300009436
+      },
+      "mixed": {
+        "cases": {
+          "event_exact": {
+            "max_us": 4197.68,
+            "min_us": 329.62,
+            "p50_us": 954.03,
+            "p95_us": 4197.68,
+            "p99_us": 4197.68,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "event_prefix": {
+            "max_us": 2917.54,
+            "min_us": 546.86,
+            "p50_us": 1171.2,
+            "p95_us": 2917.54,
+            "p99_us": 2917.54,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "filtered_broad": {
+            "max_us": 227912.81,
+            "min_us": 131811.79,
+            "p50_us": 155422.14,
+            "p95_us": 227912.81,
+            "p99_us": 227912.81,
+            "statuses": {
+              "200": 8,
+              "429": 12
+            }
+          },
+          "filtered_combination": {
+            "max_us": 39635.31,
+            "min_us": 1460.1,
+            "p50_us": 3243.71,
+            "p95_us": 39635.31,
+            "p99_us": 39635.31,
+            "statuses": {
+              "200": 12,
+              "429": 8
+            }
+          },
+          "filtered_common": {
+            "max_us": 76786.66,
+            "min_us": 27517.03,
+            "p50_us": 56503.82,
+            "p95_us": 76786.66,
+            "p99_us": 76786.66,
+            "statuses": {
+              "200": 8,
+              "429": 12
+            }
+          },
+          "filtered_no_match": {
+            "max_us": 62375.82,
+            "min_us": 689.53,
+            "p50_us": 21492.37,
+            "p95_us": 62375.82,
+            "p99_us": 62375.82,
+            "statuses": {
+              "200": 11,
+              "429": 9
+            }
+          },
+          "filtered_rare": {
+            "max_us": 6013.38,
+            "min_us": 456.44,
+            "p50_us": 1230.96,
+            "p95_us": 6013.38,
+            "p99_us": 6013.38,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "filtered_selective": {
+            "max_us": 95556.03,
+            "min_us": 1755.02,
+            "p50_us": 3431.74,
+            "p95_us": 95556.03,
+            "p99_us": 95556.03,
+            "statuses": {
+              "200": 8,
+              "429": 12
+            }
+          },
+          "game_details": {
+            "max_us": 5169.29,
+            "min_us": 454.85,
+            "p50_us": 1192.97,
+            "p95_us": 5169.29,
+            "p99_us": 5169.29,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "legacy_opening": {
+            "max_us": 3123.69,
+            "min_us": 212.88,
+            "p50_us": 446.61,
+            "p95_us": 1237.25,
+            "p99_us": 3123.69,
+            "statuses": {
+              "200": 100
+            }
+          },
+          "legacy_pgn": {
+            "max_us": 4558.41,
+            "min_us": 347.6,
+            "p50_us": 877.16,
+            "p95_us": 3127.86,
+            "p99_us": 4558.41,
+            "statuses": {
+              "200": 100
+            }
+          },
+          "legacy_start": {
+            "max_us": 4295.32,
+            "min_us": 307.84,
+            "p50_us": 629.81,
+            "p95_us": 1435.17,
+            "p99_us": 4295.32,
+            "statuses": {
+              "200": 100
+            }
+          },
+          "metadata_broad": {
+            "max_us": 4966.76,
+            "min_us": 842.09,
+            "p50_us": 1526.39,
+            "p95_us": 4966.76,
+            "p99_us": 4966.76,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "metadata_combined": {
+            "max_us": 3345.95,
+            "min_us": 1192.74,
+            "p50_us": 2134.67,
+            "p95_us": 3345.95,
+            "p99_us": 3345.95,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "metadata_event": {
+            "max_us": 2468.8,
+            "min_us": 493.78,
+            "p50_us": 1135.89,
+            "p95_us": 2468.8,
+            "p99_us": 2468.8,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "metadata_exact_player": {
+            "max_us": 3796.08,
+            "min_us": 1092.31,
+            "p50_us": 1923.73,
+            "p95_us": 3796.08,
+            "p99_us": 3796.08,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "metadata_matchup": {
+            "max_us": 3590.43,
+            "min_us": 687.87,
+            "p50_us": 1535.51,
+            "p95_us": 3590.43,
+            "p99_us": 3590.43,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "metadata_other_player": {
+            "max_us": 4136.37,
+            "min_us": 926.38,
+            "p50_us": 1755.35,
+            "p95_us": 4136.37,
+            "p99_us": 4136.37,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "metadata_ratings": {
+            "max_us": 2700.83,
+            "min_us": 804.85,
+            "p50_us": 1723.29,
+            "p95_us": 2700.83,
+            "p99_us": 2700.83,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "metadata_second_page": {
+            "max_us": 4922.59,
+            "min_us": 791.36,
+            "p50_us": 1767.26,
+            "p95_us": 4922.59,
+            "p99_us": 4922.59,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "metadata_years": {
+            "max_us": 4539.97,
+            "min_us": 721.13,
+            "p50_us": 1240.37,
+            "p95_us": 4539.97,
+            "p99_us": 4539.97,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "player_exact": {
+            "max_us": 2134.13,
+            "min_us": 448.91,
+            "p50_us": 1116.35,
+            "p95_us": 2134.13,
+            "p99_us": 2134.13,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "player_prefix": {
+            "max_us": 1903.21,
+            "min_us": 513.58,
+            "p50_us": 1163.2,
+            "p95_us": 1903.21,
+            "p99_us": 1903.21,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "position_and_player": {
+            "max_us": 4266.18,
+            "min_us": 1630.03,
+            "p50_us": 2459.62,
+            "p95_us": 4266.18,
+            "p99_us": 4266.18,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "position_and_rating": {
+            "max_us": 5281.78,
+            "min_us": 1852.98,
+            "p50_us": 2772.01,
+            "p95_us": 5281.78,
+            "p99_us": 5281.78,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "position_common": {
+            "max_us": 4331.44,
+            "min_us": 833.74,
+            "p50_us": 1411.26,
+            "p95_us": 4331.44,
+            "p99_us": 4331.44,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "position_continuation": {
+            "max_us": 4583.01,
+            "min_us": 936.04,
+            "p50_us": 1872.61,
+            "p95_us": 4583.01,
+            "p99_us": 4583.01,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "position_deep": {
+            "max_us": 3090.88,
+            "min_us": 326.22,
+            "p50_us": 721.55,
+            "p95_us": 3090.88,
+            "p99_us": 3090.88,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "position_medium": {
+            "max_us": 7143.0,
+            "min_us": 792.74,
+            "p50_us": 1635.54,
+            "p95_us": 7143.0,
+            "p99_us": 7143.0,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "position_missing": {
+            "max_us": 1877.58,
+            "min_us": 325.77,
+            "p50_us": 777.65,
+            "p95_us": 1877.58,
+            "p99_us": 1877.58,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "position_start": {
+            "max_us": 3290.22,
+            "min_us": 798.02,
+            "p50_us": 1604.98,
+            "p95_us": 3290.22,
+            "p99_us": 3290.22,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "position_transposition_a": {
+            "max_us": 3746.8,
+            "min_us": 775.13,
+            "p50_us": 1843.85,
+            "p95_us": 3746.8,
+            "p99_us": 3746.8,
+            "statuses": {
+              "200": 20
+            }
+          },
+          "position_transposition_b": {
+            "max_us": 2844.69,
+            "min_us": 735.89,
+            "p50_us": 1702.32,
+            "p95_us": 2844.69,
+            "p99_us": 2844.69,
+            "statuses": {
+              "200": 20
+            }
+          }
+        },
+        "requests": 900,
+        "requests_per_second": 542.8540040065358,
+        "seconds": 1.6579043229994568
+      },
+      "search": {
+        "cases": {
+          "event_exact": {
+            "max_us": 17700.38,
+            "min_us": 858.07,
+            "p50_us": 2862.25,
+            "p95_us": 17700.38,
+            "p99_us": 17700.38,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "event_prefix": {
+            "max_us": 4885.39,
+            "min_us": 722.51,
+            "p50_us": 932.84,
+            "p95_us": 4885.39,
+            "p99_us": 4885.39,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "filtered_broad": {
+            "max_us": 1194634.79,
+            "min_us": 206556.36,
+            "p50_us": 434477.55,
+            "p95_us": 1194634.79,
+            "p99_us": 1194634.79,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "filtered_combination": {
+            "max_us": 12722.6,
+            "min_us": 3014.75,
+            "p50_us": 4689.26,
+            "p95_us": 12722.6,
+            "p99_us": 12722.6,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "filtered_common": {
+            "max_us": 230132.39,
+            "min_us": 35546.53,
+            "p50_us": 57750.42,
+            "p95_us": 230132.39,
+            "p99_us": 230132.39,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "filtered_no_match": {
+            "max_us": 17976.76,
+            "min_us": 1015.77,
+            "p50_us": 1304.84,
+            "p95_us": 17976.76,
+            "p99_us": 17976.76,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "filtered_rare": {
+            "max_us": 33947.18,
+            "min_us": 1252.19,
+            "p50_us": 4429.44,
+            "p95_us": 33947.18,
+            "p99_us": 33947.18,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "filtered_selective": {
+            "max_us": 30249.59,
+            "min_us": 3794.66,
+            "p50_us": 13547.42,
+            "p95_us": 30249.59,
+            "p99_us": 30249.59,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "game_details": {
+            "max_us": 15018.23,
+            "min_us": 793.1,
+            "p50_us": 2400.8,
+            "p95_us": 15018.23,
+            "p99_us": 15018.23,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_broad": {
+            "max_us": 8460.04,
+            "min_us": 2802.25,
+            "p50_us": 6635.81,
+            "p95_us": 8460.04,
+            "p99_us": 8460.04,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_combined": {
+            "max_us": 39904.88,
+            "min_us": 2101.86,
+            "p50_us": 6261.1,
+            "p95_us": 39904.88,
+            "p99_us": 39904.88,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_event": {
+            "max_us": 5945.52,
+            "min_us": 656.81,
+            "p50_us": 897.67,
+            "p95_us": 5945.52,
+            "p99_us": 5945.52,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_exact_player": {
+            "max_us": 19637.79,
+            "min_us": 3709.82,
+            "p50_us": 9050.81,
+            "p95_us": 19637.79,
+            "p99_us": 19637.79,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_matchup": {
+            "max_us": 17601.77,
+            "min_us": 2428.85,
+            "p50_us": 12233.23,
+            "p95_us": 17601.77,
+            "p99_us": 17601.77,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_other_player": {
+            "max_us": 9364.4,
+            "min_us": 2521.29,
+            "p50_us": 4344.55,
+            "p95_us": 9364.4,
+            "p99_us": 9364.4,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_ratings": {
+            "max_us": 14873.02,
+            "min_us": 4204.08,
+            "p50_us": 7301.95,
+            "p95_us": 14873.02,
+            "p99_us": 14873.02,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_second_page": {
+            "max_us": 12231.08,
+            "min_us": 1077.94,
+            "p50_us": 2555.21,
+            "p95_us": 12231.08,
+            "p99_us": 12231.08,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "metadata_years": {
+            "max_us": 11767.67,
+            "min_us": 3688.4,
+            "p50_us": 8685.61,
+            "p95_us": 11767.67,
+            "p99_us": 11767.67,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "player_exact": {
+            "max_us": 8216.21,
+            "min_us": 624.12,
+            "p50_us": 1664.0,
+            "p95_us": 8216.21,
+            "p99_us": 8216.21,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "player_prefix": {
+            "max_us": 5364.87,
+            "min_us": 777.27,
+            "p50_us": 1161.42,
+            "p95_us": 5364.87,
+            "p99_us": 5364.87,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_and_player": {
+            "max_us": 20262.91,
+            "min_us": 6744.48,
+            "p50_us": 13864.02,
+            "p95_us": 20262.91,
+            "p99_us": 20262.91,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_and_rating": {
+            "max_us": 15986.68,
+            "min_us": 2961.71,
+            "p50_us": 3527.94,
+            "p95_us": 15986.68,
+            "p99_us": 15986.68,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_common": {
+            "max_us": 16387.52,
+            "min_us": 1458.42,
+            "p50_us": 5225.96,
+            "p95_us": 16387.52,
+            "p99_us": 16387.52,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_continuation": {
+            "max_us": 26824.62,
+            "min_us": 1372.93,
+            "p50_us": 5878.01,
+            "p95_us": 26824.62,
+            "p99_us": 26824.62,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_deep": {
+            "max_us": 9413.46,
+            "min_us": 2300.91,
+            "p50_us": 7412.89,
+            "p95_us": 9413.46,
+            "p99_us": 9413.46,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_medium": {
+            "max_us": 10471.98,
+            "min_us": 1149.64,
+            "p50_us": 2459.13,
+            "p95_us": 10471.98,
+            "p99_us": 10471.98,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_missing": {
+            "max_us": 14296.42,
+            "min_us": 1131.93,
+            "p50_us": 4513.62,
+            "p95_us": 14296.42,
+            "p99_us": 14296.42,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_start": {
+            "max_us": 17908.83,
+            "min_us": 2437.3,
+            "p50_us": 3936.34,
+            "p95_us": 17908.83,
+            "p99_us": 17908.83,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_transposition_a": {
+            "max_us": 6853.73,
+            "min_us": 1790.98,
+            "p50_us": 2093.4,
+            "p95_us": 6853.73,
+            "p99_us": 6853.73,
+            "statuses": {
+              "200": 5
+            }
+          },
+          "position_transposition_b": {
+            "max_us": 10335.58,
+            "min_us": 2995.99,
+            "p50_us": 5926.2,
+            "p95_us": 10335.58,
+            "p99_us": 10335.58,
+            "statuses": {
+              "200": 5
+            }
+          }
+        },
+        "requests": 150,
+        "requests_per_second": 30.972130357849807,
+        "seconds": 4.843063692000214
+      },
+      "workload": {
+        "event_exact": "/v1/collections/masters-otb/events?name=Final+Abuelos+Bonaerenses+%2B60",
+        "event_prefix": "/v1/collections/masters-otb/events?prefix=Fina",
+        "filtered_broad": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&min_both_ratings=2200",
+        "filtered_combination": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=Cid%2C+Marino+Alejandro&from_year=1990&min_both_ratings=2200",
+        "filtered_common": "/v1/explorer/position/filtered?collection=masters-otb&moves=e4%2Cc5&min_both_ratings=2400",
+        "filtered_no_match": "/v1/explorer/position/filtered?collection=masters-otb&moves=d4%2CNf6&player=benchmark+unknown+player",
+        "filtered_rare": "/v1/explorer/position/filtered?collection=masters-otb&moves=e4%2Ce5%2CNf3%2CNc6%2CBb5%2Ca6%2CBa4%2CNf6%2CO-O%2CBe7%2CRe1%2Cb5%2CBb3%2Cd6%2Cc3%2CO-O%2Ch3%2CNb8%2Cd4%2CNbd7&min_plies=0",
+        "filtered_selective": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=Cid%2C+Marino+Alejandro",
+        "game_details": "/v1/collections/masters-otb/games/16278808172669517150/metadata",
+        "legacy_opening": "/v1/explorer/position?collection=masters-otb&moves=e4%2Cc5%2CNf3",
+        "legacy_pgn": "/v1/collections/masters-otb/games/16278808172669517150",
+        "legacy_start": "/v1/explorer/position?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1",
+        "metadata_broad": "/v1/collections/masters-otb/games?sort=date_desc&limit=25",
+        "metadata_combined": "/v1/collections/masters-otb/games?player=Cid%2C+Marino+Alejandro&min_both_ratings=2200&from_year=1990&sort=game_length",
+        "metadata_event": "/v1/collections/masters-otb/games?event=Final+Abuelos+Bonaerenses+%2B60&sort=date_desc",
+        "metadata_exact_player": "/v1/collections/masters-otb/games?player=Cid%2C+Marino+Alejandro",
+        "metadata_matchup": "/v1/collections/masters-otb/games?player=Cid%2C+Marino+Alejandro&opponent=Stefano%2C+Rafael",
+        "metadata_other_player": "/v1/collections/masters-otb/games?player=Xu%2C+Ziyuan",
+        "metadata_ratings": "/v1/collections/masters-otb/games?min_both_ratings=2400&sort=average_rating",
+        "metadata_second_page": "/v1/collections/masters-otb/games?sort=date_desc&limit=25&cursor=AQQAsPslz6HGW2BoxYEQ8mYLiUNLV1t7g_vi5Dc5VSgEAAAAAAE1KEEAAAAJ",
+        "metadata_years": "/v1/collections/masters-otb/games?from_year=2000&through_year=2015&sort=date_desc",
+        "player_exact": "/v1/collections/masters-otb/players?name=Cid%2C+Marino+Alejandro",
+        "player_prefix": "/v1/collections/masters-otb/players?prefix=Cid%2C",
+        "position_and_player": "/v1/collections/masters-otb/games?fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=Cid%2C+Marino+Alejandro",
+        "position_and_rating": "/v1/collections/masters-otb/games?moves=e4%2Cc5&min_both_ratings=2400",
+        "position_common": "/v1/collections/masters-otb/games?moves=e4%2Cc5%2CNf3",
+        "position_continuation": "/v1/collections/masters-otb/games?fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&continuation=Nf3",
+        "position_deep": "/v1/collections/masters-otb/games?moves=e4%2Ce5%2CNf3%2CNc6%2CBb5%2Ca6%2CBa4%2CNf6%2CO-O%2CBe7%2CRe1%2Cb5%2CBb3%2Cd6%2Cc3%2CO-O%2Ch3%2CNb8%2Cd4%2CNbd7%2Cc4%2Cc6%2CNc3%2CBb7%2Ca3%2CQc7%2Ccxb5%2Caxb5%2CBe3%2CRfe8%2CRc1%2CQb8%2CNg5%2CRf8%2Cdxe5%2Cdxe5%2CBe6%2CQe8%2CBa2%2Ch6",
+        "position_medium": "/v1/collections/masters-otb/games?moves=e4%2Ce5%2CNf3%2CNc6%2CBb5%2Ca6%2CBa4%2CNf6",
+        "position_missing": "/v1/collections/masters-otb/games?fen=4k3%2F8%2F8%2F8%2F8%2F8%2F8%2F4K3+w+-+-+0+1",
+        "position_start": "/v1/collections/masters-otb/games?fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1",
+        "position_transposition_a": "/v1/collections/masters-otb/games?moves=Nf3%2CNf6%2Cg3%2Cg6",
+        "position_transposition_b": "/v1/collections/masters-otb/games?moves=g3%2Cg6%2CNf3%2CNf6"
+      }
+    },
+    "single_worker_interactive": {
+      "cases": {
+        "autocomplete": {
+          "acceptance_rate": 0.975,
+          "accepted": 39,
+          "attempted": 40,
+          "max_us": 104603.09,
+          "min_us": 906.85,
+          "p50_us": 1908.13,
+          "p95_us": 94250.02,
+          "p99_us": 104603.09,
+          "statuses": {
+            "200": 39,
+            "429": 1
+          }
+        },
+        "filtered_date": {
+          "acceptance_rate": 0.825,
+          "accepted": 33,
+          "attempted": 40,
+          "max_us": 113338.85,
+          "min_us": 23005.08,
+          "p50_us": 25673.74,
+          "p95_us": 102447.8,
+          "p99_us": 113338.85,
+          "statuses": {
+            "200": 33,
+            "429": 7
+          }
+        },
+        "filtered_rating": {
+          "acceptance_rate": 0.9,
+          "accepted": 36,
+          "attempted": 40,
+          "max_us": 209922.54,
+          "min_us": 129240.65,
+          "p50_us": 137959.55,
+          "p95_us": 205303.65,
+          "p99_us": 209922.54,
+          "statuses": {
+            "200": 36,
+            "429": 4
+          }
+        },
+        "filtered_selective": {
+          "acceptance_rate": 0.85,
+          "accepted": 34,
+          "attempted": 40,
+          "max_us": 88736.06,
+          "min_us": 2895.91,
+          "p50_us": 4450.49,
+          "p95_us": 78403.73,
+          "p99_us": 88736.06,
+          "statuses": {
+            "200": 34,
+            "429": 6
+          }
+        },
+        "legacy_opening": {
+          "acceptance_rate": 1.0,
+          "accepted": 40,
+          "attempted": 40,
+          "max_us": 1617.32,
+          "min_us": 746.63,
+          "p50_us": 1179.11,
+          "p95_us": 1530.72,
+          "p99_us": 1617.32,
+          "statuses": {
+            "200": 40
+          }
+        },
+        "legacy_pgn": {
+          "acceptance_rate": 1.0,
+          "accepted": 40,
+          "attempted": 40,
+          "max_us": 5036.47,
+          "min_us": 1000.25,
+          "p50_us": 1476.33,
+          "p95_us": 4901.77,
+          "p99_us": 5036.47,
+          "statuses": {
+            "200": 40
+          }
+        },
+        "metadata": {
+          "acceptance_rate": 0.875,
+          "accepted": 35,
+          "attempted": 40,
+          "max_us": 87665.2,
+          "min_us": 1411.26,
+          "p50_us": 2224.35,
+          "p95_us": 29991.54,
+          "p99_us": 87665.2,
+          "statuses": {
+            "200": 35,
+            "429": 5
+          }
+        },
+        "navigation_latest": {
+          "acceptance_rate": 0.9,
+          "accepted": 36,
+          "attempted": 40,
+          "max_us": 76330.27,
+          "min_us": 919.96,
+          "p50_us": 1849.34,
+          "p95_us": 71812.08,
+          "p99_us": 76330.27,
+          "statuses": {
+            "200": 36,
+            "429": 4
+          }
+        },
+        "position": {
+          "acceptance_rate": 0.925,
+          "accepted": 37,
+          "attempted": 40,
+          "max_us": 103064.63,
+          "min_us": 1496.74,
+          "p50_us": 2526.92,
+          "p95_us": 86281.12,
+          "p99_us": 103064.63,
+          "statuses": {
+            "200": 37,
+            "429": 3
+          }
+        }
+      },
+      "client_abandoned_navigation": 40,
+      "collection": "masters-otb",
+      "dataset_version": "codb-masters-otb-1795640229266821029-29be58d4f83e0484-search",
+      "duration_seconds": 14.992790547000368,
+      "rounds": 10,
+      "think_ms": 125,
+      "users": 4,
+      "workload": {
+        "autocomplete": "/v1/collections/masters-otb/players?prefix=Cid%2C",
+        "filtered_date": "/v1/explorer/position/filtered?collection=masters-otb&moves=e4%2Cc5&from_year=2000",
+        "filtered_rating": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&min_both_ratings=2200",
+        "filtered_selective": "/v1/explorer/position/filtered?collection=masters-otb&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=Cid%2C+Marino+Alejandro",
+        "legacy_opening": "/v1/explorer/position?collection=masters-otb&moves=e4%2Cc5%2CNf3",
+        "legacy_pgn": "/v1/collections/masters-otb/games/16278808172669517150",
+        "metadata": "/v1/collections/masters-otb/games?player=Cid%2C+Marino+Alejandro",
+        "navigation_latest": "/v1/collections/masters-otb/games?moves=e4%2Cc5%2CNf3&limit=5",
+        "position": "/v1/collections/masters-otb/games?moves=e4%2Cc5%2CNf3"
+      }
+    }
+  },
+  "environment": {
+    "client_cpus": [
+      0,
+      4
+    ],
+    "notes": "Both enriched production snapshots were loaded. The guest build, dataset transfer and local validation used other logical CPUs. Shared storage contention was present.",
+    "server_cpus": [
+      1,
+      5
+    ]
+  },
+  "first_candidate_probe": {
+    "binary_sha256": "d624657337b1283b5932742b54a20608f7df38e87721eb80336bfd0bc09fda19",
+    "serial_cases": {
+      "filtered_broad": {
+        "max_us": 204449.72,
+        "min_us": 127432.69,
+        "p50_us": 167534.24,
+        "p95_us": 204449.72,
+        "p99_us": 204449.72,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "filtered_common": {
+        "max_us": 36966.4,
+        "min_us": 25282.51,
+        "p50_us": 32025.72,
+        "p95_us": 36966.4,
+        "p99_us": 36966.4,
+        "statuses": {
+          "200": 5
+        }
+      },
+      "filtered_rare": {
+        "max_us": 1497.3,
+        "min_us": 620.78,
+        "p50_us": 1263.97,
+        "p95_us": 1497.3,
+        "p99_us": 1497.3,
+        "statuses": {
+          "200": 5
+        }
+      }
+    }
+  }
+}

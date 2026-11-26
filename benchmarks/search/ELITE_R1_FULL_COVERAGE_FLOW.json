@@ -1,0 +1,35 @@
+{
+  "canonical_plies": 97,
+  "collection": "elite-online",
+  "dataset_version": "codb-elite-online-1795638306926448160-865a78390733cd33-search",
+  "position_coverage": {
+    "mode": "full"
+  },
+  "probes": {
+    "middle_game": {
+      "continuation": "f5f6",
+      "fen": "3rbk2/pp4p1/2p1P2p/5P2/8/2K5/PP1r4/1B4RR w - - 1 31",
+      "matching_ply": 60,
+      "max_us": 1058.5,
+      "min_us": 440.56,
+      "p50_us": 689.77,
+      "p95_us": 1058.5,
+      "p99_us": 1058.5,
+      "status": 200,
+      "warm_requests": 19
+    },
+    "terminal_board": {
+      "continuation": null,
+      "fen": "8/p1kr1b2/Pp6/2P3R1/8/2KB4/8/8 b - - 2 49",
+      "matching_ply": 97,
+      "max_us": 1323.53,
+      "min_us": 504.31,
+      "p50_us": 682.69,
+      "p95_us": 1323.53,
+      "p99_us": 1323.53,
+      "status": 200,
+      "warm_requests": 19
+    }
+  },
+  "source_game_id": "15176573084002599203"
+}

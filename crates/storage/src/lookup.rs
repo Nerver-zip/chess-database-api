@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ByteOrder};
+use chess_database_core::{Collection, GameLocation};
 use memmap2::Mmap;
-use opening_explorer_core::{Collection, GameLocation};
 use sha2::{Digest, Sha256};
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};

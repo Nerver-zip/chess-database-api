@@ -12,8 +12,8 @@
 #   ./scripts/corpus.sh http-check
 #
 # Thin wrapper around scripts/corpus.py, which in turn only orchestrates the existing
-# `opening-explorer` CLI. Data lives in $OPENING_EXPLORER_DATA_DIR (default ./data,
-# git-ignored; the deprecated $CODB_DATA_DIR is still honored).
+# `chess-database` CLI. Data lives in $CHESS_DATABASE_DATA_DIR (default ./data,
+# git-ignored). $OPENING_EXPLORER_DATA_DIR and $CODB_DATA_DIR remain supported.
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [ -d "$HOME/.cargo/bin" ]; then export PATH="$HOME/.cargo/bin:$PATH"; fi

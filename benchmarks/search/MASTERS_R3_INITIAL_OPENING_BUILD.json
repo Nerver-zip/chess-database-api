@@ -1,0 +1,42 @@
+{
+  "build_seconds": 1981.799703998,
+  "collection": "masters-otb",
+  "index": {
+    "artifacts": {
+      "metadata.sqlite": {
+        "file_size_bytes": 3748012032,
+        "sha256": "2e52de98dcabc8728fa413de9be98f2e1f19db959f0ec081d20d94bb9084734d"
+      },
+      "positions.postings": {
+        "file_size_bytes": 3353889870,
+        "sha256": "4cc7a5c32027ce557b42ec9c24b55938aa8a6131c863c19e6286951ceacdc76c"
+      }
+    },
+    "canonical_sha256": "7e451a13737bad29a3d9ccab2eb30458a2be169468f827d0bc473181523b77e0",
+    "coverage": {
+      "max_ply": 40,
+      "mode": "bounded"
+    },
+    "format_version": 1,
+    "game_count": 3284429,
+    "position_count": 54827221,
+    "posting_count": 130852249,
+    "sort_buffer_bytes": 134217720,
+    "source_snapshot": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40"
+  },
+  "peak_rss_kib": 3425380,
+  "postings_temporary_spool_bytes": 3353889806,
+  "published_snapshot": "codb-masters-otb-1795639762108697656-5e8e56f3fad5d618-search",
+  "source_snapshot": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40",
+  "spill": {
+    "buffer_bytes": 134217720,
+    "initial_runs": 24,
+    "intermediate_merges": 1,
+    "peak_temp_bytes": 4294967584
+  },
+  "system_cpu_seconds": 842.46,
+  "time_note": "Build and elapsed wall time include pauses for calibration and native benchmarks.",
+  "user_cpu_seconds": 730.43,
+  "verification_seconds": 448.42282738,
+  "wall_seconds": 2430.25
+}

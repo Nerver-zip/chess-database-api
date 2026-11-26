@@ -1,12 +1,14 @@
 ---
-summary: "Provision catalog releases or the Gigabase R3 snapshot, run the read-only Opening Explorer API with Docker Compose, and operate it publicly for non-commercial use."
+summary: "Provision catalog releases or the Gigabase R3 snapshot, run the read-only Chess Database API with Docker Compose, and operate it publicly for non-commercial use."
 read_when: "Deploying the API locally, connecting another container, or updating the mounted datasets."
 status: current
 ---
 
 # Docker Deployment
 
-The Docker image contains only the opening-explorer API executable and runtime libraries. Masters OTB and Elite Online stay outside the image and are mounted read-only from their stable release roots. The container does not fetch, build, or modify datasets at startup.
+The Docker image ships the `chess-database` executable, its compatibility path and runtime libraries. Masters OTB and Elite Online stay outside the image and are mounted read-only from their stable release roots. The container does not fetch, build, or modify datasets at startup.
+
+The default local image is `chess-database-api:local`. Compose retains the existing service, volumes and aliases, and also builds the legacy image tag. See [Naming migration](NAMING_MIGRATION.md).
 
 ## Prerequisites
 
@@ -19,7 +21,7 @@ The Docker image contains only the opening-explorer API executable and runtime l
 Build the host CLI used for bootstrap and verification:
 
 ~~~bash
-cargo build --locked --release --package opening-explorer-cli
+cargo build --locked --release --package chess-database-cli
 ~~~
 
 ## Provision Both Real Collections
@@ -34,7 +36,7 @@ Place each package and its detached .sha256 file in an accessible directory. Pac
   --elite-package /path/to/elite-online-<release-id>.tar
 ~~~
 
-Bootstrap checks each archive checksum, rejects unsafe or incomplete archive contents, validates collection and immutable-version identities, verifies every recorded artifact hash, runs opening-explorer verify --deep, and atomically installs both versions under data/releases/. Existing active versions remain available if extraction or validation fails.
+Bootstrap checks each archive checksum, rejects unsafe or incomplete archive contents, validates collection and immutable-version identities, verifies every recorded artifact hash, runs chess-database verify --deep, and atomically installs both versions under data/releases/. Existing active versions remain available if extraction or validation fails.
 
 ### Path B: rebuild from the pinned catalog
 
@@ -71,7 +73,7 @@ docker compose -f compose.yaml logs --follow opening-explorer
 
 The service is named opening-explorer and listens on 0.0.0.0:8080 inside the container. Compose publishes no host port by default. The image runs as UID 10001, with a read-only root filesystem, a 16 MiB /tmp, dropped Linux capabilities, no-new-privileges, a 64-process cap, and JSON logs available through docker logs. The unless-stopped restart policy brings it back after ordinary host or daemon restarts.
 
-Startup deeply validates both mounted snapshots before listening. Missing mounts, a wrong collection, a missing artifact, a bad checksum, or an invalid CPI makes startup fail and is reported in docker compose logs opening-explorer. The server binds only after every configured snapshot has been verified, so `/ready` answers once it is listening; it does not re-check data afterwards. /health reports process health.
+Startup verifies both immutable snapshots before listening. It checks artifact digests, headers, collection identity and accounting, and walks every CPI block. Missing mounts, a wrong collection, a missing artifact, a bad checksum, or an invalid CPI makes startup fail and is reported in `docker compose logs opening-explorer`. The server binds after these checks, so `/ready` answers once it is listening and reports the loaded collections. `/health` reports process health.
 
 ## Check the API
 
@@ -90,7 +92,7 @@ curl --fail --get 'http://127.0.0.1:8081/v1/explorer/position' \
   --data-urlencode 'moves=e4,e5,Nf3'
 ~~~
 
-Ordinary reads require no administrative token. The administrative reload route remains disabled unless an admin token is explicitly configured. Stored-game retrieval is enabled by default and is a supported capability of public deployments under the project's current policy ([LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment)). An operator who wants a statistics-only service may set `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=false`, which removes only the game route; the position explorer and collection metadata remain available.
+Ordinary reads require no administrative token. The administrative reload route remains disabled unless an admin token is explicitly configured. Stored-game retrieval is enabled by default and is a supported capability of public deployments under the project's current policy ([LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment)). An operator who wants a statistics-only service may set `CHESS_DATABASE_ENABLE_GAME_RETRIEVAL=false`, which removes only the game route; the position explorer and collection metadata remain available.
 
 ## Operating a Public, Non-Commercial Instance
 
@@ -98,8 +100,8 @@ The project's policy ([LICENSING.md section 6](LICENSING.md#6-current-policy-for
 
 - Keep the dataset mounts read-only, as in `compose.yaml`, and keep the container filesystem read-only.
 - Publish only the API port, and put a reverse proxy in front for TLS and request-rate limits. The API itself does not rate-limit.
-- Leave `OPENING_EXPLORER_ADMIN_TOKEN` unset, which disables `POST /v1/admin/reload`, or set a long random token and do not expose that route through the proxy.
-- Set `OPENING_EXPLORER_ALLOWED_ORIGINS` to the origins of your web clients. See [API_REFERENCE.md](API_REFERENCE.md#10-server-configuration).
+- Compose leaves `POST /v1/admin/reload` disabled by default. To use it privately, pass a long random `CHESS_DATABASE_ADMIN_TOKEN` through a local Compose override and keep the route off the public proxy. The acceptance section shows the override.
+- Set `CHESS_DATABASE_ALLOWED_ORIGINS` to the origins of your web clients. See [API_REFERENCE.md](API_REFERENCE.md#10-server-configuration).
 - Show the required acknowledgment and the non-commercial restriction on your site or documentation. The text is in LICENSING.md section 6.3.
 - Do not offer bulk export of games, and do not use the service commercially. Both are outside the decision.
 
@@ -109,7 +111,7 @@ Containers in separate Compose projects need a shared external network. Create i
 
 ~~~bash
 docker network create evalis-opening-explorer
-OPENING_EXPLORER_NETWORK_NAME=evalis-opening-explorer OPENING_EXPLORER_NETWORK_EXTERNAL=true \
+CHESS_DATABASE_NETWORK_NAME=evalis-opening-explorer CHESS_DATABASE_NETWORK_EXTERNAL=true \
   docker compose -f compose.yaml up -d --build
 ~~~
 
@@ -129,7 +131,7 @@ networks:
     name: evalis-opening-explorer
 ~~~
 
-Container-to-container HTTP requests do not use browser CORS and need no published host port. A browser request is different: the browser needs an HTTP origin it can reach, such as the optional loopback mapping for local development, and that origin must be allowed by OPENING_EXPLORER_ALLOWED_ORIGINS. For a deployed browser client, expose an intentional HTTP origin through a same-origin reverse proxy or an explicitly configured CORS policy. The default deployment exposes Opening Explorer only on the Docker network.
+Container-to-container HTTP requests do not use browser CORS and need no published host port. A browser request is different: the browser needs an HTTP origin it can reach, such as the optional loopback mapping for local development, and that origin must be allowed by CHESS_DATABASE_ALLOWED_ORIGINS. For a deployed browser client, expose an intentional HTTP origin through a same-origin reverse proxy or an explicitly configured CORS policy. The default deployment exposes Opening Explorer only on the Docker network.
 
 ## Resource and Timeout Settings
 
@@ -137,14 +139,14 @@ Container-to-container HTTP requests do not use browser CORS and need no publish
 
 | Setting | Default | Bound or effect |
 | --- | ---: | --- |
-| OPENING_EXPLORER_READER_POOL_SIZE | 16 | 1–64 concurrent game readers |
-| OPENING_EXPLORER_READER_POOL_TIMEOUT_SECS | 5 | 1–60 seconds waiting for a reader |
-| OPENING_EXPLORER_REQUEST_TIMEOUT_SECS | 15 | 1–300 seconds per request |
-| OPENING_EXPLORER_MAX_MOVE_PLIES | 200 | 1–512 plies per position request |
-| OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL | true | `false` omits the raw-PGN game route and returns HTTP 404 there |
-| OPENING_EXPLORER_MEMORY_LIMIT | 512m | Docker memory cap |
-| OPENING_EXPLORER_CPU_LIMIT | 2 | Docker CPU quota |
-| OPENING_EXPLORER_LOG_LEVEL | info | Rust tracing filter |
+| CHESS_DATABASE_READER_POOL_SIZE | 16 | 1–64 concurrent game readers |
+| CHESS_DATABASE_READER_POOL_TIMEOUT_SECS | 5 | 1–60 seconds waiting for a reader |
+| CHESS_DATABASE_REQUEST_TIMEOUT_SECS | 15 | 1–300 seconds per request |
+| CHESS_DATABASE_MAX_MOVE_PLIES | 200 | 1–512 plies per position request |
+| CHESS_DATABASE_ENABLE_GAME_RETRIEVAL | true | `false` omits the raw-PGN game route and returns HTTP 404 there |
+| CHESS_DATABASE_MEMORY_LIMIT | 512m | Docker memory cap |
+| CHESS_DATABASE_CPU_LIMIT | 2 | Docker CPU quota |
+| CHESS_DATABASE_LOG_LEVEL | info | Rust tracing filter |
 
 Compose also limits the process to 64 PIDs and 1,024 open files. Adjust limits only after measuring the real service workload. Dataset files are memory-mapped, so resident memory includes file-backed pages and depends on query traffic. The release directories require sizes recorded by the provisioning command; the host needs additional space for packages and bootstrap work. Run corpus.sh plan before rebuilding.
 
@@ -154,7 +156,7 @@ The current real-corpus report is `benchmarks/corpus/docker_real_check.json`. It
 
 The [Gigabase R3 report](../benchmarks/gigabase/FINAL_REPORT.md) records the candidate build and audit evidence. R3 is the active Masters snapshot. It remains outside the approved source catalog, which is a build-tooling control. Its acceptance deployment, described below, was a private, retrieval-disabled environment. That was the evaluation posture before the maintainer's decisions of 2026-11-16; it is not a standing restriction, and public non-commercial deployment is now covered by [LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). The original isolated API smokes are historical evidence. The acceptance deployment uses the named-volume mode below because its Docker daemon cannot access checkout bind paths.
 
-The separate `scripts/local_gigabase_eval.py` workflow registered the supplied archive using local hashes, built it with the Gigabase-only qualification policy, and created the local-only R3 package. `scripts/promote_gigabase_r3.py` now verifies and publishes those existing artifacts through Opening Explorer's atomic storage publisher; it does not rebuild the source corpus or add Gigabase to the approved catalog. Release metadata preserves the publisher's CC BY-NC 4.0 claim, absent publisher checksum, and unresolved upstream rights. The publisher's B2B page describes internal development and a closed beta, while prohibiting direct raw-PGN downloads to end users; no written project-specific public-use permission is recorded. See [`PUBLISHER_TERMS_REVIEW.json`](../benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json). The acceptance deployment disabled raw-PGN retrieval. That reflects the posture at that time; the current policy, including the remaining open observations, is in [LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). Commercial deployment remains outside it.
+The separate `scripts/local_gigabase_eval.py` workflow registered the supplied archive using local hashes, built it with the Gigabase-only qualification policy, and created the local-only R3 package. `scripts/promote_gigabase_r3.py` verifies and publishes those existing artifacts through the atomic storage publisher. Gigabase remains outside the approved catalog. Release metadata preserves the publisher's CC BY-NC 4.0 claim, absent publisher checksum, and unresolved upstream rights. The publisher's B2B page describes internal development and a closed beta, while prohibiting direct raw-PGN downloads to end users; no written project-specific public-use permission is recorded. See [`PUBLISHER_TERMS_REVIEW.json`](../benchmarks/gigabase/PUBLISHER_TERMS_REVIEW.json). The acceptance deployment disabled raw-PGN retrieval. That reflects the posture at that time; the current policy, including the remaining open observations, is in [LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). Commercial deployment remains outside it.
 
 ### Historical host-bind probe
 
@@ -167,10 +169,10 @@ The operational Masters release is Gigabase R3, while Elite Online remains the e
 After promoting and verifying the host releases as described in [Corpus Build](CORPUS_BUILD.md#43-local-gigabase-r3-package-and-operational-promotion), seed a fresh runtime volume:
 
 ~~~bash
-export OPENING_EXPLORER_RUNTIME_VOLUME=codb-gigabase-r3-runtime
-docker volume create "$OPENING_EXPLORER_RUNTIME_VOLUME"
+export CHESS_DATABASE_RUNTIME_VOLUME=codb-gigabase-r3-runtime
+docker volume create "$CHESS_DATABASE_RUNTIME_VOLUME"
 docker run -d --name opening-explorer-gigabase-r3-seed --network none \
-  --volume "$OPENING_EXPLORER_RUNTIME_VOLUME:/transfer" alpine:3.21 sleep infinity
+  --volume "$CHESS_DATABASE_RUNTIME_VOLUME:/transfer" alpine:3.21 sleep infinity
 docker exec opening-explorer-gigabase-r3-seed mkdir -p /transfer/masters-otb /transfer/elite-online
 docker cp data/releases/masters-otb/. \
   opening-explorer-gigabase-r3-seed:/transfer/masters-otb
@@ -182,25 +184,157 @@ docker compose --project-name codb-gigabase-r3 \
   -f compose.yaml -f compose.named-volume.yaml up -d --build
 ~~~
 
-The override mounts the shared volume at `/datasets` and replaces both host binds; the normal service paths remain `/datasets/masters-otb` and `/datasets/elite-online`. Check `/health`, `/ready`, and `/v1/collections` from the service container or another container on its private Compose network. Confirm Masters reports the R3 build ID and 3,284,429 games; compare representative HTTP position W/D/L results with `opening-explorer query`. Confirm Elite still reports 429,150 games. With retrieval enabled (the default), a known game ID returns its PGN; the route returns 404 only if an operator sets `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL=false`. Inspect `docker inspect` and confirm the sole `/datasets` mount has `RW:false` and `HostConfig.PortBindings` is empty.
+The override mounts the shared volume at `/datasets` and replaces both host binds; the normal service paths remain `/datasets/masters-otb` and `/datasets/elite-online`. Check `/health`, `/ready`, and `/v1/collections` from the service container or another container on its private Compose network. Confirm Masters reports the R3 build ID and 3,284,429 games; compare representative HTTP position W/D/L results with `chess-database query`. Confirm Elite still reports 429,150 games. With retrieval enabled (the default), a known game ID returns its PGN; the route returns 404 only if an operator sets `CHESS_DATABASE_ENABLE_GAME_RETRIEVAL=false`. Inspect `docker inspect` and confirm the sole `/datasets` mount has `RW:false` and `HostConfig.PortBindings` is empty.
 
 For publisher-based rollback in the named volume, use the same atomic storage publisher. A helper can mount the volume read-write while the API retains its read-only mount:
 
 ~~~bash
 docker run -d --name opening-explorer-gigabase-r3-publisher --network none --user 0:0 \
-  --volume "$OPENING_EXPLORER_RUNTIME_VOLUME:/storage" \
-  --entrypoint /bin/sleep opening-explorer-api:local infinity
+  --volume "$CHESS_DATABASE_RUNTIME_VOLUME:/storage" \
+  --entrypoint /bin/sleep chess-database-api:local infinity
 PREVIOUS_ID=codb-masters-otb-1794689403953239696-66953-9aa01bd5606eaf65-cpi-d40
 docker exec opening-explorer-gigabase-r3-publisher mkdir -p /storage/.promotion-stage
 docker exec opening-explorer-gigabase-r3-publisher cp -a \
   "/storage/masters-otb/versions/$PREVIOUS_ID" \
   "/storage/.promotion-stage/$PREVIOUS_ID"
-docker exec opening-explorer-gigabase-r3-publisher opening-explorer publish \
+docker exec opening-explorer-gigabase-r3-publisher chess-database publish \
   --candidate "/storage/.promotion-stage/$PREVIOUS_ID" \
   --target /storage/masters-otb --collection masters-otb
 ~~~
 
-Restart the API if it has not hot-reloaded the symlink, then verify the previous ID and 29,640-game count through `/ready`, `/v1/collections`, and a position query. To reactivate R3, stage a copy of the pinned R3 snapshot into `/storage/.promotion-stage/<R3-build-id>` and invoke `opening-explorer publish` with that candidate. Confirm the R3 ID and count return, and recheck the disabled retrieval route. Keep `current` publication inside `opening-explorer publish`; never replace the symlink directly.
+Restart the API if it has not hot-reloaded the symlink, then verify the previous ID and 29,640-game count through `/ready`, `/v1/collections`, and a position query. To reactivate R3, stage a copy of the pinned R3 snapshot into `/storage/.promotion-stage/<R3-build-id>` and invoke `chess-database publish` with that candidate. Confirm the R3 ID and count return, and recheck the disabled retrieval route. Keep `current` publication inside `chess-database publish`; never replace the symlink directly.
+
+## Enriched snapshots
+
+Build search indexes outside the serving container and publish them to the mounted dataset root. The server reads the new snapshot after reload. Masters discovery and individual metadata default to disabled. Elite discovery and metadata default to enabled when an enriched snapshot is present. Set the corresponding `CHESS_DATABASE_MASTERS_DISCOVERY`, `CHESS_DATABASE_MASTERS_GAME_METADATA`, `CHESS_DATABASE_ELITE_DISCOVERY`, and `CHESS_DATABASE_ELITE_GAME_METADATA` values to control exposure. The existing PGN retrieval switch applies independently.
+
+Search starts with two workers, at most one concurrent filtered aggregation, a bounded 100 ms admission wait and a two-second cooperative execution deadline. Keep these settings and the two-CPU, 512 MiB Compose limits as the initial configuration for a small server. The reverse proxy should enforce per-client request rates and avoid exposing Masters discovery endpoints before a separate review of enumeration and attribution. See [Search API](SEARCH_API.md) and [Licensing](LICENSING.md).
+
+### Verification trust model
+
+Run `chess-database verify --deep` before accepting a snapshot supplied outside the project's verified build or install workflow. Publish only verified immutable versions. Normal startup and reload rehash manifest-recorded artifacts and check the complete CPI structure against the pinned version. Cold starts must read the artifact bytes even when the optional deep checks are off. The manifest and all files must come from a trusted promotion workflow. A checksum stored alongside its artifact does not authenticate the publisher. Keep mounted versions read-only in the service and restrict publication access on the host.
+
+Use `CHESS_DATABASE_DEEP_VALIDATE_ON_STARTUP=true` to repeat the full canonical storage and search verification on startup and reload. The additional work can be expensive under a tight resource limit. The publication verification gate applies in either mode.
+
+### Two-collection acceptance on a local Docker host
+
+Use Bash on a dedicated local Docker host with cgroup v2. Use separate dataset roots and a separate Compose project and network. The standard configuration keeps the service at 512 MiB and two CPUs. The debug override exposes a loopback port for the client probes. Build the search indexes outside the container if the two roots are still CPI-only. Start with newly copied or uncached roots and record the cache preparation. Stop and capture logs if the container does not become healthy within the acceptance window.
+
+```bash
+mkdir -p data/acceptance
+export CHESS_DATABASE_MASTERS_RELEASE_DIR="$PWD/data/acceptance/masters-otb"
+export CHESS_DATABASE_ELITE_RELEASE_DIR="$PWD/data/acceptance/elite-online"
+export CHESS_DATABASE_NETWORK_NAME=chess-db-acceptance
+export CHESS_DATABASE_IMAGE=chess-database-api:acceptance
+export CHESS_DATABASE_DEBUG_PORT=8081
+export CHESS_DATABASE_MEMORY_LIMIT=512m
+export CHESS_DATABASE_CPU_LIMIT=2
+export CHESS_DATABASE_SEARCH_CONCURRENCY=2
+export CHESS_DATABASE_DEEP_VALIDATE_ON_STARTUP=false
+# Enable Masters search only for this isolated test.
+export CHESS_DATABASE_MASTERS_DISCOVERY=true
+export CHESS_DATABASE_MASTERS_GAME_METADATA=true
+compose=(docker compose -p chess-db-acceptance -f compose.yaml -f compose.debug.yaml)
+git rev-parse HEAD > data/acceptance/revision.txt
+"${compose[@]}" config > data/acceptance/compose.resolved.yaml
+"${compose[@]}" build
+
+start_and_wait() {
+  local started=$SECONDS target state
+  "$@" up -d --no-build || return 1
+  target=$("$@" ps -q opening-explorer)
+  [[ -n "$target" ]] || return 1
+  while (( SECONDS - started < 600 )); do
+    state=$(docker inspect --format '{{.State.Status}} {{.State.Health.Status}}' "$target") || return 1
+    echo "$((SECONDS - started))s $state"
+    [[ "$state" == 'running healthy' ]] && return 0
+    [[ "$state" == running\ * ]] || return 1
+    sleep 2
+  done
+  echo 'The container did not become healthy within 600 seconds.' >&2
+  return 1
+}
+start_and_wait "${compose[@]}" > data/acceptance/startup.log 2>&1
+curl --fail-with-body http://127.0.0.1:8081/ready > data/acceptance/ready.json
+container=$("${compose[@]}" ps -q opening-explorer)
+docker inspect --format '{{.Image}} {{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.State.OOMKilled}} {{.RestartCount}}' "$container" \
+  > data/acceptance/container-limits.txt
+docker exec "$container" sha256sum /usr/local/bin/chess-database > data/acceptance/binary-sha256.txt
+
+sample_cgroup() {
+  docker exec "$1" cat /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.peak \
+    /sys/fs/cgroup/memory.events /sys/fs/cgroup/cpu.stat
+}
+sample_cgroup "$container" > data/acceptance/cgroup-after-start.txt
+for collection in masters-otb elite-online; do
+  python3 scripts/verify_search_api.py --url http://127.0.0.1:8081 \
+    --collection "$collection" > "data/acceptance/$collection-flow.json"
+done
+for collection in masters-otb elite-online; do
+  python3 scripts/bench_search_interactive.py --url http://127.0.0.1:8081 \
+    --collection "$collection" --users 4 --rounds 60 \
+    --output "data/acceptance/$collection-interactive.json" &
+  if [[ $collection == masters-otb ]]; then masters_workload=$!; else elite_workload=$!; fi
+done
+wait "$masters_workload"
+wait "$elite_workload"
+sample_cgroup "$container" > data/acceptance/cgroup-after-traffic.txt
+docker logs "$container" > data/acceptance/server.log 2>&1
+```
+
+The health monitor continues polling through a transient `unhealthy` state while the process verifies the snapshots. If startup fails or reaches 600 seconds, retain `startup.log` and run `"${compose[@]}" ps -a` and `"${compose[@]}" logs --no-color opening-explorer` before stopping the trial. For a successful start, compare the server log's collection load times with the Docker health timeline. Compare cgroup CPU counters before and after traffic, and inspect peak memory, OOM counters, restarts and per-route HTTP status counts. Complete both discovery checks before launching the mixed workloads so that a smoke check does not compete for the shared aggregation slot. The two simultaneous workloads exercise both collections. The reports include latency for successful requests and counts for responses such as 408, 422 and 429.
+
+For reload, set `ALTERNATE_ELITE_SNAPSHOT` to a verified immutable Elite version directory. A retained CPI-only version exercises rolling back search. Stage a copy outside the mounted collection root on the same filesystem, then publish the alternate and check the swap under traffic.
+
+```bash
+export CHESS_DATABASE_ADMIN_TOKEN="$(openssl rand -hex 32)"
+cat > data/acceptance/compose.admin.yaml <<'YAML'
+services:
+  opening-explorer:
+    environment:
+      CHESS_DATABASE_ADMIN_TOKEN: ${CHESS_DATABASE_ADMIN_TOKEN:?set an acceptance token}
+YAML
+reload_compose=("${compose[@]}" -f data/acceptance/compose.admin.yaml)
+start_and_wait "${reload_compose[@]}" > data/acceptance/reload-startup.log 2>&1
+curl --fail-with-body http://127.0.0.1:8081/v1/collections > data/acceptance/collections-before-reload.json
+stage=$(mktemp -d "$PWD/data/acceptance/stage.XXXXXX")
+CANDIDATE="$stage/$(basename "$ALTERNATE_ELITE_SNAPSHOT")"
+cp -a "$ALTERNATE_ELITE_SNAPSHOT" "$CANDIDATE"
+./target/release/chess-database publish --candidate "$CANDIDATE" \
+  --target "$CHESS_DATABASE_ELITE_RELEASE_DIR" --collection elite-online
+python3 scripts/bench_search_interactive.py --url http://127.0.0.1:8081 \
+  --collection masters-otb --users 4 --rounds 30 --output data/acceptance/reload-interactive.json &
+workload=$!
+curl --fail-with-body --max-time 600 --write-out '%{http_code} %{time_total}\n' \
+  --output data/acceptance/reload-response.json \
+  --header "Authorization: Bearer $CHESS_DATABASE_ADMIN_TOKEN" \
+  --request POST http://127.0.0.1:8081/v1/admin/reload \
+  > data/acceptance/reload-timing.txt 2> data/acceptance/reload-client.log
+wait "$workload"
+curl --fail-with-body http://127.0.0.1:8081/v1/collections > data/acceptance/collections-after-reload.json
+container=$("${reload_compose[@]}" ps -q opening-explorer)
+sample_cgroup "$container" > data/acceptance/cgroup-after-reload.txt
+docker logs "$container" > data/acceptance/server-after-reload.log 2>&1
+python3 - "$ALTERNATE_ELITE_SNAPSHOT/manifest.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+def versions(filename):
+    response = json.loads(Path("data/acceptance", filename).read_text())
+    return {entry["collection"]: entry["dataset_version"] for entry in response["collections"]}
+
+before = versions("collections-before-reload.json")
+after = versions("collections-after-reload.json")
+alternate = json.loads(Path(sys.argv[1]).read_text())["dataset_build_id"]
+if before["elite-online"] == alternate or after != {**before, "elite-online": alternate}:
+    raise SystemExit(f"Unexpected reload versions: {before} -> {after}, expected Elite Online {alternate}")
+print(f"Elite Online switched to {alternate}; Masters OTB kept {before['masters-otb']}")
+PY
+"${reload_compose[@]}" down
+```
+
+If the reload client reaches its deadline, capture the service logs and collection versions before ending the trial. The server continues verification after the client disconnects. Use the reload log and the version reported by `/v1/collections` to establish the outcome.
 
 ## Safe Dataset Updates
 
@@ -217,13 +351,13 @@ docker compose -f compose.yaml restart opening-explorer
 docker compose -f compose.yaml ps
 ~~~
 
-A restart deeply validates the new snapshots before readiness. If it fails, republish the saved immutable version through the same Rust storage publication command used by normal releases:
+A restart verifies the new snapshots using the configured serving checks before readiness. If it fails, republish the saved immutable version through the same storage publication command used by normal releases:
 
 ~~~bash
 previous_id="$(basename "$previous_snapshot")"
 rollback_dir="$(mktemp -d "data/work/$collection-rollback-XXXXXX")"
 cp -a "$previous_snapshot" "$rollback_dir/$previous_id"
-target/release/opening-explorer publish \
+target/release/chess-database publish \
   --candidate "$rollback_dir/$previous_id" \
   --target "data/releases/$collection" \
   --collection "$collection"

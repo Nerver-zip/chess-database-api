@@ -1,14 +1,16 @@
 ---
-summary: "Reference for the Opening Explorer HTTP API: endpoints, parameters, response fields, statistics semantics, errors, caching, CORS, admin reload, and server configuration."
-read_when: "Integrating a client with the Opening Explorer API, checking an endpoint, parameter, field, or error code, or interpreting position statistics."
+summary: "Chess Database API endpoints, statistics, errors, caching, reload and server configuration."
+read_when: "Integrating a client with the Chess Database API, checking an endpoint, parameter, field, or error code, or interpreting position statistics."
 status: current
 ---
 
-# Opening Explorer API Reference
+# Chess Database API Reference
 
-This document describes the HTTP API served by `opening-explorer serve`. It covers the behavior of the current implementation. Where the implementation has a known deviation or limitation, it is stated in [Known limitations](#known-limitations).
+This document describes the HTTP API served by `chess-database serve`. It covers the behavior of the current implementation. Where the implementation has a known deviation or limitation, it is stated in [Known limitations](#known-limitations).
 
 For a first request, see [GETTING_STARTED.md](GETTING_STARTED.md). For end-to-end integration patterns, see [USE_CASES.md](USE_CASES.md). Runnable examples live in [`examples/`](../examples/).
+
+The [Search API](SEARCH_API.md) documents discovery, metadata and filtered statistics.
 
 ## Contents
 
@@ -43,6 +45,9 @@ For a first request, see [GETTING_STARTED.md](GETTING_STARTED.md). For end-to-en
 | `GET` | `/ready` | Readiness: which collections are loaded | none | not set |
 | `GET` | `/v1/collections` | Metadata of each loaded collection | none | `public, max-age=60` |
 | `GET` | `/v1/explorer/position` | Statistics and next moves for one position | none | `public, max-age=60` |
+| `GET` | `/v1/collections/{collection}/games`, `/players`, and `/events` | Game, player and event discovery on an enabled search snapshot | none | `no-store` |
+| `GET` | `/v1/collections/{collection}/games/{id}/metadata` | Stored game summary | none | `no-store` |
+| `GET` | `/v1/explorer/position/filtered` | Exact opening statistics with metadata filters | none | `no-store` |
 | `GET` | `/v1/collections/{collection}/games/{id}` | One stored game as PGN (only if enabled) | none | `public, max-age=3600` |
 | `POST` | `/v1/admin/reload` | Re-verify and swap dataset snapshots | admin token (must be configured) | not set |
 
@@ -112,6 +117,8 @@ Example (values are illustrative; the real output reflects the installed release
 | `cpi_total_positions` | integer | Present only when `cpi_available` is true. Distinct positions in the index. |
 | `format_version` | string | Storage format of the snapshot (for example `CGB3/v1`). |
 
+The additive `capabilities` object describes which features are enabled for this snapshot and operator configuration. See [capability discovery](SEARCH_API.md).
+
 ### The two collections
 
 | | `masters-otb` | `elite-online` |
@@ -122,7 +129,7 @@ Example (values are illustrative; the real output reflects the installed release
 | Index depth | 40 plies in the current release. | 30 plies in the current release. |
 | Licensing | Release-specific. See [LICENSING.md](LICENSING.md). | CC0 1.0. |
 
-The API has no rating filter. Ratings are used only to select games during the build. Do not compare numeric ratings across the two collections, and do not combine their counts or averages.
+The legacy `/v1/explorer/position` endpoint reads corpus-wide CPI statistics. [Game search and filtered Explorer](SEARCH_API.md) accept rating ranges on search-enabled snapshots. Use each collection’s own rating scale.
 
 ## 5. Position statistics
 
@@ -259,7 +266,7 @@ The setting applies to the whole process and to both collections; there is no pe
 
 ### Finding game IDs
 
-The HTTP API cannot list games or return game IDs from position queries. IDs come from the release's lookup index (`games.idx`, described in [DATA_CONTRACTS.md](DATA_CONTRACTS.md#23-global-game-lookup-gamesidx)) and from the CLI. The PGN produced by `opening-explorer export` does not include stable IDs (see [Known limitations](#known-limitations)).
+Use [game search](SEARCH_API.md) with metadata or a board position to discover stable game IDs, represented as decimal strings. The legacy position response contains aggregate statistics. On CPI-only snapshots, use identities already known to your client or the release's [lookup index](DATA_CONTRACTS.md#23-global-game-lookup-gamesidx).
 
 Example: [`examples/curl/game.sh`](../examples/curl/game.sh).
 
@@ -269,7 +276,7 @@ Example: [`examples/curl/game.sh`](../examples/curl/game.sh).
 
 Re-opens and re-verifies the configured dataset paths, then atomically swaps in the new snapshots. Requests in flight keep their pinned snapshot. If verification fails, the active snapshots remain in service.
 
-**Enabling.** The endpoint is available only when the server was started with an admin token (`--admin-token`, or `OPENING_EXPLORER_ADMIN_TOKEN`). Without a token it always returns `403` with `admin_disabled`.
+**Enabling.** The endpoint is available only when the server was started with an admin token (`--admin-token`, or `CHESS_DATABASE_ADMIN_TOKEN`). Without a token it always returns `403` with `admin_disabled`.
 
 **Authentication.** Send the token in either header:
 
@@ -294,9 +301,9 @@ A missing or wrong token returns `401` with `unauthorized`.
 
 **Failure.** `500` with `reload_failed`. The message is generic; the detail is in the server log. The previous snapshots stay active.
 
-**Duration.** The reload is not subject to the request timeout that applies to read endpoints. Verifying a large snapshot can take a long time, and the response arrives when the reload finishes. The reload runs in its own task, so it completes and swaps atomically even if the caller stops waiting. Concurrent reloads are serialized. Set your HTTP client's timeout to suit the snapshot size. In one measurement on the verification host, with production-size snapshots (about 2.9 GB for both collections), the reload returned `200` after about 20 seconds.
+**Duration.** The read request timeout excludes administrative reload. The response arrives after verification finishes. The reload runs in its own task and swaps snapshots atomically on success even if the caller stops waiting. Concurrent reloads are serialized. Set your HTTP client's timeout to suit the snapshot size and serving environment. See the [two-collection reload measurements](research/search-index-experiments.md#two-enriched-collections-under-emulation).
 
-Signals remain available. `SERVER_PID` is the process ID of the running `opening-explorer serve`:
+Signals remain available. `SERVER_PID` is the process ID of the running `chess-database serve`:
 
 ```sh
 kill -HUP "$SERVER_PID"
@@ -335,6 +342,13 @@ Errors from the API handlers use this envelope:
 | `reload_failed` | 500 | The replacement snapshot failed verification. |
 | `storage_error` | 500 | A storage read or decode failed. |
 | `internal_error` | 500 | An unexpected server error. |
+| `invalid_cursor` | 400 | The cursor token is malformed or belongs to a different query. |
+| `search_disabled` | 403 | The requested search capability is disabled for the collection. |
+| `stale_cursor` | 409 | The search cursor or requested catalog version belongs to a previous snapshot. |
+| `search_timeout` | 408 | Search exceeded its execution budget. Narrow the query. |
+| `search_work_limit` | 422 | The request exceeds the search work limit. Narrow the query. |
+| `search_busy` | 429 | The bounded search or aggregate admission wait expired or its queue is full. |
+| `search_unavailable` | 503 | The loaded snapshot lacks the index or required coverage. |
 
 Every error response uses this envelope, including responses the router produces before a handler runs (unknown paths, wrong methods, undecodable query strings, and timeouts). Those keep their HTTP status codes.
 
@@ -374,22 +388,27 @@ Position queries do not use the reader pool. They read memory-mapped index pages
 
 ## 10. Server configuration
 
-Run `opening-explorer serve --help` for the exact flags. Each flag can also be set through an environment variable.
+Run `chess-database serve --help` for the flags. `CHESS_DATABASE_*` takes precedence over the matching `OPENING_EXPLORER_*` and applicable `CODB_*` compatibility names. See the [search settings](SEARCH_API.md) and [naming migration](NAMING_MIGRATION.md).
 
 | Flag | Environment variable | Default | Notes |
 | :--- | :--- | :--- | :--- |
-| `--masters-dataset <DIR>` | `OPENING_EXPLORER_MASTERS_DATASET` | none | Dataset root (contains `current/`). |
-| `--elite-dataset <DIR>` | `OPENING_EXPLORER_ELITE_DATASET` | none | Dataset root. At least one dataset is required. |
-| `--host <ADDR>` | `OPENING_EXPLORER_HOST` | `127.0.0.1` | Use `0.0.0.0` inside containers. |
-| `--port <PORT>` (`-p`) | `OPENING_EXPLORER_PORT` | `8080` | |
-| `--allowed-origins <LIST>` | `OPENING_EXPLORER_ALLOWED_ORIGINS` | empty | Comma-separated, or `*`. See [section 9](#cors). |
-| `--request-timeout-secs <N>` | `OPENING_EXPLORER_REQUEST_TIMEOUT_SECS` | `15` | 1 to 300. Read endpoints only. |
-| `--max-move-plies <N>` | `OPENING_EXPLORER_MAX_MOVE_PLIES` | `200` | 1 to 512. |
-| `--reader-pool-size <N>` | `OPENING_EXPLORER_READER_POOL_SIZE` | `16` | 1 to 64. |
-| `--reader-pool-timeout-secs <N>` | `OPENING_EXPLORER_READER_POOL_TIMEOUT_SECS` | `5` | 1 to 60. |
-| `--enable-game-retrieval <true\|false>` | `OPENING_EXPLORER_ENABLE_GAME_RETRIEVAL` | `true` | `false` removes the game route for both collections. |
-| `--admin-token <TOKEN>` | `OPENING_EXPLORER_ADMIN_TOKEN` | none | Enables `POST /v1/admin/reload`. Keep it secret. |
-| `--deep-validate-on-startup` | none (flag only) | off | Also decodes and checks every stored block before readiness. Startup always verifies the checksums of all artifacts. |
+| `--masters-dataset <DIR>` | `CHESS_DATABASE_MASTERS_DATASET` | none | Dataset root (contains `current/`). |
+| `--elite-dataset <DIR>` | `CHESS_DATABASE_ELITE_DATASET` | none | Dataset root. At least one dataset is required. |
+| `--host <ADDR>` | `CHESS_DATABASE_HOST` | `127.0.0.1` | Use `0.0.0.0` inside containers. |
+| `--port <PORT>` (`-p`) | `CHESS_DATABASE_PORT` | `8080` | |
+| `--allowed-origins <LIST>` | `CHESS_DATABASE_ALLOWED_ORIGINS` | empty | Comma-separated, or `*`. See [section 9](#cors). |
+| `--request-timeout-secs <N>` | `CHESS_DATABASE_REQUEST_TIMEOUT_SECS` | `15` | 1 to 300. Read endpoints only. |
+| `--max-move-plies <N>` | `CHESS_DATABASE_MAX_MOVE_PLIES` | `200` | 1 to 512. |
+| `--reader-pool-size <N>` | `CHESS_DATABASE_READER_POOL_SIZE` | `16` | 1 to 64. |
+| `--reader-pool-timeout-secs <N>` | `CHESS_DATABASE_READER_POOL_TIMEOUT_SECS` | `5` | 1 to 60. |
+| `--enable-game-retrieval <true\|false>` | `CHESS_DATABASE_ENABLE_GAME_RETRIEVAL` | `true` | `false` removes the game route for both collections. |
+| `--admin-token <TOKEN>` | `CHESS_DATABASE_ADMIN_TOKEN` | none | Enables `POST /v1/admin/reload`. Keep it secret. |
+| `--deep-validate-on-startup` | `CHESS_DATABASE_DEEP_VALIDATE_ON_STARTUP` | `false` | Repeat deep verification at startup and on reload. Digest checks always run. |
+| `--masters-discovery`, `--elite-discovery` | `CHESS_DATABASE_MASTERS_DISCOVERY`, `CHESS_DATABASE_ELITE_DISCOVERY` | `false`, `true` | Enable each collection’s discovery routes. |
+| `--masters-game-metadata`, `--elite-game-metadata` | `CHESS_DATABASE_MASTERS_GAME_METADATA`, `CHESS_DATABASE_ELITE_GAME_METADATA` | `false`, `true` | Enable individual search metadata. |
+| `--search-max-page-size` | `CHESS_DATABASE_SEARCH_MAX_PAGE_SIZE` | `100` | Maximum results per page. |
+| `--search-concurrency` | `CHESS_DATABASE_SEARCH_CONCURRENCY` | `2` | Blocking search workers. Only one filtered aggregate runs concurrently. |
+| `--search-deadline-ms` | `CHESS_DATABASE_SEARCH_DEADLINE_MS` | `2000` | Search execution deadline. |
 
 Log verbosity is controlled by `RUST_LOG` (for example `RUST_LOG=info`). `SIGHUP` triggers a reload, and `SIGINT` or `SIGTERM` stops the server gracefully.
 
@@ -408,5 +427,5 @@ Startup fails with a message if a configured dataset is missing, belongs to anot
 These behaviors are part of the current implementation. Each one is recorded so that clients can work around it.
 
 1. **Game retrieval is a single process-wide switch.** Masters and Elite cannot differ within one server. Run a separate instance, or place a proxy in front, if one collection's PGN must stay private.
-2. **Game IDs cannot be discovered over HTTP.** Stored IDs come from the release's lookup index. PGN exported with `opening-explorer export` does not contain stable IDs, so an exported game cannot be matched to `/games/{id}` from its text alone.
+2. **PGN export omits stable IDs.** Use a game search result’s `id` when identifying a game through the API.
 3. **`/ready` cannot report `not_ready` after startup.** Startup validates every configured dataset before binding, so readiness is effectively fixed for the life of the process.

@@ -1,18 +1,18 @@
 ---
-summary: "Quickstart for Opening Explorer API: build the CLI, create a small local sample dataset, start the HTTP server, and run a first position query."
-read_when: "Setting up Opening Explorer API for the first time, or needing a working local server to test a client against."
+summary: "Build the CLI and sample indexes, start the service, and try position and game search."
+read_when: "Setting up Chess Database API for the first time, or needing a working local server to test a client against."
 status: current
 ---
 
 # Getting Started
 
-This guide takes about ten minutes. You will build the command-line tool, create a small local dataset from the sample PGN that ships with the repository, start the HTTP API, and make a first position query.
+This guide takes about ten minutes. You will build the command-line tool, create a small local dataset from the sample PGN that ships with the repository, start the HTTP API, then search for a game and retrieve its PGN.
 
 The sample is synthetic test data. Its statistics are for trying the API only. For real datasets, see [section 6](#6-real-datasets).
 
 ## 1. Prerequisites
 
-- A Rust toolchain that can build the workspace (`rust-version` 1.80 or later, stable). Build with `--locked` so `Cargo.lock` is respected.
+- A current stable Rust toolchain. The release Dockerfile pins a toolchain for reproducible builds. Build with `--locked` so `Cargo.lock` is respected.
 - `curl` for the examples. `node` 18 or later or `python3` 3.9 or later is optional, for the client examples.
 - Disk space for the build: the sample needs a few megabytes.
 
@@ -21,35 +21,38 @@ The sample is synthetic test data. Its statistics are for trying the API only. F
 From the repository root:
 
 ```sh
-cargo build --locked --release --package opening-explorer-cli
-./target/release/opening-explorer --help
+cargo build --locked --release --package chess-database-cli
+./target/release/chess-database --help
 ```
 
-The binary provides the commands used below: `build`, `build-index`, `serve`, `query`, `export`, `verify`, and `inspect`. `opening-explorer serve --help` lists every server option.
+The quickstart uses `build`, `build-index`, `build-search-index`, `serve`, and `query`. Run `chess-database serve --help` for server options.
 
 ## 3. Create a local sample dataset
 
 The repository ships `fixtures/stage_a_validation.pgn`, 1,000 synthetic games. Build them into an `elite-online` dataset, then build its position index:
 
 ```sh
-./target/release/opening-explorer build \
+./target/release/chess-database build \
   --input fixtures/stage_a_validation.pgn \
   --collection elite-online \
   --output data/sample/elite-online
 
-./target/release/opening-explorer build-index \
+./target/release/chess-database build-index \
   --dataset data/sample/elite-online \
   --collection elite-online
+
+./target/release/chess-database build-search-index \
+  --dataset data/sample/elite-online
 ```
 
-`build` applies the Elite Online selection rule and reports how many games it retained. Those games are the sample. `build-index` writes the position index (depth 30 by default for this collection) and publishes it as the dataset's `current` snapshot. The `data/` directory is ignored by Git.
+`build` applies the Elite Online selection rule and reports how many games it retained. Those games are the sample. `build-index` writes the position index (depth 30 by default for this collection) and publishes it as the dataset's `current` snapshot. `build-search-index` publishes the optional discovery artifacts while reusing the canonical files and CPI. The `data/` directory is ignored by Git.
 
 Do not present a locally built sample as the published Masters OTB dataset. The published Masters release is described in [DATASET_RELEASES.md](DATASET_RELEASES.md); building a corpus from source is covered in [CORPUS_BUILD.md](CORPUS_BUILD.md).
 
 ## 4. Start the API
 
 ```sh
-./target/release/opening-explorer serve \
+./target/release/chess-database serve \
   --elite-dataset data/sample/elite-online \
   --host 127.0.0.1 \
   --port 8080
@@ -96,18 +99,32 @@ OPENING_EXPLORER_COLLECTION=elite-online \
 To cross-check the HTTP answer against the CLI, run:
 
 ```sh
-./target/release/opening-explorer query \
+./target/release/chess-database query \
   --dataset data/sample/elite-online \
   --moves "e4,e5,Nf3" --json
 ```
 
 The CLI reports the same `total_games`, `white_wins`, `draws`, and `black_wins` as the HTTP response. Its JSON field names differ slightly from the HTTP contract (for example, `total` in each move instead of `total_games`). The HTTP reference is authoritative for integrations.
 
+### Find a game and open its PGN
+
+Check the advertised `game_search` capability, then constrain game discovery to the same board. The response includes matching plies, played continuations and stable game IDs.
+
+```sh
+API=http://127.0.0.1:8080
+GAMES=$API/v1/collections/elite-online/games
+curl --fail-with-body "$API/v1/collections"
+curl --fail-with-body --get "$GAMES" \
+  --data-urlencode 'moves=e4,e5,Nf3' --data-urlencode 'limit=3'
+```
+
+Copy a returned decimal `id` into `GAME_ID`, then run `curl --fail-with-body "$GAMES/$GAME_ID"`. More search parameters and cursor examples are in the [Search API](SEARCH_API.md).
+
 ## 6. Real datasets
 
 Real datasets are installed under `data/releases/<collection>/current`. The release packaging, verification, and Docker procedures are documented in [CORPUS_BUILD.md](CORPUS_BUILD.md) and [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md). Serve a release by passing its root directory to `--masters-dataset` or `--elite-dataset`.
 
-The Masters OTB dataset (3,284,429 games, 40-ply index) is available as a [GitHub release](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3); [DATASET_RELEASES.md](DATASET_RELEASES.md#4-download-verify-reconstruct-install) shows how to download, verify, and install it. It is licensed for non-commercial use with attribution.
+The Masters OTB dataset (3,284,429 games, 40-ply index) is available as a [GitHub release](https://github.com/Nerver-zip/chess-database-api/releases/tag/dataset-masters-otb-r3); [DATASET_RELEASES.md](DATASET_RELEASES.md#4-download-verify-reconstruct-install) shows how to download, verify, and install it. It is licensed for non-commercial use with attribution.
 
 Each dataset carries its own license. Masters OTB data is for non-commercial use with attribution, and Elite Online is CC0. Before you publish or redistribute a dataset, its PGN, or a service built on it, read [LICENSING.md](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). Single-game retrieval is enabled by default; it can be switched off (see [API_REFERENCE.md, section 6](API_REFERENCE.md#enabling-and-disabling)).
 
