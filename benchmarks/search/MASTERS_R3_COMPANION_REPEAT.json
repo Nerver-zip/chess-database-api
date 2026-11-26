@@ -1,0 +1,13 @@
+{
+  "repeat_exit_code": 0,
+  "active_snapshot": "versions/codb-masters-otb-1795688570770863837-d4455e33eb552050-search",
+  "canonical_manifest_fields_match": {
+    "collection": true,
+    "total_games": true,
+    "shards": true,
+    "lookup_table": true,
+    "position_index": true,
+    "source_attribution": true
+  },
+  "verification": "Installer deeply verified the repeated installation before publication."
+}

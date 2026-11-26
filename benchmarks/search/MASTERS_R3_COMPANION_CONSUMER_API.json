@@ -1,0 +1,72 @@
+{
+  "cases": {
+    "collections": {
+      "latency_us": 432.5879999669269,
+      "status": 200
+    },
+    "continuation": {
+      "latency_us": 2247.267999337055,
+      "status": 200
+    },
+    "event_detail": {
+      "latency_us": 230438.40799982718,
+      "status": 200
+    },
+    "event_games": {
+      "latency_us": 979.6530011954019,
+      "status": 200
+    },
+    "filtered_player": {
+      "latency_us": 241125.41800059262,
+      "status": 200
+    },
+    "first_games": {
+      "latency_us": 4887.043000053382,
+      "status": 200
+    },
+    "game_metadata": {
+      "latency_us": 434125.2749982232,
+      "status": 200
+    },
+    "game_pgn": {
+      "latency_us": 248956.82799979113,
+      "status": 200
+    },
+    "legacy_conditional": {
+      "latency_us": 340.49399982905015,
+      "status": 304
+    },
+    "legacy_explorer": {
+      "latency_us": 3017.9919995134696,
+      "status": 200
+    },
+    "player_detail": {
+      "latency_us": 496.2250004609814,
+      "status": 200
+    },
+    "player_position_games": {
+      "latency_us": 163175.9730007616,
+      "status": 200
+    },
+    "players": {
+      "latency_us": 2680.75699932524,
+      "status": 200
+    },
+    "ready": {
+      "latency_us": 5349.327000658377,
+      "status": 200
+    },
+    "second_games": {
+      "latency_us": 1177.3019996326184,
+      "status": 200
+    },
+    "unfiltered_compatibility": {
+      "latency_us": 779.030000558123,
+      "status": 200
+    }
+  },
+  "collection": "masters-otb",
+  "dataset_version": "codb-masters-otb-1795687963909095704-b6bbd44922adca78-search",
+  "mode": "enriched",
+  "seconds": 1.3418765909991635
+}

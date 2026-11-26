@@ -1,0 +1,13 @@
+{
+  "verified_artifacts": {
+    "metadata.sqlite": {
+      "size_bytes": 3534753792,
+      "sha256": "2f41accb653eaea1672456094d93f81e6b34b62eadb288856da426a910d8a03d"
+    },
+    "positions.postings": {
+      "size_bytes": 2038036566,
+      "sha256": "41a9d5531b4f478b72a421631ba4dee89b705a54f02afb2b8575ef809e2ade28"
+    }
+  },
+  "method": "Concatenated verified release parts, decompressed and extracted; artifact sizes and SHA-256 match companion metadata."
+}

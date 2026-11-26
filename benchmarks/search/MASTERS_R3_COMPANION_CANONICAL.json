@@ -1,0 +1,12 @@
+{
+  "current": "versions/codb-masters-otb-1795687963909095704-b6bbd44922adca78-search",
+  "canonical_manifest_fields_match": {
+    "collection": true,
+    "total_games": true,
+    "shards": true,
+    "lookup_table": true,
+    "position_index": true,
+    "source_attribution": true
+  },
+  "note": "The installer deeply verified the new snapshot before atomic publication."
+}

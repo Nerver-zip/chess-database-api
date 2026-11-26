@@ -1,0 +1,4 @@
+{
+  "initial_probe": "failed because Masters discovery defaulted to disabled; legacy-mode probe expected search_unavailable",
+  "corrected_probe": "enabled Masters discovery and metadata to test absent search index"
+}
