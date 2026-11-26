@@ -36,7 +36,7 @@ The following architectural decisions have been evaluated, implemented, and acce
 - **Zero-Downtime Reloading:** Pinned snapshots (`DatasetSnapshot`) are swapped atomically via `parking_lot::RwLock<Arc<DatasetSnapshot>>` upon `POST /v1/admin/reload`, allowing seamless updates under live traffic with zero dropped requests.
 
 ### 1.7 Corpus Orchestration Outside the Rust Workspace
-- **Decision:** Source acquisition, release assembly, packaging, and HTTP validation live in `scripts/corpus.py` (Python standard library) driven by a pinned `corpus/catalog.json`, and invoke the existing `opening-explorer` CLI instead of adding download or release logic to the Rust crates.
+- **Decision:** Source acquisition, release assembly, packaging, and HTTP validation live in `scripts/corpus.py` (Python standard library) driven by a pinned `corpus/catalog.json`, and invoke the `chess-database` CLI instead of adding download or release logic to the Rust crates.
 - **Rationale:** Acquisition and provenance are release-process concerns that change independently of storage formats; keeping them out of `chess-database-*` preserves the binary-format and determinism contracts and avoids new Rust dependencies (HTTP client, TLS). The catalog fails closed on missing checksums and unapproved licenses.
 - **Trade-off:** A second language in the repository; mitigated by stdlib-only code, offline tests in `validate.sh`, and no new dependencies.
 

@@ -240,14 +240,14 @@ def find_opening_explorer(value: str | None) -> Path:
     located = shutil.which(value or "chess-database")
     if located:
         return Path(located).resolve()
-    raise EvaluationError("opening-explorer executable not found; build it or pass --opening-explorer")
+    raise EvaluationError("chess-database executable not found. Build it or pass --chess-database")
 
 
 def run_opening_explorer(opening_explorer: Path, arguments: list[str]) -> subprocess.CompletedProcess[str]:
     result = subprocess.run([str(opening_explorer), *arguments], capture_output=True, text=True)
     if result.returncode != 0:
         detail = result.stderr.strip() or result.stdout.strip()
-        raise EvaluationError(f"opening-explorer {' '.join(arguments)} failed: {detail}")
+        raise EvaluationError(f"chess-database {' '.join(arguments)} failed: {detail}")
     return result
 
 
@@ -259,14 +259,14 @@ def run_measured_opening_explorer(
     environment: dict[str, str],
     sample_paths: list[Path],
 ) -> tuple[subprocess.CompletedProcess[str], dict[str, Any]]:
-    """Run one production opening-explorer stage and retain process and workspace measurements."""
+    """Run one production chess-database stage and retain process and workspace measurements."""
     command = [str(opening_explorer), *arguments]
     metrics = corpus.run_measured(command, log_path, environment, sample_paths)
     output = log_path.read_text(encoding="utf-8", errors="replace")
     result = subprocess.CompletedProcess(command, metrics["returncode"], output, "")
     if result.returncode != 0:
         detail = output.strip()[-4000:] or "no command output"
-        raise EvaluationError(f"opening-explorer {' '.join(arguments)} failed: {detail}")
+        raise EvaluationError(f"chess-database {' '.join(arguments)} failed: {detail}")
     return result, metrics
 
 
@@ -484,7 +484,7 @@ def build_evaluation(args: argparse.Namespace) -> dict[str, Any]:
     ], log_path=work_root / "build-index.log", environment=command_environment,
        sample_paths=[scratch_dir, output_root])
     resource_metrics["steps"]["build_index"] = index_metrics
-    index_report = read_json_output(index_result, "opening-explorer build-index")
+    index_report = read_json_output(index_result, "chess-database build-index")
     index_report_path.write_text(json.dumps(index_report, indent=2, sort_keys=True) + "\n")
     resource_metrics["index_memory_limit_mib"] = args.memory_limit_mib
     _write_json_new(resource_metrics_path, resource_metrics)
@@ -585,7 +585,7 @@ def build_evaluation(args: argparse.Namespace) -> dict[str, Any]:
     run_opening_explorer(opening_explorer, ["verify", "--dataset", str(output_root), "--deep"])
     query = read_json_output(
         run_opening_explorer(opening_explorer, ["query", "--dataset", str(output_root), "--moves", "e4", "--json"]),
-        "opening-explorer query",
+        "chess-database query",
     )
     if not isinstance(query.get("total_games"), int):
         raise EvaluationError("evaluation snapshot query returned no statistics")
@@ -617,7 +617,7 @@ def verify_evaluation_release(root: Path, opening_explorer: Path) -> dict[str, A
     run_opening_explorer(opening_explorer, ["verify", "--dataset", str(root), "--deep"])
     query = read_json_output(
         run_opening_explorer(opening_explorer, ["query", "--dataset", str(root), "--moves", "e4", "--json"]),
-        "opening-explorer query",
+        "chess-database query",
     )
     if not isinstance(query.get("total_games"), int) or query["total_games"] <= 0:
         raise EvaluationError("package offline query returned no opening statistics")
@@ -835,7 +835,10 @@ def rollback(target: Path, version: str, opening_explorer: Path) -> dict[str, An
 
 
 def _add_shared_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--opening-explorer", help="opening-explorer executable (default: target/release/chess-database)")
+    parser.add_argument(
+        "--chess-database", "--opening-explorer", dest="opening_explorer", metavar="PATH",
+        help="Chess Database CLI executable (default: target/release/chess-database)",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:

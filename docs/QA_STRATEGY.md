@@ -144,7 +144,7 @@ sha256sum -c MANIFEST.sha256
 The pinned validation image includes the Rust formatting and lint components and runs the same gate without copying local datasets:
 
 ```bash
-docker build --progress=plain -f Dockerfile.validation -t opening-explorer-validation:local .
+docker build --progress=plain -f Dockerfile.validation -t chess-database-validation:local .
 ```
 
 All 8 steps are bundled into the executable test harness:

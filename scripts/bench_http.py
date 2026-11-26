@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-scripts/bench_http.py — HTTP Opening Explorer API Performance & Concurrency Benchmark Harness.
+scripts/bench_http.py — Opening Explorer HTTP performance and concurrency benchmark.
 
 Measures:
 1. Server startup time and initial memory RSS.
@@ -155,7 +155,7 @@ def run_benchmark(bin_path: str, fixture_pgn: str, output_json: str | None = Non
     print("  Dataset and CPI index initialized successfully.")
 
     # 2. Launch HTTP server and measure startup time & RSS
-    print(f"[2/6] Starting opening-explorer serve on {host}:{port} (reader pool size: {reader_pool_size})...")
+    print(f"[2/6] Starting chess-database serve on {host}:{port} (reader pool size: {reader_pool_size})...")
     t_start = time.perf_counter()
     proc = subprocess.Popen(
         [

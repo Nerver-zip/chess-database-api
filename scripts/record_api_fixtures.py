@@ -9,13 +9,13 @@ changes.
 Recommended provenance: serve synthetic datasets built from the public sample
 fixture, not a real corpus release. For example:
 
-  codb build --input fixtures/stage_a_validation.pgn --collection elite-online --output $D/elite
-  codb build-index --dataset $D/elite --collection elite-online
-  codb build --input fixtures/stage_a_validation.pgn --collection masters-otb --output $D/masters
-  codb build-index --dataset $D/masters --collection masters-otb --depth-plies 40
-  codb serve --masters-dataset $D/masters --elite-dataset $D/elite --port 18091 \
+  chess-database build --input fixtures/stage_a_validation.pgn --collection elite-online --output $D/elite
+  chess-database build-index --dataset $D/elite --collection elite-online
+  chess-database build --input fixtures/stage_a_validation.pgn --collection masters-otb --output $D/masters
+  chess-database build-index --dataset $D/masters --collection masters-otb --depth-plies 40
+  chess-database serve --masters-dataset $D/masters --elite-dataset $D/elite --port 18091 \
       --admin-token <test-token> --allowed-origins http://localhost:3000
-  codb serve --elite-dataset $D/elite --port 18090     # for collection_unavailable
+  chess-database serve --elite-dataset $D/elite --port 18090     # for collection_unavailable
 
 Usage:
   python3 scripts/record_api_fixtures.py \

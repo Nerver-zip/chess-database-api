@@ -230,7 +230,7 @@ Memory limits are strictly enforced across all components:
 
 ## 6.1 Corpus Orchestration Layer (Outside the Rust Workspace)
 
-Source acquisition and release assembly are deliberately **not** part of the Rust pipeline. They live in a thin Python orchestration layer that only invokes the existing `opening-explorer` CLI:
+Source acquisition and release assembly are deliberately **not** part of the Rust pipeline. They live in a thin Python orchestration layer that only invokes the `chess-database` CLI:
 
 ```mermaid
 flowchart TD

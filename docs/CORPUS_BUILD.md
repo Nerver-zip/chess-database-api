@@ -6,7 +6,7 @@ status: current
 
 # Corpus Build & Release Procedure
 
-This document is the operational counterpart of CORPUS_AND_DEDUPLICATION.md (what is accepted), LICENSING.md (what may be redistributed), and ARCHITECTURE.md (where the tooling sits). It covers pinned source builds, event qualification, package bootstrap, and serving through opening-explorer or Docker Compose.
+This document is the operational counterpart of CORPUS_AND_DEDUPLICATION.md (what is accepted), LICENSING.md (what may be redistributed), and ARCHITECTURE.md (where the tooling sits). It covers pinned source builds, event qualification, package bootstrap, and serving through `chess-database` or Docker Compose.
 
 The orchestration (`scripts/corpus.sh` → `scripts/corpus.py`) never reimplements ingestion, curation, deduplication, indexing, or publication. The pinned-source workflow uses only the Python standard library; the opt-in local `.7z` extraction command uses the pinned optional dependency in `scripts/requirements-corpus-archive.txt`. The tool invokes `chess-database build`, `chess-database build-index`, `chess-database verify --deep`, and `chess-database report` for catalog releases.
 
@@ -121,7 +121,7 @@ Promote the already-built R3 snapshot without rerunning ingestion or indexing. T
 python3 scripts/promote_gigabase_r3.py \
   --candidate data/work/gigabase-eval/docker-r3-smoke/releases/masters-otb/versions/codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40 \
   --target data/releases/masters-otb \
-  --opening-explorer target/release/chess-database \
+  --chess-database target/release/chess-database \
   --publish
 ~~~
 
@@ -136,7 +136,7 @@ tar -xf "$archive" -C data/work/gigabase-r3-install
 python3 scripts/promote_gigabase_r3.py \
   --candidate data/work/gigabase-r3-install/masters-otb/versions/codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40 \
   --target data/releases/masters-otb \
-  --opening-explorer target/release/chess-database \
+  --chess-database target/release/chess-database \
   --publish
 ~~~
 
@@ -162,18 +162,18 @@ python3 scripts/local_gigabase_eval.py build \
   --work-root data/work/gigabase-eval/policy-impact-r3 \
   --output-root data/work/gigabase-eval/candidate-r3 \
   --depth-plies 40 --memory-limit-mib 128 \
-  --opening-explorer target/release/chess-database
+  --chess-database target/release/chess-database
 
 python3 scripts/local_gigabase_eval.py package \
   --root data/work/gigabase-eval/candidate \
   --output-dir data/work/gigabase-eval/packages \
-  --opening-explorer target/release/chess-database
+  --chess-database target/release/chess-database
 
 python3 scripts/local_gigabase_eval.py bootstrap \
   --package data/work/gigabase-eval/packages/masters-otb-<version>-local-evaluation.tar \
   --previous-root data/releases/masters-otb \
   --target data/work/gigabase-eval/deploy/masters-otb \
-  --opening-explorer target/release/chess-database
+  --chess-database target/release/chess-database
 ```
 
 Bootstrap deep-verifies the package, retains the previous snapshot in the isolated evaluation root, atomically activates the Gigabase snapshot, and runs an offline opening query. A rollback republishes the retained previous immutable version through `chess-database publish`:
@@ -183,7 +183,7 @@ previous_id="$(basename "$(readlink -f data/releases/masters-otb/current)")"
 python3 scripts/local_gigabase_eval.py rollback \
   --target data/work/gigabase-eval/deploy/masters-otb \
   --version "$previous_id" \
-  --opening-explorer target/release/chess-database
+  --chess-database target/release/chess-database
 ```
 
 To run a position-statistics-only service, set `CHESS_DATABASE_MASTERS_RELEASE_DIR=data/work/gigabase-eval/deploy/masters-otb` and `CHESS_DATABASE_ENABLE_GAME_RETRIEVAL=false` before starting Compose; this removes only the game route. By default retrieval is enabled and is a supported public capability ([LICENSING.md section 6](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment)). The package is not an approved-catalog release. The publisher's CC BY-NC 4.0 statement is retained as a publisher claim, the publisher checksum is `null`, and unresolved upstream rights are recorded in `RELEASE/RELEASE.json` and `RELEASE/DATASET_LICENSE.txt`, which predate the maintainer's decisions and are preserved unmodified.
@@ -297,7 +297,7 @@ Stable game IDs are listed in `games.idx` (32-byte header, 16-byte records, 32-b
 ./scripts/corpus.sh http-check      # starts a server, runs the checks, writes data/reports/http_check.json
 ```
 
-It asserts, per collection and against the real release: collection identity and `dataset_version` equal to the manifest; `/v1/collections` metadata; W+D+L reconciliation at the position and per candidate move; candidate moves are legal (each is replayed through the API); HTTP equals `chess-database query` on a stratified position sample (common, mid-frequency, rare, beyond-depth, absent, and transposition pairs); transposed move orders return identical statistics; invalid FEN, illegal moves, ambiguous or missing positions, and unsupported parameters are rejected with 400; real stored games are retrieved and equal `opening-explorer get-game`; ids from one collection return 404 in the other; conditional requests return 304; and latency, concurrency (1–32 workers), and startup time are measured.
+It asserts, per collection and against the real release: collection identity and `dataset_version` equal to the manifest; `/v1/collections` metadata; W+D+L reconciliation at the position and per candidate move; candidate moves are legal (each is replayed through the API); HTTP equals `chess-database query` on a stratified position sample (common, mid-frequency, rare, beyond-depth, absent, and transposition pairs); transposed move orders return identical statistics; invalid FEN, illegal moves, ambiguous or missing positions, and unsupported parameters are rejected with 400; real stored games are retrieved and equal `chess-database get-game`; ids from one collection return 404 in the other; conditional requests return 304; and latency, concurrency (1–32 workers), and startup time are measured.
 
 ## 9. Measured Results and Current Release
 
@@ -432,7 +432,7 @@ Container-to-container requests do not use browser CORS. A browser needs a reach
 | `sha256 … does not match publisher checksum` | Corrupted transfer or changed upstream | Partial file deleted; rerun. If it recurs, the upstream archive changed: re-`pin` and review before use. |
 | `insufficient disk space` | Free space below need + headroom | Free space or pass `--data-dir` on a larger volume. |
 | `source … is not verified` at build | Archive missing/tampered | `fetch` again; the build never proceeds. |
-| `step '<name>' failed` | A `opening-explorer` step failed | Active release untouched; inspect `data/work/<run>/logs/<name>.log`, fix, rerun, then delete the stale workspace. |
+| `step '<name>' failed` | A `chess-database` step failed | Active release untouched; inspect `data/work/<run>/logs/<name>.log`, fix, rerun, then delete the stale workspace. |
 | `database or disk is full` in standalone `chess-database build` | SQLite temporary files may be using a full or size-limited system temp directory | Set `TMPDIR` to a writable directory with enough space. `corpus.sh build` already scopes temporary files to `data/work/<run>/tmp`. |
 | `post-publication verification failed` | Published copy failed deep verify | The previous current target is restored automatically when one exists; inspect the candidate workspace and stable release root. |
 | Interrupted `build` | Workspace left under `data/work/` | Safe to delete; the active release root changes only when the atomic current symlink is switched. |

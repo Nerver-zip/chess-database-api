@@ -1146,7 +1146,7 @@ impl DatasetReader {
     pub fn query_position(&self, key: PositionKey) -> Result<Option<PositionStats>, StorageError> {
         let idx = self.open_position_index()?.ok_or_else(|| {
             StorageError::Decoding(format!(
-                "Dataset at '{}' does not contain a published position index (positions.cpi); run 'opening-explorer build-index' first",
+                "Dataset at '{}' does not contain a published position index (positions.cpi); run 'chess-database build-index' first",
                 self.dataset_dir.display()
             ))
         })?;
@@ -2036,7 +2036,7 @@ pub fn publish_prebuilt_dataset(
             .unwrap_or(false)
     {
         return Err(StorageError::Integrity(
-            "Target contains a legacy flat dataset; migrate it with opening-explorer recover before publication"
+            "Target contains a legacy flat dataset; migrate it with chess-database recover before publication"
                 .into(),
         ));
     }

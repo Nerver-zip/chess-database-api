@@ -4,6 +4,8 @@
 
 [Draft PR #11](https://github.com/Nerver-zip/opening-explorer-api/pull/11) targets `main` on `feat/chess-database-api`. Chess Database API is the current product identity and `chess-database` is the canonical CLI. Existing CLI, environment, image and network aliases remain available. The canonical and legacy environment samples rendered identical default and named-volume Compose configurations. The owner can rename the repository after merge using the [naming procedure](docs/NAMING_MIGRATION.md).
 
+The corpus and local Gigabase tools document `--chess-database` and accept `--opening-explorer` as an alias. Current corpus instructions and diagnostics use the canonical name. The published release manifests retain their original provenance and checksums.
+
 The service pins separate immutable Masters OTB and Elite Online snapshots. Legacy opening statistics use CPI v2 and legacy PGNs use canonical game storage. Optional discovery adds a SQLite catalog and compact occurrence postings. Common rating and date filters use a bounded ordinal scan. An otherwise unrestricted `min_plies=0` query uses CPI. Two search workers and one filtered aggregation slot are the serving defaults.
 
 ## Verification evidence
@@ -25,4 +27,4 @@ The [repository Docker image](benchmarks/search/HARDENING_REPOSITORY_IMAGE_QEMU.
 
 ## Open owner actions
 
-Review the eviction-advised timing results and complete native Docker acceptance before rollout. Leave Masters discovery and search metadata disabled until the owner reviews public enumeration and attribution. Legacy PGN retrieval is separately configurable. Masters R3 and Elite R1 stay the canonical releases. See [dataset releases](docs/DATASET_RELEASES.md) and [licensing](docs/LICENSING.md).
+Review the eviction-advised timing results and complete native Docker acceptance before rollout. The owner-host reload check verifies that Elite switches to the intended alternate snapshot and Masters stays on its pinned version. Leave Masters discovery and search metadata disabled until the owner reviews public enumeration and attribution. Legacy PGN retrieval is separately configurable. Masters R3 and Elite R1 stay the canonical releases. See [dataset releases](docs/DATASET_RELEASES.md) and [licensing](docs/LICENSING.md).

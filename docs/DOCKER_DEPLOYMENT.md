@@ -296,6 +296,7 @@ services:
 YAML
 reload_compose=("${compose[@]}" -f data/acceptance/compose.admin.yaml)
 start_and_wait "${reload_compose[@]}" > data/acceptance/reload-startup.log 2>&1
+curl --fail-with-body http://127.0.0.1:8081/v1/collections > data/acceptance/collections-before-reload.json
 stage=$(mktemp -d "$PWD/data/acceptance/stage.XXXXXX")
 CANDIDATE="$stage/$(basename "$ALTERNATE_ELITE_SNAPSHOT")"
 cp -a "$ALTERNATE_ELITE_SNAPSHOT" "$CANDIDATE"
@@ -314,6 +315,22 @@ curl --fail-with-body http://127.0.0.1:8081/v1/collections > data/acceptance/col
 container=$("${reload_compose[@]}" ps -q opening-explorer)
 sample_cgroup "$container" > data/acceptance/cgroup-after-reload.txt
 docker logs "$container" > data/acceptance/server-after-reload.log 2>&1
+python3 - "$ALTERNATE_ELITE_SNAPSHOT/manifest.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+def versions(filename):
+    response = json.loads(Path("data/acceptance", filename).read_text())
+    return {entry["collection"]: entry["dataset_version"] for entry in response["collections"]}
+
+before = versions("collections-before-reload.json")
+after = versions("collections-after-reload.json")
+alternate = json.loads(Path(sys.argv[1]).read_text())["dataset_build_id"]
+if before["elite-online"] == alternate or after != {**before, "elite-online": alternate}:
+    raise SystemExit(f"Unexpected reload versions: {before} -> {after}, expected Elite Online {alternate}")
+print(f"Elite Online switched to {alternate}; Masters OTB kept {before['masters-otb']}")
+PY
 "${reload_compose[@]}" down
 ```
 
