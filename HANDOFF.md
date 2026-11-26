@@ -30,3 +30,5 @@ The [repository Docker image](benchmarks/search/HARDENING_REPOSITORY_IMAGE_QEMU.
 ## Open owner actions
 
 Review the eviction-advised timing results and complete native Docker acceptance before rollout. The owner-host reload check verifies that Elite switches to the intended alternate snapshot and Masters stays on its pinned version. Leave Masters discovery and search metadata disabled until the owner reviews public enumeration and attribution. Legacy PGN retrieval is separately configurable. Masters R3 and Elite R1 stay the canonical releases. See [dataset releases](docs/DATASET_RELEASES.md) and [licensing](docs/LICENSING.md).
+
+The original goal requires owner approval for expensive remote validation. The [hosted trial](https://github.com/Nerver-zip/chess-database-api/actions/runs/45732126046) was canceled during compilation, before any dataset download or indexing. It produced no acceptance result. The remaining native checks can run on an isolated owner host or on an approved disposable runner.
