@@ -2,9 +2,11 @@
 
 ## Current state
 
-[Draft PR #11](https://github.com/Nerver-zip/opening-explorer-api/pull/11) targets `main` on `feat/chess-database-api`. Chess Database API is the current product identity and `chess-database` is the canonical CLI. Existing CLI, environment, image and network aliases remain available. The canonical and legacy environment samples rendered identical default and named-volume Compose configurations. The owner can rename the repository after merge using the [naming procedure](docs/NAMING_MIGRATION.md).
+[Draft PR #11](https://github.com/Nerver-zip/chess-database-api/pull/11) targets `main` on `feat/chess-database-api`. GitHub now reports the repository as `Nerver-zip/chess-database-api` and redirects its former slug. `chess-database` is the canonical CLI. Existing CLI, environment, image and network aliases remain available. The canonical and legacy environment samples rendered identical default and named-volume Compose configurations. See the [post-rename checks](docs/NAMING_MIGRATION.md#repository-rename-and-post-cutover-checks).
 
 The corpus and local Gigabase tools document `--chess-database` and accept `--opening-explorer` as an alias. Current corpus instructions and diagnostics use the canonical name. The published release manifests retain their original provenance and checksums.
+
+Both GitHub repository URLs resolve to the same repository. The Masters R3 and Elite R1 release IDs match across the redirect. GitHub's distribution asset sizes and SHA-256 digests match both committed release manifests.
 
 The service pins separate immutable Masters OTB and Elite Online snapshots. Legacy opening statistics use CPI v2 and legacy PGNs use canonical game storage. Optional discovery adds a SQLite catalog and compact occurrence postings. Common rating and date filters use a bounded ordinal scan. An otherwise unrestricted `min_plies=0` query uses CPI. Two search workers and one filtered aggregation slot are the serving defaults.
 

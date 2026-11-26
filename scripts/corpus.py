@@ -51,7 +51,7 @@ CATALOG_SCHEMA_VERSION = 1
 CHUNK = 1 << 20
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 CONFIDENCE_LEVELS = ("high", "medium", "low")
-USER_AGENT = "opening-explorer-api-corpus/1 (+https://github.com/Nerver-zip/opening-explorer-api)"
+USER_AGENT = "opening-explorer-api-corpus/1 (+https://github.com/Nerver-zip/chess-database-api)"
 
 
 def env_setting(name: str) -> str | None:

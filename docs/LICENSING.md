@@ -139,7 +139,7 @@ Both rest on the same basis: the publisher's publicly stated CC BY-NC 4.0 licens
 
 | Use | Status |
 | :--- | :--- |
-| Download and use the published release products (indexed dataset, filtered PGN) for non-commercial purposes | Covered ([release](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3)) |
+| Download and use the published release products (indexed dataset, filtered PGN) for non-commercial purposes | Covered ([release](https://github.com/Nerver-zip/chess-database-api/releases/tag/dataset-masters-otb-r3)) |
 | Run a public, non-commercial instance of the API serving position statistics, move frequencies, and W/D/L | Covered |
 | Serve single games as PGN with `GET /v1/collections/{collection}/games/{id}` in a public instance | Covered. Retrieval is enabled by default. Operators may switch it off, but the project does not require or recommend that for this dataset |
 | Bulk export of games through the API | Not provided. No bulk-download endpoint exists, and none is part of this decision |

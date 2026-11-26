@@ -13,7 +13,7 @@ status: current
 | Reproducible builds and Docker serving | Delivered in PR #6 | [Corpus builds](CORPUS_BUILD.md) and [deployment](DOCKER_DEPLOYMENT.md) |
 | Masters OTB R3, Gigabase qualification and first naming migration | PRs #7 and #8 merged. R3 published on 2026-11-16. | [Dataset releases](DATASET_RELEASES.md), [licensing decision](LICENSING.md), and [R3 measurements](../benchmarks/gigabase/FINAL_REPORT.md) |
 | Elite Online R1 | PR #10 merged. R1 published from seven selected Lichess archive periods. | [Dataset releases](DATASET_RELEASES.md) and [release verification](../benchmarks/elite-online/REBUILD_VERIFICATION_R1.json) |
-| Chess Database API and optional search enrichment | [Draft PR #11](https://github.com/Nerver-zip/opening-explorer-api/pull/11) | [Search API](SEARCH_API.md), [naming migration](NAMING_MIGRATION.md), and [production search evidence](research/search-index-experiments.md) |
+| Chess Database API and optional search enrichment | [Draft PR #11](https://github.com/Nerver-zip/chess-database-api/pull/11) | [Search API](SEARCH_API.md), [naming migration](NAMING_MIGRATION.md), and [production search evidence](research/search-index-experiments.md) |
 
 Draft PR #11 retains the CPI, CGB3 and stable game contracts. It adds game, player and event discovery, positional search, exact filtered Explorer statistics, and immutable search companions. Masters search exposure remains an operator opt-in under the [current deployment policy](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment).
 

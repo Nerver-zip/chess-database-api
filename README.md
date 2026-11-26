@@ -4,7 +4,7 @@ Chess Database API is a self-hosted, read-only service for discovering curated g
 
 The Rust service uses immutable snapshots of separately curated and deduplicated collections.
 
-> **Availability.** Run the service yourself using the [Masters OTB R3](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3) and [Elite Online R1](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-elite-online-r1) releases. Each release contains an indexed dataset and a filtered PGN. [Dataset releases](docs/DATASET_RELEASES.md) explains installation and licenses.
+> **Availability.** Run the service yourself using the [Masters OTB R3](https://github.com/Nerver-zip/chess-database-api/releases/tag/dataset-masters-otb-r3) and [Elite Online R1](https://github.com/Nerver-zip/chess-database-api/releases/tag/dataset-elite-online-r1) releases. Each release contains an indexed dataset and a filtered PGN. [Dataset releases](docs/DATASET_RELEASES.md) explains installation and licenses.
 
 ## Who it is for
 
@@ -93,8 +93,8 @@ Both collection releases use two products, and the indexed and PGN products for 
 
 | Collection | Indexed dataset | Filtered PGN | Coverage and license |
 | :--- | :--- | :--- | :--- |
-| Masters OTB R3 | [Published release](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3), 3,284,429 games, CPI depth 40 | Zstandard-compressed PGN in the same release | CC BY-NC 4.0 publisher claim; non-commercial use with attribution. See the [current policy](docs/LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). |
-| Elite Online R1 | [Published release](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-elite-online-r1), CPI depth 30 | One complete canonical game per PGN record, Zstandard-compressed | 429,150 games from selected Lichess rated archives in 2015–2017; CC0 1.0. Commercial redistribution is permitted under CC0. |
+| Masters OTB R3 | [Published release](https://github.com/Nerver-zip/chess-database-api/releases/tag/dataset-masters-otb-r3), 3,284,429 games, CPI depth 40 | Zstandard-compressed PGN in the same release | CC BY-NC 4.0 publisher claim; non-commercial use with attribution. See the [current policy](docs/LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). |
+| Elite Online R1 | [Published release](https://github.com/Nerver-zip/chess-database-api/releases/tag/dataset-elite-online-r1), CPI depth 30 | One complete canonical game per PGN record, Zstandard-compressed | 429,150 games from selected Lichess rated archives in 2015–2017; CC0 1.0. Commercial redistribution is permitted under CC0. |
 
 The indexed package contains the immutable snapshot, position index, release metadata, and checksums. The filtered PGN preserves supported stored metadata and full legal mainlines. Masters R3's indexed package is split into two numbered assets; the Elite package is split only if it exceeds the per-asset limit. See [Dataset releases](docs/DATASET_RELEASES.md) for download links, checksum verification, reconstruction, installation, PGN extraction, and versioning. To reproduce Elite Online from the pinned sources, follow [Corpus build](docs/CORPUS_BUILD.md).
 

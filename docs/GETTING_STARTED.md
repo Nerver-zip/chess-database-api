@@ -124,7 +124,7 @@ Copy a returned decimal `id` into `GAME_ID`, then run `curl --fail-with-body "$G
 
 Real datasets are installed under `data/releases/<collection>/current`. The release packaging, verification, and Docker procedures are documented in [CORPUS_BUILD.md](CORPUS_BUILD.md) and [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md). Serve a release by passing its root directory to `--masters-dataset` or `--elite-dataset`.
 
-The Masters OTB dataset (3,284,429 games, 40-ply index) is available as a [GitHub release](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3); [DATASET_RELEASES.md](DATASET_RELEASES.md#4-download-verify-reconstruct-install) shows how to download, verify, and install it. It is licensed for non-commercial use with attribution.
+The Masters OTB dataset (3,284,429 games, 40-ply index) is available as a [GitHub release](https://github.com/Nerver-zip/chess-database-api/releases/tag/dataset-masters-otb-r3); [DATASET_RELEASES.md](DATASET_RELEASES.md#4-download-verify-reconstruct-install) shows how to download, verify, and install it. It is licensed for non-commercial use with attribution.
 
 Each dataset carries its own license. Masters OTB data is for non-commercial use with attribution, and Elite Online is CC0. Before you publish or redistribute a dataset, its PGN, or a service built on it, read [LICENSING.md](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment). Single-game retrieval is enabled by default; it can be switched off (see [API_REFERENCE.md, section 6](API_REFERENCE.md#enabling-and-disabling)).
 

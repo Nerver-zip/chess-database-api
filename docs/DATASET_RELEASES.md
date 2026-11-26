@@ -8,7 +8,7 @@ status: current
 
 This document covers the two products for each collection, how release assets are named and verified, and how the reviewed publication workflow works. The collections remain separate and use different source data and licenses. The software is described in [README.md](../README.md), format contracts are in [DATA_CONTRACTS.md](DATA_CONTRACTS.md), and licensing facts are in [LICENSING.md](LICENSING.md).
 
-**Status.** [Masters OTB R3](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-masters-otb-r3) and [Elite Online R1](https://github.com/Nerver-zip/opening-explorer-api/releases/tag/dataset-elite-online-r1) are available as separate releases. The Elite baseline is 429,150 games and 6,136,307 positions at CPI depth 30. The release manifests record build identities, product sizes and checksums. The packages can be [locally enriched with search indexes](SEARCH_INDEX.md).
+**Status.** [Masters OTB R3](https://github.com/Nerver-zip/chess-database-api/releases/tag/dataset-masters-otb-r3) and [Elite Online R1](https://github.com/Nerver-zip/chess-database-api/releases/tag/dataset-elite-online-r1) are available as separate releases. The Elite baseline is 429,150 games and 6,136,307 positions at CPI depth 30. The release manifests record build identities, product sizes and checksums. The packages can be [locally enriched with search indexes](SEARCH_INDEX.md).
 
 ## 1. Products
 
