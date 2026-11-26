@@ -238,8 +238,23 @@ compose=(docker compose -p chess-db-acceptance -f compose.yaml -f compose.debug.
 git rev-parse HEAD > data/acceptance/revision.txt
 "${compose[@]}" config > data/acceptance/compose.resolved.yaml
 "${compose[@]}" build
-{ time "${compose[@]}" up -d --no-build --wait --wait-timeout 600; } \
-  > data/acceptance/startup.log 2>&1
+
+start_and_wait() {
+  local started=$SECONDS target state
+  "$@" up -d --no-build || return 1
+  target=$("$@" ps -q opening-explorer)
+  [[ -n "$target" ]] || return 1
+  while (( SECONDS - started < 600 )); do
+    state=$(docker inspect --format '{{.State.Status}} {{.State.Health.Status}}' "$target") || return 1
+    echo "$((SECONDS - started))s $state"
+    [[ "$state" == 'running healthy' ]] && return 0
+    [[ "$state" == running\ * ]] || return 1
+    sleep 2
+  done
+  echo 'The container did not become healthy within 600 seconds.' >&2
+  return 1
+}
+start_and_wait "${compose[@]}" > data/acceptance/startup.log 2>&1
 curl --fail-with-body http://127.0.0.1:8081/ready > data/acceptance/ready.json
 container=$("${compose[@]}" ps -q opening-explorer)
 docker inspect --format '{{.Image}} {{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.State.OOMKilled}} {{.RestartCount}}' "$container" \
@@ -267,7 +282,7 @@ sample_cgroup "$container" > data/acceptance/cgroup-after-traffic.txt
 docker logs "$container" > data/acceptance/server.log 2>&1
 ```
 
-If Compose exits before readiness, retain `startup.log` and run `"${compose[@]}" ps -a` and `"${compose[@]}" logs --no-color opening-explorer` before stopping the trial. For a successful start, compare the server log's collection load times with the Compose readiness time. Compare cgroup CPU counters before and after traffic, and inspect peak memory, OOM counters, restarts and per-route HTTP status counts. Complete both discovery checks before launching the mixed workloads so that a smoke check does not compete for the shared aggregation slot. The two simultaneous workloads exercise both collections. The reports include latency for successful requests and counts for responses such as 408, 422 and 429.
+The health monitor continues polling through a transient `unhealthy` state while the process verifies the snapshots. If startup fails or reaches 600 seconds, retain `startup.log` and run `"${compose[@]}" ps -a` and `"${compose[@]}" logs --no-color opening-explorer` before stopping the trial. For a successful start, compare the server log's collection load times with the Docker health timeline. Compare cgroup CPU counters before and after traffic, and inspect peak memory, OOM counters, restarts and per-route HTTP status counts. Complete both discovery checks before launching the mixed workloads so that a smoke check does not compete for the shared aggregation slot. The two simultaneous workloads exercise both collections. The reports include latency for successful requests and counts for responses such as 408, 422 and 429.
 
 For reload, set `ALTERNATE_ELITE_SNAPSHOT` to a verified immutable Elite version directory. A retained CPI-only version exercises rolling back search. Stage a copy outside the mounted collection root on the same filesystem, then publish the alternate and check the swap under traffic.
 
@@ -280,7 +295,7 @@ services:
       CHESS_DATABASE_ADMIN_TOKEN: ${CHESS_DATABASE_ADMIN_TOKEN:?set an acceptance token}
 YAML
 reload_compose=("${compose[@]}" -f data/acceptance/compose.admin.yaml)
-"${reload_compose[@]}" up -d --no-build --wait --wait-timeout 600
+start_and_wait "${reload_compose[@]}" > data/acceptance/reload-startup.log 2>&1
 stage=$(mktemp -d "$PWD/data/acceptance/stage.XXXXXX")
 CANDIDATE="$stage/$(basename "$ALTERNATE_ELITE_SNAPSHOT")"
 cp -a "$ALTERNATE_ELITE_SNAPSHOT" "$CANDIDATE"
