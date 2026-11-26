@@ -1,0 +1,56 @@
+{
+  "architecture": "x86_64",
+  "binary_sha256": "a4fa10614ec29ffa38bc1677601b411c0202fd4f55e0f61aa0676648a80c797b",
+  "binary_size_bytes": 12710656,
+  "checks": {
+    "extracted_binary_version": "0.2.0",
+    "host_elite_legacy_consumer_api": {
+      "cases": {
+        "collections": {
+          "latency_us": 455.4779989121016,
+          "status": 200
+        },
+        "games_disabled": {
+          "latency_us": 271.3190006033983,
+          "status": 503
+        },
+        "legacy_conditional": {
+          "latency_us": 299.58400045870803,
+          "status": 304
+        },
+        "legacy_explorer": {
+          "latency_us": 561.6060007014312,
+          "status": 200
+        },
+        "ready": {
+          "latency_us": 4410.155001096427,
+          "status": 200
+        }
+      },
+      "collection": "elite-online",
+      "dataset_version": "codb-elite-online-1794887234132165603-8469-32d007e132ccc048-cpi-d30",
+      "mode": "legacy",
+      "seconds": 0.006311283003014978
+    },
+    "host_server_shutdown": "SIGTERM and graceful shutdown",
+    "image_canonical_and_alias_versions": "0.2.0"
+  },
+  "elf_interpreter": "/lib64/ld-linux-x86-64.so.2",
+  "elf_needed": [
+    "libgcc_s.so.1",
+    "libm.so.6",
+    "libc.so.6",
+    "ld-linux-x86-64.so.2"
+  ],
+  "highest_imported_glibc_symbol": "GLIBC_2.34",
+  "host": "Linux-7.3.6-arch1-1-x86_64-with-glibc2.44",
+  "image_id": "sha256:b9b88e4bfa6fbe6bb43a298b85e87b016740fc98bf8a7e8fe4a2888e4111305a",
+  "limitations": [
+    "Symbol versions alone do not establish compatibility with every Linux distribution or hardware configuration.",
+    "Standalone binary and container were not built from a merged version tag; no official asset or registry image exists.",
+    "Runtime support beyond the tested host and repository container remains unverified."
+  ],
+  "runtime_in_repository_image": "Debian bookworm glibc 2.36, x86_64",
+  "source_context": "PR #12 worktree with workspace version 0.2.0; exact release source must be built after merge",
+  "status": "local preparation evidence only; not a published or merged-tag build"
+}
