@@ -1,0 +1,160 @@
+{
+  "canonical_artifacts_match": true,
+  "responses_match": true,
+  "same_snapshot_etags_match": true,
+  "timings": [
+    {
+      "baseline_median": 1369.87,
+      "candidate_median": 1338.27,
+      "metric": "sequential p50_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.02306788235379993,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 2332.02,
+      "candidate_median": 2276.85,
+      "metric": "sequential p95_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.023657601564309086,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 2635.53,
+      "candidate_median": 2607.36,
+      "metric": "sequential p99_us",
+      "regression_tolerance": 0.1,
+      "relative_change": -0.010688552207715363,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 2610.87,
+      "candidate_median": 2543.03,
+      "metric": "concurrent p50_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.025983675939437696,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 6204.34,
+      "candidate_median": 6152.65,
+      "metric": "concurrent p95_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.00833126488877149,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 8150.28,
+      "candidate_median": 8023.55,
+      "metric": "concurrent p99_us",
+      "regression_tolerance": 0.1,
+      "relative_change": -0.01554915904729648,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 1427.1578177944969,
+      "candidate_median": 1426.7976295544527,
+      "metric": "concurrent requests_per_second",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.00025238150648315065,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 8.786,
+      "candidate_median": 8.139,
+      "metric": "elite-online CPI hit_warm_pass p50_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.07363988162986573,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 17.434,
+      "candidate_median": 16.527,
+      "metric": "elite-online CPI hit_warm_pass p95_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.05202477916714466,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 23.209,
+      "candidate_median": 21.56,
+      "metric": "elite-online CPI hit_warm_pass p99_us",
+      "regression_tolerance": 0.1,
+      "relative_change": -0.07105002369770352,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 7.234,
+      "candidate_median": 6.733,
+      "metric": "elite-online CPI miss_warm_pass p50_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.06925628974288088,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 9.585,
+      "candidate_median": 9.392,
+      "metric": "elite-online CPI miss_warm_pass p95_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.020135628586332954,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 13.726999999999999,
+      "candidate_median": 12.855,
+      "metric": "elite-online CPI miss_warm_pass p99_us",
+      "regression_tolerance": 0.1,
+      "relative_change": -0.06352444088293131,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 9.545,
+      "candidate_median": 8.906,
+      "metric": "masters-otb CPI hit_warm_pass p50_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.0669460450497642,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 18.31,
+      "candidate_median": 17.580000000000002,
+      "metric": "masters-otb CPI hit_warm_pass p95_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.039868924085199174,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 23.85,
+      "candidate_median": 23.037,
+      "metric": "masters-otb CPI hit_warm_pass p99_us",
+      "regression_tolerance": 0.1,
+      "relative_change": -0.034088050314465504,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 7.808999999999999,
+      "candidate_median": 7.361000000000001,
+      "metric": "masters-otb CPI miss_warm_pass p50_us",
+      "regression_tolerance": 0.05,
+      "relative_change": -0.05736970162632842,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 10.452,
+      "candidate_median": 10.896999999999998,
+      "metric": "masters-otb CPI miss_warm_pass p95_us",
+      "regression_tolerance": 0.05,
+      "relative_change": 0.0425755836203596,
+      "within_tolerance": true
+    },
+    {
+      "baseline_median": 15.438,
+      "candidate_median": 14.759,
+      "metric": "masters-otb CPI miss_warm_pass p99_us",
+      "regression_tolerance": 0.1,
+      "relative_change": -0.04398238113745306,
+      "within_tolerance": true
+    }
+  ],
+  "within_tolerance": true
+}
