@@ -218,6 +218,8 @@ Use `CHESS_DATABASE_DEEP_VALIDATE_ON_STARTUP=true` to repeat the full canonical 
 
 ### Two-collection acceptance on a local Docker host
 
+On 2026-11-26, an isolated native run with both enriched production collections reached readiness in 43.50 and 43.45 seconds and completed reloads in 50.93 and 35.09 seconds. At 512 MiB and two CPUs, both discovery-to-PGN flows passed, and all 960 legacy requests succeeded during simultaneous four-user workloads. Filtered aggregation returned 411 busy responses across 4,320 total requests; no HTTP 408 responses or OOM events were observed. The cgroup memory peak was 536,883,200 bytes, close to the 536,870,912-byte limit. This is evidence for the tested workload, not a guarantee for all traffic. See the [native acceptance reports](../benchmarks/search/native-release-docker/startup.json) and [workload results](../benchmarks/search/native-release-docker/masters-interactive.json).
+
 Use Bash on a dedicated local Docker host with cgroup v2. Use separate dataset roots and a separate Compose project and network. The standard configuration keeps the service at 512 MiB and two CPUs. The debug override exposes a loopback port for the client probes. Build the search indexes outside the container if the two roots are still CPI-only. Start with newly copied or uncached roots and record the cache preparation. Stop and capture logs if the container does not become healthy within the acceptance window.
 
 ```bash

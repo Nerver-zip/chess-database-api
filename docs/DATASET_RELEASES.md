@@ -25,6 +25,7 @@ Both indexed products contain CGB3 game shards, `games.idx`, CPI v2 `positions.c
 
 - **Software versions** follow the Cargo workspace version and `vX.Y.Z` tags. They are independent of dataset versions.
 - **Dataset release identifiers** are collection-scoped, such as `masters-otb-r3` and `elite-online-r1`. Each GitHub tag is `dataset-<release-id>`.
+- **Search companion releases** are separately versioned derived indexes tied to a canonical fingerprint and coverage. They augment a compatible installed dataset without replacing its canonical release or requiring the original corpus to be downloaded again. No companion release is published yet; the [local bundle procedure](SEARCH_INDEX.md) is available in the meantime.
 - **Immutable build identifier** is the snapshot directory name and the `dataset_version` in the manifest (for example `codb-masters-otb-…-cpi-d40` or `codb-elite-online-…-cpi-d30`). A release manifest records the actual identifier; it is never forced to match a prior build.
 - **Format versions** are recorded in the manifest (`CGB3/v1` shards, `CPI/v2` index). A software release must state which format versions it reads.
 - **Tags are immutable.** Create a dataset tag only on a reviewed commit on `main`, protect it with a repository tag ruleset, and never move or reuse it.
@@ -102,7 +103,7 @@ After publication, download the individual products from the same release. `elit
 
 `install` extracts the package into a staging directory, checks its release record, runs `chess-database verify --deep`, publishes it atomically with `chess-database publish`, and deep-verifies the target. A failed step leaves the previously active snapshot unchanged.
 
-**Rollback.** Earlier versions are kept under `versions/`. To reactivate one, run `chess-database publish --candidate <versions/build-id> --target <root> --collection masters-otb`, then verify and restart the service.
+**Rollback.** Earlier versions are kept under `versions/`. Copy the desired version to a staging directory outside the dataset root, retaining its exact build ID as the directory basename. Run `chess-database publish --candidate <staging/build-id> --target <root> --collection masters-otb` (or `elite-online`), then verify and reload or restart the service. The publisher rejects candidates inside the active dataset root and directory names that differ from the manifest build ID. See the [Docker rollback example](DOCKER_DEPLOYMENT.md#safe-dataset-updates).
 
 **The filtered PGN** is a standard Zstandard stream: `zstd -dc <release>-filtered.pgn.zst | head`, or any Zstandard-capable reader. Verify its SHA-256 before extracting or processing it.
 

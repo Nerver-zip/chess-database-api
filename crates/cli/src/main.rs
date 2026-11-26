@@ -43,7 +43,7 @@ use tempfile::NamedTempFile;
 #[derive(Parser, Debug)]
 #[command(
     name = "chess-database",
-    version = "0.1.0",
+    version = env!("CARGO_PKG_VERSION"),
     about = "Build, verify, query and serve curated chess databases"
 )]
 struct Cli {

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "release_id": "search-masters-otb-r3-d40-v1",
+  "status": "approved",
+  "scope": "Non-commercial GitHub Release distribution of the Masters OTB R3 D40 search companion, including its searchable metadata projection and positional occurrences, with attribution and the existing unresolved rights disclosures.",
+  "decision": "The repository owner approved this companion's publication in the release engineering session on 2026-11-26. Technical verification and the release workflow remain prerequisites.",
+  "basis_and_limitations": "The existing dataset distribution decision and docs/LICENSING.md section 6 remain unchanged. This approval is not separate permission from the publisher and does not resolve upstream rights or the recorded terms conflicts.",
+  "recorded_on": "2026-11-26"
+}

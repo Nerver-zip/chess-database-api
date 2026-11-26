@@ -132,14 +132,16 @@ This section is the single authoritative statement of current policy. Other docu
 | :--- | :--- | :--- |
 | [`releases/distribution_clearance.json`](../releases/distribution_clearance.json) | Non-commercial GitHub Release distribution of the `masters-otb-r3` indexed dataset and filtered PGN. Unchanged. | 2026-11-16 |
 | [`releases/public_deployment_decision.json`](../releases/public_deployment_decision.json) | Public, non-commercial deployment of the API, including position statistics and individual game retrieval. | 2026-11-16 |
+| [`releases/masters-search-distribution-decision.json`](../releases/masters-search-distribution-decision.json) | Owner approval for non-commercial distribution of the R3 D40 search companion, subject to technical verification and release checks. | 2026-11-26 |
 
-Both rest on the same basis: the publisher's publicly stated CC BY-NC 4.0 license, as read by the maintainer. They are the maintainer's interpretation, **not separate written permission from the publisher** and not independent legal clearance. This project has no private correspondence with the publisher to cite.
+These decisions rest on the publisher's publicly stated CC BY-NC 4.0 license, as read by the maintainer. They are the maintainer's interpretation, **not separate written permission from the publisher** and not independent legal clearance. This project has no private correspondence with the publisher to cite.
 
 ### 6.2 What is covered
 
 | Use | Status |
 | :--- | :--- |
 | Download and use the published release products (indexed dataset, filtered PGN) for non-commercial purposes | Covered ([release](https://github.com/Nerver-zip/chess-database-api/releases/tag/dataset-masters-otb-r3)) |
+| Distribute the R3 D40 search companion for non-commercial use | Owner approved with attribution and existing rights disclosures; publication and technical verification remain pending |
 | Run a public, non-commercial instance of the API serving position statistics, move frequencies, and W/D/L | Covered |
 | Serve single games as PGN with `GET /v1/collections/{collection}/games/{id}` in a public instance | Covered. Retrieval is enabled by default. Operators may switch it off, but the project does not require or recommend that for this dataset |
 | Bulk export of games through the API | Not provided. No bulk-download endpoint exists, and none is part of this decision |

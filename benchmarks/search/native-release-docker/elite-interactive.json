@@ -1,0 +1,142 @@
+{
+  "cases": {
+    "autocomplete": {
+      "acceptance_rate": 1.0,
+      "accepted": 240,
+      "attempted": 240,
+      "max_us": 17444.33,
+      "min_us": 525.24,
+      "p50_us": 1033.95,
+      "p95_us": 1903.24,
+      "p99_us": 6226.58,
+      "statuses": {
+        "200": 240
+      }
+    },
+    "filtered_date": {
+      "acceptance_rate": 0.6541666666666667,
+      "accepted": 157,
+      "attempted": 240,
+      "max_us": 103881.78,
+      "min_us": 4376.46,
+      "p50_us": 6823.46,
+      "p95_us": 92640.74,
+      "p99_us": 101395.65,
+      "statuses": {
+        "200": 157,
+        "429": 83
+      }
+    },
+    "filtered_rating": {
+      "acceptance_rate": 0.6416666666666667,
+      "accepted": 154,
+      "attempted": 240,
+      "max_us": 149326.84,
+      "min_us": 21703.61,
+      "p50_us": 31783.65,
+      "p95_us": 112865.56,
+      "p99_us": 125756.19,
+      "statuses": {
+        "200": 154,
+        "429": 86
+      }
+    },
+    "filtered_selective": {
+      "acceptance_rate": 0.6625,
+      "accepted": 159,
+      "attempted": 240,
+      "max_us": 101571.98,
+      "min_us": 1791.02,
+      "p50_us": 3558.46,
+      "p95_us": 74694.53,
+      "p99_us": 96265.4,
+      "statuses": {
+        "200": 159,
+        "429": 81
+      }
+    },
+    "legacy_opening": {
+      "acceptance_rate": 1.0,
+      "accepted": 240,
+      "attempted": 240,
+      "max_us": 5064.14,
+      "min_us": 417.45,
+      "p50_us": 792.26,
+      "p95_us": 1278.63,
+      "p99_us": 4596.3,
+      "statuses": {
+        "200": 240
+      }
+    },
+    "legacy_pgn": {
+      "acceptance_rate": 1.0,
+      "accepted": 240,
+      "attempted": 240,
+      "max_us": 4603.22,
+      "min_us": 422.33,
+      "p50_us": 914.55,
+      "p95_us": 1555.98,
+      "p99_us": 3303.93,
+      "statuses": {
+        "200": 240
+      }
+    },
+    "metadata": {
+      "acceptance_rate": 1.0,
+      "accepted": 240,
+      "attempted": 240,
+      "max_us": 10046.49,
+      "min_us": 848.78,
+      "p50_us": 1477.14,
+      "p95_us": 2874.8,
+      "p99_us": 6993.85,
+      "statuses": {
+        "200": 240
+      }
+    },
+    "navigation_latest": {
+      "acceptance_rate": 1.0,
+      "accepted": 240,
+      "attempted": 240,
+      "max_us": 16379.94,
+      "min_us": 602.91,
+      "p50_us": 959.48,
+      "p95_us": 1632.82,
+      "p99_us": 2272.55,
+      "statuses": {
+        "200": 240
+      }
+    },
+    "position": {
+      "acceptance_rate": 1.0,
+      "accepted": 240,
+      "attempted": 240,
+      "max_us": 9380.95,
+      "min_us": 843.57,
+      "p50_us": 1380.21,
+      "p95_us": 2260.16,
+      "p99_us": 4653.47,
+      "statuses": {
+        "200": 240
+      }
+    }
+  },
+  "client_abandoned_navigation": 240,
+  "collection": "elite-online",
+  "dataset_version": "codb-elite-online-1795682258183662040-d44cd7f511ab64f1-search",
+  "duration_seconds": 77.56559916999868,
+  "rounds": 60,
+  "think_ms": 125,
+  "users": 4,
+  "workload": {
+    "autocomplete": "/v1/collections/elite-online/players?prefix=skop",
+    "filtered_date": "/v1/explorer/position/filtered?collection=elite-online&moves=e4%2Cc5&from_year=2000",
+    "filtered_rating": "/v1/explorer/position/filtered?collection=elite-online&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&min_both_ratings=2200",
+    "filtered_selective": "/v1/explorer/position/filtered?collection=elite-online&fen=rnbqkbnr%2Fpppppppp%2F8%2F8%2F8%2F8%2FPPPPPPPP%2FRNBQKBNR+w+KQkq+-+0+1&player=skopje123",
+    "legacy_opening": "/v1/explorer/position?collection=elite-online&moves=e4%2Cc5%2CNf3",
+    "legacy_pgn": "/v1/collections/elite-online/games/13183733732487493000",
+    "metadata": "/v1/collections/elite-online/games?player=skopje123",
+    "navigation_latest": "/v1/collections/elite-online/games?moves=e4%2Cc5%2CNf3&limit=5",
+    "position": "/v1/collections/elite-online/games?moves=e4%2Cc5%2CNf3"
+  }
+}

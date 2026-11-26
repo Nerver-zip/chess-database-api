@@ -1,0 +1,27 @@
+{
+  "unsupported_version": {
+    "exit_code": 1,
+    "active_unchanged": true,
+    "stderr": "Error: Integrity error: Search bundle version, coverage, counts or canonical identity do not match the dataset"
+  },
+  "fingerprint_mismatch": {
+    "exit_code": 1,
+    "active_unchanged": true,
+    "stderr": "Error: Integrity error: Search bundle version, coverage, counts or canonical identity do not match the dataset"
+  },
+  "missing_artifacts": {
+    "exit_code": 1,
+    "active_unchanged": true,
+    "stderr": "Error: Integrity error: Search bundle contains missing or undeclared files"
+  },
+  "corrupt_artifact": {
+    "exit_code": 1,
+    "active_unchanged": true,
+    "stderr": "Error: Integrity error: Search artifact 'metadata.sqlite' size mismatch"
+  },
+  "same_size_corruption": {
+    "exit_code": 1,
+    "active_unchanged": true,
+    "stderr": "Error: Integrity error: Search artifact 'metadata.sqlite' checksum mismatch"
+  }
+}

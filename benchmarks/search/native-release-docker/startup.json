@@ -1,0 +1,118 @@
+{
+  "started_utc": "2026-11-26T09:37:57.567213+00:00",
+  "container": "1ab9d20ddc19d8002627668b0fa68f8feadadc9411c9e0924b3bd0910952923d",
+  "samples": [
+    {
+      "seconds": 0.8,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 2.84,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 4.89,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 6.92,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 8.96,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 10.99,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 13.02,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 15.06,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 17.09,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 19.12,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 21.16,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 23.19,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 25.22,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 27.25,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 29.28,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 31.31,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 33.34,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 35.42,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 37.45,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 39.47,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 41.49,
+      "status": "running",
+      "health": "starting"
+    },
+    {
+      "seconds": 43.5,
+      "status": "running",
+      "health": "healthy"
+    }
+  ],
+  "startup_seconds": 43.504,
+  "healthy": true
+}

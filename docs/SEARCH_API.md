@@ -289,6 +289,12 @@ For `search_busy`, retry only if the query still describes the current board or 
 
 ## 9. Evalis integration
 
+Release engineering is in progress. The software version `v0.2.0`, versioned container image and downloadable search companions are not yet published; do not pin an unpublished tag. Until a verified release is available, build the merged source and the `chess-database-api:local` image using the [deployment guide](DOCKER_DEPLOYMENT.md). Use the published Masters OTB R3 and Elite Online R1 canonical datasets, and enrich compatible local copies as described in [Search indexes](SEARCH_INDEX.md). Their intended companion coverage is D40 and D30 respectively. Native two-collection Docker checks have been completed; the eviction-advised legacy performance comparison remains inconclusive.
+
+For an integration deployment, use the collection capabilities returned by `/v1/collections` as the source of truth, including `position_search_coverage`, `filtered_explorer` and `game_retrieval`. Configure the appropriate discovery and metadata flags as described in section 2. The Compose default is 512 MiB, two CPUs and two search workers; the native mixed workload preserved legacy responsiveness but returned busy responses for some filtered searches. See the [deployment measurements](DOCKER_DEPLOYMENT.md#two-collection-acceptance-on-a-local-docker-host) and size capacity for the expected workload.
+
+Debounce interactive inputs and cancel obsolete requests. The default search deadline is two seconds and admission can wait up to 100 ms; allow for both and network overhead in client timeouts. Retry `search_busy` with bounded backoff only while the input is still current. Treat `search_timeout` as an expired search, narrow `search_work_limit` queries, and restart pagination on `stale_cursor`. Keep snapshot-local IDs and cursors with their dataset version; use stable decimal game IDs for PGN retrieval. See sections 3–8 for the exact routes, filters, position and continuation semantics, and error contracts.
+
 Evalis currently provides an Opening Explorer gateway, not these new search routes. Its Nginx allowlist in `deploy/nginx-explorer-enabled.conf` exposes only these GET requests under `/opening-explorer`:
 
 1. `/v1/collections` with no query parameters;

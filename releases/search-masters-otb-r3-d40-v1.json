@@ -1,0 +1,146 @@
+{
+  "archive": {
+    "compression": "zstd",
+    "name": "masters-otb-r3-d40-search-v1.tar.zst",
+    "parts": [
+      {
+        "name": "masters-otb-r3-d40-search-v1.tar.zst.part-001",
+        "sha256": "f7fe0e1e70948390493830d25cf0427c1fd29558996fd12618cf5cab9f78ec72",
+        "size_bytes": 1992294400
+      },
+      {
+        "name": "masters-otb-r3-d40-search-v1.tar.zst.part-002",
+        "sha256": "17dac76e74c734cd8a75a7f195a8d4594210a184ca545b3b2bcfe1352fb7fefd",
+        "size_bytes": 454613548
+      }
+    ],
+    "sha256": "8d25cc01d0e4dad36f41b370a31bc8966d8d92525516ee2e6cefc40669e75a14",
+    "size_bytes": 2446907948
+  },
+  "canonical_artifacts": {
+    "lookup_table": {
+      "entry_count": 3284429,
+      "file_size_bytes": 52550928,
+      "filename": "games.idx",
+      "sha256": "297ecf32313e3d239d154a085d22ea5cec63fede54660a5912c22b6aab1d185c"
+    },
+    "position_index": {
+      "block_count": 811088,
+      "custom_fen_games": 0,
+      "excluded_unknown_result_games": 0,
+      "file_size_bytes": 1107897085,
+      "filename": "positions.cpi",
+      "format_version": "CPI/v2",
+      "games_indexed": 3284429,
+      "games_processed": 3284429,
+      "indexed_depth_plies": 40,
+      "positions_per_block": 64,
+      "raw_observations_extracted": 127444117,
+      "repeated_positions_skipped": 123703,
+      "sha256": "284898e18f4a4aba0b56d383e8b1a163790a85e1081749f0ff9204fdab5a971c",
+      "unique_position_move_pairs": 55864091,
+      "unique_positions": 51909604,
+      "zstd_level": 3
+    },
+    "shards": [
+      {
+        "block_count": 977,
+        "file_size_bytes": 88149136,
+        "filename": "shard_0000.cgb3",
+        "game_count": 500192,
+        "sha256": "2523525f459b77ba9fcbcbedeb5cb396fbf84d4f9bfde0d38d14838a96d5bc47",
+        "shard_id": 0
+      },
+      {
+        "block_count": 977,
+        "file_size_bytes": 86908531,
+        "filename": "shard_0001.cgb3",
+        "game_count": 500224,
+        "sha256": "2b67de818cfc186a3c7d607da0b280f03bf47991e36a2877a37485d56cf01375",
+        "shard_id": 1
+      },
+      {
+        "block_count": 977,
+        "file_size_bytes": 84953435,
+        "filename": "shard_0002.cgb3",
+        "game_count": 500224,
+        "sha256": "57b932b708408ee6a74e466faa3bd48d61f28240d60c300bb5a2e59148d0dedd",
+        "shard_id": 2
+      },
+      {
+        "block_count": 977,
+        "file_size_bytes": 81871872,
+        "filename": "shard_0003.cgb3",
+        "game_count": 500224,
+        "sha256": "e2c0ae3719db5a7845196fd3b3fe45721993b3301f08b683ef518891cdf9d2a4",
+        "shard_id": 3
+      },
+      {
+        "block_count": 977,
+        "file_size_bytes": 78693348,
+        "filename": "shard_0004.cgb3",
+        "game_count": 500206,
+        "sha256": "b1000e174ecb65b018041d950cbae4692ab5328781dcd69ebd6e2603e8eaa8a2",
+        "shard_id": 4
+      },
+      {
+        "block_count": 977,
+        "file_size_bytes": 76100646,
+        "filename": "shard_0005.cgb3",
+        "game_count": 500145,
+        "sha256": "e20be5dd42e6e0d11c67592c53c2f9b1a4a2e7f378d084a1f85de8e450bd008f",
+        "shard_id": 5
+      },
+      {
+        "block_count": 554,
+        "file_size_bytes": 41925257,
+        "filename": "shard_0006.cgb3",
+        "game_count": 283214,
+        "sha256": "3792844c757b9816f95b65d454205c05e22784de95ff0ab1334861f5cd6b9b01",
+        "shard_id": 6
+      }
+    ],
+    "source_attribution": {
+      "entry_count": 3284429,
+      "file_size_bytes": 1001755579,
+      "filename": "source-attribution.jsonl",
+      "sha256": "7d11330a704746306d53afcb39bcc74ccf95c7a11cf55346374dd05188b45cbc"
+    }
+  },
+  "canonical_dataset_release": "dataset-masters-otb-r3",
+  "canonical_sha256": "7e451a13737bad29a3d9ccab2eb30458a2be169468f827d0bc473181523b77e0",
+  "collection": "masters-otb",
+  "license": "Publisher claim CC-BY-NC-4.0; see notice and unresolved rights disclosures",
+  "notice": {
+    "name": "masters-otb-r3-d40-search-v1-NOTICE.md",
+    "sha256": "3793ab257687ad642d4d7d18f2ba96230b6327f39a9102a124a36032cdc0bc73",
+    "size_bytes": 2308
+  },
+  "release_id": "search-masters-otb-r3-d40-v1",
+  "required_software": "Chess Database API 0.2.0 (planned); merged revision 5e8dc184b06ed122a4d0b335cd032d55298466ac supports this bundle",
+  "schema_version": 1,
+  "search_index": {
+    "artifacts": {
+      "metadata.sqlite": {
+        "file_size_bytes": 3534753792,
+        "sha256": "2f41accb653eaea1672456094d93f81e6b34b62eadb288856da426a910d8a03d"
+      },
+      "positions.postings": {
+        "file_size_bytes": 2038036566,
+        "sha256": "41a9d5531b4f478b72a421631ba4dee89b705a54f02afb2b8575ef809e2ade28"
+      }
+    },
+    "canonical_sha256": "7e451a13737bad29a3d9ccab2eb30458a2be169468f827d0bc473181523b77e0",
+    "coverage": {
+      "max_ply": 40,
+      "mode": "bounded"
+    },
+    "format_version": 1,
+    "game_count": 3284429,
+    "position_count": 54827221,
+    "posting_count": 130852249,
+    "sort_buffer_bytes": 134217720,
+    "source_snapshot": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40"
+  },
+  "source_snapshot": "codb-masters-otb-1794774904566910568-6701-5698b67c3952ca6b-cpi-d40"
+}

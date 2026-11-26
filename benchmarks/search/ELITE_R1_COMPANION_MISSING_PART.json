@@ -1,0 +1,6 @@
+{
+  "method": "existing release_assets split_product/reconstruct on the Elite companion archive; synthetic split at 180000000 bytes",
+  "missing_part": "elite-online-r1-d30-search-v1.tar.zst.part-002",
+  "error": "release assets are incomplete; missing: elite-online-r1-d30-search-v1.tar.zst.part-002",
+  "active_unchanged": true
+}
