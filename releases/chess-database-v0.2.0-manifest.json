@@ -1,0 +1,47 @@
+{
+  "cli": {
+    "dynamic_requirements": "glibc with imported symbols through GLIBC_2.34, libgcc_s.so.1 and the x86-64 dynamic loader",
+    "name": "chess-database-linux-amd64",
+    "sha256": "a4fa10614ec29ffa38bc1677601b411c0202fd4f55e0f61aa0676648a80c797b",
+    "size_bytes": 12710656
+  },
+  "compatibility": {
+    "canonical_datasets": [
+      "dataset-masters-otb-r3",
+      "dataset-elite-online-r1"
+    ],
+    "masters_discovery_default": "disabled",
+    "search_index_format_version": 1
+  },
+  "docker_image": {
+    "archive_format": "gzip-compressed docker image save",
+    "base_runtime": "Debian bookworm, glibc 2.36",
+    "image_id": "sha256:d0ff2e9a29fc17aeb1f501698f9ffb5d7dd4646878706d5379620b27eb942825",
+    "loaded_image": "chess-database-api:release-v0.2.0",
+    "name": "chess-database-api-v0.2.0-linux-amd64.docker.tar.gz",
+    "sha256": "4996047a6d3ad8065de2b92d3e57b09b565b742a503e300f99c1050f0f24c5cb",
+    "size_bytes": 38109800
+  },
+  "license": "MIT OR Apache-2.0",
+  "licenses": [
+    {
+      "name": "LICENSE-MIT",
+      "sha256": "a2b60f2c49aa02e8981590bc1f3ca0aa8a4145e4bde1fcbc2bfc7769c9dce8c9",
+      "size_bytes": 1063
+    },
+    {
+      "name": "LICENSE-APACHE",
+      "sha256": "f4d9b0aad8ff9e650f5890fa3eeb7c1311479cab901f8a9b416a2d9acaf54266",
+      "size_bytes": 10169
+    }
+  ],
+  "limitations": [
+    "Only Linux x86-64 artifacts are supplied.",
+    "A glibc symbol floor is not a guarantee of compatibility with every Linux distribution."
+  ],
+  "platform": "linux/amd64",
+  "schema_version": 1,
+  "software_version": "0.2.0",
+  "source_revision": "7caff4315a43e71e509707b8126b893f7abbe815",
+  "tag": "v0.2.0"
+}

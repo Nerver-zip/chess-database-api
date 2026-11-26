@@ -14,11 +14,14 @@ status: current
 | Masters OTB R3, Gigabase qualification and first naming migration | PRs #7 and #8 merged. R3 published on 2026-11-16. | [Dataset releases](DATASET_RELEASES.md), [licensing decision](LICENSING.md), and [R3 measurements](../benchmarks/gigabase/FINAL_REPORT.md) |
 | Elite Online R1 | PR #10 merged. R1 published from seven selected Lichess archive periods. | [Dataset releases](DATASET_RELEASES.md) and [release verification](../benchmarks/elite-online/REBUILD_VERIFICATION_R1.json) |
 | Chess Database API and optional search enrichment | [Merged PR #11](https://github.com/Nerver-zip/chess-database-api/pull/11) | [Search API](SEARCH_API.md), [naming migration](NAMING_MIGRATION.md), and [production search evidence](research/search-index-experiments.md) |
+| v0.2.0 and D40/D30 search companions | Published from reviewed revision `7caff431` | [Software release](https://github.com/Nerver-zip/chess-database-api/releases/tag/v0.2.0), [Masters companion](https://github.com/Nerver-zip/chess-database-api/releases/tag/search-masters-otb-r3-d40-v1), [Elite companion](https://github.com/Nerver-zip/chess-database-api/releases/tag/search-elite-online-r1-d30-v1) |
 
 PR #11 retains the CPI, CGB3 and stable game contracts. It adds game, player and event discovery, positional search, exact filtered Explorer statistics, and immutable search companions. Masters search exposure remains an operator opt-in under the [current deployment policy](LICENSING.md#6-current-policy-for-the-masters-otb-dataset-and-public-deployment).
 
+
 ## Future work
 
+- Evaluate full-game positional indexing as an optional future companion without replacing the published D40/D30 indexes.
 - Validate additional query plans for broad combinations of player, event or site with common positions.
 - Evaluate incremental updates and content-addressed artifact distribution against measured build and storage costs.
 - Evaluate new corpus sources independently, with provenance and license approval. The original 5M Masters and 10M Elite goals remain exploratory.

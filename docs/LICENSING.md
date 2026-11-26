@@ -141,7 +141,7 @@ These decisions rest on the publisher's publicly stated CC BY-NC 4.0 license, as
 | Use | Status |
 | :--- | :--- |
 | Download and use the published release products (indexed dataset, filtered PGN) for non-commercial purposes | Covered ([release](https://github.com/Nerver-zip/chess-database-api/releases/tag/dataset-masters-otb-r3)) |
-| Distribute the R3 D40 search companion for non-commercial use | Owner approved with attribution and existing rights disclosures; publication and technical verification remain pending |
+| Distribute the R3 D40 search companion for non-commercial use | Published for non-commercial use with attribution and the existing unresolved rights disclosures |
 | Run a public, non-commercial instance of the API serving position statistics, move frequencies, and W/D/L | Covered |
 | Serve single games as PGN with `GET /v1/collections/{collection}/games/{id}` in a public instance | Covered. Retrieval is enabled by default. Operators may switch it off, but the project does not require or recommend that for this dataset |
 | Bulk export of games through the API | Not provided. No bulk-download endpoint exists, and none is part of this decision |
