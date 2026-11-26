@@ -11,3 +11,19 @@ Archive `elite-online-r1-d30-search-v1.tar.zst`: 269,896,854 bytes; SHA-256 `f01
 - `elite-online-r1-d30-search-v1.tar.zst` — 269,896,854 bytes; SHA-256 `f011e539407ae49c7623a315456696e33ee5e5c4b0477cbca7f655859d6f1cca`
 
 The release also includes `elite-online-r1-d30-search-v1-RELEASE_MANIFEST.json`, `elite-online-r1-d30-search-v1-NOTICE.md` and `SHA256SUMS`. Consult the manifest for artifact hashes, source snapshot, compatibility and coverage details.
+
+## Install the verified companion
+
+Install the matching canonical dataset first, or use an existing compatible installation. Download all assets from this release, then run the following in the download directory (replace the dataset path):
+
+```bash
+set -e
+sha256sum -c SHA256SUMS
+printf '%s  %s\n' 'f011e539407ae49c7623a315456696e33ee5e5c4b0477cbca7f655859d6f1cca' 'elite-online-r1-d30-search-v1.tar.zst' | sha256sum -c -
+mkdir -p extracted
+tar --zstd -xf elite-online-r1-d30-search-v1.tar.zst -C extracted
+chess-database install-search-index --dataset /path/to/elite-online --bundle extracted/elite-search-bundle
+chess-database verify-search-index --dataset /path/to/elite-online
+```
+
+Retain the original CPI-only version for [rollback](https://github.com/Nerver-zip/chess-database-api/blob/main/docs/DATASET_RELEASES.md#4-download-verify-reconstruct-install).

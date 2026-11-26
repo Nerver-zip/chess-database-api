@@ -4,7 +4,7 @@ This file records notable changes to Chess Database API. The project adheres to 
 
 ---
 
-## [Unreleased] — planned 0.2.0
+## [0.2.0] — 2026-11-26
 
 ### Chess Database API
 

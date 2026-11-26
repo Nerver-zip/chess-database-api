@@ -1,0 +1,201 @@
+[
+  {
+    "id": 447587149,
+    "tag_name": "dataset-masters-otb-r3",
+    "draft": false,
+    "html_url": "https://github.com/Nerver-zip/chess-database-api/releases/tag/dataset-masters-otb-r3",
+    "assets": [
+      {
+        "name": "masters-otb-r3-filtered.pgn.zst",
+        "size_bytes": 502176367,
+        "sha256": "4134599e1d6da75dbe00ce162e6c1cb90a0092e047bdfdfe5fa4662c36b306ff",
+        "state": "uploaded"
+      },
+      {
+        "name": "masters-otb-r3-indexed.tar.part-001",
+        "size_bytes": 1992294400,
+        "sha256": "6e71be9b8614fb6cdc8ff12b924cc3b9102ca2a9489feb06ab75f7e69f81625a",
+        "state": "uploaded"
+      },
+      {
+        "name": "masters-otb-r3-indexed.tar.part-002",
+        "size_bytes": 708669440,
+        "sha256": "861d539ab6a869f1d28b66bbc11b7ec9d586bd73037fcbbe5dd8f14470b7e8b7",
+        "state": "uploaded"
+      },
+      {
+        "name": "masters-otb-r3-NOTICE.md",
+        "size_bytes": 5258,
+        "sha256": "1bfd76fa6f382afd9aab630edb295bbb6b3f515db516a4ed122e0e6365203474",
+        "state": "uploaded"
+      },
+      {
+        "name": "masters-otb-r3-RELEASE_MANIFEST.json",
+        "size_bytes": 3920,
+        "sha256": "7af8f3ea78e7f3f3b9f46f40652b1a434edd2e36c6d963143067f3cdbcff46c6",
+        "state": "uploaded"
+      },
+      {
+        "name": "masters-otb-r3-SHA256SUMS.txt",
+        "size_bytes": 527,
+        "sha256": "bde451b72ff0a0ae31b25455b95bc7dc0c98f05d054289300cc0b0a47bc8eb5b",
+        "state": "uploaded"
+      }
+    ]
+  },
+  {
+    "id": 448462201,
+    "tag_name": "dataset-elite-online-r1",
+    "draft": false,
+    "html_url": "https://github.com/Nerver-zip/chess-database-api/releases/tag/dataset-elite-online-r1",
+    "assets": [
+      {
+        "name": "elite-online-r1-filtered.pgn.zst",
+        "size_bytes": 69584283,
+        "sha256": "4498e4d8ee2b0fe9a5e813a94dd7a14d340beae027fc2f951f5ef483e4adefc5",
+        "state": "uploaded"
+      },
+      {
+        "name": "elite-online-r1-indexed.tar",
+        "size_bytes": 210370560,
+        "sha256": "9aada688d146ac00eb91b741e200051124afb6945479e37b41d70a32a70cf76e",
+        "state": "uploaded"
+      },
+      {
+        "name": "elite-online-r1-NOTICE.md",
+        "size_bytes": 1926,
+        "sha256": "d0fd54f600e6a43be3bdbb3b168010a85075c4b5648ee4508428e361f6a5005f",
+        "state": "uploaded"
+      },
+      {
+        "name": "elite-online-r1-RELEASE_MANIFEST.json",
+        "size_bytes": 8479,
+        "sha256": "b4fccf0cd951411b1c02075865bcadee2d06a1a3f8016f3431da29f0eb18b9ca",
+        "state": "uploaded"
+      },
+      {
+        "name": "elite-online-r1-SHA256SUMS.txt",
+        "size_bytes": 420,
+        "sha256": "774c4adeb9e64b16de6c0447f7453076c6febe2b7e401c20a1e32979129fa059",
+        "state": "uploaded"
+      }
+    ]
+  },
+  {
+    "id": 459319089,
+    "tag_name": "search-elite-online-r1-d30-v1",
+    "draft": false,
+    "html_url": "https://github.com/Nerver-zip/chess-database-api/releases/tag/search-elite-online-r1-d30-v1",
+    "assets": [
+      {
+        "name": "elite-online-r1-d30-search-v1-NOTICE.md",
+        "size_bytes": 1571,
+        "sha256": "733b47046ee6be98f7d4fdfe3104b2437b5db025bc1fdde1b4077451e6a5df8e",
+        "state": "uploaded"
+      },
+      {
+        "name": "elite-online-r1-d30-search-v1-RELEASE_MANIFEST.json",
+        "size_bytes": 3045,
+        "sha256": "514f4f66bd0c427c2f151c0f2bb8ba0ca188a459d3759aba125c91f966e51938",
+        "state": "uploaded"
+      },
+      {
+        "name": "elite-online-r1-d30-search-v1.tar.zst",
+        "size_bytes": 269896854,
+        "sha256": "f011e539407ae49c7623a315456696e33ee5e5c4b0477cbca7f655859d6f1cca",
+        "state": "uploaded"
+      },
+      {
+        "name": "SHA256SUMS",
+        "size_bytes": 328,
+        "sha256": "9de164f3a39e3c08dff7e7d40bfa12afef53c381b5c402443ce8aa278d871155",
+        "state": "uploaded"
+      }
+    ],
+    "tag_revision": "7caff4315a43e71e509707b8126b893f7abbe815"
+  },
+  {
+    "id": 459319106,
+    "tag_name": "search-masters-otb-r3-d40-v1",
+    "draft": false,
+    "html_url": "https://github.com/Nerver-zip/chess-database-api/releases/tag/search-masters-otb-r3-d40-v1",
+    "assets": [
+      {
+        "name": "masters-otb-r3-d40-search-v1-NOTICE.md",
+        "size_bytes": 2308,
+        "sha256": "3793ab257687ad642d4d7d18f2ba96230b6327f39a9102a124a36032cdc0bc73",
+        "state": "uploaded"
+      },
+      {
+        "name": "masters-otb-r3-d40-search-v1.tar.zst.part-001",
+        "size_bytes": 1992294400,
+        "sha256": "f7fe0e1e70948390493830d25cf0427c1fd29558996fd12618cf5cab9f78ec72",
+        "state": "uploaded"
+      },
+      {
+        "name": "masters-otb-r3-d40-search-v1.tar.zst.part-002",
+        "size_bytes": 454613548,
+        "sha256": "17dac76e74c734cd8a75a7f195a8d4594210a184ca545b3b2bcfe1352fb7fefd",
+        "state": "uploaded"
+      },
+      {
+        "name": "search-masters-otb-r3-d40-v1.json",
+        "size_bytes": 5116,
+        "sha256": "8892dc0c9731b2d389de42e093a303b83f448894654e6db5c2e4cd76536658ca",
+        "state": "uploaded"
+      },
+      {
+        "name": "SHA256SUMS",
+        "size_bytes": 429,
+        "sha256": "04758c07222f6eb551609716a476ef1237815a2e6414b72bedf08c01a82f1392",
+        "state": "uploaded"
+      }
+    ],
+    "tag_revision": "7caff4315a43e71e509707b8126b893f7abbe815"
+  },
+  {
+    "id": 459318839,
+    "tag_name": "v0.2.0",
+    "draft": false,
+    "html_url": "https://github.com/Nerver-zip/chess-database-api/releases/tag/v0.2.0",
+    "assets": [
+      {
+        "name": "chess-database-api-v0.2.0-linux-amd64.docker.tar.gz",
+        "size_bytes": 38109800,
+        "sha256": "4996047a6d3ad8065de2b92d3e57b09b565b742a503e300f99c1050f0f24c5cb",
+        "state": "uploaded"
+      },
+      {
+        "name": "chess-database-linux-amd64",
+        "size_bytes": 12710656,
+        "sha256": "a4fa10614ec29ffa38bc1677601b411c0202fd4f55e0f61aa0676648a80c797b",
+        "state": "uploaded"
+      },
+      {
+        "name": "chess-database-v0.2.0-manifest.json",
+        "size_bytes": 1653,
+        "sha256": "e9404710d57af284f40e959c838f9d76d8274b45d636459080b277e0ac43fd6c",
+        "state": "uploaded"
+      },
+      {
+        "name": "LICENSE-APACHE",
+        "size_bytes": 10169,
+        "sha256": "f4d9b0aad8ff9e650f5890fa3eeb7c1311479cab901f8a9b416a2d9acaf54266",
+        "state": "uploaded"
+      },
+      {
+        "name": "LICENSE-MIT",
+        "size_bytes": 1063,
+        "sha256": "a2b60f2c49aa02e8981590bc1f3ca0aa8a4145e4bde1fcbc2bfc7769c9dce8c9",
+        "state": "uploaded"
+      },
+      {
+        "name": "SHA256SUMS",
+        "size_bytes": 472,
+        "sha256": "200c60b07b0eb50d15e2fcab6ce7895bfd39a427c3343143610839ada949ab84",
+        "state": "uploaded"
+      }
+    ],
+    "tag_revision": "7caff4315a43e71e509707b8126b893f7abbe815"
+  }
+]
